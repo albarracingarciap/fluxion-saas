@@ -1,0 +1,474 @@
+<style>
+.rs{font-family:var(--font-sans);font-size:11px;color:var(--color-text-primary);padding:4px 0;}
+.rs table{width:100%;border-collapse:collapse;}
+.rs th{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-secondary);padding:5px 7px;border-bottom:2px solid var(--color-border-secondary);text-align:left;}
+.rs td{padding:4px 7px;border-bottom:1px solid var(--color-border-tertiary);vertical-align:top;font-size:11px;line-height:1.4;}
+.rs tr:hover td{background:var(--color-background-secondary);}
+.sec td{background:var(--color-background-secondary);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:var(--color-text-tertiary);padding:7px 7px 3px;border-top:1px solid var(--color-border-secondary);border-bottom:none;}
+.dim{display:inline-block;font-size:9px;padding:1px 5px;border-radius:5px;font-family:var(--font-mono);white-space:nowrap;}
+.d-tec{background:#E6F1FB;color:#0C447C;}
+.d-sec{background:#EAF3DE;color:#27500A;}
+.d-eth{background:#EEEDFE;color:#3C3489;}
+.d-gov{background:#FAEEDA;color:#633806;}
+.d-leg{background:#FCEBEB;color:#791F1F;}
+.d-roi{background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.rt{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:5px;}
+.causes{background:#FCEBEB;color:#A32D2D;}
+.amplifies{background:#FAEEDA;color:#854F0B;}
+.enables{background:#EEEDFE;color:#534AB7;}
+.correlates{background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.conf-h{font-family:var(--font-mono);font-size:9px;color:#3B6D11;font-weight:500;}
+.conf-m{font-family:var(--font-mono);font-size:9px;color:#BA7517;}
+.mech{color:var(--color-text-secondary);font-size:10px;}
+.act{color:var(--color-text-tertiary);font-size:10px;font-style:italic;}
+.fbar{background:var(--color-background-secondary);border-radius:6px;padding:7px 12px;font-size:10px;margin-bottom:10px;color:var(--color-text-secondary);font-family:var(--font-mono);}
+.summary{background:var(--color-background-secondary);border-radius:8px;padding:12px 14px;margin-top:12px;font-size:11px;line-height:1.6;}
+.sum-row{display:flex;justify-content:space-between;border-bottom:1px solid var(--color-border-tertiary);padding:4px 0;}
+.sum-row:last-child{border-bottom:none;}
+</style>
+<div class="rs">
+<div class="fbar">Bloque 2 · Familias E–H · 58 relaciones · source='expert_seed'</div>
+<table>
+<thead><tr>
+<th style="width:160px">Origen</th>
+<th style="width:160px">Destino</th>
+<th style="width:72px">Tipo</th>
+<th>Mecanismo</th>
+<th style="width:48px;text-align:center">Conf.</th>
+</tr></thead>
+<tbody>
+
+<tr class="sec"><td colspan="5">Familia E · IA Generativa — hallucination → confianza → daño (16 relaciones)</td></tr>
+
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Confabulación de referencias</td>
+<td><span class="dim d-leg">Legal</span><br>Daños civiles por decisiones erróneas</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Citar normativas inexistentes en contexto de compliance puede llevar a decisiones organizacionales erróneas con consecuencias legales directas<br><span class="act">Activa si: sistema usado en contexto legal o regulatorio</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Confabulación de referencias</td>
+<td><span class="dim d-eth">Ético</span><br>Explicaciones engañosas simulan transparencia</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Una justificación generada que cita fuentes inexistentes parece más legítima que una explicación honesta de las limitaciones del sistema<br><span class="act">Activa si: sistema genera explicaciones automáticas</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Alucinación factual</td>
+<td><span class="dim d-roi">ROI</span><br>ROI erosionado por retrabajos verificación</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Cada alucinación que llega a producción requiere verificación manual o corrección, generando costes operativos no previstos en el business case<br><span class="act">Activa si: output del sistema usado directamente</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Sobreconfianza calibrada</td>
+<td><span class="dim d-eth">Ético</span><br>Confianza injustificada en sistema no probado</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Un sistema que presenta sus outputs con alta certeza aparente induce confianza injustificada incluso cuando la precisión real es baja<br><span class="act">Activa si: sistema con salidas probabilísticas</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Contenido sintético engañoso sin disclosure</td>
+<td><span class="dim d-leg">Legal</span><br>Generación contenido difamatorio atribuible a org.</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">El contenido sintético presentado como real que resulta ser falso o dañino para terceros activa responsabilidad civil por difamación o fraude<br><span class="act">Activa si: sistema genera contenido público</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Contenido sintético engañoso sin disclosure</td>
+<td><span class="dim d-leg">Legal</span><br>Reproducción obras protegidas en outputs</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">El contenido generado sin disclosure de que es IA tiene menor protección legal cuando reproduce material protegido, amplificando la exposición<br><span class="act">Activa si: sistema genera texto, imagen o código</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Persistencia info sensible en memoria o caché</td>
+<td><span class="dim d-sec">Seguridad</span><br>Contaminación cruzada contexto entre sesiones</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La información sensible persistida incorrectamente puede aparecer en el contexto de otros usuarios en sesiones posteriores<br><span class="act">Activa si: sistema conversacional multi-usuario</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-sec">Seguridad</span><br>Contaminación cruzada contexto entre sesiones</td>
+<td><span class="dim d-leg">Legal</span><br>Incumplimiento RGPD datos personales expuestos</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La exposición de datos personales de un usuario en la sesión de otro es una brecha de datos notificable bajo el RGPD<br><span class="act">Activa si: sistema procesa datos personales</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Mezcla no controlada conocimiento modelo y RAG</td>
+<td><span class="dim d-tec">Técnico</span><br>Confabulación de referencias</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Sin trazabilidad de qué información proviene del modelo base y qué del RAG, el sistema puede confabular citando la base RAG como fuente de información generada<br><span class="act">Activa si: sistema RAG activo</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Base conocimiento RAG desactualizada</td>
+<td><span class="dim d-tec">Técnico</span><br>Confabulación de referencias</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Una base de conocimiento obsoleta puede contener normativas o datos que han cambiado, llevando al sistema a citar información que ya no es válida como si lo fuera<br><span class="act">Activa si: sistema RAG en dominio normativo</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Manipulación persuasiva hiperpersonalizada</td>
+<td><span class="dim d-eth">Ético</span><br>Coerción sutil mediante diseño recomendaciones</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La personalización a escala amplifica la efectividad de los nudges persuasivos hasta el punto de comprometer la autonomía del usuario<br><span class="act">Activa si: sistema con personalización de contenido</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Manipulación persuasiva hiperpersonalizada</td>
+<td><span class="dim d-leg">Legal</span><br>Violación Art. 5.1(a) AI Act prácticas prohibidas</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Las técnicas persuasivas subliminales que explotan vulnerabilidades psicológicas están prohibidas explícitamente en el Art. 5.1(a) del AI Act<br><span class="act">Activa si: sistema B2C con personalización</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Dependencia psicológica sistemas conversacionales</td>
+<td><span class="dim d-eth">Ético</span><br>Reducción agencia humana en decisiones</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La dependencia psicológica del usuario respecto al sistema reduce su capacidad de toma de decisiones autónoma, especialmente en contextos de salud o asesoramiento<br><span class="act">Activa si: sistema conversacional de uso continuado</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Obsolescencia acelerada por ciclos modelo fundacional</td>
+<td><span class="dim d-roi">ROI</span><br>Obsolescencia prematura por avances tecnológicos</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Los ciclos de actualización de modelos fundacionales externos son más rápidos que los ciclos de mantenimiento de sistemas propietarios, acelerando la obsolescencia<br><span class="act">Activa si: modelo fundacional externo</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Costes inferencia volátiles pricing por token</td>
+<td><span class="dim d-roi">ROI</span><br>Escalado costes no lineal con volumen uso</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">El pricing por token hace que el coste de inferencia escale proporcionalmente al uso, sin las economías de escala previstas en modelos de coste fijo<br><span class="act">Activa si: modelo LLM externo por API</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Acumulación costes por bucles agénticos</td>
+<td><span class="dim d-roi">ROI</span><br>Sobreestimación beneficios financieros</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Los costes de ejecución agéntica no previstos erosionan el ROI proyectado, amplificando cualquier sobreestimación inicial de beneficios<br><span class="act">Activa si: sistema agéntico con tareas autónomas</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+
+<tr class="sec"><td colspan="5">Familia F · Proceso de desarrollo deficiente → múltiples dimensiones (13 relaciones)</td></tr>
+
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia controles calidad ciclo de desarrollo</td>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia rollback automático ante fallos</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Un proceso de desarrollo sin controles de calidad no contempla los requisitos de resiliencia y recuperación ante fallos<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia evaluación diferenciada subgrupos</td>
+<td><span class="dim d-tec">Técnico</span><br>Métricas no detectan fallos en subgrupos críticos</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin evaluación segmentada en el proceso, las métricas producidas no pueden detectar lo que no han sido diseñadas para medir<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Ausencia evaluación ética etapas tempranas</td>
+<td><span class="dim d-eth">Ético</span><br>Sesgo sistemático grupos marginados</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin evaluación ética temprana, los sesgos se incorporan en las decisiones de diseño y son exponencialmente más costosos de corregir después<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Presión lanzamiento rápido sin evaluación ética</td>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia proceso aprobación formal despliegue</td>
+<td><span class="rt correlates">correlates</span></td>
+<td class="mech">Las organizaciones con presión de time-to-market tienden a saltarse tanto las evaluaciones éticas como los gates formales de despliegue<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Falta documentación limitaciones conocidas</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Comunicación engañosa capacidades sistema</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin documentación de limitaciones, los equipos de comunicación y ventas no tienen información para establecer expectativas realistas<br><span class="act">Activa si: sistema con documentación comercial</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Evaluación incompleta requisitos regulatorios</td>
+<td><span class="dim d-roi">ROI</span><br>Costes imprevistos cumplimiento regulatorio</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La identificación tardía de obligaciones regulatorias genera costes de remedación y adaptación no incluidos en el business case original<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia análisis formal data leakage</td>
+<td><span class="dim d-tec">Técnico</span><br>Data leakage en evaluación</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin un análisis formal, el data leakage puede existir en el pipeline sin ser detectado hasta que el sistema falla en producción<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta política IA documentada alta dirección</td>
+<td><span class="dim d-eth">Ético</span><br>Ausencia metodologías ética por diseño</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin una política de IA aprobada en el nivel directivo, las metodologías de ética por diseño carecen de mandato y no se implementan<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Estándares inadecuados evaluación calidad y riesgos</td>
+<td><span class="dim d-tec">Técnico</span><br>Sesgo confirmación selección conjuntos prueba</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin estándares que exijan sets de prueba independientes y representativos, el sesgo de confirmación en la evaluación no se detecta ni corrige<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia revalidación ante cambios sustanciales</td>
+<td><span class="dim d-eth">Ético</span><br>Sesgo emergente en subgrupos</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Un cambio en las fuentes de datos o el contexto de uso puede introducir nuevos sesgos que las validaciones originales no contemplan<br><span class="act">Activa si: sistema en evolución activa</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Falta control versiones modelos y datos</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Ausencia versionado formal modelo producción</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">El control de versiones es el prerrequisito técnico del versionado formal — sin él, el requisito de gobernanza no puede cumplirse<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-sec">Seguridad</span><br>Evaluaciones seguridad solo al final desarrollo</td>
+<td><span class="dim d-eth">Ético</span><br>Presión lanzamiento rápido sin evaluación ética</td>
+<td><span class="rt correlates">correlates</span></td>
+<td class="mech">Las organizaciones que retrasan la seguridad tienden también a retrasar las evaluaciones éticas — ambas son señales del mismo patrón cultural<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-roi">ROI</span><br>Desalineación con objetivos estratégicos</td>
+<td><span class="dim d-roi">ROI</span><br>Falta patrocinio ejecutivo sostenido</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Un sistema percibido como desalineado con la estrategia pierde progresivamente el apoyo ejecutivo, comprometiendo los recursos necesarios para su mantenimiento<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+
+<tr class="sec"><td colspan="5">Familia G · Propiedad intelectual y contenido generado (9 relaciones)</td></tr>
+
+<tr>
+<td><span class="dim d-leg">Legal</span><br>Uso no autorizado datos protegidos copyright</td>
+<td><span class="dim d-leg">Legal</span><br>Reproducción obras protegidas en outputs generativos</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Un modelo entrenado con datos protegidos tiende a reproducir fragmentos de ese material en sus outputs, amplificando la exposición por PI<br><span class="act">Activa si: sistema generativo entrenado con datos externos</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Usurpación autoría apropiación PI contenido generado</td>
+<td><span class="dim d-leg">Legal</span><br>Disputas titularidad contenido generado por IA</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La apropiación de autoría sobre contenido en cuya generación contribuyó el sistema crea disputas legales sobre titularidad de derechos<br><span class="act">Activa si: sistema genera contenido para clientes</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-leg">Legal</span><br>Due diligence legal insuficiente datasets</td>
+<td><span class="dim d-leg">Legal</span><br>Uso no autorizado datos protegidos copyright</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin evaluación legal previa de los datasets, las restricciones de uso y derechos de autor no son identificadas antes del entrenamiento<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-leg">Legal</span><br>Reproducción obras protegidas outputs</td>
+<td><span class="dim d-roi">ROI</span><br>Costes imprevistos cumplimiento regulatorio</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Los litigios por PI generan costes legales, potenciales indemnizaciones y rediseño del sistema no incluidos en ningún presupuesto de operaciones<br><span class="act">Activa si: sistema generativo con distribución pública</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia citación trazabilidad fuentes RAG</td>
+<td><span class="dim d-leg">Legal</span><br>Reproducción obras protegidas outputs</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin trazabilidad de fuentes, es imposible verificar si los outputs reproducen material protegido ni identificar la fuente para gestionarlo<br><span class="act">Activa si: sistema RAG activo</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-leg">Legal</span><br>Incertidumbre legal autoría invenciones IA</td>
+<td><span class="dim d-roi">ROI</span><br>Diferenciación insuficiente respecto a soluciones mercado</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">La imposibilidad de patentar innovaciones asistidas por IA en algunas jurisdicciones reduce la protección de la ventaja competitiva<br><span class="act">Activa si: sistema genera innovaciones técnicas</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Ausencia proceso due diligence modelos GPAI</td>
+<td><span class="dim d-leg">Legal</span><br>Uso no autorizado datos protegidos copyright</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin due diligence del modelo GPAI externo, la organización usuaria no conoce qué datos fueron usados en su entrenamiento ni sus restricciones<br><span class="act">Activa si: modelo GPAI externo</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-sec">Seguridad</span><br>Falta trazabilidad cadena suministro modelos</td>
+<td><span class="dim d-leg">Legal</span><br>Ataque cadena suministro modelos preentrenados</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin trazabilidad de la cadena de suministro, un modelo comprometido no puede ser detectado ni aislado cuando el ataque se descubre<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Vendor lock-in dependencia exclusiva proveedor</td>
+<td><span class="dim d-leg">Legal</span><br>Acuerdos contractuales sin cláusulas compliance IA</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">El lock-in reduce el poder de negociación para incluir cláusulas de compliance, auditoría y responsabilidad en los contratos con el proveedor<br><span class="act">Activa si: modelo externo SaaS dominante</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+
+<tr class="sec"><td colspan="5">Familia H · Convergencia de riesgos en sistemas de alto riesgo AI Act (20 relaciones)</td></tr>
+
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta alineación marcos regulatorios AI Act DORA</td>
+<td><span class="dim d-leg">Legal</span><br>Evaluación incompleta requisitos regulatorios</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin un mapa de requisitos regulatorios aplicables, el proceso de due diligence no puede ser completo<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Ausencia revisiones periódicas conformidad</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta proceso adaptación nuevas regulaciones</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Sin revisiones periódicas, los cambios regulatorios no se detectan hasta que generan incumplimientos materiales<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta transparencia hacia reguladores</td>
+<td><span class="dim d-leg">Legal</span><br>Sistema impide supervisión regulatoria efectiva</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La opacidad activa hacia reguladores puede interpretarse como obstaculización de la supervisión, con consecuencias sancionadoras propias<br><span class="act">Activa si: sistema registrable EU AI Act</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Vigilancia masiva indiscriminada</td>
+<td><span class="dim d-leg">Legal</span><br>Práctica prohibida Art. 5 AI Act</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Los sistemas de identificación biométrica remota en espacios públicos están prohibidos por el Art. 5 del AI Act salvo excepciones muy específicas<br><span class="act">Activa si: sistema biométrico en espacio público</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Sin mecanismo impugnar decisión automatizada</td>
+<td><span class="dim d-leg">Legal</span><br>Incumplimiento RGPD Art. 22 decisiones automatizadas</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">El Art. 22 del RGPD exige el derecho a no ser objeto de decisiones basadas únicamente en tratamiento automatizado — su ausencia es incumplimiento directo<br><span class="act">Activa si: sistema decisiones automáticas sobre personas</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta divulgación uso IA a usuarios afectados</td>
+<td><span class="dim d-eth">Ético</span><br>Erosión consentimiento interacciones IA no identificada</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin divulgación, los usuarios no pueden ejercer un consentimiento informado sobre la interacción con el sistema de IA<br><span class="act">Activa si: sistema interactúa directamente con personas</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Erosión consentimiento interacciones IA no identificada</td>
+<td><span class="dim d-leg">Legal</span><br>Incumplimiento Art. 50 AI Act disclosure</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">El Art. 50 del AI Act exige informar a los usuarios de que interactúan con IA — la erosión del consentimiento es consecuencia directa del incumplimiento<br><span class="act">Activa si: sistema conversacional o generativo</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Ausencia canal técnico reporte fallos usuarios</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Ausencia canales formales feedback partes interesadas</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin canal técnico de reporte, el feedback de usuarios no llega a los procesos de gobernanza ni genera ciclos de mejora<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Ausencia canales feedback partes interesadas</td>
+<td><span class="dim d-eth">Ético</span><br>Desatención retroalimentación crítica usuarios</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin canales formales, las señales de problemas éticos que vienen de usuarios y afectados no llegan a quienes tienen capacidad de actuar<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Reportes insuficientes alta dirección riesgos IA</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta supervisión ejecutiva sistemas críticos</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin información adecuada sobre riesgos materiales, la alta dirección no puede ejercer la supervisión que ISO 42001 §5.1 le exige<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-sec">Seguridad</span><br>Falta plan respuesta incidentes seguridad IA</td>
+<td><span class="dim d-leg">Legal</span><br>Ausencia protocolo legal gestión fallos sistema</td>
+<td><span class="rt correlates">correlates</span></td>
+<td class="mech">Las organizaciones que no tienen plan de respuesta técnica a incidentes tampoco tienen protocolo legal — son síntomas de la misma ausencia de gestión de incidentes<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Eliminación insegura datos sensibles</td>
+<td><span class="dim d-leg">Legal</span><br>Incumplimiento RGPD derecho al olvido Art. 17</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">La imposibilidad de eliminar datos de forma verificable impide el cumplimiento del derecho al olvido cuando es ejercido por el interesado<br><span class="act">Activa si: sistema procesa datos personales</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Falta consideración impactos largo plazo</td>
+<td><span class="dim d-eth">Ético</span><br>Concentración excesiva poder tecnológico</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Los efectos de red y la dependencia cognitiva que generan los sistemas IA a largo plazo no son evaluados en las AISIA de corto plazo<br><span class="act">Activa si: sistema de uso masivo o B2C</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-roi">ROI</span><br>Falta cultura datos soportar iniciativas IA</td>
+<td><span class="dim d-tec">Técnico</span><br>Métricas evaluación no alineadas objetivos negocio</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Sin cultura de datos, los equipos de negocio no pueden definir métricas de evaluación alineadas con los objetivos operacionales reales<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Formación insuficiente personal supervisión IA</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Interfaces control humano deficientes</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Incluso interfaces de control adecuadas son ineficaces si el personal que las opera no tiene competencia para interpretar las señales del sistema<br><span class="act">Activa si: sistema alto riesgo AI Act</span></td>
+<td style="text-align:center"><span class="conf-m">medium</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Procedimientos inadecuados reentrenamiento periódico</td>
+<td><span class="dim d-tec">Técnico</span><br>Drift no monitorizado</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin procedimientos de reentrenamiento, cuando el drift se detecta no existe un proceso para corregirlo de forma controlada y auditada<br><span class="act">Activa siempre</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-eth">Ético</span><br>Delegación encubierta decisiones éticas a agentes</td>
+<td><span class="dim d-gov">Gobernanza</span><br>Difusión responsabilidad cadenas automatizadas</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">Cuando las decisiones éticas se delegan a agentes sin que los afectados lo sepan, la difusión de responsabilidad es completa — ni el usuario ni el operador ni el agente asumen accountability<br><span class="act">Activa si: sistema agéntico con decisiones de impacto</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Propagación fallo alucinación cadena multi-agente</td>
+<td><span class="dim d-leg">Legal</span><br>Imposibilidad determinar causalidad litigios</td>
+<td><span class="rt amplifies">amplifies</span></td>
+<td class="mech">En una cadena multi-agente, el origen de una alucinación que causó daño puede ser cualquier nodo del grafo, haciendo la atribución causal exponencialmente más compleja<br><span class="act">Activa si: arquitectura multi-agente</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-tec">Técnico</span><br>Comportamiento emergente objetivos conflictivos agentes</td>
+<td><span class="dim d-eth">Ético</span><br>Comportamiento emergente éticamente problemático</td>
+<td><span class="rt causes">causes</span></td>
+<td class="mech">Los comportamientos emergentes de sistemas multi-agente con objetivos parcialmente conflictivos pueden producir resultados éticamente inaceptables no previstos en el diseño de ningún agente individual<br><span class="act">Activa si: arquitectura multi-agente con objetivos distintos</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+<tr>
+<td><span class="dim d-gov">Gobernanza</span><br>Falta notificación interna agente supera límites</td>
+<td><span class="dim d-sec">Seguridad</span><br>Escalada privilegios cadena herramientas</td>
+<td><span class="rt enables">enables</span></td>
+<td class="mech">Sin un proceso de notificación cuando el agente supera sus límites, las escaladas de privilegios no activan ninguna respuesta de contención<br><span class="act">Activa si: sistema agéntico</span></td>
+<td style="text-align:center"><span class="conf-h">high</span></td>
+</tr>
+
+</tbody></table>
+
+<div class="summary">
+<div style="font-size:11px;font-weight:500;margin-bottom:8px;">Resumen del seed completo</div>
+<div class="sum-row"><span>Total relaciones</span><span style="font-family:var(--font-mono);font-weight:500;">120</span></div>
+<div class="sum-row"><span>Confianza high</span><span style="font-family:var(--font-mono);color:#3B6D11;font-weight:500;">87 (72%)</span></div>
+<div class="sum-row"><span>Confianza medium</span><span style="font-family:var(--font-mono);color:#BA7517;font-weight:500;">33 (28%)</span></div>
+<div class="sum-row"><span>Tipo causes</span><span style="font-family:var(--font-mono);">52</span></div>
+<div class="sum-row"><span>Tipo amplifies</span><span style="font-family:var(--font-mono);">28</span></div>
+<div class="sum-row"><span>Tipo enables</span><span style="font-family:var(--font-mono);">29</span></div>
+<div class="sum-row"><span>Tipo correlates</span><span style="font-family:var(--font-mono);">11</span></div>
+<div class="sum-row"><span>Familias temáticas</span><span style="font-family:var(--font-mono);">8</span></div>
+<div class="sum-row"><span>Relaciones intra-dimensión</span><span style="font-family:var(--font-mono);">31</span></div>
+<div class="sum-row"><span>Relaciones cross-dimensión</span><span style="font-family:var(--font-mono);">89</span></div>
+</div>
+</div>

@@ -1,0 +1,134 @@
+{
+    "familia": {
+        "id": "B",
+        "nombre": "Opacidad y caja negra → responsabilidad → explicación"
+    },
+    "relaciones": [
+        {
+            "id": "B-01",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Sin capacidad de articular qué factores determinaron una decisión concreta y con qué peso, la organización no puede construir una defensa técnica ante impugnaciones. El juez no puede verificar si la decisión fue conforme a derecho.",
+            "condicion_activacion": "Decisión de alto impacto producida por modelo sin mecanismo de explicabilidad local implementado en el momento de la inferencia.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-02",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "El revisor humano que no puede acceder al razonamiento del modelo no puede ejercer un juicio informado sobre la corrección de la decisión. Su aprobación es formal, no sustantiva.",
+            "condicion_activacion": "Proceso de supervisión humana implementado sobre un modelo sin explicabilidad local disponible para el revisor en el momento de la revisión.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-03",
+            "nodo_origen": "Ausencia de logging de decisiones con trazabilidad completa [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Sin registro de los inputs, la versión del modelo y el timestamp de cada decisión de alto impacto, la organización no puede reconstruir las condiciones exactas bajo las que se produjo una decisión específica.",
+            "condicion_activacion": "Reclamación formal sobre una decisión para la que no existe registro completo de inputs y versión del modelo utilizada.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-04",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Vulneración del derecho a explicación RGPD art. 22 [LEG]",
+            "mecanismo_explicativo": "El artículo 22 RGPD reconoce el derecho a obtener explicación de una decisión automatizada significativa. La opacidad estructural hace que ese derecho sea nominalmente existente pero materialmente inejercible.",
+            "condicion_activacion": "Solicitud de explicación por parte del afectado sobre decisión automatizada con base jurídica de interés legítimo o necesidad contractual.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-05",
+            "nodo_origen": "Arquitectura de modelo basada en redes profundas sin interpretabilidad [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Caja negra sin explicabilidad local [TEC]",
+            "mecanismo_explicativo": "Las arquitecturas de alto rendimiento basadas en redes profundas o ensamblados complejos carecen por diseño de interpretabilidad nativa. La elección arquitectural determina la disponibilidad de explicabilidad.",
+            "condicion_activacion": "Decisión de despliegue de arquitectura compleja sin evaluación paralela de modelos interpretables y sin implementación de métodos post-hoc de explicabilidad.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-06",
+            "nodo_origen": "Ausencia de herramientas de explicabilidad post-hoc en el pipeline [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Caja negra sin explicabilidad local [TEC]",
+            "mecanismo_explicativo": "Sin métodos post-hoc (SHAP, LIME u equivalentes) integrados en el pipeline de inferencia, la opacidad de la arquitectura no puede mitigarse operacionalmente. La explicabilidad solo existe para el equipo técnico, no para el revisor.",
+            "condicion_activacion": "Pipeline de inferencia sin método de explicabilidad local integrado en el flujo de producción.",
+            "confianza": "medium"
+        },
+        {
+            "id": "B-07",
+            "nodo_origen": "Vulneración del derecho a explicación RGPD art. 22 [LEG]",
+            "tipo": "causes",
+            "nodo_destino": "Sanción administrativa por incumplimiento RGPD [LEG]",
+            "mecanismo_explicativo": "El incumplimiento del artículo 22 RGPD ante solicitud formal del interesado es directamente sancionable por la AEPD u autoridad de control equivalente, con multas de hasta 20M€ o 4% del volumen de negocio global.",
+            "condicion_activacion": "Solicitud de ejercicio de derechos del interesado sobre decisión automatizada sin respuesta sustantiva en el plazo legal.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-08",
+            "nodo_origen": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "La imposibilidad de construir defensa técnica en litigios aumenta significativamente la exposición económica de la organización. Los acuerdos extrajudiciales y las condenas tienden a ser más desfavorables cuando la organización no puede explicar el funcionamiento del sistema.",
+            "condicion_activacion": "Litigio activo sobre decisión de alto impacto para la que no existe explicación técnica disponible.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-09",
+            "nodo_origen": "Ausencia de trazabilidad de versiones del modelo en producción [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Sin registro de qué versión del modelo produjo qué decisión y cuándo, la organización no puede demostrar que el modelo en uso en el momento de la decisión impugnada cumplía los requisitos aplicables.",
+            "condicion_activacion": "Reclamación sobre decisión producida en período con múltiples versiones del modelo en producción sin registro de versión por inferencia.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-10",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "La aprobación humana de decisiones sin acceso al razonamiento del modelo no constituye supervisión efectiva. El humano no puede desafiar ni corregir una decisión cuyas bases no puede examinar.",
+            "condicion_activacion": "Proceso documentado de revisión humana implementado sobre modelo opaco sin acceso del revisor a inputs procesados y contribución de variables.",
+            "confianza": "high"
+        },
+        {
+            "id": "B-11",
+            "nodo_origen": "Supervisión humana nominal sin contenido real [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Vulneración del derecho a explicación RGPD art. 22 [LEG]",
+            "mecanismo_explicativo": "Una supervisión nominal no genera documentación del proceso de revisión que pueda constituir la explicación exigida por el RGPD. La organización no puede producir evidencia de que el humano revisó la decisión con criterio informado.",
+            "condicion_activacion": "Reclamación de explicación sobre decisión respaldada únicamente por aprobación humana de un modelo opaco.",
+            "confianza": "medium"
+        },
+        {
+            "id": "B-12",
+            "nodo_origen": "Opacidad del razonamiento multi-agente en sistemas agénticos [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Los sistemas agénticos producen resultados a través de cadenas de acciones y sub-decisiones de múltiples agentes. Sin trazabilidad de esa cadena, es imposible identificar qué decisión intermedia fue el origen causal del daño.",
+            "condicion_activacion": "Sistema agéntico que produce outputs mediante orquestación de sub-agentes sin logging de la cadena de decisión completa.",
+            "confianza": "medium"
+        },
+        {
+            "id": "B-13",
+            "nodo_origen": "Opacidad del razonamiento multi-agente en sistemas agénticos [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "En sistemas agénticos, la cadena de decisión es más extensa y compleja que en modelos simples. La supervisión humana sobre el output final sin acceso a la cadena intermedia es todavía menos efectiva que en sistemas no agénticos.",
+            "condicion_activacion": "Punto de supervisión humana definido únicamente sobre el output final de un sistema agéntico sin revisión de acciones intermedias.",
+            "confianza": "medium"
+        },
+        {
+            "id": "B-14",
+            "nodo_origen": "Explicabilidad implementada solo para el equipo técnico, no para el revisor [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "Cuando los outputs de explicabilidad (SHAP values, mapas de atención) solo están disponibles en interfaces técnicas inaccesibles para el revisor operacional, la explicabilidad técnica no se traduce en supervisión efectiva.",
+            "condicion_activacion": "Herramienta de explicabilidad disponible en entorno de desarrollo pero no integrada en el flujo de revisión operacional del revisor humano.",
+            "confianza": "medium"
+        }
+    ]
+}

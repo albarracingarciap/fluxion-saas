@@ -1,0 +1,143 @@
+{
+    "familia": {
+        "id": "A",
+        "nombre": "Drift y calidad de datos → sesgo → discriminación"
+    },
+    "relaciones": [
+        {
+            "id": "A-01",
+            "nodo_origen": "Ausencia de validación periódica del modelo [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Drift no monitorizado de variables de entrada [TEC]",
+            "mecanismo_explicativo": "Sin ciclo de revalidación activo, el desplazamiento distribucional entre datos de entrenamiento y producción se acumula sin detección. El modelo continúa aplicando pesos aprendidos sobre una realidad que ya no existe.",
+            "condicion_activacion": "Sistema en producción con ciclo de validación posterior al despliegue ausente o con periodicidad superior a 6 meses.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-02",
+            "nodo_origen": "Drift no monitorizado de variables de entrada [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Sesgo emergente en subgrupos [ETH]",
+            "mecanismo_explicativo": "El desajuste estadístico entre entrenamiento y producción se concentra asimétricamente en subgrupos menos representados. El modelo carece de base estadística para adaptarse al comportamiento actual de estos subgrupos.",
+            "condicion_activacion": "Drift activo en al menos una variable predictora de alto peso cuya distribución difiere por subgrupo protegido.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-03",
+            "nodo_origen": "Sesgo emergente en subgrupos [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "El sesgo emergente no corregido se consolida como patrón estable de decisión diferencial. La acumulación de decisiones incorrectas sobre subgrupos produce una tasa de error estructuralmente más alta para esos grupos.",
+            "condicion_activacion": "Ausencia de controles de equidad periódicos que detecten y corrijan la tasa de error diferencial antes de la consolidación.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-04",
+            "nodo_origen": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Litigio colectivo por discriminación [LEG]",
+            "mecanismo_explicativo": "La acumulación documentable de decisiones desfavorables sobre subgrupos protegidos genera base jurídica para acciones colectivas. En sistemas de acceso a servicios financieros o laborales, la discriminación sistemática activa las directivas de igualdad aplicables.",
+            "condicion_activacion": "Patrón de decisiones adversas sobre subgrupo protegido estadísticamente verificable y mantenido durante un período relevante.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-05",
+            "nodo_origen": "Litigio colectivo por discriminación [LEG]",
+            "tipo": "causes",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "Los litigios colectivos activan costes de defensa jurídica, posibles sanciones y obligaciones de remediación que no figuran en el presupuesto operacional del sistema. Los costes regulatorios post-litigio exceden sistemáticamente las estimaciones previas.",
+            "condicion_activacion": "Proceso legal iniciado o sanción administrativa notificada derivada del comportamiento del sistema de IA.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-06",
+            "nodo_origen": "Datos de entrenamiento con sesgo histórico [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Sesgo emergente en subgrupos [ETH]",
+            "mecanismo_explicativo": "Los patrones discriminatorios históricos codificados en los datos de entrenamiento se transfieren al modelo como pesos estadísticos. El sistema aprende y replica la discriminación histórica incluso sin drift.",
+            "condicion_activacion": "Datos de entrenamiento recopilados en períodos o contextos con discriminación documentada, sin proceso de desesgado aplicado.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-07",
+            "nodo_origen": "Datos de entrenamiento con sesgo histórico [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "El sesgo histórico en entrenamiento amplifica el sesgo emergente por drift cuando ambos coinciden: el modelo parte ya de una base sesgada y el drift agrava la divergencia respecto al grupo afectado.",
+            "condicion_activacion": "Coexistencia de sesgo histórico en entrenamiento y drift activo sobre la misma variable predictora.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-08",
+            "nodo_origen": "Ausencia de monitorización diferenciada por subgrupo [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Drift no monitorizado de variables de entrada [TEC]",
+            "mecanismo_explicativo": "La monitorización global de métricas de rendimiento enmascara la degradación específica en subgrupos. Un modelo con precisión global estable puede tener tasa de error creciente en subgrupos minoritarios no monitorizados.",
+            "condicion_activacion": "Sistema con dashboard de monitorización que reporta solo métricas agregadas sin desagregación por subgrupo protegido.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-09",
+            "nodo_origen": "Drift no monitorizado de variables de entrada [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Degradación silenciosa del rendimiento [TEC]",
+            "mecanismo_explicativo": "El drift no corregido incrementa progresivamente la tasa de error global del modelo. Sin detección, la degradación se acumula hasta que resulta visible en indicadores de negocio, momento en que el daño ya es extenso.",
+            "condicion_activacion": "Drift sostenido durante múltiples ciclos de inferencia sin intervención de reentrenamiento o ajuste.",
+            "confianza": "medium"
+        },
+        {
+            "id": "A-10",
+            "nodo_origen": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Incumplimiento de normativa antidiscriminación [LEG]",
+            "mecanismo_explicativo": "Las decisiones diferencialmente adversas sobre categorías protegidas por la Directiva 2000/43/CE, 2006/54/CE o normativa sectorial generan incumplimiento objetivo independientemente de la intención. El sesgo estadístico documentable es prueba suficiente.",
+            "condicion_activacion": "Sistema con impacto adverso dispar documentable sobre categorías protegidas por normativa antidiscriminación aplicable.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-11",
+            "nodo_origen": "Incumplimiento de normativa antidiscriminación [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "Las sanciones por incumplimiento de normativa antidiscriminación se acumulan sobre los costes del litigio colectivo. La organización enfrenta simultáneamente procedimientos administrativos y acciones civiles.",
+            "condicion_activacion": "Notificación de inspección o resolución sancionadora de autoridad competente en materia antidiscriminación.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-12",
+            "nodo_origen": "Ausencia de evaluación de equidad previa al despliegue [ETH]",
+            "tipo": "enables",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "Sin evaluación de equidad previa al despliegue, el sesgo latente en el modelo no se detecta antes de que afecte a usuarios reales. La ventana de exposición se abre en el momento del despliegue.",
+            "condicion_activacion": "Sistema desplegado sin evaluación formal de fairness con métricas desagregadas por subgrupo protegido antes del lanzamiento.",
+            "confianza": "high"
+        },
+        {
+            "id": "A-13",
+            "nodo_origen": "Cambio en la distribución de la población atendida [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Drift no monitorizado de variables de entrada [TEC]",
+            "mecanismo_explicativo": "Un desplazamiento en el perfil demográfico o conductual de la población usuaria produce drift en la distribución de variables de entrada, independientemente de cambios en el entorno macroeconómico.",
+            "condicion_activacion": "Expansión a nuevos mercados, cambio regulatorio que modifica el perfil elegible o variación documentada en el perfil de la base de usuarios.",
+            "confianza": "medium"
+        },
+        {
+            "id": "A-14",
+            "nodo_origen": "Sesgo emergente en subgrupos [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Tasa de error diferencial por subgrupo [ETH]",
+            "mecanismo_explicativo": "El sesgo emergente no corregido incrementa la tasa de error sobre subgrupos afectados a un ritmo superior al de la población general, generando una brecha creciente entre grupos que amplifica el impacto discriminatorio.",
+            "condicion_activacion": "Sesgo emergente activo sin intervención de reequilibrio del modelo o ajuste de umbrales de decisión.",
+            "confianza": "medium"
+        },
+        {
+            "id": "A-15",
+            "nodo_origen": "Tasa de error diferencial por subgrupo [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Litigio colectivo por discriminación [LEG]",
+            "mecanismo_explicativo": "La tasa de error diferencial estadísticamente documentable constituye por sí sola evidencia prima facie de discriminación indirecta en jurisdicciones europeas. El afectado no necesita probar intención discriminatoria.",
+            "condicion_activacion": "Tasa de error diferencial estadísticamente significativa sobre grupo protegido, reproducible en auditoría independiente.",
+            "confianza": "medium"
+        }
+    ]
+}

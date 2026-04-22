@@ -1,0 +1,308 @@
+<style>
+.pv{font-family:var(--font-sans);font-size:12px;color:var(--color-text-primary);padding:4px 0;}
+.type-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.type-tag{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;}
+.tt-src{background:#E6F1FB;color:#0C447C;border:1px solid #B5D4F4;}
+.tt-bot{background:#FAEEDA;color:#633806;border:1px solid #FAC775;}
+.tt-att{background:#FCEBEB;color:#791F1F;border:1px solid #F7C1C1;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-src{background:#185FA5;}
+.dot-bot{background:#854F0B;}
+.dot-att{background:#A32D2D;}
+
+.pivot-card{border:1px solid var(--color-border-tertiary);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:all .15s;}
+.pivot-card:hover{border-color:var(--color-border-secondary);}
+.pc-header{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--color-background-secondary);}
+.pc-rank{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--color-text-tertiary);width:20px;flex-shrink:0;}
+.pc-name{font-size:12px;font-weight:500;flex:1;}
+.pc-score{font-family:var(--font-mono);font-size:11px;font-weight:500;width:32px;text-align:right;}
+.pc-type{font-size:9px;padding:1px 6px;border-radius:8px;font-family:var(--font-mono);white-space:nowrap;flex-shrink:0;}
+.pt-src{background:#E6F1FB;color:#0C447C;}
+.pt-bot{background:#FAEEDA;color:#633806;}
+.pt-att{background:#FCEBEB;color:#791F1F;}
+
+.pc-body{padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pc-meta{font-size:10px;color:var(--color-text-secondary);line-height:1.6;}
+.pc-meta strong{color:var(--color-text-primary);font-weight:500;}
+.pc-chain{font-size:10px;color:var(--color-text-secondary);line-height:1.6;grid-column:1/-1;}
+
+.deg-bar{display:flex;align-items:center;gap:4px;margin:2px 0;}
+.deg-label{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);width:24px;}
+.deg-fill{height:6px;border-radius:3px;}
+.deg-in{background:var(--color-background-info);}
+.deg-out{background:var(--color-background-warning);}
+.deg-num{font-size:10px;font-family:var(--font-mono);color:var(--color-text-secondary);width:12px;}
+
+.dim-pill{display:inline-block;font-size:9px;padding:1px 5px;border-radius:4px;font-family:var(--font-mono);margin-right:3px;}
+.d-tec{background:#E6F1FB;color:#0C447C;}
+.d-sec{background:#EAF3DE;color:#27500A;}
+.d-eth{background:#EEEDFE;color:#3C3489;}
+.d-gov{background:#FAEEDA;color:#633806;}
+.d-leg{background:#FCEBEB;color:#791F1F;}
+.d-roi{background:var(--color-background-secondary);color:var(--color-text-secondary);}
+
+.iso-ref{font-family:var(--font-mono);font-size:10px;color:var(--color-text-info);}
+.score-s10{color:#A32D2D;font-weight:700;}
+.score-s9{color:#BA7517;font-weight:700;}
+.score-s7{color:#3B6D11;font-weight:500;}
+.score-s6{color:var(--color-text-info);font-weight:500;}
+
+.sec-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--color-text-tertiary);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--color-border-tertiary);}
+.insight-box{background:var(--color-background-secondary);border-radius:8px;padding:10px 14px;font-size:11px;line-height:1.6;color:var(--color-text-secondary);margin-top:12px;border-left:3px solid var(--color-border-secondary);}
+.insight-box strong{color:var(--color-text-primary);}
+</style>
+<div class="pv">
+
+<div class="type-bar">
+<div class="type-tag tt-src"><div class="dot dot-src"></div>Fuente preventiva — sin inputs, muchos outputs · mitigation = evitar que la cadena empiece</div>
+<div class="type-tag tt-bot"><div class="dot dot-bot"></div>Cuello de botella — inputs y outputs · mitigation = romper la cadena a mitad</div>
+<div class="type-tag tt-att"><div class="dot dot-att"></div>Atractor de daño — muchos inputs, sin outputs · señala el daño sistémico convergente</div>
+</div>
+
+<div class="sec-label">Top 10 nodos pivote — ordenados por pivot score</div>
+
+<!-- 1 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#1</div>
+<div class="pc-name">Confabulación de referencias — cita fuentes, normativas o datos inexistentes</div>
+<span class="pc-type pt-bot">Cuello de botella</span>
+<div class="pc-score score-s10">10</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-tec">Técnico</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-eth">Ético</span><span class="dim-pill d-leg">Legal</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:40px"></div><span class="deg-num">2</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:40px"></div><span class="deg-num">2</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.6.2.4 · A.6.2.7</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Mezcla no controlada modelo/RAG · Base RAG desactualizada<br>
+<strong>Genera:</strong> Daños civiles por decisiones erróneas · Explicaciones engañosas que simulan transparencia
+</div>
+<div class="pc-chain">Cadena clave: Base RAG desactualizada → <strong>Confabulación</strong> → Daños civiles → Litigio. Mitigarlo rompe 4 segmentos de cadena simultáneamente. Específico de sistemas RAG en dominio normativo.</div>
+</div>
+</div>
+
+<!-- 2 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#2</div>
+<div class="pc-name">Caja negra sin capacidad de explicabilidad</div>
+<span class="pc-type pt-src">Fuente preventiva</span>
+<div class="pc-score score-s9">9</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-tec">Técnico</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-eth">Ético</span><span class="dim-pill d-gov">Gobernanza</span><span class="dim-pill d-leg">Legal</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:0px"></div><span class="deg-num">0</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:60px"></div><span class="deg-num">3</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.6.2.7 · Art.13 AI Act</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> —<br>
+<strong>Genera:</strong> Opacidad derecho a explicación · Opacidad criterios supervisores · Imposibilidad causalidad litigios
+</div>
+<div class="pc-chain">Un único fallo técnico de diseño abre simultáneamente tres cadenas hacia tres dimensiones distintas. La decisión de arquitectura (modelo interpretable vs opaco) es el control de mayor apalancamiento preventivo de todo el catálogo.</div>
+</div>
+</div>
+
+<!-- 3 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#3</div>
+<div class="pc-name">Drift no monitorizado</div>
+<span class="pc-type pt-bot">Cuello de botella</span>
+<div class="pc-score score-s9">9</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-tec">Técnico</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-eth">Ético</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:20px"></div><span class="deg-num">1</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.6.2.6 · A.6.2.8</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Datos distribución divergente · Ausencia validación periódica · Procedimientos inadecuados reentrenamiento<br>
+<strong>Genera:</strong> Sesgo emergente en subgrupos
+</div>
+<div class="pc-chain">Tres causas distintas convergen aquí y producen una sola salida crítica. Implementar monitoreo de drift elimina el impacto de tres riesgos de proceso de forma simultánea.</div>
+</div>
+</div>
+
+<!-- 4 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#4</div>
+<div class="pc-name">Sesgo sistemático en grupos marginados</div>
+<span class="pc-type pt-bot">Cuello de botella</span>
+<div class="pc-score score-s9">9</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-eth">Ético</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-leg">Legal</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:20px"></div><span class="deg-num">1</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.5.4 · A.7.4</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Métricas no detectan subgrupos · Envenenamiento datos entrenamiento · Ausencia evaluación ética temprana<br>
+<strong>Genera:</strong> Litigio por impacto en grupos protegidos
+</div>
+<div class="pc-chain">Punto de convergencia de la cadena técnica (datos) + la cadena de seguridad (envenenamiento) + la cadena de proceso (ética). El control más eficaz: evaluación diferenciada por subgrupos antes del despliegue.</div>
+</div>
+</div>
+
+<!-- 5 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#5</div>
+<div class="pc-name">Imposibilidad de determinar causalidad en litigios</div>
+<span class="pc-type pt-att">Atractor de daño</span>
+<div class="pc-score score-s7">7</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-leg">Legal</span><br>
+<strong>Dimensiones de origen:</strong> <span class="dim-pill d-tec">Técnico</span><span class="dim-pill d-eth">Ético</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:0px"></div><span class="deg-num">0</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.6.2.8 · A.6.2.7</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Caja negra · Opacidad multi-agente · Propagación fallo multi-agente<br>
+<strong>Genera:</strong> —
+</div>
+<div class="pc-chain">Terminal jurídico. Tres cadenas de dimensiones distintas convergen aquí. Su presencia como atractor indica que el logging y la trazabilidad son los controles de mayor protección legal de todo el sistema.</div>
+</div>
+</div>
+
+<!-- 6 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#6</div>
+<div class="pc-name">Cambio silencioso de comportamiento por actualización del proveedor</div>
+<span class="pc-type pt-bot">Cuello de botella</span>
+<div class="pc-score score-s7">7</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-tec">Técnico</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-eth">Ético</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:40px"></div><span class="deg-num">2</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:20px"></div><span class="deg-num">1</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.10.3</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Falta due diligence proveedores · Ataque cadena suministro<br>
+<strong>Genera:</strong> Sesgo emergente en subgrupos
+</div>
+<div class="pc-chain">Nodo crítico específico de sistemas con modelo externo. El control se ubica en el contrato con el proveedor (cláusula de notificación de cambios) y en el proceso de revalidación post-actualización.</div>
+</div>
+</div>
+
+<!-- 7 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#7</div>
+<div class="pc-name">Incumplimiento RGPD — datos personales expuestos</div>
+<span class="pc-type pt-att">Atractor de daño</span>
+<div class="pc-score score-s6">6</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-leg">Legal</span><br>
+<strong>Dimensiones de origen:</strong> <span class="dim-pill d-sec">Seguridad</span><span class="dim-pill d-tec">Técnico</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:0px"></div><span class="deg-num">0</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.7.5 · RGPD Arts. 5/17</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Extracción datos entrenamiento · Contaminación cruzada contexto · Eliminación insegura datos<br>
+<strong>Genera:</strong> —
+</div>
+<div class="pc-chain">Tres vectores de ataque distintos (ML inversion, gestión de sesiones, eliminación) convergen en el mismo incumplimiento normativo. Señala que la protección RGPD requiere controles en tres capas independientes.</div>
+</div>
+</div>
+
+<!-- 8 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#8</div>
+<div class="pc-name">Ausencia de mecanismos efectivos de supervisión humana</div>
+<span class="pc-type pt-src">Fuente preventiva</span>
+<div class="pc-score score-s6">6</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-gov">Gobernanza</span><br>
+<strong>Dimensiones afectadas:</strong> <span class="dim-pill d-eth">Ético</span><span class="dim-pill d-leg">Legal</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:0px"></div><span class="deg-num">0</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:40px"></div><span class="deg-num">2</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.9.3 · Art. 14 AI Act</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> —<br>
+<strong>Genera:</strong> Decisiones críticas sin supervisión · Incumplimiento Art. 14 AI Act
+</div>
+<div class="pc-chain">Fallo de gobernanza raíz que activa simultáneamente una consecuencia ética y un incumplimiento normativo directo. La implementación del control es binaria: o existe supervisión humana efectiva o no existe.</div>
+</div>
+</div>
+
+<!-- 9 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#9</div>
+<div class="pc-name">Costes imprevistos de cumplimiento regulatorio</div>
+<span class="pc-type pt-att">Atractor de daño</span>
+<div class="pc-score score-s6">6</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-roi">ROI</span><br>
+<strong>Dimensiones de origen:</strong> <span class="dim-pill d-eth">Ético</span><span class="dim-pill d-gov">Gobernanza</span><span class="dim-pill d-leg">Legal</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:0px"></div><span class="deg-num">0</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">— (impacto financiero)</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Amplificación desigualdades históricas · Evaluación incompleta requisitos · Reproducción obras protegidas<br>
+<strong>Genera:</strong> —
+</div>
+<div class="pc-chain">El único atractor ROI con 3 in-degree. Indica que los riesgos éticos, de gobernanza y legal tienen siempre una traducción financiera que raramente aparece en los business cases iniciales de IA.</div>
+</div>
+</div>
+
+<!-- 10 -->
+<div class="pivot-card">
+<div class="pc-header">
+<div class="pc-rank">#10</div>
+<div class="pc-name">Reproducción de obras protegidas en outputs generativos</div>
+<span class="pc-type pt-att">Atractor de daño</span>
+<div class="pc-score score-s6">6</div>
+</div>
+<div class="pc-body">
+<div class="pc-meta">
+<strong>Dimensión origen:</strong> <span class="dim-pill d-leg">Legal</span><br>
+<strong>Dimensiones de origen:</strong> <span class="dim-pill d-eth">Ético</span><span class="dim-pill d-tec">Técnico</span><span class="dim-pill d-gov">Gobernanza</span><br>
+<div class="deg-bar"><span class="deg-label">in</span><div class="deg-fill deg-in" style="width:60px"></div><span class="deg-num">3</span></div>
+<div class="deg-bar"><span class="deg-label">out</span><div class="deg-fill deg-out" style="width:0px"></div><span class="deg-num">0</span></div>
+<strong>Control ISO:</strong> <span class="iso-ref">A.7.3 · Art. 53 AI Act</span>
+</div>
+<div class="pc-meta">
+<strong>Recibe de:</strong> Uso no autorizado datos copyright · Contenido sintético sin disclosure · Ausencia citación RAG<br>
+<strong>Genera:</strong> —
+</div>
+<div class="pc-chain">Específico de sistemas generativos. El triple vector (datos de entrenamiento + outputs sin disclosure + RAG sin trazabilidad) hace que sea el riesgo legal de PI con mayor exposición en arquitecturas LLM.</div>
+</div>
+</div>
+
+<div class="insight-box">
+<strong>Insight estratégico para el DPO:</strong> Los tres nodos #2, #3 y #8 son fuentes preventivas — no tienen inputs, solo outputs. Mitigarlos <em>evita</em> que las cadenas empiecen. Son la inversión de mayor retorno en términos de compliance. Los nodos #1 y #4 son cuellos de botella activos — si ya existen en el sistema, mitigarlos corta las cadenas más largas. Los atractores (#5, #7, #9, #10) no son "mitigables" directamente, pero su presencia como destinos convergentes indica dónde se materializa el daño sistémico.
+</div>
+
+</div>

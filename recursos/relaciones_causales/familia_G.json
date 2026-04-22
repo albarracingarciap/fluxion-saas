@@ -1,0 +1,89 @@
+{
+    "familia": {
+        "id": "G",
+        "nombre": "Propiedad intelectual y contenido generado"
+    },
+    "relaciones": [
+        {
+            "id": "G-01",
+            "nodo_origen": "Generación de contenido textual extenso sin filtrado [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Reproducción de obras protegidas por derechos de autor [LEG]",
+            "mecanismo_explicativo": "Los modelos generativos entrenados sobre corpus extensos de obras protegidas pueden reproducir fragmentos de esas obras en sus outputs. La correlación es sistemática pero el mecanismo exacto de selección no está completamente documentado.",
+            "condicion_activacion": "Sistema generativo que produce contenido textual extenso en dominios con alta densidad de obras protegidas en el corpus de entrenamiento.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-02",
+            "nodo_origen": "Confabulación de fuentes inexistentes como respaldo de outputs [TEC]",
+            "tipo": "correlates",
+            "nodo_destino": "Atribución incorrecta de autoría de contenido real [LEG]",
+            "mecanismo_explicativo": "La fabricación de referencias bibliográficas puede incluir la atribución a autores reales de obras que no han escrito. Esto co-ocurre con la reproducción de obras reales sin cita, aunque el mecanismo que vincula ambos comportamientos no está establecido.",
+            "condicion_activacion": "Sistema generativo en uso para producción de contenido académico o periodístico con consultas sobre autores y obras reales.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-03",
+            "nodo_origen": "Producción de contenido con alta confianza percibida por el usuario [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Reproducción de obras protegidas por derechos de autor [LEG]",
+            "mecanismo_explicativo": "Los outputs con alta confianza percibida son distribuidos por el usuario sin verificación. La co-ocurrencia entre alta confianza percibida y reproducción de obras protegidas se observa porque los fragmentos memorizados se producen con alta fluidez.",
+            "condicion_activacion": "Usuario que redistribuye outputs del sistema sin verificación de originalidad por confiar en la calidad percibida del sistema.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-04",
+            "nodo_origen": "Ausencia de filtrado de outputs contra bases de obras protegidas [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Reproducción de obras protegidas por derechos de autor [LEG]",
+            "mecanismo_explicativo": "La ausencia de filtrado técnico co-ocurre con la reproducción de obras protegidas porque elimina el control compensatorio más directo. La correlación es fuerte aunque la causalidad directa depende de la presencia de obras protegidas en el corpus.",
+            "condicion_activacion": "Sistema generativo sin filtrado de outputs activo en dominios con alta densidad de obras protegidas.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-05",
+            "nodo_origen": "Reproducción de obras protegidas por derechos de autor [LEG]",
+            "tipo": "correlates",
+            "nodo_destino": "Sanción administrativa por incumplimiento de normativa de propiedad intelectual [LEG]",
+            "mecanismo_explicativo": "La reproducción de obras protegidas correlaciona con la exposición a sanciones, aunque la cadena causal requiere denuncia del titular y proceso de reclamación. La correlación no implica que toda reproducción produzca sanción.",
+            "condicion_activacion": "Titular de derechos que ha identificado reproducción de su obra y ha iniciado o puede iniciar acción legal.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-06",
+            "nodo_origen": "Producción de contenido con estilo distintivo de obra protegida [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Litigio por infracción de propiedad intelectual [LEG]",
+            "mecanismo_explicativo": "La reproducción de estilo correlaciona con litigios en jurisdicciones donde la protección del estilo artístico es reconocida, aunque la doctrina varía. La co-ocurrencia es observable sin que el mecanismo jurídico esté establecido de forma uniforme.",
+            "condicion_activacion": "Contenido que reproduce de forma reconocible el estilo de un autor con identidad pública, distribuido comercialmente.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-07",
+            "nodo_origen": "Ausencia de registro de contenidos generados y sus prompts [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios sobre PI [LEG]",
+            "mecanismo_explicativo": "Sin registro de qué contenido fue generado, cuándo y a partir de qué prompt, la organización no puede demostrar que implementó controles razonables ni reconstruir la cadena que produjo el contenido objeto de litigio.",
+            "condicion_activacion": "Litigio de propiedad intelectual sobre contenido generado sin registro de sesión o prompt que lo originó.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-08",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "correlates",
+            "nodo_destino": "Atribución incorrecta de autoría de contenido real [LEG]",
+            "mecanismo_explicativo": "La confabulación de referencias co-ocurre con atribuciones incorrectas en contextos donde el sistema mezcla fuentes reales e inventadas. La correlación sugiere un mecanismo de recuperación defectuosa de la memoria del modelo, aunque no está documentado.",
+            "condicion_activacion": "Sistema utilizado para producción de contenido con referencias bibliográficas en dominios con autores reconocibles.",
+            "confianza": "medium"
+        },
+        {
+            "id": "G-09",
+            "nodo_origen": "Generación de contenido textual extenso sin filtrado [ETH]",
+            "tipo": "correlates",
+            "nodo_destino": "Litigio por infracción de propiedad intelectual [LEG]",
+            "mecanismo_explicativo": "La generación de contenido textual extenso sin control correlaciona con la exposición a litigios de PI porque amplía la superficie de riesgo: a mayor volumen de contenido producido, mayor probabilidad estadística de reproducción de obras protegidas.",
+            "condicion_activacion": "Sistema generativo de uso intensivo en producción de contenido con distribución externa sin revisión editorial.",
+            "confianza": "medium"
+        }
+    ]
+}

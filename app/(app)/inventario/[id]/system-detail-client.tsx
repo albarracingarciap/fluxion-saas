@@ -1,0 +1,2807 @@
+'use client';
+
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
+import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Bot,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  Download,
+  FileText,
+  GitFork,
+  History,
+  Link2,
+  Loader2,
+  Plus,
+  ShieldAlert,
+  X,
+} from 'lucide-react';
+import { createSystemEvidence } from './evidencias/actions';
+import { resolveSystemObligation } from './obligaciones/actions';
+import { reviewSystemClassification } from './clasificacion/actions';
+import { activateSystemFailureModes } from './modos-de-fallo/actions';
+import { classifyAIAct } from '@/lib/ai-systems/scoring';
+import { ClassificationPanel } from '@/components/classification/ClassificationPanel';
+import type { RiskLevel } from '@/types/classification';
+import { useAuthStore } from '@/lib/store/authStore';
+
+export type SystemHistoryEntry = {
+  id: string;
+  event_type: string;
+  event_title: string;
+  event_summary: string | null;
+  payload: Record<string, unknown>;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  created_at: string;
+  synthetic: boolean;
+};
+
+export type SystemEvidenceEntry = {
+  id: string;
+  title: string;
+  description: string | null;
+  evidence_type: string;
+  status: string;
+  storage_path: string | null;
+  external_url: string | null;
+  version: string | null;
+  owner_user_id: string | null;
+  owner_name: string | null;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  issued_at: string | null;
+  expires_at: string | null;
+  reviewed_at: string | null;
+  validation_notes: string | null;
+  created_at: string;
+  updated_at: string;
+  linked_obligations_count: number;
+};
+
+export type SystemObligationEntry = {
+  id: string;
+  source_framework: string;
+  obligation_code: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  owner_user_id: string | null;
+  owner_name: string | null;
+  due_date: string | null;
+  notes: string | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolved_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+  evidence_ids: string[];
+};
+
+export type SystemFailureModeEntry = {
+  id: string;
+  failure_mode_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  dimension_id: string;
+  bloque: string | null;
+  subcategoria: string | null;
+  tipo: string | null;
+  s_default: number | null;
+  activation_source: string;
+  activation_reason: string | null;
+  activation_family_ids: string[];
+  activation_family_labels: string[];
+  priority_status: 'pending_review' | 'prioritized' | 'monitoring' | 'dismissed';
+  priority_source: 'rules' | 'agent' | 'human';
+  priority_notes: string | null;
+  priority_score: number | null;
+  priority_level: 'critical' | 'high' | 'medium' | 'low' | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+  causal_out_degree: number | null;
+  causal_in_degree: number | null;
+};
+
+export type SystemDetailData = {
+  id: string;
+  name: string;
+  version: string;
+  internal_id: string | null;
+  domain: string;
+  status: string;
+  deployed_at: string | null;
+  description: string | null;
+  technical_description: string | null;
+  intended_use: string | null;
+  output_type: string | null;
+  fully_automated: boolean | null;
+  interacts_persons: boolean;
+  target_users: string[] | null;
+  geo_scope: string[] | null;
+  is_ai_system: boolean | null;
+  is_gpai: boolean;
+  prohibited_practice: boolean;
+  affects_persons: boolean | null;
+  vulnerable_groups: boolean;
+  involves_minors: boolean;
+  uses_biometric_data: boolean;
+  manages_critical_infra: boolean;
+  aiact_risk_level: string;
+  aiact_risk_basis: string | null;
+  aiact_risk_reason: string | null;
+  aiact_obligations: string[] | null;
+  aiact_classified_at: string | null;
+  aiact_classified_by: string | null;
+  training_data_doc: string | null;
+  data_sources: string[] | null;
+  data_volume: string | null;
+  data_retention: string | null;
+  dpia_completed: string | null;
+  ai_system_type: string | null;
+  base_model: string | null;
+  external_model: string | null;
+  external_provider: string | null;
+  frameworks: string | null;
+  provider_origin: string | null;
+  has_fine_tuning: boolean;
+  has_external_tools: boolean;
+  active_environments: string[] | null;
+  mlops_integration: string | null;
+  ai_owner: string | null;
+  responsible_team: string | null;
+  tech_lead: string | null;
+  executive_sponsor: string | null;
+  dpo_involved: boolean;
+  review_frequency: string | null;
+  incident_contact: string | null;
+  critical_providers: string | null;
+  has_tech_doc: string | null;
+  has_logging: string | null;
+  has_human_oversight: string | null;
+  oversight_type: string | null;
+  has_complaint_mechanism: boolean;
+  has_risk_assessment: string | null;
+  residual_risk: string | null;
+  mitigation_notes: string | null;
+  has_adversarial_test: boolean;
+  cert_status: string | null;
+  next_audit_date: string | null;
+  iso_42001_score: number | null;
+  iso_42001_updated_at: string | null;
+  iso_42001_checks:
+    | Array<{
+        key: string | null;
+        label: string | null;
+        status: string | null;
+        status_label: string | null;
+        weight: number | null;
+        points: number | null;
+        points_earned: number | null;
+        not_applicable: boolean;
+      }>
+    | null;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+const TABS = ['Obligaciones AI Act', 'Ficha técnica', 'ISO 42001', 'Historial', 'Evidencias', 'Modos de fallo'] as const;
+type TabName = (typeof TABS)[number];
+const TAB_QUERY_MAP = {
+  obligaciones: 'Obligaciones AI Act',
+  ficha: 'Ficha técnica',
+  iso: 'ISO 42001',
+  historial: 'Historial',
+  evidencias: 'Evidencias',
+  modos: 'Modos de fallo',
+} as const;
+
+function resolveInitialSystemTab(tabParam: string | null): TabName {
+  if (!tabParam) return 'Obligaciones AI Act';
+  return (TAB_QUERY_MAP[tabParam as keyof typeof TAB_QUERY_MAP] ?? 'Obligaciones AI Act') as TabName;
+}
+
+const DOMAIN_LABELS: Record<string, { label: string; emoji: string }> = {
+  finanzas: { label: 'Finanzas y Banca', emoji: '🏦' },
+  seguros: { label: 'Seguros', emoji: '🛡️' },
+  credito: { label: 'Crédito y financiación', emoji: '📊' },
+  salud: { label: 'Salud y Medicina', emoji: '🏥' },
+  rrhh: { label: 'RRHH y Empleo', emoji: '👥' },
+  educacion: { label: 'Educación', emoji: '🎓' },
+  seguridad: { label: 'Seguridad Pública', emoji: '🔒' },
+  justicia: { label: 'Justicia y Legal', emoji: '⚖️' },
+  migracion: { label: 'Migración', emoji: '🛂' },
+  infra: { label: 'Infraestructura Crítica', emoji: '⚡' },
+  marketing: { label: 'Marketing', emoji: '📣' },
+  operaciones: { label: 'Operaciones', emoji: '⚙️' },
+  atencion: { label: 'Atención al Cliente', emoji: '💬' },
+  cumplimiento: { label: 'Cumplimiento', emoji: '📋' },
+  otro: { label: 'Otro', emoji: '◎' },
+};
+
+const RISK_CONFIG: Record<string, { label: string; pill: string; text: string }> = {
+  prohibited: { label: 'Prohibido', pill: 'bg-red-dim border-reb', text: 'text-re' },
+  high: { label: 'Alto Riesgo', pill: 'bg-red-dim border-reb', text: 'text-re' },
+  limited: { label: 'Riesgo Limitado', pill: 'bg-ordim border-orb', text: 'text-or' },
+  minimal: { label: 'Riesgo Mínimo', pill: 'bg-grdim border-grb', text: 'text-gr' },
+  gpai: { label: 'GPAI', pill: 'bg-cyan-dim border-cyan-border', text: 'text-brand-cyan' },
+  pending: { label: 'Pendiente', pill: 'bg-ltcard2 border-ltb', text: 'text-lttm' },
+};
+
+const STATUS_CONFIG: Record<string, { label: string; pill: string; text: string }> = {
+  produccion: { label: 'Producción', pill: 'bg-grdim border-grb', text: 'text-gr' },
+  desarrollo: { label: 'Desarrollo', pill: 'bg-cyan-dim border-cyan-border', text: 'text-brand-cyan' },
+  piloto: { label: 'Piloto', pill: 'bg-ordim border-orb', text: 'text-or' },
+  deprecado: { label: 'Deprecado', pill: 'bg-ltcard2 border-ltb', text: 'text-lttm' },
+  retirado: { label: 'Retirado', pill: 'bg-red-dim border-reb', text: 'text-re' },
+};
+
+const OUTPUT_LABELS: Record<string, string> = {
+  decision: 'Decisión',
+  clasificacion: 'Clasificación',
+  prediccion: 'Predicción',
+  recomendacion: 'Recomendación',
+  ranking: 'Ranking',
+  deteccion: 'Detección',
+  generacion: 'Generación',
+  otro: 'Otro',
+};
+
+const AI_TYPE_LABELS: Record<string, string> = {
+  clasico: 'ML clásico',
+  generativo: 'IA generativa',
+  nlp: 'NLP',
+  cv: 'Visión por computador',
+  reglas: 'Sistema híbrido / reglas',
+  agentico: 'Sistema agéntico',
+};
+
+const PROVIDER_LABELS: Record<string, string> = {
+  interno: 'Interno',
+  proveedor: 'Proveedor externo',
+  saas: 'SaaS',
+  open_source: 'Open Source',
+  mixto: 'Mixto',
+};
+
+const OVERSIGHT_LABELS: Record<string, string> = {
+  previo: 'Revisión previa a la decisión',
+  posterior: 'Revisión posterior con posibilidad de reversión',
+  muestral: 'Revisión muestral periódica',
+  umbral: 'Intervención solo si supera umbral de riesgo',
+  auditoria: 'Solo auditoría retrospectiva',
+};
+
+const DOC_STATUS_LABELS: Record<string, string> = {
+  si: 'Sí',
+  parcial: 'Parcial',
+  proceso: 'En proceso',
+  no: 'No',
+};
+
+const CERT_STATUS_LABELS: Record<string, string> = {
+  declaracion_emitida: 'Declaración de conformidad emitida',
+  en_evaluacion: 'En proceso de evaluación',
+  certificacion_ce: 'Certificación CE obtenida',
+  pendiente: 'Pendiente de iniciar',
+  no_aplica: 'No aplica',
+};
+
+const EVIDENCE_STATUS_META: Record<string, { label: string; pill: string }> = {
+  draft: { label: 'Borrador', pill: 'bg-ltcard2 text-lttm border-ltb' },
+  valid: { label: 'Válida', pill: 'bg-grdim text-gr border-grb' },
+  expired: { label: 'Caducada', pill: 'bg-red-dim text-re border-reb' },
+  pending_review: { label: 'Pendiente de revisión', pill: 'bg-ordim text-or border-orb' },
+  rejected: { label: 'Rechazada', pill: 'bg-red-dim text-re border-reb' },
+};
+
+const EVIDENCE_TYPE_LABELS: Record<string, string> = {
+  technical_doc: 'Documentación técnica',
+  dpia: 'DPIA',
+  policy: 'Política',
+  contract: 'Contrato',
+  test: 'Test',
+  report: 'Informe',
+  screenshot: 'Captura',
+  record: 'Registro',
+  other: 'Otro',
+};
+
+const EVIDENCE_TYPE_OPTIONS = [
+  { value: 'technical_doc', label: 'Documentación técnica' },
+  { value: 'dpia', label: 'DPIA' },
+  { value: 'policy', label: 'Política' },
+  { value: 'contract', label: 'Contrato' },
+  { value: 'test', label: 'Test' },
+  { value: 'report', label: 'Informe' },
+  { value: 'screenshot', label: 'Captura' },
+  { value: 'record', label: 'Registro' },
+  { value: 'other', label: 'Otro' },
+] as const;
+
+const FAILURE_MODE_DIMENSIONS: Record<string, { label: string; order: number; accent: string; badge: string }> = {
+  tecnica: { label: 'Técnicos', order: 1, accent: 'text-brand-blue', badge: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
+  legal_b: { label: 'Legales', order: 2, accent: 'text-re', badge: 'bg-red-dim border-reb text-re' },
+  etica: { label: 'Éticos', order: 3, accent: 'text-[#8850ff]', badge: 'bg-[#f1ebff] border-[#d2c1ff] text-[#8850ff]' },
+  seguridad: { label: 'Seguridad', order: 4, accent: 'text-or', badge: 'bg-ordim border-orb text-or' },
+  gobernanza: { label: 'Gobernanza', order: 5, accent: 'text-ltt', badge: 'bg-ltcard2 border-ltb text-ltt' },
+  roi: { label: 'ROI', order: 6, accent: 'text-gr', badge: 'bg-grdim border-grb text-gr' },
+};
+
+const FAILURE_MODE_SOURCE_LABELS: Record<string, string> = {
+  rule: 'Motor de reglas',
+  ai: 'Refinado IA',
+  manual: 'Manual',
+};
+
+const FAILURE_MODE_PRIORITY_STATUS_META: Record<
+  string,
+  { label: string; pill: string; accent: string }
+> = {
+  pending_review: {
+    label: 'Pendiente de priorizar',
+    pill: 'bg-ltcard text-lttm border-ltb',
+    accent: 'text-lttm',
+  },
+  prioritized: {
+    label: 'Prioritario',
+    pill: 'bg-red-dim text-re border-reb',
+    accent: 'text-re',
+  },
+  monitoring: {
+    label: 'En observación',
+    pill: 'bg-ordim text-or border-orb',
+    accent: 'text-or',
+  },
+  dismissed: {
+    label: 'Descartado',
+    pill: 'bg-ltcard2 text-lttm border-ltb',
+    accent: 'text-lttm',
+  },
+};
+
+const FAILURE_MODE_PRIORITY_LEVEL_META: Record<
+  string,
+  { label: string; pill: string }
+> = {
+  critical: { label: 'Critical', pill: 'bg-red-dim text-re border-reb' },
+  high: { label: 'High', pill: 'bg-[#fff1e6] text-or border-orb' },
+  medium: { label: 'Medium', pill: 'bg-cyan-dim text-brand-cyan border-cyan-border' },
+  low: { label: 'Low', pill: 'bg-ltcard text-lttm border-ltb' },
+};
+
+const FAILURE_MODE_PAGE_SIZE = 20;
+
+const OBLIGATION_STATUS_META: Record<string, { label: string; dot: string; color: string; fill: string; thin: string }> = {
+  pending: { label: 'Pendiente', dot: 'bg-re', color: 'text-re', fill: 'bg-re', thin: 'bg-ltb' },
+  in_progress: { label: 'En progreso', dot: 'bg-or', color: 'text-or', fill: 'bg-or', thin: 'bg-ltb' },
+  resolved: { label: 'Resuelta', dot: 'bg-gr', color: 'text-gr', fill: 'bg-gr', thin: 'bg-ltb' },
+  blocked: { label: 'Bloqueada', dot: 'bg-[#7c5cff]', color: 'text-[#7c5cff]', fill: 'bg-[#7c5cff]', thin: 'bg-ltb' },
+};
+
+function formatDate(value: string | null, opts?: Intl.DateTimeFormatOptions) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('es-ES', opts ?? { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+}
+
+function formatJoined(values: string[] | null | undefined) {
+  if (!values || values.length === 0) return '—';
+  return values.join(' · ');
+}
+
+function formatBool(value: boolean | null, trueLabel = 'Sí', falseLabel = 'No') {
+  if (value === null) return '—';
+  return value ? trueLabel : falseLabel;
+}
+
+function formatDocStatus(value: string | null) {
+  return value ? DOC_STATUS_LABELS[value] ?? value : '—';
+}
+
+function obligationStatusFromSystem(system: SystemDetailData, obligation: string) {
+  if (obligation.includes('Art. 9')) return mapStatus(system.has_risk_assessment);
+  if (obligation.includes('Art. 10')) return mapStatus(system.training_data_doc);
+  if (obligation.includes('Art. 11')) return mapStatus(system.has_tech_doc);
+  if (obligation.includes('Art. 12')) return mapStatus(system.has_logging);
+  if (obligation.includes('Art. 14')) return mapStatus(system.has_human_oversight);
+  if (obligation.includes('Art. 15')) return system.has_adversarial_test ? 'ok' : 'gap';
+  return 'gap';
+}
+
+function mapStatus(value: string | null) {
+  if (value === 'si') return 'ok';
+  if (value === 'parcial' || value === 'proceso') return 'partial';
+  return 'gap';
+}
+
+function getOblStatus(status: string) {
+  return {
+    ok: { color: 'text-gr', dot: 'bg-gr', label: 'Implementado', fill: 'bg-gr', thin: 'bg-ltb' },
+    partial: { color: 'text-or', dot: 'bg-or', label: 'Parcial', fill: 'bg-or', thin: 'bg-ltb' },
+    gap: { color: 'text-re', dot: 'bg-re', label: 'Sin implementar', fill: 'bg-re', thin: 'bg-ltb' },
+  }[status] ?? { color: 'text-lttm', dot: 'bg-ltb', label: 'Desconocido', fill: 'bg-ltb', thin: 'bg-ltb' };
+}
+
+function getIsoCheckStyle(status: string | null) {
+  if (status === 'si') return { pill: 'bg-grdim text-gr border-grb', bar: 'bg-gr', label: 'Implementado' };
+  if (status === 'parcial' || status === 'proceso') return { pill: 'bg-ordim text-or border-orb', bar: 'bg-or', label: 'Parcial' };
+  return { pill: 'bg-red-dim text-re border-reb', bar: 'bg-re', label: 'Pendiente' };
+}
+
+function getIsoGroupForCheck(key: string | null) {
+  if (!key) return 'Seguimiento';
+  if (['aiOwner', 'dpoInvolved', 'reviewFrequency', 'incidentContact'].includes(key)) return 'Gobierno';
+  if (['hasRiskAssessment', 'humanOversight', 'dpiaCompleted', 'hasAdversarialTest'].includes(key)) return 'Riesgo y supervisión';
+  return 'Documentación y trazabilidad';
+}
+
+function getEvidenceTypeLabel(value: string) {
+  return EVIDENCE_TYPE_LABELS[value] ?? value;
+}
+
+function isInternalAppUrl(value: string | null | undefined) {
+  if (!value) return false;
+
+  if (value.startsWith('/')) return true;
+
+  try {
+    const url = new URL(value);
+    return url.pathname.startsWith('/inventario/');
+  } catch {
+    return false;
+  }
+}
+
+function heuristicObligationStatus(systemStatus: string) {
+  if (systemStatus === 'ok') return 'resolved';
+  if (systemStatus === 'partial') return 'in_progress';
+  return 'pending';
+}
+
+function obligationProgressFromStatus(status: string) {
+  if (status === 'resolved') return 100;
+  if (status === 'in_progress') return 55;
+  if (status === 'blocked') return 15;
+  return 0;
+}
+
+function getHistoryEventVisual(eventType: string) {
+  if (eventType === 'system_created') return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Alta' };
+  if (eventType === 'system_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Edición' };
+  if (eventType === 'classification_recalculated' || eventType === 'classification_reviewed') {
+    return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
+  }
+  if (eventType === 'iso_recalculated') return { tone: 'bg-ordim text-or border-orb', label: 'ISO 42001' };
+  if (eventType === 'failure_modes_activated') return { tone: 'bg-[#f1ebff] text-[#8850ff] border-[#d2c1ff]', label: 'FMEA' };
+  if (eventType.startsWith('obligation_')) return { tone: 'bg-grdim text-gr border-grb', label: 'Obligación' };
+  if (eventType.startsWith('evidence_')) return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Evidencia' };
+  return { tone: 'bg-ltcard2 text-lttm border-ltb', label: 'Evento' };
+}
+
+function buildSyntheticHistory(system: SystemDetailData): SystemHistoryEntry[] {
+  const events: SystemHistoryEntry[] = [
+    {
+      id: 'synthetic-created',
+      event_type: 'system_created',
+      event_title: 'Sistema registrado',
+      event_summary: `Se registró ${system.name} en el inventario.`,
+      payload: {},
+      actor_user_id: system.created_by,
+      actor_name: null,
+      created_at: system.created_at,
+      synthetic: true,
+    },
+  ];
+
+  if (system.aiact_classified_at) {
+    events.push({
+      id: 'synthetic-classification',
+      event_type: 'classification_recalculated',
+      event_title: 'Clasificación AI Act calculada',
+      event_summary: system.aiact_risk_level
+        ? `La clasificación vigente quedó en ${RISK_CONFIG[system.aiact_risk_level]?.label ?? system.aiact_risk_level}.`
+        : 'Se registró una clasificación AI Act.',
+      payload: {
+        risk_level: system.aiact_risk_level,
+        obligations: system.aiact_obligations ?? [],
+      },
+      actor_user_id: system.aiact_classified_by,
+      actor_name: null,
+      created_at: system.aiact_classified_at,
+      synthetic: true,
+    });
+  }
+
+  if (system.iso_42001_updated_at) {
+    events.push({
+      id: 'synthetic-iso',
+      event_type: 'iso_recalculated',
+      event_title: 'Madurez ISO 42001 calculada',
+      event_summary:
+        system.iso_42001_score === null
+          ? 'Se registró una actualización de madurez ISO.'
+          : `El score ISO vigente quedó en ${system.iso_42001_score}%.`,
+      payload: {
+        score: system.iso_42001_score,
+      },
+      actor_user_id: system.updated_by ?? system.created_by,
+      actor_name: null,
+      created_at: system.iso_42001_updated_at,
+      synthetic: true,
+    });
+  }
+
+  if (system.updated_at !== system.created_at) {
+    events.push({
+      id: 'synthetic-updated',
+      event_type: 'system_updated',
+      event_title: 'Ficha del sistema actualizada',
+      event_summary: 'Se detectó una actualización de la ficha técnica del sistema.',
+      payload: {},
+      actor_user_id: system.updated_by,
+      actor_name: null,
+      created_at: system.updated_at,
+      synthetic: true,
+    });
+  }
+
+  return events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+export function SystemDetailClient({
+  system,
+  organizationId,
+  history,
+  evidences,
+  obligationRecords,
+  failureModes,
+  systemGraph,
+}: {
+  system: SystemDetailData;
+  organizationId: string;
+  history: SystemHistoryEntry[];
+  evidences: SystemEvidenceEntry[];
+  obligationRecords: SystemObligationEntry[];
+  failureModes: SystemFailureModeEntry[];
+  systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
+}) {
+  const searchParams = useSearchParams();
+  const { profile, user } = useAuthStore();
+  const [localHistory, setLocalHistory] = useState<SystemHistoryEntry[]>(history);
+  const [activeTab, setActiveTab] = useState(() => resolveInitialSystemTab(searchParams.get('tab')));
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+  const [isCausalMapOpen, setIsCausalMapOpen] = useState(false);
+  const [evidenceModalSource, setEvidenceModalSource] = useState<'general' | 'obligation'>('general');
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [evidenceForm, setEvidenceForm] = useState({
+    title: '',
+    evidenceType: 'technical_doc',
+    externalUrl: '',
+    description: '',
+    status: 'draft',
+    version: '',
+    issuedAt: '',
+    expiresAt: '',
+  });
+  const [isSubmittingEvidence, startEvidenceTransition] = useTransition();
+  const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
+  const [obligationError, setObligationError] = useState<string | null>(null);
+  const [selectedObligationCode, setSelectedObligationCode] = useState<string | null>(null);
+  const [obligationForm, setObligationForm] = useState({
+    status: 'pending',
+    priority: 'medium',
+    dueDate: '',
+    notes: '',
+    resolutionNotes: '',
+    evidenceIds: [] as string[],
+  });
+  const [isSubmittingObligation, startObligationTransition] = useTransition();
+  const [isClassificationModalOpen, setIsClassificationModalOpen] = useState(false);
+  const [classificationError, setClassificationError] = useState<string | null>(null);
+  const [classificationForm, setClassificationForm] = useState({
+    domain: system.domain,
+    intendedUse: system.intended_use ?? '',
+    outputType: system.output_type ?? '',
+    interactsPersons: system.interacts_persons,
+    isAISystem: system.is_ai_system,
+    isGPAI: system.is_gpai,
+    prohibitedPractice: system.prohibited_practice,
+    affectsPersons: system.affects_persons,
+    vulnerableGroups: system.vulnerable_groups,
+    hasMinors: system.involves_minors,
+    biometric: system.uses_biometric_data,
+    criticalInfra: system.manages_critical_infra,
+    reviewNotes: '',
+  });
+  const [isSubmittingClassification, startClassificationTransition] = useTransition();
+  const [failureModeError, setFailureModeError] = useState<string | null>(null);
+  const [isActivatingFailureModes, startFailureModeTransition] = useTransition();
+  const [failureModeDimensionFilter, setFailureModeDimensionFilter] = useState('all');
+  const [failureModePriorityFilter, setFailureModePriorityFilter] = useState('all');
+  const [failureModeSortBy, setFailureModeSortBy] = useState<'score' | 'cascade'>('score');
+  const [failureModePage, setFailureModePage] = useState(1);
+  const router = useRouter();
+
+  useEffect(() => {
+    setActiveTab(resolveInitialSystemTab(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
+  const [liveRiskLevel, setLiveRiskLevel] = useState<RiskLevel>(
+    (system.aiact_risk_level as RiskLevel) ?? 'pending'
+  );
+
+  const domainMeta = DOMAIN_LABELS[system.domain] ?? DOMAIN_LABELS.otro;
+  const riskMeta = RISK_CONFIG[liveRiskLevel] ?? RISK_CONFIG[system.aiact_risk_level] ?? RISK_CONFIG.pending;
+  const statusMeta = STATUS_CONFIG[system.status] ?? STATUS_CONFIG.deprecado;
+
+  const obligations = useMemo(() => {
+    const persistedByCode = new Map(
+      obligationRecords
+        .filter((record) => record.source_framework === 'AI_ACT')
+        .map((record) => [record.obligation_code ?? record.title, record])
+    );
+
+    const items = (system.aiact_obligations ?? []).map((obligation) => {
+      const ref = obligation.split(' — ')[0] ?? obligation;
+      const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
+      const heuristicStatus = obligationStatusFromSystem(system, obligation);
+      const systemStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
+      return {
+        id: persisted?.id ?? null,
+        name: obligation,
+        ref,
+        systemStatus: heuristicStatus,
+        status: systemStatus,
+        statusLabel: OBLIGATION_STATUS_META[systemStatus]?.label ?? 'Pendiente',
+        progress: obligationProgressFromStatus(systemStatus),
+        priority: persisted?.priority ?? 'medium',
+        dueDate: persisted?.due_date ?? null,
+        notes: persisted?.notes ?? null,
+        resolutionNotes: persisted?.resolution_notes ?? null,
+        evidenceIds: persisted?.evidence_ids ?? [],
+        ownerName: persisted?.owner_name ?? null,
+        resolvedByName: persisted?.resolved_by_name ?? null,
+      };
+    });
+
+    return items;
+  }, [obligationRecords, system]);
+
+  const compliance = useMemo(() => {
+    if (obligations.length === 0) return 0;
+    return Math.round(obligations.reduce((acc, obligation) => acc + obligation.progress, 0) / obligations.length);
+  }, [obligations]);
+
+  const obligationSummary = useMemo(() => {
+    const resolved = obligations.filter((item) => item.status === 'resolved').length;
+    const inProgress = obligations.filter((item) => item.status === 'in_progress').length;
+    const pending = obligations.filter((item) => item.status === 'pending' || item.status === 'blocked').length;
+    return { resolved, inProgress, pending };
+  }, [obligations]);
+
+  const isoChecks = useMemo(() => system.iso_42001_checks ?? [], [system.iso_42001_checks]);
+
+  const isoSummary = useMemo(() => {
+    const implemented = isoChecks.filter((check) => check.status === 'si').length;
+    const partial = isoChecks.filter((check) => check.status === 'parcial' || check.status === 'proceso').length;
+    const pending = isoChecks.filter((check) => !check.status || check.status === 'no').length;
+
+    const groups = isoChecks.reduce<Record<string, typeof isoChecks>>((acc, check) => {
+      const group = getIsoGroupForCheck(check.key);
+      acc[group] = acc[group] ?? [];
+      acc[group].push(check);
+      return acc;
+    }, {});
+
+    return { implemented, partial, pending, groups };
+  }, [isoChecks]);
+
+  const historyTimeline = useMemo(() => {
+    if (localHistory.length > 0) return localHistory;
+    return buildSyntheticHistory(system);
+  }, [localHistory, system]);
+
+  const hasFailureModeActivationRun = useMemo(
+    () => failureModes.length > 0 || history.some((event) => event.event_type === 'failure_modes_activated'),
+    [failureModes.length, history]
+  );
+
+  const failureModeSummary = useMemo(() => {
+    const grouped = failureModes.reduce<Record<string, SystemFailureModeEntry[]>>((acc, item) => {
+      const key = item.dimension_id;
+      acc[key] = acc[key] ?? [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+
+    const orderedGroups = Object.entries(grouped)
+      .sort((left, right) => {
+        const leftOrder = FAILURE_MODE_DIMENSIONS[left[0]]?.order ?? 99;
+        const rightOrder = FAILURE_MODE_DIMENSIONS[right[0]]?.order ?? 99;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return left[0].localeCompare(right[0]);
+      })
+      .map(([dimensionId, items]) => ({
+        dimensionId,
+        label: FAILURE_MODE_DIMENSIONS[dimensionId]?.label ?? dimensionId,
+        badge: FAILURE_MODE_DIMENSIONS[dimensionId]?.badge ?? 'bg-ltcard2 border-ltb text-ltt',
+        accent: FAILURE_MODE_DIMENSIONS[dimensionId]?.accent ?? 'text-ltt',
+        items: [...items].sort((left, right) => left.code.localeCompare(right.code)),
+      }));
+
+    return {
+      total: failureModes.length,
+      grouped: orderedGroups,
+      dimensions: orderedGroups.length,
+      prioritized: failureModes.filter((item) => item.priority_status === 'prioritized').length,
+      monitoring: failureModes.filter((item) => item.priority_status === 'monitoring').length,
+      dismissed: failureModes.filter((item) => item.priority_status === 'dismissed').length,
+      pendingReview: failureModes.filter((item) => item.priority_status === 'pending_review').length,
+    };
+  }, [failureModes]);
+
+  const prioritizedFailureModeSummary = useMemo(() => {
+    const prioritizedModes = failureModes.filter((item) => item.priority_status === 'prioritized');
+
+    const topDimensions = Object.entries(
+      prioritizedModes.reduce<Record<string, number>>((acc, item) => {
+        acc[item.dimension_id] = (acc[item.dimension_id] ?? 0) + 1;
+        return acc;
+      }, {})
+    )
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 3)
+      .map(([dimensionId, count]) => ({
+        label: FAILURE_MODE_DIMENSIONS[dimensionId]?.label ?? dimensionId,
+        count,
+      }));
+
+    const topFamilies = Object.entries(
+      prioritizedModes.reduce<Record<string, number>>((acc, item) => {
+        for (const label of item.activation_family_labels) {
+          acc[label] = (acc[label] ?? 0) + 1;
+        }
+        return acc;
+      }, {})
+    )
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 3)
+      .map(([label, count]) => ({ label, count }));
+
+    const severeOverrides = prioritizedModes.filter((item) => (item.s_default ?? 0) >= 8).length;
+    const criticalByScore = prioritizedModes.filter(
+      (item) => item.priority_level === 'critical' && (item.s_default ?? 0) < 8
+    ).length;
+
+    return {
+      topDimensions,
+      topFamilies,
+      severeOverrides,
+      criticalByScore,
+    };
+  }, [failureModes]);
+
+  const causalSummary = useMemo(() => {
+    let withCausalLinks = 0;
+    let rootCauses = 0;
+    let attractors = 0;
+
+    for (const mode of failureModes) {
+      const out = mode.causal_out_degree ?? 0;
+      const inD = mode.causal_in_degree ?? 0;
+      if (out > 0 || inD > 0) withCausalLinks++;
+      if (out >= 2 && out > inD) rootCauses++;
+      if (inD >= 2 && inD > out) attractors++;
+    }
+
+    return { withCausalLinks, rootCauses, attractors };
+  }, [failureModes]);
+
+  const visibleFailureModeDimensions = useMemo(
+    () =>
+      failureModeSummary.grouped.map((group) => ({
+        id: group.dimensionId,
+        label: group.label,
+        count: group.items.length,
+      })),
+    [failureModeSummary.grouped]
+  );
+
+  const filteredFailureModes = useMemo(() => {
+    return failureModes.filter((item) => {
+      const dimensionMatch =
+        failureModeDimensionFilter === 'all' || item.dimension_id === failureModeDimensionFilter;
+      const priorityMatch =
+        failureModePriorityFilter === 'all' || item.priority_status === failureModePriorityFilter;
+
+      return dimensionMatch && priorityMatch;
+    });
+  }, [failureModeDimensionFilter, failureModePriorityFilter, failureModes]);
+
+  const paginatedFailureModes = useMemo(() => {
+    const sorted = [...filteredFailureModes].sort((left, right) => {
+      if (failureModeSortBy === 'cascade') {
+        const leftCascade = (left.causal_out_degree ?? 0) + (left.causal_in_degree ?? 0);
+        const rightCascade = (right.causal_out_degree ?? 0) + (right.causal_in_degree ?? 0);
+        if (rightCascade !== leftCascade) return rightCascade - leftCascade;
+        // Secondary: prefer nodes with higher out-degree (root causes first)
+        const leftOut = left.causal_out_degree ?? 0;
+        const rightOut = right.causal_out_degree ?? 0;
+        if (rightOut !== leftOut) return rightOut - leftOut;
+      }
+      if ((right.priority_score ?? -1) !== (left.priority_score ?? -1)) {
+        return (right.priority_score ?? -1) - (left.priority_score ?? -1);
+      }
+      const leftOrder = FAILURE_MODE_DIMENSIONS[left.dimension_id]?.order ?? 99;
+      const rightOrder = FAILURE_MODE_DIMENSIONS[right.dimension_id]?.order ?? 99;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return left.code.localeCompare(right.code);
+    });
+
+    const totalPages = Math.max(1, Math.ceil(sorted.length / FAILURE_MODE_PAGE_SIZE));
+    const currentPage = Math.min(failureModePage, totalPages);
+    const start = (currentPage - 1) * FAILURE_MODE_PAGE_SIZE;
+    const pageItems = sorted.slice(start, start + FAILURE_MODE_PAGE_SIZE);
+
+    const grouped = pageItems.reduce<
+      Array<{
+        dimensionId: string;
+        label: string;
+        badge: string;
+        accent: string;
+        items: SystemFailureModeEntry[];
+      }>
+    >((acc, item) => {
+      const existing = acc.find((group) => group.dimensionId === item.dimension_id);
+      if (existing) {
+        existing.items.push(item);
+        return acc;
+      }
+
+      acc.push({
+        dimensionId: item.dimension_id,
+        label: FAILURE_MODE_DIMENSIONS[item.dimension_id]?.label ?? item.dimension_id,
+        badge: FAILURE_MODE_DIMENSIONS[item.dimension_id]?.badge ?? 'bg-ltcard2 border-ltb text-ltt',
+        accent: FAILURE_MODE_DIMENSIONS[item.dimension_id]?.accent ?? 'text-ltt',
+        items: [item],
+      });
+      return acc;
+    }, []);
+
+    return {
+      total: sorted.length,
+      totalPages,
+      currentPage,
+      start: sorted.length === 0 ? 0 : start + 1,
+      end: Math.min(start + FAILURE_MODE_PAGE_SIZE, sorted.length),
+      grouped,
+    };
+  }, [failureModePage, failureModeSortBy, filteredFailureModes]);
+
+  useEffect(() => {
+    setFailureModePage(1);
+  }, [failureModeDimensionFilter, failureModePriorityFilter, failureModeSortBy]);
+
+  useEffect(() => {
+    if (failureModePage > paginatedFailureModes.totalPages) {
+      setFailureModePage(paginatedFailureModes.totalPages);
+    }
+  }, [failureModePage, paginatedFailureModes.totalPages]);
+
+  const evidenceSummary = useMemo(() => {
+    return {
+      total: evidences.length,
+      valid: evidences.filter((item) => item.status === 'valid').length,
+      pending: evidences.filter((item) => item.status === 'pending_review' || item.status === 'draft').length,
+      expired: evidences.filter((item) => item.status === 'expired').length,
+    };
+  }, [evidences]);
+
+  const classificationPreview = useMemo(() => {
+    return classifyAIAct({
+      domain: classificationForm.domain,
+      intendedUse: classificationForm.intendedUse,
+      outputType: classificationForm.outputType,
+      interactsPersons: classificationForm.interactsPersons,
+      isAISystem: classificationForm.isAISystem,
+      isGPAI: classificationForm.isGPAI,
+      prohibitedPractice: classificationForm.prohibitedPractice,
+      affectsPersons: classificationForm.affectsPersons,
+      vulnerableGroups: classificationForm.vulnerableGroups,
+      hasMinors: classificationForm.hasMinors,
+      biometric: classificationForm.biometric,
+      criticalInfra: classificationForm.criticalInfra,
+    });
+  }, [classificationForm]);
+
+  const selectedObligation = useMemo(
+    () => obligations.find((item) => item.ref === selectedObligationCode) ?? null,
+    [obligations, selectedObligationCode]
+  );
+
+  const handleActivateFailureModes = () => {
+    setFailureModeError(null);
+
+    startFailureModeTransition(async () => {
+      const result = await activateSystemFailureModes({
+        aiSystemId: system.id,
+      });
+
+      if (result?.error) {
+        setFailureModeError(result.error);
+        return;
+      }
+
+      router.refresh();
+    });
+  };
+
+  const openEvidenceModal = () => {
+    setActiveTab('Evidencias');
+    setEvidenceModalSource('general');
+    setEvidenceError(null);
+    setIsEvidenceModalOpen(true);
+  };
+
+  const openClassificationModal = () => {
+    setClassificationForm({
+      domain: system.domain,
+      intendedUse: system.intended_use ?? '',
+      outputType: system.output_type ?? '',
+      interactsPersons: system.interacts_persons,
+      isAISystem: system.is_ai_system,
+      isGPAI: system.is_gpai,
+      prohibitedPractice: system.prohibited_practice,
+      affectsPersons: system.affects_persons,
+      vulnerableGroups: system.vulnerable_groups,
+      hasMinors: system.involves_minors,
+      biometric: system.uses_biometric_data,
+      criticalInfra: system.manages_critical_infra,
+      reviewNotes: '',
+    });
+    setClassificationError(null);
+    setIsClassificationModalOpen(true);
+  };
+
+  const closeClassificationModal = () => {
+    setIsClassificationModalOpen(false);
+    setClassificationError(null);
+  };
+
+  const openEvidenceModalFromObligation = () => {
+    setEvidenceModalSource('obligation');
+    setEvidenceError(null);
+    setIsEvidenceModalOpen(true);
+  };
+
+  const resetEvidenceForm = () => {
+    setEvidenceForm({
+      title: '',
+      evidenceType: 'technical_doc',
+      externalUrl: '',
+      description: '',
+      status: 'draft',
+      version: '',
+      issuedAt: '',
+      expiresAt: '',
+    });
+    setEvidenceError(null);
+  };
+
+  const closeEvidenceModal = () => {
+    setIsEvidenceModalOpen(false);
+    resetEvidenceForm();
+  };
+
+  const openObligationModal = (obligationCode: string) => {
+    const obligation = obligations.find((item) => item.ref === obligationCode);
+    if (!obligation) return;
+
+    setSelectedObligationCode(obligationCode);
+    setObligationForm({
+      status: obligation.status,
+      priority: obligation.priority,
+      dueDate: obligation.dueDate ?? '',
+      notes: obligation.notes ?? '',
+      resolutionNotes: obligation.resolutionNotes ?? '',
+      evidenceIds: obligation.evidenceIds,
+    });
+    setObligationError(null);
+    setIsObligationModalOpen(true);
+  };
+
+  const closeObligationModal = () => {
+    setIsObligationModalOpen(false);
+    setSelectedObligationCode(null);
+    setObligationError(null);
+  };
+
+  const handleEvidenceSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setEvidenceError(null);
+
+    startEvidenceTransition(async () => {
+      const result = await createSystemEvidence({
+        aiSystemId: system.id,
+        title: evidenceForm.title,
+        description: evidenceForm.description,
+        evidenceType: evidenceForm.evidenceType,
+        externalUrl: evidenceForm.externalUrl,
+        status: evidenceForm.status,
+        version: evidenceForm.version,
+        issuedAt: evidenceForm.issuedAt,
+        expiresAt: evidenceForm.expiresAt,
+      });
+
+      if (result?.error) {
+        setEvidenceError(result.error);
+        return;
+      }
+
+      if (evidenceModalSource === 'obligation' && result?.id) {
+        setObligationForm((current) => ({
+          ...current,
+          evidenceIds: current.evidenceIds.includes(result.id)
+            ? current.evidenceIds
+            : [...current.evidenceIds, result.id],
+        }));
+      }
+
+      closeEvidenceModal();
+      router.refresh();
+    });
+  };
+
+  const handleObligationSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedObligation) return;
+
+    setObligationError(null);
+
+    startObligationTransition(async () => {
+      const result = await resolveSystemObligation({
+        aiSystemId: system.id,
+        obligationCode: selectedObligation.ref,
+        obligationTitle: selectedObligation.name,
+        status: obligationForm.status,
+        priority: obligationForm.priority,
+        dueDate: obligationForm.dueDate,
+        notes: obligationForm.notes,
+        resolutionNotes: obligationForm.resolutionNotes,
+        evidenceIds: obligationForm.evidenceIds,
+      });
+
+      if (result?.error) {
+        setObligationError(result.error);
+        return;
+      }
+
+      closeObligationModal();
+      router.refresh();
+    });
+  };
+
+  const handleClassificationSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setClassificationError(null);
+
+    startClassificationTransition(async () => {
+      const result = await reviewSystemClassification({
+        aiSystemId: system.id,
+        domain: classificationForm.domain,
+        intendedUse: classificationForm.intendedUse,
+        outputType: classificationForm.outputType,
+        interactsPersons: classificationForm.interactsPersons,
+        isAISystem: classificationForm.isAISystem,
+        isGPAI: classificationForm.isGPAI,
+        prohibitedPractice: classificationForm.prohibitedPractice,
+        affectsPersons: classificationForm.affectsPersons,
+        vulnerableGroups: classificationForm.vulnerableGroups,
+        hasMinors: classificationForm.hasMinors,
+        biometric: classificationForm.biometric,
+        criticalInfra: classificationForm.criticalInfra,
+        reviewNotes: classificationForm.reviewNotes,
+      });
+
+      if (result?.error) {
+        setClassificationError(result.error);
+        return;
+      }
+
+      closeClassificationModal();
+      router.refresh();
+    });
+  };
+
+  const circleRadius = 52;
+  const circleCircumference = 2 * Math.PI * circleRadius;
+  const strokeDasharray = `${circleCircumference * (compliance / 100)} ${circleCircumference}`;
+
+  const fichaRows = [
+    { key: 'Descripción', val: system.description ?? '—' },
+    { key: 'Uso previsto', val: system.intended_use ?? '—' },
+    { key: 'Dominio de aplicación', val: domainMeta.label },
+    { key: 'Tipo de output', val: system.output_type ? OUTPUT_LABELS[system.output_type] ?? system.output_type : '—' },
+    { key: '¿Afecta a personas?', val: formatBool(system.affects_persons) },
+    { key: 'Tipo de sistema IA', val: system.ai_system_type ? AI_TYPE_LABELS[system.ai_system_type] ?? system.ai_system_type : '—' },
+    { key: 'Modelo base', val: system.base_model ?? '—' },
+    { key: 'Datos de entrenamiento', val: `${formatDocStatus(system.training_data_doc)} · ${formatJoined(system.data_sources)}` },
+    { key: 'Proveedor / Origen', val: system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : '—' },
+    { key: 'Responsable técnico', val: system.tech_lead ?? '—' },
+    { key: 'Fecha de despliegue', val: formatDate(system.deployed_at) },
+    { key: 'Entornos activos', val: formatJoined(system.active_environments) },
+    { key: 'Documentación existente', val: formatDocStatus(system.has_tech_doc) },
+    { key: 'Revisión humana', val: system.has_human_oversight ? `${formatDocStatus(system.has_human_oversight)}${system.oversight_type ? ` · ${OVERSIGHT_LABELS[system.oversight_type] ?? system.oversight_type}` : ''}` : '—' },
+  ];
+
+  return (
+    <div className="flex flex-col min-h-screen bg-ltbg text-ltt">
+      <div className="h-14 bg-ltcard border-b border-ltb flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-2 font-plex text-[12px] text-lttm">
+          <Link href="/inventario" className="flex items-center gap-1 hover:text-brand-cyan transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Inventario
+          </Link>
+          <span className="text-ltb">/</span>
+          <span className="text-ltt font-medium">{system.name}</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all">
+            <Download className="w-3.5 h-3.5" /> Exportar PDF
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all">
+            <Bot className="w-3.5 h-3.5" /> Abrir agente
+          </button>
+          <button
+            onClick={openEvidenceModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all border-0"
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Nueva evidencia
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 max-w-[1440px] mx-auto w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-ltcard rounded-[12px] border border-ltb shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden min-h-full">
+          <div className="flex flex-col min-w-0 bg-ltcard">
+            <div className="pt-8 px-8 pb-0 border-b border-ltb bg-gradient-to-b from-ltcard to-ltbg">
+              <div className="flex items-start gap-5 mb-6">
+                <div className="w-14 h-14 rounded-[12px] bg-ltcard2 border border-ltb flex items-center justify-center text-[28px] shrink-0 shadow-sm">
+                  {domainMeta.emoji}
+                </div>
+                <div className="flex-1 min-w-0 mt-1">
+                  <h1 className="font-fraunces text-[24px] font-semibold text-ltt tracking-[-0.5px] mb-2.5 leading-tight">
+                    {system.name}
+                  </h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${riskMeta.pill} ${riskMeta.text}`}>
+                      <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${riskMeta.text.replace('text-', 'bg-')}`} />
+                      {riskMeta.label}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${statusMeta.pill} ${statusMeta.text}`}>
+                      {statusMeta.label}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ltcard2 text-lttm border border-ltb">
+                      {system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : 'Origen no definido'}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-cyan-dim text-brand-cyan border border-cyan-border">
+                      {domainMeta.label}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ordim text-or border border-orb">
+                      <AlertTriangle className="w-3 h-3" /> {system.next_audit_date ? `Auditoría ${formatDate(system.next_audit_date)}` : 'Sin auditoría planificada'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex bg-ltcard2 border border-ltb rounded-[10px] overflow-hidden shrink-0 self-start shadow-sm">
+                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
+                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Compliance</div>
+                    <div className="font-fraunces text-[20px] font-semibold text-re leading-none mb-1">{compliance}%</div>
+                    <div className="font-sora text-[11px] text-lttm">{obligationSummary.pending} pendientes críticas</div>
+                  </div>
+                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
+                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Obligaciones</div>
+                    <div className="font-fraunces text-[20px] font-semibold text-ltt leading-none mb-1">{obligations.length}</div>
+                    <div className="font-sora text-[11px] text-lttm">{obligationSummary.resolved} OK · {obligationSummary.inProgress} en curso · {obligationSummary.pending} pendientes</div>
+                  </div>
+                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
+                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Próx. hito</div>
+                    <div className="font-fraunces text-[20px] font-semibold text-or leading-none mb-1">
+                      {system.next_audit_date ? formatDate(system.next_audit_date, { day: '2-digit', month: 'short' }) : '—'}
+                    </div>
+                    <div className="font-sora text-[11px] text-lttm">{system.cert_status ? CERT_STATUS_LABELS[system.cert_status] ?? system.cert_status : 'Sin hito registrado'}</div>
+                  </div>
+                  <div className="px-4 py-2.5 min-w-[100px]">
+                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Responsable</div>
+                    <div className="font-sora text-[15px] font-semibold text-ltt leading-none mb-1 mt-[3px]">{system.ai_owner ?? '—'}</div>
+                    <div className="font-sora text-[11px] text-lttm mt-[5px]">{system.responsible_team ?? 'Sin equipo asignado'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-transparent">
+                <div className="flex items-center gap-1">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab as TabName)}
+                      className={`px-4 py-3 text-[13px] font-sora font-medium whitespace-nowrap transition-colors border-b-2 ${
+                        activeTab === tab ? 'border-brand-cyan text-brand-cyan' : 'border-transparent text-lttm hover:text-ltt'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsCausalMapOpen(true)}
+                  className="flex items-center gap-1.5 mr-2 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltcard font-sora text-[11.5px] text-lttm hover:border-cyan-border hover:text-brand-cyan hover:bg-cyan-dim transition-all shrink-0"
+                >
+                  <GitFork size={12} />
+                  Grafo causal
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 flex flex-col gap-6">
+              <div className="bg-[#00adef0a] border border-[#00adef30] rounded-[12px] p-5 flex gap-4 transition-all">
+                <div className="w-9 h-9 bg-cyan-dim text-brand-cyan rounded-[8px] flex items-center justify-center shrink-0">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-sora text-[13.5px] font-semibold text-ltt mb-1.5 flex items-center gap-2">
+                    El agente necesita tu input
+                    <span className="px-2 py-0.5 rounded-full bg-ordim text-or border border-orb text-[9.5px] font-plex uppercase tracking-wider">Pendiente</span>
+                  </div>
+                  <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-3.5">
+                    Esta zona sigue en modo guiado. Cuando conectemos las tablas de obligaciones y evidencias, el agente podrá pedir aclaraciones precisas sobre este sistema sin cambiar el diseño actual.
+                  </div>
+                  <div className="flex gap-2.5 flex-wrap">
+                    <button className="px-3.5 py-1.5 rounded-full font-sora text-[12px] font-medium border border-[#00adef40] bg-[#00adef15] text-brand-cyan hover:bg-[#00adef25] transition-colors">
+                      Responder después
+                    </button>
+                    <button className="px-3.5 py-1.5 rounded-full font-sora text-[12px] font-medium border border-ltb bg-transparent text-lttm hover:bg-ltbg hover:text-ltt transition-colors flex items-center gap-1.5">
+                      Abrir contexto <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {activeTab === 'Obligaciones AI Act' && (
+                <>
+                  <div className="bg-gradient-to-br from-[#f851490a] to-ltbg border border-reb rounded-[12px] p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1">
+                        <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-re mb-1.5">Clasificación AI Act — Resultado general</div>
+                        <div className={`font-fraunces text-[22px] font-semibold mb-1.5 ${riskMeta.text}`}>{riskMeta.label}</div>
+                        <div className="font-plex text-[11.5px] text-lttm">
+                          Fundamento: {system.aiact_risk_basis ?? 'Pendiente'} · Evaluado {formatDate(system.aiact_classified_at)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsAgentPanelOpen(true)}
+                          disabled={isAgentPanelOpen}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-brand-cyan hover:bg-cyan-dim hover:text-brand-cyan border border-cyan-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Bot className="w-3.5 h-3.5" />
+                          Clasificar con IA
+                        </button>
+                        <button
+                          onClick={openClassificationModal}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all"
+                        >
+                          ✏ Revisar clasificación
+                        </button>
+                      </div>
+                    </div>
+                    <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-4 border-l-2 border-re pl-3 ml-0.5">
+                      {system.aiact_risk_reason ?? 'Aún no hay explicación narrativa disponible para esta clasificación.'}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {(system.aiact_obligations ?? []).map((obligation) => (
+                        <span
+                          key={obligation}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full font-plex text-[10.5px] font-medium bg-red-dim text-re border border-reb"
+                        >
+                          {obligation}
+                        </span>
+                      ))}
+                    </div>
+
+                    <ClassificationPanel
+                      systemId={system.id}
+                      organizationId={organizationId}
+                      currentLevel={liveRiskLevel}
+                      currentBasis={system.aiact_risk_basis ?? ''}
+                      onConfirmed={(level, summary) => {
+                        setLiveRiskLevel(level);
+                        const actorName = profile
+                          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || user?.email?.split('@')[0] || null
+                          : null;
+                        const newEvent: SystemHistoryEntry = {
+                          id: `agent-${Date.now()}`,
+                          event_type: 'classification_recalculated',
+                          event_title: 'Clasificación AI Act actualizada por agente IA',
+                          event_summary: summary,
+                          payload: { risk_level: level, source: 'agent1' },
+                          actor_user_id: user?.id ?? null,
+                          actor_name: actorName,
+                          created_at: new Date().toISOString(),
+                          synthetic: false,
+                        };
+                        setLocalHistory((prev) => {
+                          const base = prev.length > 0 ? prev : buildSyntheticHistory(system);
+                          return [newEvent, ...base];
+                        });
+                      }}
+                      isOpen={isAgentPanelOpen}
+                      onClose={() => setIsAgentPanelOpen(false)}
+                    />
+                  </div>
+
+                  <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                    <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+                      <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Obligaciones aplicables</span>
+                      <div className="flex gap-1.5 items-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">{obligationSummary.pending} pendientes</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ordim text-or border border-orb">{obligationSummary.inProgress} en curso</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-grdim text-gr border border-grb">{obligationSummary.resolved} resueltas</span>
+                      </div>
+                    </div>
+
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-[#0f141a]">
+                        <tr>
+                          <th className="w-[50px] p-3 border-b border-ltb"></th>
+                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Obligación</th>
+                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Referencia</th>
+                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Estado</th>
+                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Avance</th>
+                          <th className="w-[100px] font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-ltb">
+                        {obligations.map((obligation, index) => {
+                          const status = OBLIGATION_STATUS_META[obligation.status] ?? OBLIGATION_STATUS_META.pending;
+                          return (
+                            <tr key={`${obligation.name}-${index}`} className="hover:bg-ltbg transition-colors cursor-pointer group">
+                              <td className="p-3 pl-4">
+                                <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center text-[14px] ${obligation.status === 'resolved' ? 'bg-grdim' : obligation.status === 'in_progress' ? 'bg-ordim' : obligation.status === 'blocked' ? 'bg-[#7c5cff1a]' : 'bg-red-dim'}`}>
+                                  {obligation.status === 'resolved' ? '🟢' : obligation.status === 'in_progress' ? '🟡' : obligation.status === 'blocked' ? '🟣' : '🔴'}
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-sora text-[13px] font-medium text-ltt">{obligation.name}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-plex text-[11.5px] text-lttm">{obligation.ref}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-[6px] h-[6px] rounded-full shrink-0 ${status.dot}`} />
+                                  <span className={`font-sora text-[12px] font-medium ${status.color}`}>{status.label}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-[70px] h-[4px] rounded-full overflow-hidden ${status.thin}`}>
+                                    <div className={`h-full rounded-full ${status.fill}`} style={{ width: `${obligation.progress}%` }} />
+                                  </div>
+                                  <span className="font-plex text-[11px] text-lttm min-w-[30px]">{obligation.progress}%</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => openObligationModal(obligation.ref)}
+                                  className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
+                                >
+                                  {obligation.status === 'resolved' ? 'Ver' : 'Resolver →'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'Ficha técnica' && (
+                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Atributos del sistema</span>
+                    <Link
+                      href={`/inventario/${system.id}/editar`}
+                      className="px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltbg border border-ltb transition-all"
+                    >
+                      ✏ Editar
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2">
+                    {fichaRows.map((row, index) => (
+                      <div
+                        key={row.key}
+                        className={`p-4 border-b border-ltb ${index % 2 === 0 ? 'md:border-r' : ''} ${index === 0 ? 'col-span-full border-r-0' : ''}`}
+                      >
+                        <div className="font-plex text-[10px] uppercase text-lttm tracking-[0.8px] mb-1.5">{row.key}</div>
+                        <div className="font-sora text-[13.5px] text-ltt leading-relaxed">{row.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'ISO 42001' && (
+                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Evaluación ISO 42001</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                      Madurez org. {system.iso_42001_score ?? 0}%
+                    </span>
+                  </div>
+                  <div className="p-5 border-b border-ltb bg-gradient-to-br from-[#004aad08] to-ltbg">
+                    <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-5">
+                      <div>
+                        <div className="font-fraunces text-[22px] font-semibold text-ltt mb-2">Snapshot real de madurez ISO</div>
+                        <div className="text-[13px] text-ltt2 leading-relaxed">
+                          Esta vista ya usa los checks guardados del sistema y deja preparada la estructura para evolucionar después a una evaluación formal por cláusulas ISO 42001.
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Implementado</div>
+                          <div className="font-fraunces text-[24px] font-semibold text-gr leading-none">{isoSummary.implemented}</div>
+                        </div>
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Parcial</div>
+                          <div className="font-fraunces text-[24px] font-semibold text-or leading-none">{isoSummary.partial}</div>
+                        </div>
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Pendiente</div>
+                          <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{isoSummary.pending}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-ltb">
+                    {Object.entries(isoSummary.groups).map(([groupName, checks]) => (
+                      <div key={groupName} className="p-5">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                          <div>
+                            <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-1">Bloque preparatorio</div>
+                            <div className="font-sora text-[15px] font-semibold text-ltt">{groupName}</div>
+                          </div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">
+                            {checks.length} checks
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {checks.map((check, index) => {
+                            const style = getIsoCheckStyle(check.status);
+                            const segments = Math.max(1, Math.round(((check.weight ?? 0) * 4)));
+                            return (
+                              <div key={`${check.key ?? 'check'}-${index}`} className="border border-ltb rounded-[10px] bg-ltbg p-4">
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center text-[13px] border ${style.pill}`}>
+                                    {check.status === 'si' ? '✓' : check.status === 'parcial' || check.status === 'proceso' ? '~' : '!'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                      <span className="font-sora text-[13px] font-semibold text-ltt">{check.label ?? check.key ?? 'Check ISO'}</span>
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${style.pill}`}>
+                                        {check.status_label ?? style.label}
+                                      </span>
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                                        {check.points_earned ?? 0}/{check.points ?? 0} pts
+                                      </span>
+                                    </div>
+                                    <div className="text-[12.5px] text-lttm leading-relaxed">
+                                      Check guardado en el snapshot actual. Este bloque podrá mapearse más adelante a cláusulas y subcláusulas ISO con notas, prioridades y evidencias.
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1.5 w-full max-w-[220px]">
+                                  {Array.from({ length: 4 }).map((_, level) => (
+                                    <div
+                                      key={level}
+                                      className={`h-1.5 rounded-[2px] flex-1 ${level < segments ? style.bar : 'bg-ltb'}`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'Historial' && (
+                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Historial del sistema</span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                      <History className="w-3 h-3" />
+                      {historyTimeline.length} eventos
+                    </span>
+                  </div>
+                  <div className="p-5">
+                    <div className="space-y-4">
+                      {historyTimeline.map((event, index) => {
+                        const visual = getHistoryEventVisual(event.event_type);
+                        return (
+                          <div key={event.id} className="relative pl-8">
+                            {index !== historyTimeline.length - 1 && (
+                              <div className="absolute left-[11px] top-7 bottom-[-18px] w-px bg-ltb" />
+                            )}
+                            <div className={`absolute left-0 top-1 w-[22px] h-[22px] rounded-full border flex items-center justify-center ${visual.tone}`}>
+                              <span className="font-plex text-[9px] uppercase">{visual.label.slice(0, 2)}</span>
+                            </div>
+                            <div className="border border-ltb rounded-[10px] bg-ltbg p-4">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                    <span className="font-sora text-[13px] font-semibold text-ltt">{event.event_title}</span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${visual.tone}`}>
+                                      {visual.label}
+                                    </span>
+                                    {event.synthetic && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm">
+                                        Snapshot heredado
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+                                    {event.event_summary ?? 'Sin resumen adicional para este evento.'}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-lttm">
+                                    {formatDate(event.created_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                  <div className="font-sora text-[11.5px] text-lttm mt-1">
+                                    {event.actor_name ?? 'Usuario de la organización'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'Evidencias' && (
+                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Repositorio de evidencias</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                        {evidenceSummary.total} registradas
+                      </span>
+                      <button
+                        onClick={openEvidenceModal}
+                        className="px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+                      >
+                        + Añadir evidencia
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-5 border-b border-ltb bg-gradient-to-br from-[#004aad08] to-ltbg">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                        <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Total</div>
+                        <div className="font-fraunces text-[24px] font-semibold text-ltt leading-none">{evidenceSummary.total}</div>
+                      </div>
+                      <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                        <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Válidas</div>
+                        <div className="font-fraunces text-[24px] font-semibold text-gr leading-none">{evidenceSummary.valid}</div>
+                      </div>
+                      <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                        <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Pendientes</div>
+                        <div className="font-fraunces text-[24px] font-semibold text-or leading-none">{evidenceSummary.pending}</div>
+                      </div>
+                      <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                        <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Caducadas</div>
+                        <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{evidenceSummary.expired}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {evidences.length === 0 ? (
+                    <div className="p-12 flex flex-col items-center justify-center text-center">
+                      <div className="w-12 h-12 rounded-full bg-ltbg border border-ltb flex items-center justify-center mb-4">
+                        <Link2 className="w-6 h-6 text-lttm" />
+                      </div>
+                      <div className="text-ltt font-sora font-semibold text-[15px] mb-2">Todavía no hay evidencias registradas</div>
+                      <div className="text-[13px] text-lttm max-w-[420px] mb-5">
+                        Empieza vinculando documentación técnica, DPIAs, políticas, contratos o informes mediante una URL. Más adelante podremos ampliar esta pestaña con subida de archivos a Storage.
+                      </div>
+                      <button
+                        onClick={openEvidenceModal}
+                        className="px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+                      >
+                        Registrar primera evidencia
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-ltb">
+                      {evidences.map((evidence) => {
+                        const statusMeta = EVIDENCE_STATUS_META[evidence.status] ?? EVIDENCE_STATUS_META.draft;
+                        return (
+                          <div key={evidence.id} className="p-5 hover:bg-ltbg transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                  <span className="font-sora text-[14px] font-semibold text-ltt">{evidence.title}</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${statusMeta.pill}`}>
+                                    {statusMeta.label}
+                                  </span>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">
+                                    {getEvidenceTypeLabel(evidence.evidence_type)}
+                                  </span>
+                                  {evidence.version && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                                      v{evidence.version}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-3">
+                                  {evidence.description ?? 'Sin descripción adicional.'}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11.5px] text-lttm font-sora">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-lttm" />
+                                    Responsable: {evidence.owner_name ?? 'Usuario'}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <CalendarClock className="w-3.5 h-3.5 text-lttm" />
+                                    Emitida: {formatDate(evidence.issued_at)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-lttm" />
+                                    Caduca: {formatDate(evidence.expires_at)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <History className="w-3.5 h-3.5 text-lttm" />
+                                    {evidence.linked_obligations_count} obligaciones vinculadas
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="shrink-0 flex flex-col items-end gap-2">
+                                {evidence.external_url &&
+                                  (isInternalAppUrl(evidence.external_url) ? (
+                                    <Link
+                                      href={evidence.external_url}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltcard2 border border-ltb transition-all"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                      Abrir enlace
+                                    </Link>
+                                  ) : (
+                                    <a
+                                      href={evidence.external_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltcard2 border border-ltb transition-all"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                      Abrir enlace
+                                    </a>
+                                  ))}
+                                <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">
+                                  Registrada {formatDate(evidence.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'Modos de fallo' && (
+                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Modos de fallo activados</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                        {failureModeSummary.total} activos
+                      </span>
+                      {hasFailureModeActivationRun && (
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-ltb bg-ltcard2 text-lttm opacity-75 cursor-not-allowed"
+                        >
+                          Activación completada
+                        </button>
+                      )}
+                      {hasFailureModeActivationRun && (
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-cyan-border bg-cyan-dim text-brand-cyan opacity-70 cursor-not-allowed"
+                        >
+                          <Bot className="w-3.5 h-3.5" />
+                          Refinar mediante IA
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!hasFailureModeActivationRun ? (
+                    <div className="p-12 flex flex-col items-center justify-center text-center">
+                      <div className="w-14 h-14 rounded-full bg-ltbg border border-ltb flex items-center justify-center mb-4">
+                        <ShieldAlert className="w-7 h-7 text-lttm" />
+                      </div>
+                      <div className="text-ltt font-sora font-semibold text-[15px] mb-2">Todavía no se han activado modos de fallo</div>
+                      <div className="text-[13px] text-lttm max-w-[560px] mb-3 leading-relaxed">
+                        Esta pestaña genera el subconjunto de modos de fallo relevantes para este sistema a partir de su ficha técnica, su contexto operativo y el motor de reglas sobre el catálogo FMEA.
+                      </div>
+                      <div className="text-[12px] text-lttm max-w-[560px] mb-5 leading-relaxed">
+                        La activación por reglas se ejecuta una sola vez por sistema. Después, el siguiente paso disponible será <span className="font-medium text-ltt">refinar mediante IA</span>, opción que dejaremos preparada para una fase posterior.
+                      </div>
+                      {failureModeError && (
+                        <div className="max-w-[560px] mb-4 text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2.5">
+                          {failureModeError}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleActivateFailureModes}
+                        disabled={isActivatingFailureModes}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isActivatingFailureModes && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Activar modos de fallo
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="p-5 border-b border-ltb bg-gradient-to-br from-[#004aad08] to-ltbg">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Total activo</div>
+                          <div className="font-fraunces text-[24px] font-semibold text-ltt leading-none">{failureModeSummary.total}</div>
+                        </div>
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Prioritarios</div>
+                          <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{failureModeSummary.prioritized}</div>
+                        </div>
+                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Siguiente paso</div>
+                          <div className="font-sora text-[13px] font-medium text-ltt leading-snug">Refinar mediante IA cuando habilitemos el agente</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-4 border-b border-ltb bg-ltbg">
+                        <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-2">Resumen de priorización</div>
+                        <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-3">
+                          Se han priorizado <span className="font-semibold text-ltt">{failureModeSummary.prioritized}</span> modos sobre{' '}
+                          <span className="font-semibold text-ltt">{failureModeSummary.total}</span> activados. La cola actual se concentra en modos con
+                          severidad estructural alta y en riesgos que alcanzan nivel crítico por score dentro del contexto operativo de este sistema.
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                          <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Razones dominantes</div>
+                            <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+                              <span className="font-medium text-ltt">{failureModeSummary.prioritized}</span> modos priorizados:
+                              {' '}
+                              <span className="font-medium text-ltt">{prioritizedFailureModeSummary.severeOverrides}</span> por{' '}
+                              <span className="font-medium text-ltt">severidad estructural alta (S ≥ 8)</span> y{' '}
+                              <span className="font-medium text-ltt">{prioritizedFailureModeSummary.criticalByScore}</span> por{' '}
+                              <span className="font-medium text-ltt">score crítico</span> en el contexto de este sistema.
+                            </div>
+                            <div className="mt-2 font-sora text-[12px] text-lttm leading-relaxed">
+                              <span className="font-medium text-ltt">{failureModeSummary.monitoring}</span> modos quedan en{' '}
+                              <span className="font-medium text-ltt">monitorización</span>: siguen siendo relevantes, pero sin acción inmediata requerida en este ciclo.
+                            </div>
+                          </div>
+                          <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Dimensiones dominantes</div>
+                            <div className="flex flex-wrap gap-2">
+                              {prioritizedFailureModeSummary.topDimensions.map((item) => (
+                                <span
+                                  key={item.label}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[6px] border border-ltb bg-ltcard2 font-plex text-[10px] text-lttm"
+                                >
+                                  {item.label}
+                                  <span className="text-ltt">{item.count}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Familias dominantes</div>
+                            <div className="flex flex-wrap gap-2">
+                              {prioritizedFailureModeSummary.topFamilies.map((item) => (
+                                <span
+                                  key={item.label}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[6px] border border-ltb bg-ltcard2 font-plex text-[10px] text-lttm"
+                                >
+                                  {item.label}
+                                  <span className="text-ltt">{item.count}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        {causalSummary.withCausalLinks > 0 && (
+                          <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Propagación causal</div>
+                            <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+                              <span className="font-medium text-ltt">{causalSummary.withCausalLinks}</span> modos con efecto cascada
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {causalSummary.rootCauses > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[6px] border border-orb bg-ordim font-plex text-[10px] text-or">
+                                  → {causalSummary.rootCauses} causas raíz
+                                </span>
+                              )}
+                              {causalSummary.attractors > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[6px] border border-cyan-border bg-cyan-dim font-plex text-[10px] text-brand-cyan">
+                                  ← {causalSummary.attractors} atractores
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {failureModeSummary.total === 0 ? (
+                        <div className="p-10 text-center">
+                          <div className="font-sora text-[14px] font-semibold text-ltt mb-2">No se activaron modos con las reglas actuales</div>
+                          <div className="text-[12.5px] text-lttm max-w-[520px] mx-auto leading-relaxed">
+                            La primera activación ya quedó ejecutada para este sistema. Cuando esté disponible el refinado IA podremos revisar si conviene ampliar este conjunto.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-ltb">
+                          <div className="p-5 bg-ltbg">
+                            <div className="flex flex-col gap-3">
+                              <div className="flex flex-wrap items-end gap-3">
+                                <div>
+                                  <label className="block text-[10px] font-plex uppercase tracking-[0.8px] text-lttm mb-1.5">
+                                    Filtrar por dimensión
+                                  </label>
+                                  <select
+                                    value={failureModeDimensionFilter}
+                                    onChange={(event) => setFailureModeDimensionFilter(event.target.value)}
+                                    className="min-w-[180px] bg-ltcard border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                                  >
+                                    <option value="all">Todas las dimensiones</option>
+                                    {visibleFailureModeDimensions.map((dimension) => (
+                                      <option key={dimension.id} value={dimension.id}>
+                                        {dimension.label} ({dimension.count})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-plex uppercase tracking-[0.8px] text-lttm mb-1.5">
+                                    Cola de revisión
+                                  </label>
+                                  <select
+                                    value={failureModePriorityFilter}
+                                    onChange={(event) => setFailureModePriorityFilter(event.target.value)}
+                                    className="min-w-[180px] bg-ltcard border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                                  >
+                                    <option value="all">Todos los estados</option>
+                                    <option value="prioritized">Prioritarios ({failureModeSummary.prioritized})</option>
+                                    <option value="monitoring">En observación ({failureModeSummary.monitoring})</option>
+                                    <option value="pending_review">Pendientes de priorizar ({failureModeSummary.pendingReview})</option>
+                                    <option value="dismissed">Descartados ({failureModeSummary.dismissed})</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-plex uppercase tracking-[0.8px] text-lttm mb-1.5">
+                                    Ordenar por
+                                  </label>
+                                  <select
+                                    value={failureModeSortBy}
+                                    onChange={(event) => setFailureModeSortBy(event.target.value as 'score' | 'cascade')}
+                                    className="min-w-[180px] bg-ltcard border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                                  >
+                                    <option value="score">Score de priorización</option>
+                                    <option value="cascade">Efecto cascada</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="font-sora text-[12px] text-lttm">
+                                  Mostrando {paginatedFailureModes.start}-{paginatedFailureModes.end} de {paginatedFailureModes.total}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setFailureModePage((current) => Math.max(1, current - 1))}
+                                    disabled={paginatedFailureModes.currentPage === 1}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-ltb bg-ltcard text-lttm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-ltcard2 transition-colors"
+                                  >
+                                    <ArrowLeft className="w-3.5 h-3.5" />
+                                    Anterior
+                                  </button>
+                                  <span className="inline-flex items-center px-2.5 py-1.5 rounded-[6px] font-plex text-[10px] border border-ltb bg-ltcard2 text-lttm">
+                                    Página {paginatedFailureModes.currentPage} / {paginatedFailureModes.totalPages}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFailureModePage((current) =>
+                                        Math.min(paginatedFailureModes.totalPages, current + 1)
+                                      )
+                                    }
+                                    disabled={paginatedFailureModes.currentPage === paginatedFailureModes.totalPages}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-ltb bg-ltcard text-lttm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-ltcard2 transition-colors"
+                                  >
+                                    Siguiente
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                          </div>
+
+                          {paginatedFailureModes.total === 0 ? (
+                            <div className="p-10 text-center">
+                              <div className="font-sora text-[14px] font-semibold text-ltt mb-2">No hay modos para ese filtro</div>
+                              <div className="text-[12.5px] text-lttm max-w-[520px] mx-auto leading-relaxed">
+                                Prueba a cambiar la dimensión o la cola para revisar el resto de modos activados en este sistema.
+                              </div>
+                            </div>
+                          ) : paginatedFailureModes.grouped.map((group) => (
+                            <div key={group.dimensionId} className="p-5">
+                              <div className="flex items-center justify-between gap-3 mb-4">
+                                <div>
+                                  <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-1">Dimensión</div>
+                                  <div className={`font-sora text-[15px] font-semibold ${group.accent}`}>{group.label}</div>
+                                </div>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${group.badge}`}>
+                                  {group.items.length} modos
+                                </span>
+                              </div>
+
+                              <div className="space-y-3">
+                                {group.items.map((mode) => (
+                                  <div key={mode.id} className="border border-ltb rounded-[10px] bg-ltbg p-4">
+                                    <div className="flex items-start justify-between gap-4 mb-2.5">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm">
+                                            {mode.code}
+                                          </span>
+                                          <span className="font-sora text-[13px] font-semibold text-ltt">{mode.name}</span>
+                                          <span
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${
+                                              FAILURE_MODE_PRIORITY_STATUS_META[mode.priority_status]?.pill ?? 'bg-ltcard text-lttm border-ltb'
+                                            }`}
+                                          >
+                                            {FAILURE_MODE_PRIORITY_STATUS_META[mode.priority_status]?.label ?? mode.priority_status}
+                                          </span>
+                                          {mode.priority_level && (
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${
+                                                FAILURE_MODE_PRIORITY_LEVEL_META[mode.priority_level]?.pill ?? 'bg-ltcard text-lttm border-ltb'
+                                              }`}
+                                            >
+                                              {FAILURE_MODE_PRIORITY_LEVEL_META[mode.priority_level]?.label ?? mode.priority_level}
+                                            </span>
+                                          )}
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-cyan-border bg-cyan-dim text-brand-cyan">
+                                            {FAILURE_MODE_SOURCE_LABELS[mode.activation_source] ?? mode.activation_source}
+                                          </span>
+                                          {mode.priority_source && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard2 text-lttm">
+                                              Prioridad: {mode.priority_source === 'rules' ? 'reglas' : mode.priority_source}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
+                                          {mode.description ?? 'Sin descripción adicional en el catálogo.'}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                          {mode.bloque && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">
+                                              {mode.bloque}
+                                            </span>
+                                          )}
+                                          {mode.subcategoria && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                                              {mode.subcategoria}
+                                            </span>
+                                          )}
+                                          {mode.tipo && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                                              {mode.tipo}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[12px] text-lttm leading-relaxed">
+                                          {mode.activation_reason ?? 'Activado por el motor de reglas.'}
+                                        </div>
+                                        {mode.priority_notes && (
+                                          <div className="mt-2 text-[11.5px] text-lttm leading-relaxed">
+                                            {mode.priority_notes}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="shrink-0 text-right">
+                                        <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1">
+                                          Score
+                                        </div>
+                                        <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none">
+                                          {mode.priority_score ?? '—'}
+                                        </div>
+                                        <div className="font-sora text-[11.5px] text-lttm mt-1">
+                                          {formatDate(mode.created_at)}
+                                        </div>
+                                        {((mode.causal_out_degree ?? 0) > 0 || (mode.causal_in_degree ?? 0) > 0) && (
+                                          <div className="flex flex-col items-end gap-1 mt-2">
+                                            {(mode.causal_out_degree ?? 0) > 0 && (
+                                              <span
+                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] font-plex text-[10px] border ${
+                                                  (mode.causal_out_degree ?? 0) >= 3
+                                                    ? 'bg-red-dim border-reb text-re'
+                                                    : 'bg-ordim border-orb text-or'
+                                                }`}
+                                                title={`Este modo puede propagar fallos a ${mode.causal_out_degree} otros modos activos`}
+                                              >
+                                                → {mode.causal_out_degree} propaga
+                                              </span>
+                                            )}
+                                            {(mode.causal_in_degree ?? 0) > 0 && (
+                                              <span
+                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] font-plex text-[10px] border border-cyan-border bg-cyan-dim text-brand-cyan"
+                                                title={`${mode.causal_in_degree} otros modos activos pueden causar o agravar este fallo`}
+                                              >
+                                                ← {mode.causal_in_degree} recibe
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {mode.activation_family_labels.length > 0 && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {mode.activation_family_labels.map((label) => (
+                                          <span
+                                            key={`${mode.id}-${label}`}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm"
+                                          >
+                                            {label}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-l border-ltb bg-ltbg p-6 lg:px-7 flex flex-col gap-6 w-full">
+            <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06]">
+              <div className="flex flex-col items-center p-6 border-b border-ltb">
+                <div className="relative w-[130px] h-[130px] mb-4">
+                  <svg width="130" height="130" viewBox="0 0 130 130" className="-rotate-90">
+                    <circle cx="65" cy="65" r={circleRadius} fill="none" className="stroke-[#2d333b]" strokeWidth="10" />
+                    <circle
+                      cx="65"
+                      cy="65"
+                      r={circleRadius}
+                      fill="none"
+                      className="stroke-re transition-all duration-1000 ease-out"
+                      strokeWidth="10"
+                      strokeDasharray={strokeDasharray}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="font-fraunces text-[36px] font-bold text-re leading-none mb-1">{compliance}%</span>
+                    <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">AI Act</span>
+                  </div>
+                </div>
+                <div className="flex gap-3 flex-wrap justify-center">
+                  <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-gr" />{obligationSummary.resolved} resueltas</div>
+                  <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-or" />{obligationSummary.inProgress} en curso</div>
+                  <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-re" />{obligationSummary.pending} pendientes</div>
+                </div>
+              </div>
+
+              <div className="p-4">
+                <div className="flex flex-col gap-2.5">
+                  {obligations.slice(0, 5).map((obligation, index) => {
+                    const status = OBLIGATION_STATUS_META[obligation.status] ?? OBLIGATION_STATUS_META.pending;
+                    return (
+                      <div key={`${obligation.ref}-${index}`} className="flex items-center gap-3">
+                        <div className="text-[11px] font-plex text-lttm w-12 shrink-0">{obligation.ref}</div>
+                        <div className="flex-1 h-[5px] bg-ltb rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${status.fill}`} style={{ width: `${obligation.progress}%` }} />
+                        </div>
+                        <div className="text-[10.5px] font-plex text-ltt2 w-8 text-right">{obligation.progress}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3">Acciones rápidas</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { icon: <FileText className="w-4 h-4 text-lttm" />, label: 'Generar doc.', sub: 'Borrador Anexo IV', href: `/inventario/${system.id}/technical-dossier` },
+                  { icon: <ShieldAlert className="w-4 h-4 text-re" />, label: 'Eval. riesgos', sub: 'Art. 9 · FMEA', href: `/inventario/${system.id}/fmea` },
+                  { icon: <ArrowUpRight className="w-4 h-4 text-brand-blue" />, label: 'Registro EU', sub: 'Art. 71 · Form.', href: `/inventario/${system.id}/eu-registry` },
+                  { icon: <Download className="w-4 h-4 text-lttm" />, label: 'Gap report', sub: 'Exportar en PDF', href: `/inventario/${system.id}/gap-report` },
+                ].map((action, index) => {
+                  const cardClasses = 'bg-ltcard border border-ltb rounded-[8px] p-3 text-left hover:bg-ltcard2 hover:border-cyan-border transition-all cursor-pointer group block';
+
+                  if (action.href) {
+                    return (
+                      <Link
+                        key={index}
+                        href={action.href}
+                        className={cardClasses}
+                      >
+                        <div className="mb-2 text-lttm group-hover:text-brand-cyan transition-colors">{action.icon}</div>
+                        <div className="font-sora text-[12px] font-semibold text-ltt mb-1 leading-tight">{action.label}</div>
+                        <div className="font-plex text-[10px] text-lttm leading-tight">{action.sub}</div>
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div key={index} className={cardClasses}>
+                      <div className="mb-2 text-lttm group-hover:text-brand-cyan transition-colors">{action.icon}</div>
+                      <div className="font-sora text-[12px] font-semibold text-ltt mb-1 leading-tight">{action.label}</div>
+                      <div className="font-plex text-[10px] text-lttm leading-tight">{action.sub}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3 mt-1">Dependencias externas</div>
+              <div className="bg-ltcard border border-ltb rounded-[10px] overflow-hidden">
+                {[
+                  { icon: domainMeta.emoji, name: system.external_provider ?? 'Sin proveedor externo', meta: system.external_model ?? 'Modelo externo no definido', badge: 'bg-ltcard2 text-lttm border-ltb', label: system.external_provider ? 'Activo' : 'Interno' },
+                  { icon: '🧠', name: system.base_model ?? 'Modelo base no definido', meta: system.frameworks ?? 'Framework no indicado', badge: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Modelo' },
+                  { icon: '☁️', name: system.mlops_integration ?? 'Sin integración MLOps', meta: formatJoined(system.active_environments), badge: 'bg-ordim text-or border-orb', label: 'Stack' },
+                ].map((provider, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3.5 border-b border-ltb last:border-0 hover:bg-ltbg transition-colors cursor-pointer">
+                    <div className="w-8 h-8 rounded-[8px] bg-ltbg border border-ltb flex items-center justify-center shrink-0 text-[14px]">
+                      {provider.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-sora text-[13px] font-semibold text-ltt mb-[2px] truncate">{provider.name}</div>
+                      <div className="font-plex text-[10.5px] text-lttm truncate">{provider.meta}</div>
+                    </div>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] uppercase border ${provider.badge}`}>{provider.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      {isCausalMapOpen && (
+        <div className="fixed inset-0 z-[10030] flex flex-col bg-ltbg animate-fadein">
+          {/* Modal header */}
+          <div className="flex items-center justify-between px-6 py-3.5 border-b border-ltb bg-ltcard shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-ordim border border-orb flex items-center justify-center">
+                <GitFork size={11} className="text-or" />
+              </div>
+              <div>
+                <p className="font-sora text-[13px] font-semibold text-ltt">{system.name}</p>
+                <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Grafo de contagio causal</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsCausalMapOpen(false)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[11.5px] hover:text-ltt transition-colors"
+            >
+              <X size={13} /> Cerrar
+            </button>
+          </div>
+          {/* Modal body */}
+          <div className="flex-1 p-5 overflow-hidden">
+            <CausalMapSection graph={systemGraph} fullscreen />
+          </div>
+        </div>
+      )}
+
+      {isEvidenceModalOpen && (
+        <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-2xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-lg font-semibold text-ltt">Nueva evidencia</h2>
+                <p className="font-sora text-[12px] text-lttm mt-1">
+                  Alta básica por URL para empezar a documentar el sistema sin cambiar el diseño actual.
+                </p>
+              </div>
+              <button onClick={closeEvidenceModal} className="text-lttm hover:text-ltt transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <form id="evidence-form" onSubmit={handleEvidenceSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                {evidenceError && (
+                  <div className="md:col-span-2 text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2.5">
+                    {evidenceError}
+                  </div>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Título</label>
+                  <input
+                    type="text"
+                    required
+                    value={evidenceForm.title}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, title: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="Ej. DPIA aprobada, procedimiento de logging, informe de validación..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo</label>
+                  <select
+                    value={evidenceForm.evidenceType}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, evidenceType: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    {EVIDENCE_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado</label>
+                  <select
+                    value={evidenceForm.status}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, status: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="draft">Borrador</option>
+                    <option value="pending_review">Pendiente de revisión</option>
+                    <option value="valid">Válida</option>
+                    <option value="expired">Caducada</option>
+                    <option value="rejected">Rechazada</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">URL externa</label>
+                  <input
+                    type="url"
+                    required
+                    value={evidenceForm.externalUrl}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, externalUrl: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Descripción</label>
+                  <textarea
+                    rows={3}
+                    value={evidenceForm.description}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, description: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                    placeholder="Contexto, alcance, validez o nota para auditoría."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Versión</label>
+                  <input
+                    type="text"
+                    value={evidenceForm.version}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, version: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="1.0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Fecha de emisión</label>
+                  <input
+                    type="date"
+                    value={evidenceForm.issuedAt}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, issuedAt: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Caducidad</label>
+                  <input
+                    type="date"
+                    value={evidenceForm.expiresAt}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, expiresAt: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="px-6 py-4 bg-ltbg border-t border-ltb flex justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={closeEvidenceModal}
+                className="px-4 py-2 rounded-lg border border-ltb text-[13px] font-sora text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                form="evidence-form"
+                type="submit"
+                disabled={isSubmittingEvidence}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmittingEvidence && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar evidencia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isObligationModalOpen && selectedObligation && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-3xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-lg font-semibold text-ltt">Resolver obligación</h2>
+                <p className="font-sora text-[12px] text-lttm mt-1">
+                  {selectedObligation.name}
+                </p>
+              </div>
+              <button onClick={closeObligationModal} className="text-lttm hover:text-ltt transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <form id="obligation-form" onSubmit={handleObligationSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                {obligationError && (
+                  <div className="md:col-span-2 text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2.5">
+                    {obligationError}
+                  </div>
+                )}
+
+                <div className="md:col-span-2 rounded-[10px] border border-ltb bg-ltbg p-4">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">{selectedObligation.ref}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+                      Estado técnico actual: {getOblStatus(selectedObligation.systemStatus).label}
+                    </span>
+                  </div>
+                  <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+                    Usa este panel para convertir la obligación en una unidad de trabajo real: actualiza estado, prioridad, fecha objetivo y enlaza evidencias existentes del sistema.
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado operativo</label>
+                  <select
+                    value={obligationForm.status}
+                    onChange={(event) => setObligationForm((current) => ({ ...current, status: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="pending">Pendiente</option>
+                    <option value="in_progress">En progreso</option>
+                    <option value="resolved">Resuelta</option>
+                    <option value="blocked">Bloqueada</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Prioridad</label>
+                  <select
+                    value={obligationForm.priority}
+                    onChange={(event) => setObligationForm((current) => ({ ...current, priority: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="low">Baja</option>
+                    <option value="medium">Media</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Crítica</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Fecha objetivo</label>
+                  <input
+                    type="date"
+                    value={obligationForm.dueDate}
+                    onChange={(event) => setObligationForm((current) => ({ ...current, dueDate: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="block text-[11px] font-plex uppercase text-ltt2">Evidencias vinculadas</label>
+                    <button
+                      type="button"
+                      onClick={openEvidenceModalFromObligation}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-sora text-[11px] font-medium text-brand-cyan border border-cyan-border bg-cyan-dim hover:bg-cyan-dim2 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Nueva evidencia
+                    </button>
+                  </div>
+                  <div className="border border-ltb rounded-lg bg-ltbg p-3 space-y-2 max-h-[180px] overflow-y-auto">
+                    {evidences.length === 0 ? (
+                      <div className="text-[12px] font-sora text-lttm">
+                        No hay evidencias registradas todavía para este sistema.
+                      </div>
+                    ) : (
+                      evidences.map((evidence) => (
+                        <label key={evidence.id} className="flex items-start gap-2 text-[12px] font-sora text-ltt cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={obligationForm.evidenceIds.includes(evidence.id)}
+                            onChange={(event) =>
+                              setObligationForm((current) => ({
+                                ...current,
+                                evidenceIds: event.target.checked
+                                  ? [...current.evidenceIds, evidence.id]
+                                  : current.evidenceIds.filter((item) => item !== evidence.id),
+                              }))
+                            }
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <span className="font-medium">{evidence.title}</span>
+                            <span className="text-lttm"> · {getEvidenceTypeLabel(evidence.evidence_type)}</span>
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Notas de trabajo</label>
+                  <textarea
+                    rows={3}
+                    value={obligationForm.notes}
+                    onChange={(event) => setObligationForm((current) => ({ ...current, notes: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                    placeholder="Estado del trabajo, bloqueos o plan de acción."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Notas de resolución</label>
+                  <textarea
+                    rows={3}
+                    value={obligationForm.resolutionNotes}
+                    onChange={(event) => setObligationForm((current) => ({ ...current, resolutionNotes: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                    placeholder="Qué se ha implementado o qué queda pendiente para darla por cerrada."
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="px-6 py-4 bg-ltbg border-t border-ltb flex justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={closeObligationModal}
+                className="px-4 py-2 rounded-lg border border-ltb text-[13px] font-sora text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                form="obligation-form"
+                type="submit"
+                disabled={isSubmittingObligation}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmittingObligation && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar obligación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isClassificationModalOpen && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-5xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[92vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-lg font-semibold text-ltt">Revisar clasificación</h2>
+                <p className="font-sora text-[12px] text-lttm mt-1">
+                  Ajusta los factores que impactan AI Act y confirma la nueva clasificación con trazabilidad.
+                </p>
+              </div>
+              <button onClick={closeClassificationModal} className="text-lttm hover:text-ltt transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <form id="classification-form" onSubmit={handleClassificationSubmit} className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.9fr] gap-6">
+                <div className="space-y-4">
+                  {classificationError && (
+                    <div className="text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2.5">
+                      {classificationError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Dominio</label>
+                      <select
+                        value={classificationForm.domain}
+                        onChange={(event) => setClassificationForm((current) => ({ ...current, domain: event.target.value }))}
+                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                      >
+                        {Object.entries(DOMAIN_LABELS).map(([value, meta]) => (
+                          <option key={value} value={value}>
+                            {meta.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo de output</label>
+                      <select
+                        value={classificationForm.outputType}
+                        onChange={(event) => setClassificationForm((current) => ({ ...current, outputType: event.target.value }))}
+                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                      >
+                        <option value="">Sin definir</option>
+                        {Object.entries(OUTPUT_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Uso previsto</label>
+                    <textarea
+                      rows={3}
+                      value={classificationForm.intendedUse}
+                      onChange={(event) => setClassificationForm((current) => ({ ...current, intendedUse: event.target.value }))}
+                      className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      ['isAISystem', 'Es un sistema de IA'],
+                      ['interactsPersons', 'Interactúa con personas'],
+                      ['isGPAI', 'Es modelo GPAI'],
+                      ['prohibitedPractice', 'Puede ser práctica prohibida'],
+                      ['vulnerableGroups', 'Afecta a grupos vulnerables'],
+                      ['hasMinors', 'Involucra menores'],
+                      ['biometric', 'Usa biometría'],
+                      ['criticalInfra', 'Gestiona infraestructura crítica'],
+                    ].map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 rounded-[10px] border border-ltb bg-ltbg px-3 py-2.5 text-[12.5px] font-sora text-ltt cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(classificationForm[key as keyof typeof classificationForm])}
+                          onChange={(event) =>
+                            setClassificationForm((current) => ({
+                              ...current,
+                              [key]: event.target.checked,
+                            }))
+                          }
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">¿Afecta a personas?</label>
+                      <select
+                        value={classificationForm.affectsPersons === null ? 'null' : classificationForm.affectsPersons ? 'true' : 'false'}
+                        onChange={(event) =>
+                          setClassificationForm((current) => ({
+                            ...current,
+                            affectsPersons:
+                              event.target.value === 'null' ? null : event.target.value === 'true',
+                          }))
+                        }
+                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                      >
+                        <option value="null">Sin definir</option>
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Notas de revisión</label>
+                      <textarea
+                        rows={3}
+                        value={classificationForm.reviewNotes}
+                        onChange={(event) => setClassificationForm((current) => ({ ...current, reviewNotes: event.target.value }))}
+                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                        placeholder="Motivo de la revisión o contexto del cambio."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-[12px] border border-ltb bg-ltbg p-4">
+                    <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-2">Clasificación actual</div>
+                    <div className={`font-fraunces text-[22px] font-semibold mb-2 ${riskMeta.text}`}>{riskMeta.label}</div>
+                    <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
+                      {system.aiact_risk_reason ?? 'Sin narrativa disponible.'}
+                    </div>
+                    <div className="font-plex text-[11px] text-lttm">
+                      {system.aiact_risk_basis ?? 'Sin fundamento registrado'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[12px] border border-cyan-border bg-cyan-dim p-4">
+                    <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-brand-cyan mb-2">Preview recalculada</div>
+                    <div className="font-fraunces text-[22px] font-semibold text-brand-navy mb-2">
+                      {classificationPreview?.label ?? 'Pendiente'}
+                    </div>
+                    <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
+                      {classificationPreview?.reason ?? 'Faltan datos para determinar la clasificación.'}
+                    </div>
+                    <div className="font-plex text-[11px] text-lttm">
+                      {classificationPreview?.basis ?? 'Sin fundamento calculado'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[12px] border border-ltb bg-ltcard2 p-4">
+                    <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-2">Obligaciones resultantes</div>
+                    <div className="flex flex-wrap gap-2">
+                      {(classificationPreview?.obls ?? []).length > 0 ? (
+                        (classificationPreview?.obls ?? []).map((obligation) => (
+                          <span
+                            key={obligation}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full font-plex text-[10.5px] font-medium bg-ltcard text-ltt border border-ltb"
+                          >
+                            {obligation}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="font-sora text-[12px] text-lttm">No se activarían obligaciones adicionales.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="px-6 py-4 bg-ltbg border-t border-ltb flex justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={closeClassificationModal}
+                className="px-4 py-2 rounded-lg border border-ltb text-[13px] font-sora text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                form="classification-form"
+                type="submit"
+                disabled={isSubmittingClassification}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmittingClassification && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar revisión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// F2 — Mapa causal tab section
+// ---------------------------------------------------------------------------
+
+// Dynamically imported to avoid SSR issues with React Flow
+
+const CausalMapCanvas = dynamic(
+  () => import('./causal-map-canvas').then((m) => ({ default: m.CausalMapCanvas })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[12px] border border-ltb bg-ltbg animate-pulse" style={{ height: 660 }} />
+    ),
+  }
+);
+
+function CausalMapSection({ graph, fullscreen }: { graph: SystemCausalGraph; fullscreen?: boolean }) {
+  return (
+    <div className={`space-y-3 ${fullscreen ? 'h-full flex flex-col' : ''}`}>
+      <div className={`flex items-center justify-between ${fullscreen ? 'hidden' : ''}`}>
+        <div>
+          <p className="font-plex text-[10.5px] uppercase tracking-[0.9px] text-lttm">
+            Mapa de contagio causal
+          </p>
+          <p className="font-sora text-[12px] text-ltt2 mt-0.5">
+            Nodos activos (naranja/rojo) indican modos de fallo activados en este sistema. Haz click en un nodo para ver el detalle.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 font-plex text-[9.5px] px-2 py-1 rounded-full border border-cyan-border bg-cyan-dim text-brand-cyan">
+            <span className="w-2 h-2 rounded-full bg-brand-cyan" /> Activo (S≤6)
+          </span>
+          <span className="inline-flex items-center gap-1 font-plex text-[9.5px] px-2 py-1 rounded-full border border-orb bg-ordim text-or">
+            <span className="w-2 h-2 rounded-full bg-or" /> S≥7
+          </span>
+          <span className="inline-flex items-center gap-1 font-plex text-[9.5px] px-2 py-1 rounded-full border border-reb bg-red-dim text-re">
+            <span className="w-2 h-2 rounded-full bg-re" /> S≥9
+          </span>
+        </div>
+      </div>
+
+      <div className={fullscreen ? 'flex-1' : ''}>
+        <CausalMapCanvas graph={graph} fullscreen={fullscreen} />
+      </div>
+    </div>
+  );
+}
+

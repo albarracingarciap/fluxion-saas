@@ -1,0 +1,161 @@
+{
+    "familia": {
+        "id": "D",
+        "nombre": "Seguridad → integridad del modelo → gobernanza"
+    },
+    "relaciones": [
+        {
+            "id": "D-01",
+            "nodo_origen": "Acceso excesivo con privilegios elevados al sistema [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Exfiltración de credenciales o datos del modelo por agente comprometido [SEG]",
+            "mecanismo_explicativo": "Los privilegios elevados amplían la superficie de exfiltración: un agente comprometido con acceso de administrador puede extraer no solo datos de inferencia sino pesos del modelo, datos de entrenamiento o credenciales de servicio.",
+            "condicion_activacion": "Existencia de cuentas con privilegios elevados no justificados por la función del rol, accesibles sin autenticación multifactor.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-02",
+            "nodo_origen": "Ausencia de control de acceso basado en roles para el sistema IA [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Acceso excesivo con privilegios elevados al sistema [SEG]",
+            "mecanismo_explicativo": "Sin un modelo RBAC implementado, los usuarios obtienen permisos por defecto que frecuentemente exceden las necesidades de su función. La ausencia de granularidad en los permisos es la condición previa al acceso excesivo.",
+            "condicion_activacion": "Sistema sin modelo de control de acceso implementado o con permisos asignados por grupo genérico en lugar de por función específica.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-03",
+            "nodo_origen": "Ataque de envenenamiento de datos de entrenamiento [SEG]",
+            "tipo": "causes",
+            "nodo_destino": "Sesgo inducido en el modelo por manipulación adversarial [TEC]",
+            "mecanismo_explicativo": "La inyección de datos contaminados en el conjunto de entrenamiento transfiere patrones diseñados por el atacante a los pesos del modelo. El modelo aprende a comportarse de forma adversa en condiciones definidas por el atacante.",
+            "condicion_activacion": "Pipeline de datos de entrenamiento con puntos de ingesta no protegidos contra modificación no autorizada.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-04",
+            "nodo_origen": "Sesgo inducido en el modelo por manipulación adversarial [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "El sesgo inducido por envenenamiento puede amplificar sesgos históricos preexistentes o crear nuevos patrones discriminatorios. El resultado es indistinguible del sesgo no adversarial en las métricas de fairness estándar.",
+            "condicion_activacion": "Sesgo inducido activo sobre variables correlacionadas con categorías protegidas en un sistema con sesgo histórico de base.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-05",
+            "nodo_origen": "Ataque adversarial sobre inputs en tiempo de inferencia [SEG]",
+            "tipo": "causes",
+            "nodo_destino": "Fallo en la clasificación o puntuación del sistema [TEC]",
+            "mecanismo_explicativo": "Las perturbaciones adversariales sobre inputs de inferencia producen clasificaciones erróneas con alta confianza declarada. El modelo produce el resultado deseado por el atacante sin señal de alerta.",
+            "condicion_activacion": "Sistema expuesto a inputs externos sin validación de integridad o filtrado de perturbaciones adversariales.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-06",
+            "nodo_origen": "Fallo en la clasificación o puntuación del sistema [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Decisiones de alto impacto sin revisión efectiva acumuladas [ETH]",
+            "mecanismo_explicativo": "Las clasificaciones erróneas producidas por ataques adversariales que pasan por el proceso de supervisión nominal son aprobadas y ejecutadas. La amplificación es el número de decisiones incorrectas que el ataque produce antes de ser detectado.",
+            "condicion_activacion": "Ataque adversarial activo en un sistema con supervisión nominal sobre un modelo opaco.",
+            "confianza": "medium"
+        },
+        {
+            "id": "D-07",
+            "nodo_origen": "Compromiso del pipeline de ingestión de datos de entrenamiento [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Ataque de envenenamiento de datos de entrenamiento [SEG]",
+            "mecanismo_explicativo": "El compromiso del pipeline de datos es la condición previa al envenenamiento: sin acceso al pipeline, el atacante no puede inyectar datos contaminados en el conjunto de entrenamiento.",
+            "condicion_activacion": "Pipeline de datos de entrenamiento accesible desde redes no segregadas o con credenciales compartidas no rotadas.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-08",
+            "nodo_origen": "Ausencia de monitorización de integridad del modelo en producción [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Cambio no detectado en el comportamiento del modelo [TEC]",
+            "mecanismo_explicativo": "Sin verificación periódica de que los pesos del modelo en producción corresponden a la versión validada y desplegada, un modelo comprometido puede operar durante un período prolongado sin que la organización lo sepa.",
+            "condicion_activacion": "Sistema sin hash de integridad del modelo verificado periódicamente en producción.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-09",
+            "nodo_origen": "Cambio no detectado en el comportamiento del modelo [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Degradación silenciosa del rendimiento [TEC]",
+            "mecanismo_explicativo": "Un modelo con comportamiento modificado sin detección produce errores que se acumulan sin intervención. La degradación es silenciosa porque los sistemas de alerta estándar no detectan cambios en los pesos del modelo.",
+            "condicion_activacion": "Modificación no autorizada de pesos del modelo en producción sin alerta de integridad configurada.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-10",
+            "nodo_origen": "Fuga de información sobre el modelo mediante inferencia de membresía [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Reconstrucción parcial de datos de entrenamiento [SEG]",
+            "mecanismo_explicativo": "Los ataques de inferencia de membresía permiten determinar si un registro específico estaba en el conjunto de entrenamiento. La acumulación de estas inferencias puede reconstruir parcialmente datos sensibles usados en entrenamiento.",
+            "condicion_activacion": "Modelo expuesto a queries no limitadas en frecuencia o sin mecanismo anti-extracción implementado.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-11",
+            "nodo_origen": "Reconstrucción parcial de datos de entrenamiento [SEG]",
+            "tipo": "causes",
+            "nodo_destino": "Incumplimiento RGPD por exposición de datos personales [LEG]",
+            "mecanismo_explicativo": "Si los datos de entrenamiento contienen datos personales y pueden ser reconstruidos mediante ataques de inferencia, se produce una brecha de datos que activa las obligaciones de notificación del RGPD y expone a la organización a sanción.",
+            "condicion_activacion": "Datos de entrenamiento que contienen datos personales reconstruibles mediante ataques de inferencia demostrados.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-12",
+            "nodo_origen": "Ausencia de segmentación entre entornos de desarrollo y producción [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Compromiso del pipeline de ingestión de datos de entrenamiento [SEG]",
+            "mecanismo_explicativo": "Sin segmentación de red entre entornos, un compromiso en el entorno de desarrollo (menos protegido) puede propagarse al pipeline de producción. La ausencia de segregación elimina el control compensatorio más efectivo.",
+            "condicion_activacion": "Entornos de desarrollo y producción en la misma red o con credenciales compartidas.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-13",
+            "nodo_origen": "Acceso no autorizado a logs de inferencia [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Fuga de información sobre el modelo mediante inferencia de membresía [SEG]",
+            "mecanismo_explicativo": "Los logs de inferencia contienen los inputs reales del modelo y sus outputs. El acceso a estos logs permite al atacante construir el conjunto de datos necesario para lanzar ataques de inferencia de membresía o extracción del modelo.",
+            "condicion_activacion": "Logs de inferencia accesibles sin control de acceso granular o sin anonimización de inputs sensibles.",
+            "confianza": "medium"
+        },
+        {
+            "id": "D-14",
+            "nodo_origen": "Ataque de envenenamiento de datos de entrenamiento [SEG]",
+            "tipo": "causes",
+            "nodo_destino": "Invalidación de la documentación técnica del modelo [GOV]",
+            "mecanismo_explicativo": "Un ataque de envenenamiento exitoso modifica el comportamiento real del modelo respecto al documentado en la ficha técnica. La documentación existente describe un modelo diferente al que opera en producción tras el ataque.",
+            "condicion_activacion": "Ataque de envenenamiento confirmado sobre un sistema con documentación técnica que describe el modelo pre-ataque.",
+            "confianza": "medium"
+        },
+        {
+            "id": "D-15",
+            "nodo_origen": "Compromiso del pipeline de ingestión de datos de entrenamiento [SEG]",
+            "tipo": "causes",
+            "nodo_destino": "Invalidación de la documentación técnica del modelo [GOV]",
+            "mecanismo_explicativo": "El compromiso del pipeline invalida los datos de entrenamiento documentados. Sin saber qué datos se usaron realmente en el reentrenamiento, la documentación técnica no puede reflejar el estado real del modelo.",
+            "condicion_activacion": "Reentrenamiento del modelo con datos procedentes de un pipeline comprometido sin detección.",
+            "confianza": "medium"
+        },
+        {
+            "id": "D-16",
+            "nodo_origen": "Invalidación de la documentación técnica del modelo [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Si la documentación técnica no refleja el modelo real, la organización no puede usarla para demostrar el funcionamiento del sistema ante un tribunal. La defensa técnica queda sin base documental.",
+            "condicion_activacion": "Litigio activo sobre decisión producida por un modelo cuya documentación técnica ha sido invalidada por un incidente de seguridad.",
+            "confianza": "high"
+        },
+        {
+            "id": "D-17",
+            "nodo_origen": "Ausencia de gestión de vulnerabilidades en dependencias de terceros [SEG]",
+            "tipo": "enables",
+            "nodo_destino": "Compromiso del pipeline de ingestión de datos de entrenamiento [SEG]",
+            "mecanismo_explicativo": "Las vulnerabilidades no parcheadas en bibliotecas de ML o servicios de datos de terceros son vectores de compromiso del pipeline. La cadena de suministro de software es un vector de ataque específico para sistemas IA.",
+            "condicion_activacion": "Dependencias de terceros en el pipeline de entrenamiento o inferencia con vulnerabilidades conocidas no parcheadas.",
+            "confianza": "medium"
+        }
+    ]
+}

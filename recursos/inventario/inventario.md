@@ -1,0 +1,9 @@
+El wizard comprende 7 pasos, cada campo etiquetado con la normativa que lo justifica (AI ACT · ISO · RGPD · DORA):
+Paso 1 — Identificación — nombre, versión, ID interno, dominio, estado, fechas, descripción ejecutiva + técnica, etiquetas.
+Paso 2 — Propósito y función — intended use textual (obligatorio Art. 11), usos prohibidos, tipo de output, si es totalmente automatizado, colectivos objetivo, escala de uso y geografía.
+Paso 3 — Impacto y clasificación AI Act — si es IA / GPAI / no-IA, si afecta personas, biometría, infraestructura crítica, grupos vulnerables, menores, práctica prohibida. La clasificación se recalcula en tiempo real con la lógica completa del Anexo III (§1 biometría, §2 infra crítica, §3 educación, §4 RRHH, §5 finanzas+salud, §6/7/8 seguridad/migración/justicia), Art. 50 y Art. 5.
+Paso 4 — Datos — tratamiento de datos personales, categorías ordinarias y especiales Art. 9 RGPD, bases legales, fuentes, volumen, retención, datos de entrenamiento documentados, DPIA.
+Paso 5 — Tecnología — tipo de sistema IA (ML/DL/LLM/agéntico/reglas/híbrido), modelo base, modelo fundacional externo con su proveedor (DORA), frameworks, fine-tuning, herramientas externas (señal de sistema agéntico), entornos activos, integración MLOps.
+Paso 6 — Gobierno — AI Owner, equipo, responsable técnico, sponsor ejecutivo, DPO involucrado, SLA, periodicidad de revisión, contacto de incidentes, proveedores TIC críticos (DORA).
+Paso 7 — Controles — documentación técnica Art. 11, logging Art. 12, supervisión humana Art. 14 con tipo de supervisión, mecanismo de reclamación, evaluación de riesgos Art. 9, riesgo residual, mitigaciones, adversarial testing Art. 15, estado de certificación.
+Panel derecho siempre activo: ficha del sistema en vivo, clasificación AI Act con las obligaciones exactas del artículo correspondiente, y desde el paso 5 un score de madurez ISO 42001 con cada ítem marcado en verde/rojo.

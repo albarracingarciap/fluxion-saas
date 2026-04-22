@@ -1,0 +1,188 @@
+{
+    "familia": {
+        "id": "H",
+        "nombre": "Convergencia en sistemas de alto riesgo AI Act"
+    },
+    "relaciones": [
+        {
+            "id": "H-01",
+            "nodo_origen": "Drift no monitorizado de variables de entrada [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de gestión de riesgos AI Act art. 9 [LEG]",
+            "mecanismo_explicativo": "El artículo 9 del AI Act exige un sistema de gestión de riesgos que identifique y mitigue los riesgos conocidos y razonablemente previsibles de forma continua. El drift no monitorizado es evidencia de que el sistema de gestión de riesgos no opera de forma continua.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act con drift confirmado y ausencia de registro de gestión activa del riesgo de degradación.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-02",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de supervisión humana AI Act art. 14 [LEG]",
+            "mecanismo_explicativo": "El artículo 14 requiere que los sistemas de alto riesgo sean supervisados por personas que comprendan adecuadamente el sistema. La opacidad hace que la comprensión requerida sea imposible, amplificando el incumplimiento del art. 14.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act clasificado como opaco sin plan de mitigación de la opacidad documentado.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-03",
+            "nodo_origen": "Ausencia de supervisión humana efectiva [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de supervisión humana AI Act art. 14 [LEG]",
+            "mecanismo_explicativo": "El incumplimiento del art. 14 se amplifica cuando la ausencia de supervisión efectiva es documentable: las evaluaciones FMEA que confirman supervisión nominal sobre un sistema de alto riesgo constituyen evidencia de incumplimiento para el regulador.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act con supervisión clasificada como nominal en evaluación FMEA y sin plan de corrección activo.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-04",
+            "nodo_origen": "Ausencia de documentación técnica del sistema [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de transparencia AI Act art. 13 [LEG]",
+            "mecanismo_explicativo": "El artículo 13 requiere que los sistemas de alto riesgo sean suficientemente transparentes para que los usuarios puedan interpretar sus outputs. La ausencia de documentación técnica amplifica el incumplimiento al impedir que la transparencia exigida sea verificada.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act sin documentación técnica completa disponible para el usuario desplegador.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-05",
+            "nodo_origen": "Ausencia de logging de decisiones con trazabilidad completa [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de logging AI Act art. 12 [LEG]",
+            "mecanismo_explicativo": "El artículo 12 requiere que los sistemas de alto riesgo generen automáticamente registros de eventos que permitan la supervisión post-uso. La ausencia de logging es una violación directa y amplifica todos los demás incumplimientos al impedir su verificación.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act en producción sin logging automático de decisiones que cumpla los requisitos del art. 12.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-06",
+            "nodo_origen": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de gestión de riesgos AI Act art. 9 [LEG]",
+            "mecanismo_explicativo": "El art. 9 exige mitigar los riesgos razonablemente previsibles para los derechos fundamentales. El sesgo sistemático documentable es evidencia de que el sistema de gestión de riesgos no identificó o no mitigó adecuadamente el riesgo de discriminación.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act con sesgo sistemático confirmado en evaluación y sin plan de tratamiento activo.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-07",
+            "nodo_origen": "Incumplimiento de obligaciones de gestión de riesgos AI Act art. 9 [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "El incumplimiento del art. 9 del AI Act es sancionable con multas de hasta 30M€ o 6% del volumen de negocio global. Para sistemas de alto riesgo en sectores como el bancario, las sanciones se acumulan con las de los reguladores sectoriales.",
+            "condicion_activacion": "Resolución sancionadora de AESIA u autoridad sectorial competente por incumplimiento de obligaciones de gestión de riesgos.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-08",
+            "nodo_origen": "Incumplimiento de obligaciones de supervisión humana AI Act art. 14 [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "El incumplimiento del art. 14 tiene consecuencias directas en los regímenes de responsabilidad: el proveedor que no puede demostrar que implementó supervisión humana adecuada tiene menor defensa en reclamaciones de daños.",
+            "condicion_activacion": "Incumplimiento del art. 14 documentado en inspección regulatoria o invocado en litigio de responsabilidad.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-09",
+            "nodo_origen": "Incumplimiento de obligaciones de transparencia AI Act art. 13 [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "El incumplimiento del art. 13 impide a los usuarios desplegadores cumplir sus propias obligaciones de información, generando una cadena de incumplimiento que amplifica la exposición de la organización al ser responsable de los incumplimientos de sus clientes.",
+            "condicion_activacion": "Proveedor de sistema de alto riesgo que no ha suministrado la información requerida por el art. 13 a los desplegadores.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-10",
+            "nodo_origen": "Incumplimiento de obligaciones de logging AI Act art. 12 [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "El incumplimiento del art. 12 elimina la capacidad de la organización de demostrar el comportamiento histórico del sistema en inspecciones regulatorias, amplificando la exposición porque la carga de la prueba se invierte.",
+            "condicion_activacion": "Inspección regulatoria de sistema de alto riesgo en la que el responsable no puede presentar los registros requeridos por el art. 12.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-11",
+            "nodo_origen": "Drift no monitorizado de variables de entrada [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Caja negra sin explicabilidad local [TEC]",
+            "mecanismo_explicativo": "En sistemas con drift activo, la opacidad impide determinar si el cambio de comportamiento observado es resultado del drift o de otro mecanismo. La combinación hace imposible tanto la detección como la atribución del origen del comportamiento.",
+            "condicion_activacion": "Sistema opaco con drift activo en el que el comportamiento observado podría atribuirse a múltiples causas simultáneas.",
+            "confianza": "medium"
+        },
+        {
+            "id": "H-12",
+            "nodo_origen": "Caja negra sin explicabilidad local [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "En un sistema opaco con sesgo activo, la organización no puede identificar qué variables o mecanismos producen el sesgo, lo que hace imposible diseñar controles específicos. El sesgo se consolida mientras la opacidad impide su análisis.",
+            "condicion_activacion": "Sistema opaco con sesgo confirmado en métricas de equidad pero sin capacidad de atribuirlo a variables específicas.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-13",
+            "nodo_origen": "Ausencia de supervisión humana efectiva [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "Sin supervisión humana efectiva, el sesgo emergente no es interceptado antes de consolidarse. La supervisión efectiva es el mecanismo de detección y corrección de sesgo en tiempo real que complementa los controles técnicos de monitorización.",
+            "condicion_activacion": "Sistema con sesgo emergente activo y supervisión humana clasificada como nominal o ausente.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-14",
+            "nodo_origen": "Ausencia de documentación técnica del sistema [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "La ausencia de documentación técnica amplifica la imposibilidad de determinar causalidad porque elimina toda la evidencia documental del funcionamiento del sistema. El litigio se desarrolla sobre la base de output observado sin posibilidad de análisis técnico.",
+            "condicion_activacion": "Litigio sobre sistema de alto riesgo sin documentación técnica disponible del estado del sistema en el momento de la decisión impugnada.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-15",
+            "nodo_origen": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de normativa antidiscriminación [LEG]",
+            "mecanismo_explicativo": "En sistemas de alto riesgo AI Act, el sesgo sistemático amplifica el incumplimiento de normativa antidiscriminación porque el AI Act exige explícitamente que los sistemas de alto riesgo no generen discriminación ilegal, estableciendo un estándar de diligencia elevado.",
+            "condicion_activacion": "Sistema clasificado como alto riesgo AI Act con sesgo sistemático que afecta a categorías protegidas por normativa antidiscriminación.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-16",
+            "nodo_origen": "Ausencia de logging de decisiones con trazabilidad completa [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "La ausencia de logging amplifica la imposibilidad de determinar causalidad porque elimina la evidencia temporal. Sin registro de decisiones, no es posible reconstruir el estado del sistema en el momento de la decisión impugnada.",
+            "condicion_activacion": "Litigio sobre decisión de alto impacto producida en período sin logging completo.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-17",
+            "nodo_origen": "Incumplimiento de normativa antidiscriminación [LEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "En sistemas de alto riesgo AI Act, el incumplimiento de normativa antidiscriminación activa simultáneamente las sanciones del AI Act y de la normativa antidiscriminación aplicable. La acumulación de regímenes sancionadores amplifica el coste total.",
+            "condicion_activacion": "Resolución sancionadora que invoca simultáneamente normativa AI Act y normativa antidiscriminación sobre el mismo sistema.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-18",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de transparencia AI Act art. 13 [LEG]",
+            "mecanismo_explicativo": "En sistemas de alto riesgo que incluyen componentes generativos, la confabulación de información normativa en los outputs del sistema amplifica el incumplimiento del art. 13 porque el sistema activamente produce información incorrecta sobre sus propias obligaciones.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act con componente generativo que produce outputs sobre obligaciones regulatorias del sistema.",
+            "confianza": "medium"
+        },
+        {
+            "id": "H-19",
+            "nodo_origen": "Ausencia de punto de escalado humano formalmente definido [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de supervisión humana AI Act art. 14 [LEG]",
+            "mecanismo_explicativo": "El art. 14 exige que los sistemas de alto riesgo tengan supervisión humana adecuada. La ausencia de un punto de escalado formalmente definido es evidencia directa de que la supervisión no ha sido correctamente estructurada.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act sin definición documentada del responsable de supervisión humana con mandato explícito.",
+            "confianza": "high"
+        },
+        {
+            "id": "H-20",
+            "nodo_origen": "Ataque adversarial sobre inputs en tiempo de inferencia [SEG]",
+            "tipo": "amplifies",
+            "nodo_destino": "Incumplimiento de obligaciones de gestión de riesgos AI Act art. 9 [LEG]",
+            "mecanismo_explicativo": "Los ataques adversariales sobre sistemas de alto riesgo son riesgos razonablemente previsibles que el art. 9 exige gestionar. Un ataque exitoso es evidencia de que la gestión de riesgos de ciberseguridad no fue adecuada.",
+            "condicion_activacion": "Ataque adversarial exitoso sobre sistema de alto riesgo AI Act sin evidencia de evaluación previa de este vector en el sistema de gestión de riesgos.",
+            "confianza": "medium"
+        }
+    ]
+}

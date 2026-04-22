@@ -1,0 +1,125 @@
+{
+    "familia": {
+        "id": "F",
+        "nombre": "Proceso de desarrollo deficiente → múltiples dimensiones"
+    },
+    "relaciones": [
+        {
+            "id": "F-01",
+            "nodo_origen": "Ausencia de documentación técnica del sistema antes del despliegue [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Sin documentación técnica que describa el funcionamiento, los datos de entrenamiento y las decisiones de diseño del sistema, la organización no tiene base documental para construir su defensa en litigios sobre decisiones del sistema.",
+            "condicion_activacion": "Sistema en producción sin documentación técnica completa disponible al momento del litigio.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-02",
+            "nodo_origen": "Ausencia de revisión formal de sesgo en el proceso de desarrollo [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Datos de entrenamiento con sesgo histórico [TEC]",
+            "mecanismo_explicativo": "Sin un proceso de revisión de sesgo integrado en el ciclo de desarrollo, los datos de entrenamiento con patrones históricos discriminatorios no son identificados ni mitigados antes de que el modelo los aprenda.",
+            "condicion_activacion": "Pipeline de desarrollo sin etapa de análisis de fairness de datos antes del entrenamiento.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-03",
+            "nodo_origen": "Ausencia de pruebas de seguridad antes del despliegue en producción [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Compromiso del pipeline de ingestión de datos de entrenamiento [SEG]",
+            "mecanismo_explicativo": "Sin pentesting o evaluación de vulnerabilidades del pipeline antes del despliegue, las vulnerabilidades de seguridad llegan a producción sin haber sido identificadas ni mitigadas.",
+            "condicion_activacion": "Sistema desplegado sin evaluación de seguridad formal del pipeline de datos en la fase de desarrollo.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-04",
+            "nodo_origen": "Proceso de validación estadística insuficiente antes del despliegue [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Degradación silenciosa del rendimiento [TEC]",
+            "mecanismo_explicativo": "Una validación estadística insuficiente no establece la línea base de rendimiento con la precisión necesaria para detectar degradación posterior. Sin una línea base robusta, los umbrales de alerta son incorrectos.",
+            "condicion_activacion": "Sistema desplegado con validación sobre conjunto de prueba no representativo o con métricas insuficientes para la función de riesgo.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-05",
+            "nodo_origen": "Ausencia de gestión formal de cambios para el modelo y sus datos [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Cambio no detectado en el comportamiento del modelo [TEC]",
+            "mecanismo_explicativo": "Sin un proceso de control de cambios, las modificaciones del modelo o de sus fuentes de datos se aplican sin validación de impacto. Cualquier cambio, incluso bien intencionado, puede producir cambios de comportamiento no anticipados.",
+            "condicion_activacion": "Sistema con modificaciones de modelo o datos aplicadas sin aprobación formal ni pruebas de regresión.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-06",
+            "nodo_origen": "Ausencia de documentación de datos de entrenamiento y fuentes [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Sin documentación de los datos de entrenamiento y sus fuentes, la organización no puede demostrar que los datos cumplían los requisitos del artículo 10 del AI Act ni verificar si el sesgo tiene origen en datos históricos o en otro mecanismo.",
+            "condicion_activacion": "Litigio sobre comportamiento sesgado del sistema con ausencia de documentación de datos de entrenamiento.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-07",
+            "nodo_origen": "Proceso de validación estadística insuficiente antes del despliegue [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Datos de entrenamiento con sesgo histórico [TEC]",
+            "mecanismo_explicativo": "Una validación insuficiente no detecta el sesgo histórico presente en los datos de entrenamiento. El sesgo que no es cuantificado antes del despliegue no puede ser mitigado.",
+            "condicion_activacion": "Validación sin métricas de fairness desagregadas por subgrupo protegido.",
+            "confianza": "medium"
+        },
+        {
+            "id": "F-08",
+            "nodo_origen": "Ausencia de inventario formal de modelos, versiones y dependencias [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Ausencia de trazabilidad de versiones del modelo en producción [GOV]",
+            "mecanismo_explicativo": "Sin un inventario que registre qué versiones de qué modelos están en producción y cuándo fueron desplegadas, la trazabilidad necesaria para vincular decisiones a versiones específicas es estructuralmente imposible.",
+            "condicion_activacion": "Organización con múltiples modelos en producción sin registro centralizado de versiones y fechas de despliegue.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-09",
+            "nodo_origen": "Ausencia de evaluación de impacto en derechos fundamentales previa al despliegue [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Sesgo sistemático sobre grupos marginados [ETH]",
+            "mecanismo_explicativo": "Una EIPD o evaluación de impacto en IA sin análisis diferencial por grupos protegidos no identifica los riesgos de discriminación sistemática antes de que el sistema llegue a producción.",
+            "condicion_activacion": "Sistema de alto riesgo AI Act desplegado sin evaluación de impacto en derechos fundamentales con análisis de equidad.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-10",
+            "nodo_origen": "Ausencia de criterios de aceptación formales antes del despliegue [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Caja negra sin explicabilidad local [TEC]",
+            "mecanismo_explicativo": "Sin criterios de aceptación que incluyan requisitos de explicabilidad, los modelos opacos son desplegados sin que la organización haya evaluado si la opacidad es compatible con sus obligaciones regulatorias y operacionales.",
+            "condicion_activacion": "Sistema desplegado sin criterios de aceptación que incluyan requisito de explicabilidad mínima para el caso de uso.",
+            "confianza": "medium"
+        },
+        {
+            "id": "F-11",
+            "nodo_origen": "Proceso de desarrollo sin revisión formal de privacidad por diseño [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Incumplimiento RGPD por exposición de datos personales [LEG]",
+            "mecanismo_explicativo": "Sin revisión de privacidad en la fase de diseño, los datos personales pueden ser incorporados al entrenamiento sin base jurídica adecuada, sin minimización o sin medidas de anonimización, creando exposición RGPD estructural.",
+            "condicion_activacion": "Sistema entrenado con datos personales sin revisión de privacidad por diseño en la fase de desarrollo.",
+            "confianza": "high"
+        },
+        {
+            "id": "F-12",
+            "nodo_origen": "Ausencia de gestión formal de cambios para el modelo y sus datos [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Sesgo inducido en el modelo por manipulación adversarial [TEC]",
+            "mecanismo_explicativo": "Sin control de cambios, un reentrenamiento o ajuste legítimo del modelo puede enmascarar la introducción de envenenamiento. La ausencia de registro hace imposible distinguir entre cambio autorizado y modificación adversarial.",
+            "condicion_activacion": "Incidente de envenenamiento en un sistema sin control de cambios que impide reconstruir la línea de tiempo de modificaciones.",
+            "confianza": "medium"
+        },
+        {
+            "id": "F-13",
+            "nodo_origen": "Ausencia de revisión formal de dependencias de terceros y proveedores [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Cambio silencioso de comportamiento del proveedor de modelo base [TEC]",
+            "mecanismo_explicativo": "Sin un proceso de revisión de cambios en modelos base o servicios de terceros, las actualizaciones del proveedor que modifican el comportamiento del sistema no son detectadas hasta que producen incidentes en producción.",
+            "condicion_activacion": "Sistema que utiliza modelos base o APIs de terceros sin cláusulas contractuales de notificación de cambios y sin validación de comportamiento tras actualizaciones.",
+            "confianza": "high"
+        }
+    ]
+}

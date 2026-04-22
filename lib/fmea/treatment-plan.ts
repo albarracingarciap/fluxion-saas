@@ -1,0 +1,585 @@
+import { createComplianceClient } from '@/lib/supabase/compliance';
+import { createFluxionClient } from '@/lib/supabase/fluxion';
+
+import { calculateFmeaZone, getAiActZoneFloor, type FmeaZone } from './domain';
+
+export type TreatmentPlanStatus =
+  | 'draft'
+  | 'in_review'
+  | 'approved'
+  | 'in_progress'
+  | 'closed'
+  | 'superseded';
+
+export type TreatmentOption = 'mitigar' | 'aceptar' | 'transferir' | 'evitar' | 'diferir';
+
+export type TreatmentActionStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'evidence_pending'
+  | 'completed'
+  | 'accepted'
+  | 'cancelled';
+
+export type TreatmentApprovalLevel = 'level_1' | 'level_2' | 'level_3';
+
+export type TreatmentPlanRecord = {
+  id: string;
+  organization_id: string;
+  system_id: string;
+  evaluation_id: string;
+  code: string;
+  status: TreatmentPlanStatus;
+  zone_at_creation: FmeaZone;
+  zone_target: FmeaZone | null;
+  ai_act_floor: FmeaZone;
+  s_max_at_creation: number;
+  modes_count_total: number;
+  modes_count_zone_i: number;
+  modes_count_zone_ii: number;
+  actions_total: number;
+  actions_completed: number;
+  pivot_node_ids: string[];
+  residual_risk_notes: string | null;
+  accepted_risk_count: number;
+  approval_level: TreatmentApprovalLevel;
+  approver_id: string | null;
+  approved_at: string | null;
+  approval_minutes_ref: string | null;
+  approval_committee_notes: string | null;
+  deadline: string;
+  review_cadence: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TreatmentPlanActionRecord = {
+  id: string;
+  organization_id: string;
+  plan_id: string;
+  fmea_item_id: string;
+  option: TreatmentOption | null;
+  status: TreatmentActionStatus;
+  s_actual_at_creation: number;
+  s_residual_target: number | null;
+  s_residual_achieved: number | null;
+  control_id: string | null;
+  justification: string | null;
+  evidence_description: string | null;
+  owner_id: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  evidence_id: string | null;
+  acceptance_approved_by: string | null;
+  acceptance_approved_at: string | null;
+  review_due_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TreatmentPlanSystem = {
+  id: string;
+  name: string;
+  internal_id: string | null;
+  domain: string;
+  status: string;
+  aiact_risk_level: string;
+};
+
+export type TreatmentPlanEvaluation = {
+  id: string;
+  organization_id: string;
+  system_id: string;
+  state: 'draft' | 'in_review' | 'approved' | 'superseded';
+  version: number;
+  cached_zone: FmeaZone | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TreatmentPlanMember = {
+  id: string;
+  full_name: string;
+  role: string;
+};
+
+export type TreatmentPlanControlSuggestion = {
+  control_template_id: string;
+  control_code: string;
+  control_name: string;
+  control_description: string | null;
+  control_area: string | null;
+  existing_control_id: string | null;
+  existing_control_status: string | null;
+  existing_control_owner_id: string | null;
+  existing_control_notes: string | null;
+};
+
+export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
+  failure_mode_id: string;
+  failure_mode_code: string;
+  failure_mode_name: string;
+  failure_mode_description: string;
+  priority_score: number | null;
+  dimension_id: string;
+  dimension_name: string;
+  dimension_order: number;
+  bloque: string;
+  subcategoria: string;
+  tipo: string;
+  s_default_frozen: number;
+  item_status: 'pending' | 'evaluated' | 'skipped';
+  requires_second_review: boolean;
+  control_template_id: string | null;
+  control_refs: TreatmentPlanControlSuggestion[];
+};
+
+export type TreatmentPlanData = {
+  system: TreatmentPlanSystem;
+  evaluation: TreatmentPlanEvaluation;
+  plan: TreatmentPlanRecord;
+  actions: TreatmentPlanActionView[];
+  members: TreatmentPlanMember[];
+  approver_name: string | null;
+  read_only: boolean;
+};
+
+export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
+  if (zone === 'zona_i') return 'level_3';
+  if (zone === 'zona_ii') return 'level_2';
+  return 'level_1';
+}
+
+export function getReviewCadenceForZone(zone: FmeaZone) {
+  switch (zone) {
+    case 'zona_i':
+      return 'monthly';
+    case 'zona_ii':
+      return 'quarterly';
+    case 'zona_iii':
+      return 'biannual';
+    case 'zona_iv':
+    default:
+      return 'annual';
+  }
+}
+
+export function getDefaultDeadlineForZone(zone: FmeaZone, from = new Date()) {
+  const date = new Date(from);
+
+  switch (zone) {
+    case 'zona_i':
+      date.setDate(date.getDate() + 30);
+      break;
+    case 'zona_ii':
+      date.setDate(date.getDate() + 90);
+      break;
+    case 'zona_iii':
+      date.setDate(date.getDate() + 180);
+      break;
+    case 'zona_iv':
+    default:
+      date.setDate(date.getDate() + 365);
+      break;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+export function getApproverRolePriority(level: TreatmentApprovalLevel) {
+  switch (level) {
+    case 'level_3':
+      return ['admin', 'dpo', 'technical'] as const;
+    case 'level_2':
+      return ['admin', 'dpo', 'technical', 'editor'] as const;
+    case 'level_1':
+    default:
+      return ['dpo', 'technical', 'admin', 'editor'] as const;
+  }
+}
+
+export async function generateTreatmentPlanCode(params: {
+  organizationId: string;
+  createdAt?: Date;
+}) {
+  const fluxion = createFluxionClient();
+  const createdAt = params.createdAt ?? new Date();
+  const year = createdAt.getFullYear();
+  const start = new Date(Date.UTC(year, 0, 1)).toISOString();
+  const end = new Date(Date.UTC(year + 1, 0, 1)).toISOString();
+
+  const { count } = await fluxion
+    .from('treatment_plans')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', params.organizationId)
+    .gte('created_at', start)
+    .lt('created_at', end);
+
+  const serial = String((count ?? 0) + 1).padStart(3, '0');
+  return `PTR-${year}-${serial}`;
+}
+
+export function getEvidenceDescriptionForOption(option: TreatmentOption) {
+  switch (option) {
+    case 'mitigar':
+      return 'Evidencia de implementación y validación del control de mitigación.';
+    case 'aceptar':
+      return 'Documento formal de aceptación del riesgo y trazabilidad de la aprobación.';
+    case 'transferir':
+      return 'Contrato, SLA, póliza o acuerdo que demuestre la transferencia del riesgo.';
+    case 'evitar':
+      return 'Plan documentado de rediseño, retirada o eliminación del riesgo.';
+    case 'diferir':
+      return 'Calendario justificado, hitos comprometidos y criterio de reanudación.';
+    default:
+      return null;
+  }
+}
+
+export function calculateProjectedZoneForTreatmentActions(params: {
+  actions: Array<{
+    id: string;
+    dimension_id: string;
+    s_default_frozen: number;
+    s_actual_at_creation: number;
+    option: TreatmentOption | null;
+    s_residual_target: number | null;
+  }>;
+  aiActLevel: string | null | undefined;
+}) {
+  return calculateFmeaZone(
+    params.actions.map((action) => ({
+      id: action.id,
+      dimension_id: action.dimension_id,
+      s_default_frozen: action.s_default_frozen,
+      o_value: null,
+      d_real_value: null,
+      s_actual:
+        action.option === 'mitigar' && typeof action.s_residual_target === 'number'
+          ? action.s_residual_target
+          : action.s_actual_at_creation,
+      status: 'evaluated' as const,
+    })),
+    params.aiActLevel
+  );
+}
+
+export async function buildTreatmentPlanData(params: {
+  organizationId: string;
+  aiSystemId: string;
+  evaluationId: string;
+}) {
+  const fluxion = createFluxionClient();
+  const compliance = createComplianceClient();
+
+  const { data: system } = await fluxion
+    .from('ai_systems')
+    .select('id, name, internal_id, domain, status, aiact_risk_level')
+    .eq('organization_id', params.organizationId)
+    .eq('id', params.aiSystemId)
+    .maybeSingle<TreatmentPlanSystem>();
+
+  const { data: evaluation } = await fluxion
+    .from('fmea_evaluations')
+    .select('id, organization_id, system_id, state, version, cached_zone, created_at, updated_at')
+    .eq('organization_id', params.organizationId)
+    .eq('system_id', params.aiSystemId)
+    .eq('id', params.evaluationId)
+    .maybeSingle<TreatmentPlanEvaluation>();
+
+  const { data: plan } = await fluxion
+    .from('treatment_plans')
+    .select(`
+      id,
+      organization_id,
+      system_id,
+      evaluation_id,
+      code,
+      status,
+      zone_at_creation,
+      zone_target,
+      ai_act_floor,
+      s_max_at_creation,
+      modes_count_total,
+      modes_count_zone_i,
+      modes_count_zone_ii,
+      actions_total,
+      actions_completed,
+      pivot_node_ids,
+      residual_risk_notes,
+      accepted_risk_count,
+      approval_level,
+      approver_id,
+      approved_at,
+      approval_minutes_ref,
+      approval_committee_notes,
+      deadline,
+      review_cadence,
+      created_by,
+      created_at,
+      updated_at
+    `)
+    .eq('organization_id', params.organizationId)
+    .eq('system_id', params.aiSystemId)
+    .eq('evaluation_id', params.evaluationId)
+    .maybeSingle<TreatmentPlanRecord>();
+
+  if (!system || !evaluation || !plan) return null;
+
+  const { data: actionRows } = await fluxion
+    .from('treatment_actions')
+    .select(`
+      id,
+      organization_id,
+      plan_id,
+      fmea_item_id,
+      option,
+      status,
+      s_actual_at_creation,
+      s_residual_target,
+      s_residual_achieved,
+      control_id,
+      justification,
+      evidence_description,
+      owner_id,
+      due_date,
+      completed_at,
+      evidence_id,
+      acceptance_approved_by,
+      acceptance_approved_at,
+      review_due_date,
+      created_at,
+      updated_at
+    `)
+    .eq('plan_id', plan.id)
+    .order('s_actual_at_creation', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  const actions = (actionRows ?? []) as TreatmentPlanActionRecord[];
+  const fmeaItemIds = actions.map((row) => row.fmea_item_id);
+
+  const { data: fmeaItems } =
+    fmeaItemIds.length === 0
+      ? { data: [] }
+      : await fluxion
+          .from('fmea_items')
+          .select('id, failure_mode_id, s_default_frozen, status, requires_second_review')
+          .in('id', fmeaItemIds);
+
+  const fmeaItemMap = new Map((fmeaItems ?? []).map((item) => [item.id, item]));
+  const failureModeIds = Array.from(
+    new Set(
+      (fmeaItems ?? [])
+        .map((item) => item.failure_mode_id)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    )
+  );
+
+  const { data: systemFailureModes } =
+    failureModeIds.length === 0
+      ? { data: [] }
+      : await fluxion
+          .from('system_failure_modes')
+          .select('failure_mode_id, priority_score')
+          .eq('organization_id', params.organizationId)
+          .eq('system_id', params.aiSystemId)
+          .in('failure_mode_id', failureModeIds);
+
+  const priorityByFailureMode = new Map(
+    (systemFailureModes ?? []).map((row) => [row.failure_mode_id, row.priority_score ?? null])
+  );
+
+  const { data: failureModes } =
+    failureModeIds.length === 0
+      ? { data: [] }
+      : await compliance
+          .from('failure_modes')
+          .select(`
+            id,
+            code,
+            name,
+            description,
+            dimension_id,
+            bloque,
+            subcategoria,
+            tipo,
+            risk_dimensions(name, display_order)
+          `)
+          .in('id', failureModeIds);
+
+  const failureModeMap = new Map(
+    (failureModes ?? []).map((mode) => [
+      mode.id,
+      {
+        id: mode.id,
+        code: mode.code,
+        name: mode.name,
+        description: mode.description,
+        dimension_id: mode.dimension_id,
+        dimension_name: Array.isArray(mode.risk_dimensions)
+          ? mode.risk_dimensions[0]?.name ?? mode.dimension_id
+          : mode.risk_dimensions?.name ?? mode.dimension_id,
+        dimension_order: Array.isArray(mode.risk_dimensions)
+          ? mode.risk_dimensions[0]?.display_order ?? 99
+          : mode.risk_dimensions?.display_order ?? 99,
+        bloque: mode.bloque,
+        subcategoria: mode.subcategoria,
+        tipo: mode.tipo,
+      },
+    ])
+  );
+
+  const { data: controlRefs } =
+    failureModeIds.length === 0
+      ? { data: [] }
+      : await compliance
+          .from('failure_mode_control_refs')
+          .select(`
+            failure_mode_id,
+            control_template_id,
+            control_templates(id, code, name, description, area)
+          `)
+          .in('failure_mode_id', failureModeIds);
+
+  const controlTemplateIds = Array.from(
+    new Set(
+      (controlRefs ?? [])
+        .map((row) => row.control_template_id)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    )
+  );
+
+  const { data: controls } =
+    controlTemplateIds.length === 0
+      ? { data: [] }
+      : await fluxion
+          .from('controls')
+          .select('id, template_id, status, owner_id, notes')
+          .eq('organization_id', params.organizationId)
+          .eq('system_id', params.aiSystemId)
+          .in('template_id', controlTemplateIds);
+
+  const controlsByTemplate = new Map(
+    (controls ?? []).map((control) => [control.template_id, control])
+  );
+  const controlsById = new Map((controls ?? []).map((control) => [control.id, control]));
+
+  const refsByFailureMode = new Map<string, TreatmentPlanControlSuggestion[]>();
+
+  for (const ref of controlRefs ?? []) {
+    const template = Array.isArray(ref.control_templates) ? ref.control_templates[0] : ref.control_templates;
+    if (!template) continue;
+
+    const current = refsByFailureMode.get(ref.failure_mode_id) ?? [];
+    const existing = controlsByTemplate.get(template.id);
+    current.push({
+      control_template_id: template.id,
+      control_code: template.code,
+      control_name: template.name,
+      control_description: template.description,
+      control_area: template.area,
+      existing_control_id: existing?.id ?? null,
+      existing_control_status: existing?.status ?? null,
+      existing_control_owner_id: existing?.owner_id ?? null,
+      existing_control_notes: existing?.notes ?? null,
+    });
+    refsByFailureMode.set(ref.failure_mode_id, current);
+  }
+
+  const { data: members } = await fluxion
+    .from('organization_members')
+    .select('user_id, role')
+    .eq('organization_id', params.organizationId)
+    .order('created_at', { ascending: true });
+
+  const memberIds = (members ?? [])
+    .map((member) => member.user_id)
+    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+  const { data: profiles } =
+    memberIds.length === 0
+      ? { data: [] }
+      : await fluxion
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', memberIds);
+
+  const memberNames = new Map(
+    (profiles ?? []).map((profile) => [
+      profile.id,
+      `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Usuario',
+    ])
+  );
+
+  const memberOptions: TreatmentPlanMember[] = (members ?? []).map((member) => ({
+    id: member.user_id,
+    full_name: memberNames.get(member.user_id) ?? 'Usuario',
+    role: member.role,
+  }));
+
+  const actionViews: TreatmentPlanActionView[] = actions
+    .map((action) => {
+      const item = fmeaItemMap.get(action.fmea_item_id);
+      if (!item) return null;
+
+      const failureMode = failureModeMap.get(item.failure_mode_id);
+      if (!failureMode) return null;
+
+      const selectedControl =
+        action.control_id && controlsById.has(action.control_id) ? controlsById.get(action.control_id) : null;
+      const controlTemplateId =
+        selectedControl?.template_id ??
+        refsByFailureMode
+          .get(item.failure_mode_id)
+          ?.find((control) => control.existing_control_id === action.control_id)?.control_template_id ??
+        null;
+
+      return {
+        ...action,
+        failure_mode_id: item.failure_mode_id,
+        failure_mode_code: failureMode.code,
+        failure_mode_name: failureMode.name,
+        failure_mode_description: failureMode.description,
+        priority_score: priorityByFailureMode.get(item.failure_mode_id) ?? null,
+        dimension_id: failureMode.dimension_id,
+        dimension_name: failureMode.dimension_name,
+        dimension_order: failureMode.dimension_order,
+        bloque: failureMode.bloque,
+        subcategoria: failureMode.subcategoria,
+        tipo: failureMode.tipo,
+        s_default_frozen: item.s_default_frozen,
+        item_status: item.status,
+        requires_second_review: item.requires_second_review,
+        control_template_id: controlTemplateId,
+        control_refs: refsByFailureMode.get(item.failure_mode_id) ?? [],
+      };
+    })
+    .filter((action): action is TreatmentPlanActionView => action !== null)
+    .sort((left, right) => {
+      if (left.s_actual_at_creation !== right.s_actual_at_creation) {
+        return right.s_actual_at_creation - left.s_actual_at_creation;
+      }
+      if ((right.priority_score ?? -1) !== (left.priority_score ?? -1)) {
+        return (right.priority_score ?? -1) - (left.priority_score ?? -1);
+      }
+      if (left.dimension_order !== right.dimension_order) {
+        return left.dimension_order - right.dimension_order;
+      }
+      return left.failure_mode_name.localeCompare(right.failure_mode_name, 'es');
+    });
+
+  return {
+    system,
+    evaluation,
+    plan,
+    actions: actionViews,
+    members: memberOptions,
+    approver_name: plan.approver_id ? memberNames.get(plan.approver_id) ?? 'Usuario' : null,
+    read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(plan.status),
+  } satisfies TreatmentPlanData;
+}
+
+export function getAiActFloorForSystem(aiActLevel: string | null | undefined) {
+  return getAiActZoneFloor(aiActLevel);
+}

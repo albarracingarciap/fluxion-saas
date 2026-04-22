@@ -10,9 +10,12 @@ CREATE TABLE fluxion.organizations (
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL, -- para URLs amigables
   sector TEXT, -- 'banking'|'healthcare'|'public'|'other'
+  country TEXT DEFAULT 'Espana', -- país principal del tenant (UE por ahora)
   size TEXT, -- 'small'|'medium'|'large'
   geography TEXT[] DEFAULT '{}',
   active_modules TEXT[] DEFAULT '{}', -- módulos contratados
+  normative_modules TEXT[] DEFAULT '{}', -- AI Act, ISO 42001, DORA, RGPD, ENS, MDR/IVDR
+  apetito_riesgo TEXT DEFAULT 'moderado', -- 'conservador'|'moderado'|'amplio'
   plan TEXT DEFAULT 'starter', -- 'starter'|'professional'|'enterprise'|'partner'
   plan_started_at TIMESTAMPTZ,
   plan_expires_at TIMESTAMPTZ,

@@ -1,0 +1,121 @@
+@media print {
+  /* Ocultar elementos de la UI */
+  nav, 
+  aside, 
+  header, 
+  footer, 
+  button, 
+  [role="button"],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ajustes globales de página */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Contenedores */
+  .print-only {
+    display: block !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Formateo de Reporte */
+  .soa-report {
+    font-family: 'Sora', sans-serif;
+    color: #1a1a1a;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  h1 { font-size: 24pt; color: #004aad; margin-bottom: 20pt; }
+  h2 { font-size: 18pt; color: #004aad; margin-top: 30pt; margin-bottom: 15pt; }
+  h3 { font-size: 14pt; color: #333; margin-top: 20pt; margin-bottom: 10pt; }
+
+  /* Tablas de Controles */
+  .soa-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 10pt;
+  }
+
+  .soa-table th {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .soa-table td {
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+
+  .control-id {
+    font-family: 'IBMPlexMono', monospace;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    padding: 2pt 6pt;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 8pt;
+    border: 1px solid #eee;
+  }
+
+  /* Evitar saltos de página a mitad de una fila */
+  .soa-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Enlaces de evidencia */
+  .evidence-link {
+    color: #004aad;
+    text-decoration: underline;
+  }
+
+  /* Footer de página */
+  .report-footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 8pt;
+    color: #94a3b8;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+  }
+}
+
+/* En modo pantalla normal, ocultamos la vista de impresión */
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}

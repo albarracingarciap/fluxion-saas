@@ -1,0 +1,152 @@
+{
+    "familia": {
+        "id": "C",
+        "nombre": "Supervisión humana → gobernanza → responsabilidad"
+    },
+    "relaciones": [
+        {
+            "id": "C-01",
+            "nodo_origen": "Ausencia de punto de escalado humano formalmente definido [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "Sin un punto de escalado con responsabilidad nominativa, SLA y criterios de activación, las revisiones humanas ocurren ad hoc o no ocurren. El sistema opera sin supervisión efectiva aunque el proceso esté documentado.",
+            "condicion_activacion": "Sistema de alto impacto en producción con procedimiento de revisión humana no vinculado a responsabilidad nominativa ni a SLA de respuesta.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-02",
+            "nodo_origen": "Supervisión humana nominal sin contenido real [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Decisiones de alto impacto sin revisión efectiva acumuladas [ETH]",
+            "mecanismo_explicativo": "La aprobación formal sin evaluación sustantiva permite que decisiones incorrectas de alto impacto lleguen a los usuarios. La acumulación de estas decisiones no corregidas produce el daño que el mecanismo de supervisión debería haber interceptado.",
+            "condicion_activacion": "Revisiones humanas documentadas como aprobadas sin criterios de rechazo o corrección activos en el período de evaluación.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-03",
+            "nodo_origen": "Decisiones de alto impacto sin revisión efectiva acumuladas [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Imposibilidad de asignar responsabilidad por daño causado [LEG]",
+            "mecanismo_explicativo": "Cuando múltiples personas y procesos estaban formalmente involucrados en la toma de decisión pero ninguno ejerció supervisión sustantiva, la asignación de responsabilidad jurídica se dificulta. La difusión de responsabilidad es un argumento de defensa que perjudica al afectado.",
+            "condicion_activacion": "Daño causado por decisión de alto impacto sobre la que existían múltiples puntos de aprobación formal sin registro de ejercicio de juicio.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-04",
+            "nodo_origen": "Ausencia de SLA vinculante para la revisión humana [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "Sin tiempo máximo de revisión definido y vinculante, la supervisión tiende a ser postergada o apresurada. La ausencia de SLA elimina el incentivo operacional para realizar la revisión con la profundidad requerida.",
+            "condicion_activacion": "Proceso de revisión humana sin tiempo máximo definido para la aprobación o con SLA establecido pero sin consecuencias operacionales por incumplimiento.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-05",
+            "nodo_origen": "Ausencia de criterios explícitos de activación del escalado [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Ausencia de punto de escalado humano formalmente definido [GOV]",
+            "mecanismo_explicativo": "Sin criterios que definan cuándo y por qué una decisión debe ser escalada a revisión humana, el punto de escalado es estructuralmente hueco: existe nominalmente pero no tiene condiciones de activación operacionales.",
+            "condicion_activacion": "Procedimiento de supervisión humana sin definición de umbrales, tipos de caso o condiciones que activan la revisión obligatoria.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-06",
+            "nodo_origen": "Saturación del revisor humano por volumen de decisiones [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "Cuando el volumen de decisiones asignadas a revisión excede la capacidad real de análisis del revisor, las aprobaciones se convierten en operaciones mecánicas. La calidad de la supervisión degrada con la carga de trabajo.",
+            "condicion_activacion": "Revisor humano con más de N decisiones asignadas por jornada, donde N excede la capacidad de análisis sustantivo según el tipo de caso.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-07",
+            "nodo_origen": "Ausencia de supervisión humana efectiva [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Perpetuación de decisiones incorrectas sin corrección [ETH]",
+            "mecanismo_explicativo": "Sin supervisión efectiva que detecte y corregija decisiones incorrectas, los errores del sistema se perpetúan. Cada ciclo sin detección aumenta la acumulación de daño sobre los afectados.",
+            "condicion_activacion": "Sistema con tasa de error superior al umbral de aceptación sin mecanismo activo de detección y corrección operando.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-08",
+            "nodo_origen": "Perpetuación de decisiones incorrectas sin corrección [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Daño acumulado sobre personas afectadas por el sistema [ETH]",
+            "mecanismo_explicativo": "Cada decisión incorrecta no corregida produce un daño concreto sobre el afectado. La perpetuación multiplica ese daño: el afectado no solo recibe una decisión incorrecta sino que el error se reitera en sucesivos ciclos.",
+            "condicion_activacion": "Afectado que interactúa repetidamente con el sistema o cuya situación es reevaluada periódicamente sin corrección del error identificado.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-09",
+            "nodo_origen": "Daño acumulado sobre personas afectadas por el sistema [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Reclamación formal del usuario ante el responsable o autoridad [LEG]",
+            "mecanismo_explicativo": "El daño acumulado suficientemente grave o extenso activa el mecanismo de reclamación. El afectado que ha sufrido daño repetido tiene mayor motivación y base jurídica para reclamar que quien ha sufrido un único incidente.",
+            "condicion_activacion": "Afectado que ha experimentado daño reiterado atribuible al sistema y que tiene acceso a mecanismos de reclamación.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-10",
+            "nodo_origen": "Reclamación formal del usuario ante el responsable o autoridad [LEG]",
+            "tipo": "causes",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "Las reclamaciones formales activan obligaciones de respuesta con plazos legales, posibles investigaciones de la autoridad de control y costes de gestión no presupuestados. Si escalan a sanción, el coste aumenta exponencialmente.",
+            "condicion_activacion": "Reclamación formal recibida sobre una decisión del sistema que requiere respuesta documentada en plazo legal.",
+            "confianza": "medium"
+        },
+        {
+            "id": "C-11",
+            "nodo_origen": "Ausencia de responsabilidad nominativa sobre la supervisión [GOV]",
+            "tipo": "enables",
+            "nodo_destino": "Imposibilidad de asignar responsabilidad por daño causado [LEG]",
+            "mecanismo_explicativo": "Sin un responsable nominativo del proceso de supervisión, la organización no puede demostrar que la supervisión fue ejercida por alguien con mandato y capacidad para corregir. La ausencia de nominatividad es una laguna en la cadena de responsabilidad.",
+            "condicion_activacion": "Daño causado en período sin responsable nominativo de la supervisión identificado y con mandato documentado.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-12",
+            "nodo_origen": "Saturación del revisor humano por volumen de decisiones [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Decisiones de alto impacto sin revisión efectiva acumuladas [ETH]",
+            "mecanismo_explicativo": "La saturación no solo degrada la calidad de cada revisión individual sino que aumenta el número absoluto de decisiones revisadas deficientemente. El efecto combinado de degradación cualitativa y acumulación cuantitativa amplifica el daño.",
+            "condicion_activacion": "Carga de trabajo del revisor por encima de la capacidad de análisis durante un período sostenido.",
+            "confianza": "medium"
+        },
+        {
+            "id": "C-13",
+            "nodo_origen": "Ausencia de formación del revisor en interpretación de sistemas IA [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Supervisión humana nominal sin contenido real [GOV]",
+            "mecanismo_explicativo": "Un revisor que no comprende cómo interpretar los outputs del sistema, qué indicadores señalan errores o qué patrones son señales de alerta no puede ejercer supervisión sustantiva aunque tenga la autoridad y el tiempo para hacerlo.",
+            "condicion_activacion": "Revisor humano sin formación específica en el funcionamiento del sistema supervisado y sin protocolo de revisión estructurado.",
+            "confianza": "medium"
+        },
+        {
+            "id": "C-14",
+            "nodo_origen": "Ausencia de punto de escalado humano en sistemas agénticos [GOV]",
+            "tipo": "causes",
+            "nodo_destino": "Acciones no autorizadas ejecutadas por agente autónomo [TEC]",
+            "mecanismo_explicativo": "Los sistemas agénticos ejecutan secuencias de acciones con efectos en el mundo real. Sin puntos de parada obligatoria para validación humana, el agente puede ejecutar acciones que exceden los límites de su autorización implícita.",
+            "condicion_activacion": "Sistema agéntico en producción que ejecuta acciones con efectos irreversibles o de alto impacto sin punto de validación humana previa.",
+            "confianza": "high"
+        },
+        {
+            "id": "C-15",
+            "nodo_origen": "Acciones no autorizadas ejecutadas por agente autónomo [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Daño acumulado sobre personas afectadas por el sistema [ETH]",
+            "mecanismo_explicativo": "Las acciones ejecutadas por un agente autónomo fuera de su autorización pueden causar daños directos a terceros: transacciones no autorizadas, envío de información incorrecta, modificación de registros sin base.",
+            "condicion_activacion": "Agente que ejecuta acciones de alto impacto sobre datos o recursos de usuarios sin haber recibido autorización explícita para el caso concreto.",
+            "confianza": "medium"
+        },
+        {
+            "id": "C-16",
+            "nodo_origen": "Ausencia de mecanismo de override o detención del agente [GOV]",
+            "tipo": "amplifies",
+            "nodo_destino": "Acciones no autorizadas ejecutadas por agente autónomo [TEC]",
+            "mecanismo_explicativo": "Sin un mecanismo operacional de detención o anulación de las acciones del agente, las acciones no autorizadas no pueden interrumpirse una vez iniciadas. La amplificación es temporal: el daño se extiende mientras el agente continúa operando.",
+            "condicion_activacion": "Sistema agéntico en ejecución con acciones no autorizadas en curso sin mecanismo de detención activable en tiempo real.",
+            "confianza": "medium"
+        }
+    ]
+}

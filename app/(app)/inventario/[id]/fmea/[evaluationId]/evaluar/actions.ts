@@ -1,0 +1,755 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import {
+  calculateFmeaZone,
+  requiresJustification,
+  requiresSecondReview,
+  type FmeaEditableItem,
+  type FmeaZone,
+} from '@/lib/fmea/domain';
+import {
+  generateTreatmentPlanCode,
+  getApproverRolePriority,
+  getAiActFloorForSystem,
+  getApprovalLevelForZone,
+  getDefaultDeadlineForZone,
+  getReviewCadenceForZone,
+} from '@/lib/fmea/treatment-plan';
+import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createClient } from '@/lib/supabase/server';
+
+type SaveFmeaItemInput = {
+  aiSystemId: string;
+  evaluationId: string;
+  itemId: string;
+  oValue: number | null;
+  dRealValue: number | null;
+  sActual: number | null;
+  manualMode: boolean;
+  justification?: string | null;
+  status: 'pending' | 'evaluated' | 'skipped';
+};
+
+type SaveFmeaDraftInput = {
+  aiSystemId: string;
+  evaluationId: string;
+  cachedZone: FmeaZone;
+  items?: Array<{
+    itemId: string;
+    oValue: number | null;
+    dRealValue: number | null;
+    sActual: number | null;
+    justification?: string | null;
+    status: 'pending' | 'evaluated' | 'skipped';
+    requiresSecondReview?: boolean;
+  }>;
+};
+
+async function resolvePlanApprover(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: any;
+  organizationId: string;
+  approvalLevel: ReturnType<typeof getApprovalLevelForZone>;
+  actorUserId: string;
+}) {
+  const { fluxion, organizationId, approvalLevel, actorUserId } = params;
+  const { data: members } = await fluxion
+    .from('organization_members')
+    .select('user_id, role')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: true });
+
+  const candidates = members ?? [];
+  const priorities = getApproverRolePriority(approvalLevel);
+
+  for (const role of priorities) {
+    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role && member.user_id !== actorUserId);
+    if (match) {
+      return match.user_id as string;
+    }
+  }
+
+  for (const role of priorities) {
+    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role);
+    if (match) {
+      return match.user_id as string;
+    }
+  }
+
+  const fallback = candidates.find((member: { user_id: string; role: string }) => member.user_id !== actorUserId) ?? candidates[0];
+  return fallback?.user_id ?? null;
+}
+
+type ResolveFmeaSecondReviewInput = {
+  aiSystemId: string;
+  evaluationId: string;
+  itemId: string;
+  decision: 'approved' | 'rejected';
+  notes?: string | null;
+};
+
+async function requireEditableEvaluation(params: { aiSystemId: string; evaluationId: string }) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    redirect('/login');
+  }
+
+  const { data: membership, error: membershipError } = await fluxion
+    .from('organization_members')
+    .select('organization_id, role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (membershipError || !membership) {
+    return { error: 'No se encontró la organización del usuario.' } as const;
+  }
+
+  const { data: evaluation, error: evaluationError } = await fluxion
+    .from('fmea_evaluations')
+    .select('id, organization_id, system_id, state, evaluator_id')
+    .eq('organization_id', membership.organization_id)
+    .eq('system_id', params.aiSystemId)
+    .eq('id', params.evaluationId)
+    .maybeSingle();
+
+  if (evaluationError || !evaluation) {
+    return { error: 'No se encontró la evaluación FMEA solicitada.' } as const;
+  }
+
+  if (!['draft', 'in_review'].includes(evaluation.state)) {
+    return { error: 'La evaluación está en solo lectura y ya no admite cambios.' } as const;
+  }
+
+  return { supabase, fluxion, user, membership, evaluation } as const;
+}
+
+export async function saveFmeaItem(input: SaveFmeaItemInput) {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  const { data: item, error: itemError } = await fluxion
+    .from('fmea_items')
+    .select('id, failure_mode_id, s_default_frozen')
+    .eq('evaluation_id', input.evaluationId)
+    .eq('id', input.itemId)
+    .maybeSingle();
+
+  if (itemError || !item) {
+    return { error: 'No se encontró el ítem FMEA a guardar.' };
+  }
+
+  const normalizedOValue = input.status === 'evaluated' ? (input.oValue ?? 3) : input.oValue;
+  const normalizedDRealValue =
+    input.status === 'evaluated' ? (input.dRealValue ?? 3) : input.dRealValue;
+
+  if (input.status === 'evaluated') {
+    if (
+      normalizedOValue === null ||
+      normalizedOValue < 1 ||
+      normalizedOValue > 5 ||
+      normalizedDRealValue === null ||
+      normalizedDRealValue < 1 ||
+      normalizedDRealValue > 5 ||
+      input.sActual === null ||
+      input.sActual < 2 ||
+      input.sActual > 9
+    ) {
+      return { error: 'Para confirmar un ítem necesitas O, D real y S actual válidos.' };
+    }
+
+    const justificationNeeded = requiresJustification({
+      sDefault: item.s_default_frozen,
+      sActual: input.sActual,
+      status: 'evaluated',
+      justification: input.justification,
+    });
+
+    if (justificationNeeded && (input.justification?.trim().length ?? 0) < 50) {
+      return { error: 'La justificación es obligatoria y debe tener al menos 50 caracteres.' };
+    }
+  }
+
+  const requiresSecond = requiresSecondReview({
+    sDefault: item.s_default_frozen,
+    sActual: input.status === 'evaluated' ? input.sActual : null,
+    manualMode: input.status === 'evaluated' ? input.manualMode : false,
+  });
+
+  const updatePayload =
+    input.status === 'skipped'
+      ? {
+          status: 'skipped',
+          o_value: null,
+          d_real_value: null,
+          s_actual: null,
+          narrative_justification: input.justification?.trim() || null,
+          requires_second_review: false,
+          second_review_status: 'not_required',
+          second_reviewed_by: null,
+          second_reviewed_at: null,
+          second_review_notes: null,
+          skipped_at: new Date().toISOString(),
+        }
+      : {
+          status: 'evaluated',
+          o_value: normalizedOValue,
+          d_real_value: normalizedDRealValue,
+          s_actual: input.sActual,
+          narrative_justification: input.justification?.trim() || null,
+          requires_second_review: requiresSecond,
+          second_review_status: requiresSecond ? 'pending' : 'not_required',
+          second_reviewed_by: null,
+          second_reviewed_at: null,
+          second_review_notes: null,
+          skipped_at: null,
+        };
+
+  const { error: updateError } = await fluxion
+    .from('fmea_items')
+    .update(updatePayload)
+    .eq('id', input.itemId)
+    .eq('evaluation_id', input.evaluationId);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: input.status === 'skipped' ? 'fmea_item_skipped' : 'fmea_item_evaluated',
+      event_title: input.status === 'skipped' ? 'Modo de fallo pospuesto' : 'Modo de fallo evaluado',
+      event_summary:
+        input.status === 'skipped'
+          ? 'Se pospuso un modo de fallo dentro de la evaluación FMEA.'
+          : `Se confirmó un modo de fallo con S_actual ${input.sActual}.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        item_id: input.itemId,
+        failure_mode_id: item.failure_mode_id,
+        status: input.status,
+        s_actual: input.status === 'evaluated' ? input.sActual : null,
+        requires_second_review: requiresSecond,
+        second_review_status: input.status === 'evaluated' && requiresSecond ? 'pending' : 'not_required',
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return { success: true, requiresSecondReview: requiresSecond };
+}
+
+export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  if (input.items && input.items.length > 0) {
+    for (const item of input.items) {
+      const normalizedOValue = item.status === 'skipped' ? null : (item.oValue ?? 3);
+      const normalizedDRealValue = item.status === 'skipped' ? null : (item.dRealValue ?? 3);
+      const updatePayload =
+        item.status === 'skipped'
+          ? {
+              status: 'skipped',
+              o_value: null,
+              d_real_value: null,
+              s_actual: null,
+              narrative_justification: item.justification?.trim() || null,
+              requires_second_review: false,
+              second_review_status: 'not_required',
+              second_reviewed_by: null,
+              second_reviewed_at: null,
+              second_review_notes: null,
+              skipped_at: new Date().toISOString(),
+            }
+          : {
+              status: item.status,
+              o_value: normalizedOValue,
+              d_real_value: normalizedDRealValue,
+              s_actual: item.sActual,
+              narrative_justification: item.justification?.trim() || null,
+              requires_second_review: item.requiresSecondReview ?? false,
+              skipped_at: null,
+            };
+
+      const { error: itemUpdateError } = await fluxion
+        .from('fmea_items')
+        .update(updatePayload)
+        .eq('id', item.itemId)
+        .eq('evaluation_id', input.evaluationId);
+
+      if (itemUpdateError) {
+        return { error: itemUpdateError.message };
+      }
+    }
+  }
+
+  const { error } = await fluxion
+    .from('fmea_evaluations')
+    .update({
+      cached_zone: input.cachedZone,
+      state: 'draft',
+      evaluator_id: user.id,
+    })
+    .eq('id', input.evaluationId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'fmea_draft_saved',
+      event_title: 'Borrador FMEA guardado',
+      event_summary: `Se guardó el borrador FMEA con ${input.cachedZone.replace('_', ' ')} como referencia de zona.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        cached_zone: input.cachedZone,
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+
+  return { success: true };
+}
+
+export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  const { data: items, error: itemError } = await fluxion
+    .from('fmea_items')
+    .select('id, s_default_frozen, o_value, d_real_value, s_actual, status, narrative_justification, requires_second_review, second_review_status')
+    .eq('evaluation_id', input.evaluationId);
+
+  if (itemError || !items) {
+    return { error: 'No se pudieron validar los ítems antes del envío.' };
+  }
+
+  const pendingCount = items.filter((item) => item.status === 'pending').length;
+  const skippedCount = items.filter((item) => item.status === 'skipped').length;
+  const unresolvedCount = pendingCount + skippedCount;
+
+  if (unresolvedCount > 0) {
+    const parts: string[] = [];
+
+    if (pendingCount > 0) {
+      parts.push(`${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}`);
+    }
+
+    if (skippedCount > 0) {
+      parts.push(`${skippedCount} pospuesto${skippedCount === 1 ? '' : 's'}`);
+    }
+
+    return {
+      error: `La evaluación todavía no puede enviarse: quedan ${parts.join(' y ')} por resolver.`,
+    };
+  }
+
+  const invalidJustifications = items.filter((item) => {
+    if (item.status !== 'evaluated') return false;
+    return requiresJustification({
+      sDefault: item.s_default_frozen,
+      sActual: item.s_actual,
+      status: 'evaluated',
+      justification: item.narrative_justification,
+    }) && (item.narrative_justification?.trim().length ?? 0) < 50;
+  });
+
+  if (invalidJustifications.length > 0) {
+    return { error: 'Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.' };
+  }
+
+  const unresolvedSecondReviewCount = items.filter(
+    (item) =>
+      item.requires_second_review &&
+      item.status === 'evaluated' &&
+      item.second_review_status !== 'approved'
+  ).length;
+
+  if (unresolvedSecondReviewCount > 0) {
+    return {
+      error: `Quedan ${unresolvedSecondReviewCount} modo${unresolvedSecondReviewCount === 1 ? '' : 's'} pendientes de 2ª revisión antes del envío.`,
+    };
+  }
+
+  const { data: system, error: systemError } = await fluxion
+    .from('ai_systems')
+    .select('id, aiact_risk_level')
+    .eq('organization_id', membership.organization_id)
+    .eq('id', input.aiSystemId)
+    .maybeSingle();
+
+  if (systemError || !system) {
+    return { error: 'No se pudo leer el sistema antes de enviar la evaluación.' };
+  }
+
+  const { error } = await fluxion
+    .from('fmea_evaluations')
+    .update({
+      cached_zone: input.cachedZone,
+      state: 'in_review',
+      evaluator_id: user.id,
+    })
+    .eq('id', input.evaluationId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const candidateItems = items.filter(
+    (item) =>
+      item.status === 'evaluated' &&
+      typeof item.s_actual === 'number' &&
+      (item.s_actual >= 7 || item.requires_second_review)
+  );
+
+  if (candidateItems.length === 0) {
+    await insertAiSystemHistoryEvents(fluxion, [
+      {
+        ai_system_id: input.aiSystemId,
+        organization_id: membership.organization_id,
+        event_type: 'fmea_submitted_for_review',
+        event_title: 'Evaluación FMEA enviada a revisión',
+        event_summary:
+          'La evaluación manual se envió a revisión sin acciones candidatas de tratamiento.',
+        actor_user_id: user.id,
+        payload: {
+          evaluation_id: input.evaluationId,
+          cached_zone: input.cachedZone,
+          treatment_plan_id: null,
+          treatment_actions_count: 0,
+        },
+      },
+    ]);
+
+    revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+    revalidatePath(`/inventario/${input.aiSystemId}`);
+
+    return {
+      success: true,
+      planPath: `/inventario/${input.aiSystemId}`,
+    };
+  }
+
+  const { data: existingPlan } = await fluxion
+    .from('treatment_plans')
+    .select('id, approver_id')
+    .eq('evaluation_id', input.evaluationId)
+    .maybeSingle();
+
+  let treatmentPlanId = existingPlan?.id ?? null;
+  let createdTreatmentPlan = false;
+  let approverId = existingPlan?.approver_id ?? null;
+
+  if (!treatmentPlanId) {
+    const createdAt = new Date();
+    const sMax = Math.max(
+      ...items
+        .map((item) => item.s_actual)
+        .filter((value): value is number => typeof value === 'number'),
+      2
+    );
+    const zoneIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 9).length;
+    const zoneIIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 8).length;
+    const aiActFloor = getAiActFloorForSystem(system.aiact_risk_level);
+    const approvalLevel = getApprovalLevelForZone(input.cachedZone);
+    approverId = await resolvePlanApprover({
+      fluxion,
+      organizationId: membership.organization_id,
+      approvalLevel,
+      actorUserId: user.id,
+    });
+    const pivotNodeIds = candidateItems
+      .slice()
+      .sort((left, right) => (right.s_actual ?? 0) - (left.s_actual ?? 0))
+      .slice(0, 3)
+      .map((item) => item.id);
+    const code = await generateTreatmentPlanCode({
+      organizationId: membership.organization_id,
+      createdAt,
+    });
+
+    const { data: newPlan, error: planError } = await fluxion
+      .from('treatment_plans')
+      .insert({
+        organization_id: membership.organization_id,
+        system_id: input.aiSystemId,
+        evaluation_id: input.evaluationId,
+        code,
+        status: 'draft',
+        zone_at_creation: input.cachedZone,
+        zone_target: input.cachedZone,
+        ai_act_floor: aiActFloor,
+        s_max_at_creation: sMax,
+        modes_count_total: items.length,
+        modes_count_zone_i: zoneIItems,
+        modes_count_zone_ii: zoneIIItems,
+        actions_total: candidateItems.length,
+        actions_completed: 0,
+        pivot_node_ids: pivotNodeIds,
+        accepted_risk_count: 0,
+        approval_level: approvalLevel,
+        approver_id: approverId,
+        deadline: getDefaultDeadlineForZone(input.cachedZone, createdAt),
+        review_cadence: getReviewCadenceForZone(input.cachedZone),
+        created_by: user.id,
+      })
+      .select('id')
+      .single();
+
+    if (planError || !newPlan) {
+      return { error: planError?.message ?? 'No se pudo crear el plan de tratamiento.' };
+    }
+
+    treatmentPlanId = newPlan.id;
+    createdTreatmentPlan = true;
+  }
+
+  if (treatmentPlanId && !approverId) {
+    approverId = await resolvePlanApprover({
+      fluxion,
+      organizationId: membership.organization_id,
+      approvalLevel: getApprovalLevelForZone(input.cachedZone),
+      actorUserId: user.id,
+    });
+
+    if (approverId) {
+      await fluxion.from('treatment_plans').update({ approver_id: approverId }).eq('id', treatmentPlanId);
+    }
+  }
+
+  if (candidateItems.length > 0 && treatmentPlanId) {
+    const { data: existingActions } = await fluxion
+      .from('treatment_actions')
+      .select('fmea_item_id')
+      .eq('plan_id', treatmentPlanId)
+      .in(
+        'fmea_item_id',
+        candidateItems.map((item) => item.id)
+      );
+
+    const existingItemIds = new Set((existingActions ?? []).map((action) => action.fmea_item_id));
+
+    const actionsToInsert = candidateItems
+      .filter((item) => !existingItemIds.has(item.id))
+      .map((item) => ({
+        organization_id: membership.organization_id,
+        plan_id: treatmentPlanId,
+        fmea_item_id: item.id,
+        option: null,
+        status: 'pending',
+        s_actual_at_creation: item.s_actual ?? 7,
+        owner_id: null,
+        due_date: null,
+      }));
+
+    if (actionsToInsert.length > 0) {
+      const { error: actionsError } = await fluxion.from('treatment_actions').insert(actionsToInsert);
+
+      if (actionsError) {
+        return { error: actionsError.message };
+      }
+    }
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'fmea_submitted_for_review',
+      event_title: 'Evaluación FMEA enviada a revisión',
+      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        cached_zone: input.cachedZone,
+        treatment_plan_id: treatmentPlanId,
+        treatment_actions_count: candidateItems.length,
+        approver_id: approverId,
+      },
+    },
+    ...(createdTreatmentPlan && treatmentPlanId
+      ? [
+          {
+            ai_system_id: input.aiSystemId,
+            organization_id: membership.organization_id,
+            event_type: 'treatment_plan_created',
+            event_title: 'Plan de tratamiento creado',
+            event_summary: `Se creó el plan de tratamiento asociado a la evaluación FMEA con ${candidateItems.length} acciones candidatas.`,
+            actor_user_id: user.id,
+            payload: {
+              evaluation_id: input.evaluationId,
+              treatment_plan_id: treatmentPlanId,
+              candidate_actions: candidateItems.length,
+              approver_id: approverId,
+            },
+          },
+          ...(approverId
+            ? [
+                {
+                  ai_system_id: input.aiSystemId,
+                  organization_id: membership.organization_id,
+                  event_type: 'treatment_plan_approver_assigned',
+                  event_title: 'Aprobador asignado al plan',
+                  event_summary: 'Se asignó automáticamente el aprobador del plan de tratamiento según el nivel requerido.',
+                  actor_user_id: user.id,
+                  payload: {
+                    evaluation_id: input.evaluationId,
+                    treatment_plan_id: treatmentPlanId,
+                    approver_id: approverId,
+                  },
+                },
+              ]
+            : []),
+        ]
+      : []),
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return {
+    success: true,
+    planPath: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`,
+  };
+}
+
+export async function recomputeFmeaZone(input: {
+  aiActLevel: string | null;
+  items: FmeaEditableItem[];
+}) {
+  return calculateFmeaZone(input.items, input.aiActLevel);
+}
+
+export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInput) {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership, evaluation } = context;
+
+  if (!['admin', 'editor', 'dpo', 'technical'].includes(membership.role)) {
+    return { error: 'No tienes permisos para realizar la segunda revisión.' };
+  }
+
+  if (evaluation.evaluator_id && evaluation.evaluator_id === user.id) {
+    return { error: 'La segunda revisión debe realizarla un usuario distinto del evaluador principal.' };
+  }
+
+  const { data: item, error: itemError } = await fluxion
+    .from('fmea_items')
+    .select('id, failure_mode_id, status, requires_second_review')
+    .eq('evaluation_id', input.evaluationId)
+    .eq('id', input.itemId)
+    .maybeSingle();
+
+  if (itemError || !item) {
+    return { error: 'No se encontró el ítem FMEA para resolver la segunda revisión.' };
+  }
+
+  if (item.status !== 'evaluated' || !item.requires_second_review) {
+    return { error: 'Este ítem no requiere una segunda revisión activa.' };
+  }
+
+  const notes = input.notes?.trim() || null;
+
+  if (input.decision === 'rejected' && (notes?.length ?? 0) < 50) {
+    return { error: 'El rechazo de la segunda revisión requiere una nota de al menos 50 caracteres.' };
+  }
+
+  const reviewedAt = new Date().toISOString();
+
+  const { error: updateError } = await fluxion
+    .from('fmea_items')
+    .update({
+      second_review_status: input.decision,
+      second_reviewed_by: user.id,
+      second_reviewed_at: reviewedAt,
+      second_review_notes: notes,
+    })
+    .eq('id', input.itemId)
+    .eq('evaluation_id', input.evaluationId);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type:
+        input.decision === 'approved'
+          ? 'fmea_second_review_approved'
+          : 'fmea_second_review_rejected',
+      event_title:
+        input.decision === 'approved'
+          ? 'Segunda revisión aprobada'
+          : 'Segunda revisión rechazada',
+      event_summary:
+        input.decision === 'approved'
+          ? 'Un segundo revisor validó este modo de fallo.'
+          : 'Un segundo revisor solicitó revisar de nuevo este modo de fallo.',
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        item_id: input.itemId,
+        failure_mode_id: item.failure_mode_id,
+        decision: input.decision,
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return {
+    success: true,
+    secondReviewStatus: input.decision,
+    secondReviewedBy: user.id,
+    secondReviewedAt: reviewedAt,
+    secondReviewNotes: notes,
+  };
+}

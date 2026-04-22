@@ -1,0 +1,152 @@
+{
+    "familia": {
+        "id": "E",
+        "nombre": "IA Generativa — alucinación → confianza → daño"
+    },
+    "relaciones": [
+        {
+            "id": "E-01",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Decisión del usuario basada en información falsa presentada como cierta [ETH]",
+            "mecanismo_explicativo": "El sistema generativo produce referencias normativas o técnicas incorrectas con el mismo nivel de confianza declarada que las correctas. El usuario que no verifica actúa sobre información falsa sin señal de alerta.",
+            "condicion_activacion": "Sistema generativo utilizado para consultas normativas o técnicas por usuarios sin formación para verificar independientemente los outputs.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-02",
+            "nodo_origen": "Decisión del usuario basada en información falsa presentada como cierta [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Daño económico directo al usuario o a la organización [ROI]",
+            "mecanismo_explicativo": "Las decisiones basadas en información incorrecta producen consecuencias económicas directas: costes de corrección, pérdidas por acciones erróneas, costes de reputación.",
+            "condicion_activacion": "Usuario que ha tomado una decisión con consecuencias económicas materiales basándose en output incorrecto del sistema.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-03",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Sanción administrativa por actuación basada en normativa inexistente [LEG]",
+            "mecanismo_explicativo": "Una organización que actúa basándose en una norma fabricada por el sistema generativo puede incumplir la normativa real. La invención de referencias normativas es especialmente peligrosa en contextos de compliance.",
+            "condicion_activacion": "Acción organizativa con consecuencias regulatorias tomada sobre la base de una referencia normativa generada que no corresponde a normativa vigente.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-04",
+            "nodo_origen": "Confianza excesiva del usuario en los outputs del sistema [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Decisión del usuario basada en información falsa presentada como cierta [ETH]",
+            "mecanismo_explicativo": "La confianza excesiva elimina el filtro de verificación del usuario. Un usuario que confía plenamente en el sistema no activa los mecanismos de comprobación independiente que podrían detectar el error antes de que produzca daño.",
+            "condicion_activacion": "Usuario con historia de interacciones correctas con el sistema que ha reducido su comportamiento de verificación como resultado.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-05",
+            "nodo_origen": "Ausencia de calibración de incertidumbre en los outputs del sistema [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Confianza excesiva del usuario en los outputs del sistema [ETH]",
+            "mecanismo_explicativo": "Los sistemas que presentan todos sus outputs con el mismo nivel de seguridad aparente no ofrecen señales al usuario sobre cuándo debe verificar. La ausencia de expresión de incertidumbre es la causa técnica de la confianza excesiva.",
+            "condicion_activacion": "Sistema generativo que produce outputs sin expresión de incertidumbre ni indicación de cuándo el output puede ser menos fiable.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-06",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "amplifies",
+            "nodo_destino": "Imposibilidad de determinar causalidad en litigios [LEG]",
+            "mecanismo_explicativo": "Un sistema que produce referencias incorrectas sobre obligaciones o estándares puede ser invocado como fuente de orientación en un litigio. La confabulación contamina el debate probatorio con documentación ficticia.",
+            "condicion_activacion": "Litigio donde una de las partes invoca outputs del sistema generativo como evidencia del contenido de obligaciones normativas.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-07",
+            "nodo_origen": "Producción de recomendaciones médicas incorrectas sin advertencia [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Daño físico al usuario por seguimiento de recomendación incorrecta [ETH]",
+            "mecanismo_explicativo": "Un sistema generativo utilizado en contextos de salud que produce recomendaciones médicas incorrectas sin advertencia de limitación puede inducir al usuario a tomar decisiones con consecuencias físicas graves.",
+            "condicion_activacion": "Sistema generativo de uso general utilizado para orientación médica por usuarios sin formación sanitaria y sin disclaimers efectivos.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-08",
+            "nodo_origen": "Daño físico al usuario por seguimiento de recomendación incorrecta [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Responsabilidad civil por daño directo atribuible al sistema [LEG]",
+            "mecanismo_explicativo": "El daño físico causado por una recomendación incorrecta del sistema genera responsabilidad civil extracontractual para el proveedor. La cadena causal entre el output del sistema y el daño debe ser demostrable.",
+            "condicion_activacion": "Daño físico documentado causalmente vinculado a la actuación del usuario según las recomendaciones del sistema.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-09",
+            "nodo_origen": "Ausencia de calibración de incertidumbre en los outputs del sistema [TEC]",
+            "tipo": "enables",
+            "nodo_destino": "Producción de recomendaciones médicas incorrectas sin advertencia [ETH]",
+            "mecanismo_explicativo": "Sin expresión de incertidumbre, el sistema no puede comunicar al usuario cuándo sus respuestas sobre salud tienen menor fiabilidad. La ausencia de señal de alerta habilita que las recomendaciones incorrectas sean seguidas.",
+            "condicion_activacion": "Sistema utilizado en dominio de salud sin calibración de incertidumbre ni restricción de dominio implementada.",
+            "confianza": "medium"
+        },
+        {
+            "id": "E-10",
+            "nodo_origen": "Confabulación de fuentes inexistentes como respaldo de outputs [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Daño reputacional para la organización por información incorrecta distribuida [ROI]",
+            "mecanismo_explicativo": "Cuando el sistema atribuye afirmaciones a fuentes inventadas que son verificadas como inexistentes por terceros, la organización sufre daño reputacional por haber desplegado un sistema que distribuye desinformación.",
+            "condicion_activacion": "Output del sistema con citas a fuentes verificadas como inexistentes, distribuido externamente con atribución a la organización.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-11",
+            "nodo_origen": "Degradación silenciosa del rendimiento del modelo generativo [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Confabulación de referencias normativas o técnicas [TEC]",
+            "mecanismo_explicativo": "La degradación del rendimiento en modelos generativos puede manifestarse como incremento en la tasa de confabulación antes de ser visible en otras métricas. La tasa de confabulación es un indicador de degradación específico del modelo generativo.",
+            "condicion_activacion": "Modelo generativo con drift en el dominio de especialización que se manifiesta primero en inconsistencias y confabulaciones antes de afectar otras métricas.",
+            "confianza": "medium"
+        },
+        {
+            "id": "E-12",
+            "nodo_origen": "Confianza excesiva del usuario en los outputs del sistema [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Omisión de verificación independiente por el usuario [ETH]",
+            "mecanismo_explicativo": "La confianza establece un patrón de comportamiento: el usuario que ha observado outputs correctos en el pasado deja de aplicar el esfuerzo de verificación independiente. La omisión de verificación es el comportamiento que convierte el error del sistema en daño.",
+            "condicion_activacion": "Usuario con historial de interacciones previas correctas que ha reducido activamente su comportamiento de verificación.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-13",
+            "nodo_origen": "Omisión de verificación independiente por el usuario [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Daño económico directo al usuario o a la organización [ROI]",
+            "mecanismo_explicativo": "La omisión de verificación amplifica el daño porque elimina la última barrera de detección antes de que el error se materialice en acción. Sin verificación, el daño económico es más probable y más severo.",
+            "condicion_activacion": "Usuario que actúa directamente sobre output incorrecto sin paso de verificación intermedia.",
+            "confianza": "medium"
+        },
+        {
+            "id": "E-14",
+            "nodo_origen": "Ausencia de disclaimers efectivos sobre limitaciones del sistema [ETH]",
+            "tipo": "amplifies",
+            "nodo_destino": "Confianza excesiva del usuario en los outputs del sistema [ETH]",
+            "mecanismo_explicativo": "La ausencia de advertencias visibles y contextuales sobre las limitaciones del sistema refuerza la percepción del usuario de que el output es fiable. Los disclaimers genéricos en términos y condiciones no tienen efecto sobre el comportamiento en el momento de uso.",
+            "condicion_activacion": "Sistema sin advertencias contextuales en el punto de uso sobre limitaciones específicas del tipo de output producido.",
+            "confianza": "high"
+        },
+        {
+            "id": "E-15",
+            "nodo_origen": "Confabulación de referencias normativas o técnicas [TEC]",
+            "tipo": "causes",
+            "nodo_destino": "Costes imprevistos de cumplimiento regulatorio [ROI]",
+            "mecanismo_explicativo": "Los errores de compliance generados por seguir referencias normativas inventadas pueden requerir correcciones, auditorías adicionales y adaptaciones costosas. La organización incurre en costes de remediación no previstos.",
+            "condicion_activacion": "Proceso de compliance que ha incorporado procedimientos basados en referencias normativas generadas incorrectamente.",
+            "confianza": "medium"
+        },
+        {
+            "id": "E-16",
+            "nodo_origen": "Producción de contenido discriminatorio o denigrante sin filtrado [ETH]",
+            "tipo": "causes",
+            "nodo_destino": "Responsabilidad civil por daño directo atribuible al sistema [LEG]",
+            "mecanismo_explicativo": "El contenido discriminatorio o denigrante producido por el sistema y distribuido a terceros puede generar responsabilidad por daños al honor o dignidad de las personas mencionadas o de los grupos afectados.",
+            "condicion_activacion": "Output del sistema con contenido que afecta negativamente la dignidad o reputación de personas identificables, distribuido externamente.",
+            "confianza": "high"
+        }
+    ]
+}
