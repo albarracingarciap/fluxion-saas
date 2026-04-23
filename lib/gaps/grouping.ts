@@ -121,7 +121,7 @@ export function buildGapGroups(gaps: UnifiedGapRecord[]): GapGroupRecord[] {
         layer: 'fmea',
         title: `${gap.system_name} · ${family} sin tratamiento`,
         subtitle: 'Modos FMEA agrupados por familia y sistema',
-        detail_url: gap.detail_url,
+        detail_url: `${gap.detail_url}&family=${encodeURIComponent(family)}`,
         child: gap,
       })
       continue

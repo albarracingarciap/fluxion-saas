@@ -25,9 +25,12 @@ const TIMEZONES = [
 ]
 
 const ROLE_LABELS: Record<string, string> = {
-  admin:  'Administrador',
-  editor: 'Editor',
-  viewer: 'Lector',
+  admin:         'Administrador',
+  dpo:           'DPO',
+  technical:     'Technical',
+  executive:     'Executive',
+  auditor:       'Auditor',
+  viewer:        'Viewer',
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -94,6 +97,8 @@ export default function PerfilPage() {
     last_name:            '',
     avatar_url:           '',
     job_title:            '',
+    department:           '',
+    role:                 '',
     timezone:             'Europe/Madrid',
     notifications_email:  true,
   })
@@ -106,6 +111,8 @@ export default function PerfilPage() {
         last_name:            profile.last_name ?? '',
         avatar_url:           profile.avatar_url ?? '',
         job_title:            typeof prefs.job_title === 'string' ? prefs.job_title : '',
+        department:           typeof prefs.department === 'string' ? prefs.department : '',
+        role:                 role ?? '',
         timezone:             typeof prefs.timezone === 'string' ? prefs.timezone : 'Europe/Madrid',
         notifications_email:  typeof prefs.notifications_email === 'boolean' ? prefs.notifications_email : true,
       })
@@ -125,8 +132,10 @@ export default function PerfilPage() {
         first_name: formData.first_name,
         last_name:  formData.last_name,
         avatar_url: formData.avatar_url,
+        role:       formData.role,
         preferences: {
           job_title:           formData.job_title,
+          department:          formData.department,
           timezone:            formData.timezone,
           notifications_email: formData.notifications_email,
         },
@@ -236,16 +245,24 @@ export default function PerfilPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <FieldLabel>Cargo / Puesto</FieldLabel>
-                <input
-                  type="text"
-                  value={formData.job_title}
-                  onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                  className={inputCls}
-                  placeholder="Ej. Responsable del SGAI"
-                />
+                <FieldLabel>Rol Fluxion</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className={selectCls}
+                    disabled={role !== 'admin'}
+                  >
+                    {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                  <SelectArrow />
+                </div>
                 <p className="font-sora text-[11.5px] text-lttm mt-1.5">
-                  Aparece en los informes generados por el Agente 3.
+                  {role === 'admin' 
+                    ? "Como administrador, puedes gestionar el rol asignado." 
+                    : "Este campo solo puede ser modificado por un administrador de Fluxion."}
                 </p>
               </div>
             </div>
@@ -257,18 +274,35 @@ export default function PerfilPage() {
           <SectionHeader
             icon={<ShieldCheck size={16} className="text-ltt2" />}
             title="Cuenta"
-            description="Información de tu cuenta. Estos datos no se pueden modificar desde aquí."
+            description="Información corporativa y de acceso a la plataforma."
           />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 mb-6">
+            <div>
+              <FieldLabel>Cargo / Puesto en la Organización</FieldLabel>
+              <input
+                type="text"
+                value={formData.job_title}
+                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                className={inputCls}
+                placeholder="Ej. Director de Riesgos"
+              />
+            </div>
+            <div>
+              <FieldLabel>Departamento</FieldLabel>
+              <input
+                type="text"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className={inputCls}
+                placeholder="Ej. Compliance / IT"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="rounded-[9px] border border-ltb bg-ltcard2 px-4 py-3">
               <div className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-1">Email</div>
               <div className="font-sora text-[13px] text-ltt truncate">{user.email ?? '—'}</div>
-            </div>
-            <div className="rounded-[9px] border border-ltb bg-ltcard2 px-4 py-3">
-              <div className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-1">Rol en la organización</div>
-              <div className="font-sora text-[13px] text-ltt">
-                {ROLE_LABELS[role ?? ''] ?? role ?? '—'}
-              </div>
             </div>
             <div className="rounded-[9px] border border-ltb bg-ltcard2 px-4 py-3">
               <div className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-1">Miembro desde</div>

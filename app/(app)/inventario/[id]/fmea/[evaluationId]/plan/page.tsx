@@ -20,16 +20,10 @@ export default async function TreatmentPlanPage({ params }: TreatmentPlanPagePro
     .select('status, requires_second_review, second_review_status')
     .eq('evaluation_id', params.evaluationId);
 
-  const hasUnresolvedItems = (evaluationItems ?? []).some(
-    (item) =>
-      item.status === 'pending' ||
-      item.status === 'skipped' ||
-      (item.requires_second_review && item.second_review_status !== 'approved')
-  );
-
-  if (hasUnresolvedItems) {
-    redirect(`/inventario/${params.id}/fmea/${params.evaluationId}/evaluar`);
-  }
+  /* 
+    Se permite el acceso al plan en modo borrador/previsualización 
+    incluso si hay ítems pendientes, para facilitar la planificación temprana.
+  */
 
   const data = await buildTreatmentPlanData({
     organizationId: membership.organization_id,

@@ -482,91 +482,86 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     return 'medio'
   }
 
-  // Generate normativo gaps from ai_systems.aiact_obligations (source of truth)
-  // system_obligations is used only for reconciliation (skip resolved)
-  for (const system of systems) {
-    const aiactObligations = system.aiact_obligations ?? []
-    if (aiactObligations.length === 0) continue
+  // Generate normativo gaps from persisted system_obligations records
+  for (const record of obligations) {
+    if (['resolved', 'excluded'].includes(record.status)) continue
 
-    const resolvedSet = resolvedObligationsBySystem.get(system.id)
+    const system = systemMap.get(record.ai_system_id)
+    if (!system) continue
 
-    for (const obligationText of aiactObligations) {
-      // obligationText is like "Art. 9 — Sistema de gestión de riesgos"
-      const ref = obligationText.split(' — ')[0]?.trim() ?? obligationText
+    const ref = record.obligation_code ?? record.title
+    const ownerName = formatOwnerName(profileMap.get(record.owner_user_id ?? ''))
+    const daysUntil = getDaysUntil(record.due_date, now)
+    const overdue = typeof daysUntil === 'number' ? daysUntil < 0 : false
 
-      // Skip if already resolved in a persisted system_obligations record
-      if (resolvedSet?.has(ref) || resolvedSet?.has(obligationText)) continue
+    // Compute causal amplifiers for this normativo gap
+    const normalizedCode = extractArticleCode(ref) ?? extractArticleCode(record.title)
+    let causalAmplifiers: GapCausalAmplifier[] | null = null
 
-      // Compute causal amplifiers for this normativo gap
-      const normalizedCode = extractArticleCode(ref) ?? extractArticleCode(obligationText)
-      let causalAmplifiers: GapCausalAmplifier[] | null = null
+    if (normalizedCode) {
+      const amplifierFmIds = articleToFmMap.get(normalizedCode) ?? []
+      const systemActiveFms = activeBySystem.get(system.id)
 
-      if (normalizedCode) {
-        const amplifierFmIds = articleToFmMap.get(normalizedCode) ?? []
-        const systemActiveFms = activeBySystem.get(system.id)
+      if (systemActiveFms && amplifierFmIds.length > 0) {
+        const activeAmplifiers: GapCausalAmplifier[] = []
 
-        if (systemActiveFms && amplifierFmIds.length > 0) {
-          const activeAmplifiers: GapCausalAmplifier[] = []
-
-          for (let i = 0; i < amplifierFmIds.length; i++) {
-            const fmId = amplifierFmIds[i]
-            if (systemActiveFms.has(fmId)) {
-              const catalog = failureModeMap.get(fmId)
-              if (catalog) {
-                activeAmplifiers.push({
-                  failure_mode_id: fmId,
-                  failure_mode_code: catalog.code,
-                  failure_mode_name: catalog.name,
-                  s_actual: systemActiveFms.get(fmId) ?? null,
-                })
-              }
+        for (let i = 0; i < amplifierFmIds.length; i++) {
+          const fmId = amplifierFmIds[i]
+          if (systemActiveFms.has(fmId)) {
+            const catalog = failureModeMap.get(fmId)
+            if (catalog) {
+              activeAmplifiers.push({
+                failure_mode_id: fmId,
+                failure_mode_code: catalog.code,
+                failure_mode_name: catalog.name,
+                s_actual: systemActiveFms.get(fmId) ?? null,
+              })
             }
           }
+        }
 
-          if (activeAmplifiers.length > 0) {
-            causalAmplifiers = activeAmplifiers.sort((a, b) => {
-              if ((b.s_actual ?? 0) !== (a.s_actual ?? 0)) return (b.s_actual ?? 0) - (a.s_actual ?? 0)
-              return a.failure_mode_code.localeCompare(b.failure_mode_code)
-            })
-          }
+        if (activeAmplifiers.length > 0) {
+          causalAmplifiers = activeAmplifiers.sort((a, b) => {
+            if ((b.s_actual ?? 0) !== (a.s_actual ?? 0)) return (b.s_actual ?? 0) - (a.s_actual ?? 0)
+            return a.failure_mode_code.localeCompare(b.failure_mode_code)
+          })
         }
       }
-
-      const gapKey = `normativo:${system.id}:${ref}`
-      gaps.push({
-        key: gapKey,
-        id: gapKey, // synthetic — no persisted DB record
-        layer: 'normativo',
-        severity: severityFromRiskLevel(system.aiact_risk_level),
-        system_id: system.id,
-        system_name: system.name,
-        system_code: getSystemCode(system),
-        system_status: system.status,
-        system_domain: system.domain,
-        aiact_risk_level: system.aiact_risk_level,
-        title: obligationText,
-        meta: `${getSystemCode(system)} · ${ref} · Sin asignación`,
-        source_ref: ref,
-        owner_id: null,
-        owner_name: null,
-        due_date: null,
-        overdue: false,
-        days_until_due: null,
-        created_at: system.created_at,
-        detail_url: `/inventario/${system.id}?tab=obligaciones`,
-        action_label: 'Abrir obligaciones →',
-        context_label: `Obligación AI Act · ${system.aiact_risk_level.replace('_', ' ')}`,
-        evaluation_id: null,
-        plan_id: null,
-        treatment_action_id: null,
-        control_id: null,
-        evidence_id: null,
-        failure_mode_id: null,
-        obligation_id: null,
-        raw_score: null,
-        causal_amplifiers: causalAmplifiers,
-      })
     }
+
+    gaps.push({
+      key: `normativo:${record.id}`,
+      id: record.id,
+      layer: 'normativo',
+      severity: getSeverityFromObligationPriority(record.priority),
+      system_id: system.id,
+      system_name: system.name,
+      system_code: getSystemCode(system),
+      system_status: system.status,
+      system_domain: system.domain,
+      aiact_risk_level: system.aiact_risk_level,
+      title: record.title,
+      meta: `${getSystemCode(system)} · ${ref} · ${ownerName ?? 'Sin asignación'}`,
+      source_ref: ref,
+      owner_id: record.owner_user_id,
+      owner_name: ownerName,
+      due_date: record.due_date,
+      overdue,
+      days_until_due: daysUntil,
+      created_at: record.created_at,
+      detail_url: `/inventario/${system.id}?tab=obligaciones`,
+      action_label: 'Abrir obligaciones →',
+      context_label: `Obligación AI Act · ${system.aiact_risk_level.replace('_', ' ')}`,
+      evaluation_id: null,
+      plan_id: null,
+      treatment_action_id: null,
+      control_id: null,
+      evidence_id: null,
+      failure_mode_id: null,
+      obligation_id: record.id,
+      raw_score: null,
+      causal_amplifiers: causalAmplifiers,
+    })
   }
 
   for (const item of fmeaItems) {

@@ -451,6 +451,25 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     };
   });
 
+  // Fetch treatment plan data for the latest evaluation
+  const { data: latestEvaluation } = await fluxion
+    .from('fmea_evaluations')
+    .select('id')
+    .eq('system_id', params.id)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let treatmentPlanData = null;
+  if (latestEvaluation) {
+    const { buildTreatmentPlanData } = await import('@/lib/fmea/treatment-plan');
+    treatmentPlanData = await buildTreatmentPlanData({
+      organizationId: membership.organization_id,
+      aiSystemId: params.id,
+      evaluationId: latestEvaluation.id,
+    });
+  }
+
   return (
     <SystemDetailClient
       system={system}
@@ -460,6 +479,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       obligationRecords={obligationRecords}
       failureModes={failureModes}
       systemGraph={systemGraph}
+      treatmentPlanData={treatmentPlanData}
     />
   );
 }

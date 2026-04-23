@@ -1225,10 +1225,6 @@ function GapGroupCard({
               <p className="font-sora text-[14px] font-semibold text-ltt leading-[1.35]">{group.title}</p>
               <p className="font-sora text-[12px] text-ltt2 mt-2">{group.subtitle}</p>
             </div>
-            <span className="font-sora text-[12px] text-brand-cyan inline-flex items-center gap-1 shrink-0">
-              Abrir grupo
-              <ArrowRight size={13} />
-            </span>
           </div>
 
           <div className="grid gap-2 md:grid-cols-3 mt-4">

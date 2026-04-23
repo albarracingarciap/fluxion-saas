@@ -197,7 +197,16 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   const searchParams = useSearchParams();
   const [items, setItems] = useState<EditableItemState[]>(() => buildInitialState(data.items));
   const [savedItems, setSavedItems] = useState<EditableItemState[]>(() => buildInitialState(data.items));
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterValue>(() => {
+    const requestedFamily = searchParams.get('family');
+    if (requestedFamily) {
+      const dimensionId = Object.keys(DIMENSION_META).find(
+        (key) => DIMENSION_META[key].label === requestedFamily
+      );
+      if (dimensionId) return dimensionId;
+    }
+    return 'all';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(() => {

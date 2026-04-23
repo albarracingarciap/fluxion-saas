@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -10,7 +10,7 @@ import {
   Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList
 } from "lucide-react"
 
-type Child = { label: string; href: string; disabled?: boolean; hint?: string }
+type Child = { label: string; href: string; disabled?: boolean; hint?: string; activeOn?: string[]; exact?: boolean }
 type NavItem = {
   label: string
   href?: string
@@ -43,9 +43,7 @@ const NAV: NavSection[] = [
         label: "Evaluaciones", icon: <FileCheck size={15} />,
         children: [
           { label: "Dashboard", href: "/evaluaciones" },
-          { label: "Paso a paso", href: "/evaluaciones/paso-a-paso", disabled: true, hint: "Disponible cuando esta area se implemente" },
-          { label: "Semiautomatizada", href: "/evaluaciones/semi", disabled: true, hint: "Disponible cuando esta area se implemente" },
-          { label: "Inteligente", href: "/evaluaciones/inteligente", disabled: true, hint: "Disponible cuando esta area se implemente" },
+          { label: "Evaluación sistema", href: "/inventario", activeOn: ["/fmea"] },
         ],
       },
     ],
@@ -156,10 +154,41 @@ function Tip({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
+// ── Active state helper ──────────────────────────────────────
+function isChildActive(child: Child, pathname: string | null): boolean {
+  if (child.disabled) return false;
+  if (child.activeOn?.some((pattern) => pathname?.includes(pattern))) return true;
+  if (child.exact) return pathname === child.href;
+
+  // Regla de exclusión: Inventario no es activo si estamos en FMEA
+  if (child.label === 'Inventario' && pathname?.includes('/fmea')) return false;
+
+  // Regla de inclusión: Evaluacion sistema solo si es FMEA (ya cubierto por activeOn si se prefiere, pero aqui lo aseguramos)
+  if (child.label === 'Evaluación sistema' && !pathname?.includes('/fmea')) return false;
+
+  return !!pathname && (pathname === child.href || pathname.startsWith(child.href + '/'));
+}
+
 // ── Expandable item ──────────────────────────────────────────
-function ExpandableItem({ item, pathname, collapsed }: { item: NavItem; pathname: string | null; collapsed: boolean }) {
-  const isAnyActive = item.children?.some(c => !c.disabled && pathname?.startsWith(c.href)) ?? false
-  const [open, setOpen] = useState(isAnyActive)
+function ExpandableItem({
+  item,
+  pathname,
+  collapsed,
+}: {
+  item: NavItem;
+  pathname: string | null;
+  collapsed: boolean;
+}) {
+  const isAnyActive = useMemo(
+    () => item.children?.some((c) => isChildActive(c, pathname)) ?? false,
+    [item.children, pathname]
+  );
+  const [open, setOpen] = useState(isAnyActive);
+
+  // Sincronizar apertura si cambia la ruta (opcional, pero ayuda a la consistencia)
+  useEffect(() => {
+    if (isAnyActive) setOpen(true);
+  }, [isAnyActive]);
 
   if (collapsed) {
     return (
@@ -167,14 +196,14 @@ function ExpandableItem({ item, pathname, collapsed }: { item: NavItem; pathname
         <button
           className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-all ${
             isAnyActive
-              ? "bg-cyan-dim2 text-cyan-light border-cyan-border"
-              : "text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt"
+              ? 'bg-cyan-dim2 text-cyan-light border-cyan-border'
+              : 'text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt'
           }`}
         >
           {item.icon}
         </button>
       </Tip>
-    )
+    );
   }
 
   return (
@@ -183,19 +212,22 @@ function ExpandableItem({ item, pathname, collapsed }: { item: NavItem; pathname
         onClick={() => setOpen(!open)}
         className={`w-full flex items-center gap-3 px-3 py-[7px] rounded-lg mx-2 border transition-all font-sora text-[13px] ${
           isAnyActive
-            ? "bg-cyan-dim2 text-cyan-light border-cyan-border"
-            : "text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt"
+            ? 'bg-cyan-dim2 text-cyan-light border-cyan-border'
+            : 'text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt'
         }`}
       >
-        <span className={isAnyActive ? "text-cyan-light" : "text-dkt2"}>{item.icon}</span>
+        <span className={isAnyActive ? 'text-cyan-light' : 'text-dkt2'}>{item.icon}</span>
         <span className="flex-1 text-left">{item.label}</span>
-        <ChevronDown size={12} className={`text-dktm transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={12}
+          className={`text-dktm transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       {open && (
         <div className="ml-[36px] mr-2 mt-0.5 mb-1 flex flex-col">
           {item.children!.map((child) => {
-            const isActive = !child.disabled && (pathname === child.href || pathname?.startsWith(child.href + "/"))
-            const baseClass = `flex items-center gap-2 px-3 py-[6px] rounded-lg text-[12.5px] font-sora transition-all border`
+            const isActive = isChildActive(child, pathname);
+            const baseClass = `flex items-center gap-2 px-3 py-[6px] rounded-lg text-[12.5px] font-sora transition-all border`;
 
             if (child.disabled) {
               return (
@@ -207,7 +239,7 @@ function ExpandableItem({ item, pathname, collapsed }: { item: NavItem; pathname
                   <span className="w-1 h-1 rounded-full bg-[#4f739f] shrink-0" />
                   {child.label}
                 </div>
-              )
+              );
             }
 
             return (
@@ -216,19 +248,19 @@ function ExpandableItem({ item, pathname, collapsed }: { item: NavItem; pathname
                 href={child.href}
                 className={`${baseClass} ${
                   isActive
-                    ? "text-cyan-light bg-cyan-dim2 border-cyan-border"
-                    : "text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt"
+                    ? 'text-cyan-light bg-cyan-dim2 border-cyan-border'
+                    : 'text-dkt2 border-transparent hover:bg-dk7 hover:text-dkt'
                 }`}
               >
                 {isActive && <span className="w-1 h-1 rounded-full bg-brand-cyan shrink-0" />}
                 {child.label}
               </Link>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ── Nav group ────────────────────────────────────────────────

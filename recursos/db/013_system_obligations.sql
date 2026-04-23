@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS fluxion.system_obligations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT chk_system_obligations_status
-    CHECK (status IN ('pending', 'in_progress', 'resolved', 'blocked')),
+    CHECK (status IN ('pending', 'in_progress', 'resolved', 'blocked', 'excluded')),
   CONSTRAINT chk_system_obligations_priority
     CHECK (priority IN ('low', 'medium', 'high', 'critical'))
 );

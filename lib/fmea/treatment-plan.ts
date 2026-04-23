@@ -325,38 +325,111 @@ export async function buildTreatmentPlanData(params: {
     .eq('evaluation_id', params.evaluationId)
     .maybeSingle<TreatmentPlanRecord>();
 
-  if (!system || !evaluation || !plan) return null;
+  let currentPlan = plan;
+  let actions: TreatmentPlanActionRecord[] = [];
 
-  const { data: actionRows } = await fluxion
-    .from('treatment_actions')
-    .select(`
-      id,
-      organization_id,
-      plan_id,
-      fmea_item_id,
-      option,
-      status,
-      s_actual_at_creation,
-      s_residual_target,
-      s_residual_achieved,
-      control_id,
-      justification,
-      evidence_description,
-      owner_id,
-      due_date,
-      completed_at,
-      evidence_id,
-      acceptance_approved_by,
-      acceptance_approved_at,
-      review_due_date,
-      created_at,
-      updated_at
-    `)
-    .eq('plan_id', plan.id)
-    .order('s_actual_at_creation', { ascending: false })
-    .order('created_at', { ascending: true });
+  if (!system || !evaluation) return null;
 
-  const actions = (actionRows ?? []) as TreatmentPlanActionRecord[];
+  // Si no hay plan en la DB, creamos uno virtual para previsualización
+  if (!currentPlan) {
+    const { data: items } = await fluxion
+      .from('fmea_items')
+      .select('id, s_actual')
+      .eq('evaluation_id', params.evaluationId);
+    
+    const evaluatedItems = (items ?? []).filter(i => i.s_actual !== null);
+    const sMax = evaluatedItems.length > 0 ? Math.max(...evaluatedItems.map(i => i.s_actual ?? 0)) : 0;
+    
+    currentPlan = {
+      id: 'virtual-draft',
+      organization_id: params.organizationId,
+      system_id: params.aiSystemId,
+      evaluation_id: params.evaluationId,
+      code: 'PREVIEW-DRAFT',
+      status: 'draft',
+      zone_at_creation: evaluation.cached_zone ?? 'zona_iv',
+      zone_target: evaluation.cached_zone ?? 'zona_iv',
+      ai_act_floor: getAiActFloorForSystem(system.aiact_risk_level),
+      s_max_at_creation: sMax,
+      modes_count_total: items?.length ?? 0,
+      modes_count_zone_i: evaluatedItems.filter(i => i.s_actual === 9).length,
+      modes_count_zone_ii: evaluatedItems.filter(i => i.s_actual === 8).length,
+      actions_total: evaluatedItems.filter(i => (i.s_actual ?? 0) >= 7).length,
+      actions_completed: 0,
+      pivot_node_ids: [],
+      residual_risk_notes: null,
+      accepted_risk_count: 0,
+      approval_level: getApprovalLevelForZone(evaluation.cached_zone ?? 'zona_iv'),
+      approver_id: null,
+      approved_at: null,
+      approval_minutes_ref: null,
+      approval_committee_notes: null,
+      deadline: getDefaultDeadlineForZone(evaluation.cached_zone ?? 'zona_iv'),
+      review_cadence: getReviewCadenceForZone(evaluation.cached_zone ?? 'zona_iv'),
+      created_by: 'system',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Generar acciones virtuales para ítems críticos ya evaluados
+    const itemsForActions = evaluatedItems.filter(i => (i.s_actual ?? 0) >= 7);
+    actions = itemsForActions.map(item => ({
+      id: `virtual-action-${item.id}`,
+      organization_id: params.organizationId,
+      plan_id: 'virtual-draft',
+      fmea_item_id: item.id,
+      option: null,
+      status: 'pending',
+      s_actual_at_creation: item.s_actual ?? 7,
+      s_residual_target: null,
+      s_residual_achieved: null,
+      control_id: null,
+      justification: null,
+      evidence_description: null,
+      owner_id: null,
+      due_date: null,
+      completed_at: null,
+      evidence_id: null,
+      acceptance_approved_by: null,
+      acceptance_approved_at: null,
+      review_due_date: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+  } else {
+    // Si hay plan, cargar acciones reales de la DB
+    const { data: actionRows } = await fluxion
+      .from('treatment_actions')
+      .select(`
+        id,
+        organization_id,
+        plan_id,
+        fmea_item_id,
+        option,
+        status,
+        s_actual_at_creation,
+        s_residual_target,
+        s_residual_achieved,
+        control_id,
+        justification,
+        evidence_description,
+        owner_id,
+        due_date,
+        completed_at,
+        evidence_id,
+        acceptance_approved_by,
+        acceptance_approved_at,
+        review_due_date,
+        created_at,
+        updated_at
+      `)
+      .eq('plan_id', currentPlan.id)
+      .order('s_actual_at_creation', { ascending: false })
+      .order('created_at', { ascending: true });
+
+    actions = (actionRows ?? []) as TreatmentPlanActionRecord[];
+  }
+
   const fmeaItemIds = actions.map((row) => row.fmea_item_id);
 
   const { data: fmeaItems } =
@@ -572,11 +645,11 @@ export async function buildTreatmentPlanData(params: {
   return {
     system,
     evaluation,
-    plan,
+    plan: currentPlan,
     actions: actionViews,
     members: memberOptions,
-    approver_name: plan.approver_id ? memberNames.get(plan.approver_id) ?? 'Usuario' : null,
-    read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(plan.status),
+    approver_name: currentPlan.approver_id ? memberNames.get(currentPlan.approver_id) ?? 'Usuario' : null,
+    read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(currentPlan.status) || !plan,
   } satisfies TreatmentPlanData;
 }
 

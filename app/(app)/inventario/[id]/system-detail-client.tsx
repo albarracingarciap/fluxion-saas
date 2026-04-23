@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import Link from 'next/link';
+import type { TreatmentPlanData } from '@/lib/fmea/treatment-plan';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
@@ -28,6 +29,7 @@ import { createSystemEvidence } from './evidencias/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { reviewSystemClassification } from './clasificacion/actions';
 import { activateSystemFailureModes } from './modos-de-fallo/actions';
+import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { ClassificationPanel } from '@/components/classification/ClassificationPanel';
 import type { RiskLevel } from '@/types/classification';
@@ -200,7 +202,15 @@ export type SystemDetailData = {
   updated_by: string | null;
 };
 
-const TABS = ['Obligaciones AI Act', 'Ficha técnica', 'ISO 42001', 'Historial', 'Evidencias', 'Modos de fallo'] as const;
+const TABS = [
+  'Obligaciones AI Act',
+  'Ficha técnica',
+  'ISO 42001',
+  'Historial',
+  'Evidencias',
+  'Modos de fallo',
+  'Plan de tratamiento',
+] as const;
 type TabName = (typeof TABS)[number];
 const TAB_QUERY_MAP = {
   obligaciones: 'Obligaciones AI Act',
@@ -392,6 +402,7 @@ const OBLIGATION_STATUS_META: Record<string, { label: string; dot: string; color
   in_progress: { label: 'En progreso', dot: 'bg-or', color: 'text-or', fill: 'bg-or', thin: 'bg-ltb' },
   resolved: { label: 'Resuelta', dot: 'bg-gr', color: 'text-gr', fill: 'bg-gr', thin: 'bg-ltb' },
   blocked: { label: 'Bloqueada', dot: 'bg-[#7c5cff]', color: 'text-[#7c5cff]', fill: 'bg-[#7c5cff]', thin: 'bg-ltb' },
+  excluded: { label: 'Excluida', dot: 'bg-ltb', color: 'text-lttm', fill: 'bg-ltb', thin: 'bg-ltb' },
 };
 
 function formatDate(value: string | null, opts?: Intl.DateTimeFormatOptions) {
@@ -571,6 +582,7 @@ export function SystemDetailClient({
   obligationRecords,
   failureModes,
   systemGraph,
+  treatmentPlanData,
 }: {
   system: SystemDetailData;
   organizationId: string;
@@ -579,6 +591,7 @@ export function SystemDetailClient({
   obligationRecords: SystemObligationEntry[];
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
+  treatmentPlanData: TreatmentPlanData | null;
 }) {
   const searchParams = useSearchParams();
   const { profile, user } = useAuthStore();
@@ -629,6 +642,64 @@ export function SystemDetailClient({
     reviewNotes: '',
   });
   const [isSubmittingClassification, startClassificationTransition] = useTransition();
+  const [isExcludingObligation, setIsExcludingObligation] = useState(false);
+  const [exclusionData, setExclusionData] = useState<{ code: string; title: string } | null>(null);
+  const [exclusionJustification, setExclusionJustification] = useState('');
+  const [isSubmittingExclusion, startExclusionTransition] = useTransition();
+  const [isAcceptingAll, startAcceptAllTransition] = useTransition();
+
+  const handleAcceptAll = () => {
+    startAcceptAllTransition(async () => {
+      const syntheticOnes = obligations
+        .filter((o) => o.isSynthetic)
+        .map((o) => ({ code: o.ref, title: o.name }));
+      const res = await acceptSystemObligations(system.id, syntheticOnes);
+      if (res.error) {
+        alert(res.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const handleAcceptOne = (code: string, title: string) => {
+    startAcceptAllTransition(async () => {
+      const res = await acceptSystemObligations(system.id, [{ code, title }]);
+      if (res.error) {
+        alert(res.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const handleExclude = (code: string, title: string) => {
+    setExclusionData({ code, title });
+    setIsExcludingObligation(true);
+  };
+
+  const confirmExclusion = () => {
+    if (!exclusionJustification.trim()) {
+      alert('Por favor, indica una justificación para la exclusión.');
+      return;
+    }
+    startExclusionTransition(async () => {
+      const res = await excludeSystemObligation({
+        aiSystemId: system.id,
+        code: exclusionData!.code,
+        title: exclusionData!.title,
+        justification: exclusionJustification,
+      });
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setIsExcludingObligation(false);
+        setExclusionData(null);
+        setExclusionJustification('');
+        router.refresh();
+      }
+    });
+  };
   const [failureModeError, setFailureModeError] = useState<string | null>(null);
   const [isActivatingFailureModes, startFailureModeTransition] = useTransition();
   const [failureModeDimensionFilter, setFailureModeDimensionFilter] = useState('all');
@@ -640,6 +711,10 @@ export function SystemDetailClient({
   useEffect(() => {
     setActiveTab(resolveInitialSystemTab(searchParams.get('tab')));
   }, [searchParams]);
+
+  useEffect(() => {
+    setLocalHistory(history);
+  }, [history]);
 
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [liveRiskLevel, setLiveRiskLevel] = useState<RiskLevel>(
@@ -669,7 +744,7 @@ export function SystemDetailClient({
         systemStatus: heuristicStatus,
         status: systemStatus,
         statusLabel: OBLIGATION_STATUS_META[systemStatus]?.label ?? 'Pendiente',
-        progress: obligationProgressFromStatus(systemStatus),
+        progress: systemStatus === 'excluded' ? 0 : obligationProgressFromStatus(systemStatus),
         priority: persisted?.priority ?? 'medium',
         dueDate: persisted?.due_date ?? null,
         notes: persisted?.notes ?? null,
@@ -677,11 +752,14 @@ export function SystemDetailClient({
         evidenceIds: persisted?.evidence_ids ?? [],
         ownerName: persisted?.owner_name ?? null,
         resolvedByName: persisted?.resolved_by_name ?? null,
+        isSynthetic: !persisted,
       };
     });
 
     return items;
   }, [obligationRecords, system]);
+
+  const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
 
   const compliance = useMemo(() => {
     if (obligations.length === 0) return 0;
@@ -1240,7 +1318,12 @@ export function SystemDetailClient({
                   {TABS.map((tab) => (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab as TabName)}
+                      onClick={() => {
+                        setActiveTab(tab as TabName);
+                        if (tab === 'Historial') {
+                          router.refresh();
+                        }
+                      }}
                       className={`px-4 py-3 text-[13px] font-sora font-medium whitespace-nowrap transition-colors border-b-2 ${
                         activeTab === tab ? 'border-brand-cyan text-brand-cyan' : 'border-transparent text-lttm hover:text-ltt'
                       }`}
@@ -1249,13 +1332,6 @@ export function SystemDetailClient({
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => setIsCausalMapOpen(true)}
-                  className="flex items-center gap-1.5 mr-2 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltcard font-sora text-[11.5px] text-lttm hover:border-cyan-border hover:text-brand-cyan hover:bg-cyan-dim transition-all shrink-0"
-                >
-                  <GitFork size={12} />
-                  Grafo causal
-                </button>
               </div>
             </div>
 
@@ -1359,10 +1435,22 @@ export function SystemDetailClient({
                   <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
                     <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
                       <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Obligaciones aplicables</span>
-                      <div className="flex gap-1.5 items-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">{obligationSummary.pending} pendientes</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ordim text-or border border-orb">{obligationSummary.inProgress} en curso</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-grdim text-gr border border-grb">{obligationSummary.resolved} resueltas</span>
+                      <div className="flex gap-3 items-center">
+                        {hasSynthetic && (
+                          <button
+                            onClick={handleAcceptAll}
+                            disabled={isAcceptingAll}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_2px_8px_#00adef33] hover:-translate-y-px transition-all disabled:opacity-50"
+                          >
+                            {isAcceptingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            Aceptar sugerencias
+                          </button>
+                        )}
+                        <div className="flex gap-1.5 items-center pl-3 border-l border-ltb">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">{obligationSummary.pending} pendientes</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ordim text-or border border-orb">{obligationSummary.inProgress} en curso</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-grdim text-gr border border-grb">{obligationSummary.resolved} resueltas</span>
+                        </div>
                       </div>
                     </div>
 
@@ -1381,14 +1469,14 @@ export function SystemDetailClient({
                         {obligations.map((obligation, index) => {
                           const status = OBLIGATION_STATUS_META[obligation.status] ?? OBLIGATION_STATUS_META.pending;
                           return (
-                            <tr key={`${obligation.name}-${index}`} className="hover:bg-ltbg transition-colors cursor-pointer group">
+                            <tr key={`${obligation.name}-${index}`} className={`hover:bg-ltbg transition-colors cursor-pointer group ${obligation.status === 'excluded' ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                               <td className="p-3 pl-4">
-                                <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center text-[14px] ${obligation.status === 'resolved' ? 'bg-grdim' : obligation.status === 'in_progress' ? 'bg-ordim' : obligation.status === 'blocked' ? 'bg-[#7c5cff1a]' : 'bg-red-dim'}`}>
-                                  {obligation.status === 'resolved' ? '🟢' : obligation.status === 'in_progress' ? '🟡' : obligation.status === 'blocked' ? '🟣' : '🔴'}
+                                <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center text-[14px] ${obligation.status === 'resolved' ? 'bg-grdim' : obligation.status === 'in_progress' ? 'bg-ordim' : obligation.status === 'blocked' ? 'bg-[#7c5cff1a]' : obligation.status === 'excluded' ? 'bg-ltbg' : 'bg-red-dim'}`}>
+                                  {obligation.status === 'resolved' ? '🟢' : obligation.status === 'in_progress' ? '🟡' : obligation.status === 'blocked' ? '🟣' : obligation.status === 'excluded' ? '⚪' : '🔴'}
                                 </div>
                               </td>
                               <td className="p-3">
-                                <div className="font-sora text-[13px] font-medium text-ltt">{obligation.name}</div>
+                                <div className={`font-sora text-[13px] font-medium text-ltt ${obligation.status === 'excluded' ? 'line-through decoration-lttm' : ''}`}>{obligation.name}</div>
                               </td>
                               <td className="p-3">
                                 <div className="font-plex text-[11.5px] text-lttm">{obligation.ref}</div>
@@ -1408,12 +1496,37 @@ export function SystemDetailClient({
                                 </div>
                               </td>
                               <td className="p-3">
-                                <button
-                                  onClick={() => openObligationModal(obligation.ref)}
-                                  className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
-                                >
-                                  {obligation.status === 'resolved' ? 'Ver' : 'Resolver →'}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  {obligation.isSynthetic ? (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAcceptOne(obligation.ref, obligation.name);
+                                        }}
+                                        className="px-2 py-1 rounded-[5px] font-sora text-[10px] font-semibold text-brand-cyan border border-cyan-border hover:bg-cyan-dim transition-all"
+                                      >
+                                        Aceptar
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleExclude(obligation.ref, obligation.name);
+                                        }}
+                                        className="px-2 py-1 rounded-[5px] font-sora text-[10px] font-semibold text-re border border-reb hover:bg-red-dim transition-all"
+                                      >
+                                        Excluir
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={() => openObligationModal(obligation.ref)}
+                                      className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
+                                    >
+                                      {obligation.status === 'resolved' || obligation.status === 'excluded' ? 'Ver' : 'Resolver →'}
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1730,6 +1843,13 @@ export function SystemDetailClient({
                   <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
                     <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Modos de fallo activados</span>
                     <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => setIsCausalMapOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-sora text-[11.5px] text-lttm hover:border-cyan-border hover:text-brand-cyan hover:bg-cyan-dim transition-all shrink-0"
+                      >
+                        <GitFork size={12} />
+                        Grafo causal
+                      </button>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
                         {failureModeSummary.total} activos
                       </span>
@@ -2111,6 +2231,109 @@ export function SystemDetailClient({
                         </div>
                       )}
                     </>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'Plan de tratamiento' && (
+                <div className="space-y-6">
+                  {treatmentPlanData ? (
+                    <>
+                      <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                        <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+                          <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Estrategia de tratamiento</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[1px] ${
+                              treatmentPlanData.plan.status === 'draft' ? 'bg-cyan-dim border-cyan-border text-brand-cyan' : 'bg-grdim border-grb text-gr'
+                            }`}>
+                              {treatmentPlanData.plan.code === 'PREVIEW-DRAFT' ? 'Borrador de Previsualización' : treatmentPlanData.plan.status}
+                            </span>
+                            <Link
+                              href={`/inventario/${system.id}/fmea/${treatmentPlanData.evaluation.id}/plan`}
+                              className="px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+                            >
+                              Gestionar plan
+                            </Link>
+                          </div>
+                        </div>
+
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Zona proyectada</div>
+                            <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none mb-2">
+                              {treatmentPlanData.plan.zone_at_creation} → {treatmentPlanData.plan.residual_risk ?? 'TBD'}
+                            </div>
+                            <div className="font-sora text-[11px] text-lttm">Tras aplicar todas las medidas del plan</div>
+                          </div>
+                          <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Acciones candidatas</div>
+                            <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none mb-2">
+                              {treatmentPlanData.actions.length}
+                            </div>
+                            <div className="font-sora text-[11px] text-lttm">Acciones identificadas en FMEA</div>
+                          </div>
+                          <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
+                            <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Aprobación requerida</div>
+                            <div className="font-fraunces text-[18px] font-semibold text-ltt leading-none mb-2">
+                              {treatmentPlanData.plan.approval_level}
+                            </div>
+                            <div className="font-sora text-[11px] text-lttm">Basado en riesgo y nivel AI Act</div>
+                          </div>
+                        </div>
+
+                        <div className="px-5 py-4 border-t border-ltb bg-ltcard2">
+                          <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-2">Riesgo residual asumido</div>
+                          <div className="font-sora text-[13px] text-ltt2 leading-relaxed italic">
+                            {treatmentPlanData.plan.residual_risk_notes ?? 'No hay notas sobre el riesgo residual todavía.'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Desglose de acciones identificadas</div>
+                        <div className="grid grid-cols-1 gap-3">
+                          {treatmentPlanData.actions.map((action) => (
+                            <div key={action.id} className="bg-ltcard border border-ltb rounded-[12px] p-4 flex items-center gap-4 hover:border-cyan-border transition-all">
+                              <div className={`w-10 h-10 rounded-[8px] border flex items-center justify-center font-fraunces text-[18px] shrink-0 ${
+                                action.s_actual_at_creation >= 9 ? 'bg-red-dim border-reb text-re' : 
+                                action.s_actual_at_creation >= 8 ? 'bg-ordim border-orb text-or' : 'bg-cyan-dim border-cyan-border text-brand-cyan'
+                              }`}>
+                                {action.s_actual_at_creation}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-sora text-[13.5px] font-semibold text-ltt truncate">{action.failure_mode_name}</div>
+                                <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mt-0.5">
+                                  {action.failure_mode_code} · {action.dimension_name}
+                                </div>
+                              </div>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-[5px] font-plex text-[10px] uppercase border ${
+                                  action.option ? 'bg-grdim border-grb text-gr' : 'bg-ltcard2 border-ltb text-lttm'
+                                }`}>
+                                  {action.option ?? 'Pendiente'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-ltcard border border-ltb rounded-[12px] p-12 text-center">
+                      <div className="w-14 h-14 rounded-full bg-ltbg border border-ltb flex items-center justify-center mx-auto mb-5">
+                        <CalendarClock className="w-6 h-6 text-lttm" />
+                      </div>
+                      <h3 className="font-fraunces text-[20px] font-semibold text-ltt mb-2">No hay un plan activo</h3>
+                      <p className="text-[14px] text-ltt2 max-w-[420px] mx-auto mb-6">
+                        Para generar un plan de tratamiento, primero debes realizar una evaluación FMEA. Si ya has empezado una, el plan aparecerá aquí automáticamente como borrador.
+                      </p>
+                      <Link
+                        href={`/inventario/${system.id}/fmea`}
+                        className="px-5 py-2 rounded-[8px] font-sora text-[13px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+                      >
+                        Ir a FMEA
+                      </Link>
+                    </div>
                   )}
                 </div>
               )}
@@ -2748,6 +2971,50 @@ export function SystemDetailClient({
               >
                 {isSubmittingClassification && <Loader2 className="w-4 h-4 animate-spin" />}
                 Guardar revisión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isExcludingObligation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-white border border-ltb rounded-[16px] shadow-[0_24px_64px_rgba(0,74,173,0.12)] w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 border-b border-ltb bg-ltcard2 flex items-center justify-between">
+              <h3 className="font-fraunces text-[18px] text-ltt">Excluir obligación</h3>
+              <button onClick={() => setIsExcludingObligation(false)} className="text-lttm hover:text-ltt">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-4 rounded-lg bg-red-dim border border-reb">
+                <p className="font-sora text-[13px] font-medium text-re">{exclusionData?.code} — {exclusionData?.title}</p>
+                <p className="font-sora text-[12px] text-re/80 mt-1">Estás a punto de excluir esta obligación de cumplimiento. Esto quedará registrado en la auditoría.</p>
+              </div>
+              <div className="space-y-2">
+                <label className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-lttm">Justificación de la exclusión</label>
+                <textarea
+                  value={exclusionJustification}
+                  onChange={(e) => setExclusionJustification(e.target.value)}
+                  placeholder="Explica por qué esta obligación no es de aplicación para este sistema..."
+                  className="w-full h-32 rounded-lg border border-ltb bg-white p-3 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-ltbg border-t border-ltb flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsExcludingObligation(false)}
+                className="px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-ltt2 hover:bg-ltcard transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmExclusion}
+                disabled={isSubmittingExclusion || !exclusionJustification.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-re disabled:opacity-50"
+              >
+                {isSubmittingExclusion && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirmar exclusión
               </button>
             </div>
           </div>

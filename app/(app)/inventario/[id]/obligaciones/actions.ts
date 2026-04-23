@@ -19,7 +19,7 @@ type ResolveSystemObligationInput = {
   evidenceIds?: string[];
 };
 
-const VALID_STATUSES = new Set(['pending', 'in_progress', 'resolved', 'blocked']);
+const VALID_STATUSES = new Set(['pending', 'in_progress', 'resolved', 'blocked', 'excluded']);
 const VALID_PRIORITIES = new Set(['low', 'medium', 'high', 'critical']);
 
 export async function resolveSystemObligation(input: ResolveSystemObligationInput) {
@@ -192,4 +192,149 @@ export async function resolveSystemObligation(input: ResolveSystemObligationInpu
   revalidatePath(`/inventario/${input.aiSystemId}`);
 
   return { success: true, id: obligationId };
+}
+
+export async function acceptSystemObligations(aiSystemId: string, obligations: { code: string; title: string }[]) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización.' };
+
+  const { data: system } = await fluxion
+    .from('ai_systems')
+    .select('id, name')
+    .eq('organization_id', membership.organization_id)
+    .eq('id', aiSystemId)
+    .single();
+
+  if (!system) return { error: 'No se encontró el sistema.' };
+
+  // Fetch existing to avoid duplicates
+  const { data: existing } = await adminFluxion
+    .from('system_obligations')
+    .select('obligation_code')
+    .eq('ai_system_id', aiSystemId)
+    .eq('source_framework', 'AI_ACT');
+
+  const existingCodes = new Set(existing?.map(e => e.obligation_code) ?? []);
+  const toInsert = obligations
+    .filter(o => !existingCodes.has(o.code))
+    .map(o => ({
+      ai_system_id: aiSystemId,
+      organization_id: membership.organization_id,
+      source_framework: 'AI_ACT',
+      obligation_code: o.code,
+      title: o.title,
+      description: `Obligación aplicable derivada de ${o.title}.`,
+      status: 'pending',
+      priority: 'medium',
+    }));
+
+  if (toInsert.length > 0) {
+    const { error } = await adminFluxion.from('system_obligations').insert(toInsert);
+    if (error) return { error: error.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'obligations_accepted',
+      event_title: 'Obligaciones aceptadas',
+      event_summary: `Se han aceptado ${toInsert.length} nuevas obligaciones para el sistema.`,
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${aiSystemId}`);
+  return { success: true, count: toInsert.length };
+}
+
+export async function excludeSystemObligation(input: {
+  aiSystemId: string;
+  code: string;
+  title: string;
+  justification: string;
+}) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización.' };
+
+  const { data: system } = await fluxion
+    .from('ai_systems')
+    .select('id, name')
+    .eq('organization_id', membership.organization_id)
+    .eq('id', input.aiSystemId)
+    .single();
+
+  if (!system) return { error: 'No se encontró el sistema.' };
+
+  const { data: existing } = await adminFluxion
+    .from('system_obligations')
+    .select('id')
+    .eq('ai_system_id', input.aiSystemId)
+    .eq('source_framework', 'AI_ACT')
+    .eq('obligation_code', input.code)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+  const payload = {
+    ai_system_id: input.aiSystemId,
+    organization_id: membership.organization_id,
+    source_framework: 'AI_ACT',
+    obligation_code: input.code,
+    title: input.title,
+    description: `Obligación excluida: ${input.title}`,
+    status: 'excluded',
+    priority: 'low',
+    notes: input.justification,
+    resolved_at: now,
+    resolved_by: user.id,
+  };
+
+  if (existing?.id) {
+    const { error } = await adminFluxion
+      .from('system_obligations')
+      .update(payload)
+      .eq('id', existing.id);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await adminFluxion.from('system_obligations').insert(payload);
+    if (error) return { error: error.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'obligation_excluded',
+      event_title: 'Obligación excluida',
+      event_summary: `Se ha excluido la obligación "${input.code} — ${input.title}". Justificación: ${input.justification}`,
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true };
 }
