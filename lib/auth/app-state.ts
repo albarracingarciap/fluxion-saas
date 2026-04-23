@@ -1,69 +1,46 @@
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
-
-type OrganizationSettings = {
-  onboarding_completed?: boolean
-  onboarding_completed_at?: string
-  [key: string]: unknown
-}
-
-function isOrganizationSettings(value: unknown): value is OrganizationSettings {
-  return typeof value === 'object' && value !== null
-}
+import { Profile } from '@/lib/types/auth'
 
 export async function getAppAuthState() {
   const supabase = createClient()
   const fluxion = createFluxionClient()
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return {
-      user: null,
-      membership: null,
-      organization: null,
-      onboardingCompleted: false,
-    }
+    return { user: null, profile: null, membership: null, organization: null, onboardingCompleted: false }
   }
 
-  const { data: membership, error: membershipError } = await fluxion
-    .from('organization_members')
-    .select('organization_id, role')
+  const { data: profile, error: profileError } = await fluxion
+    .from('profiles')
+    .select('id, user_id, organization_id, role, onboarding_completed, full_name, avatar_url, is_active, copilot_enabled')
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (membershipError) {
-    throw membershipError
-  }
+  if (profileError) throw profileError
 
-  if (!membership) {
-    return {
-      user,
-      membership: null,
-      organization: null,
-      onboardingCompleted: false,
-    }
+  if (!profile) {
+    return { user, profile: null, membership: null, organization: null, onboardingCompleted: false }
   }
 
   const { data: organization, error: organizationError } = await fluxion
     .from('organizations')
     .select('id, name, slug, plan, settings, logo_url')
-    .eq('id', membership.organization_id)
+    .eq('id', profile.organization_id)
     .maybeSingle()
 
-  if (organizationError) {
-    throw organizationError
-  }
+  if (organizationError) throw organizationError
 
-  const settings = isOrganizationSettings(organization?.settings) ? organization.settings : {}
+  // membership shim: mantiene compatibilidad con código existente que lee
+  // membership.role y membership.organization_id. Se eliminará en Fase 7.
+  const membership = { organization_id: profile.organization_id, role: profile.role }
 
   return {
     user,
+    profile: profile as Profile,
     membership,
     organization,
-    onboardingCompleted: settings.onboarding_completed === true,
+    onboardingCompleted: profile.onboarding_completed,
   }
 }
