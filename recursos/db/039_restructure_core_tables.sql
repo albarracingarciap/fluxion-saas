@@ -44,22 +44,7 @@ DROP TABLE IF EXISTS fluxion.profiles CASCADE;
 DROP TABLE IF EXISTS fluxion.invitations CASCADE;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. FUNCIÓN AUXILIAR: obtener org_id del usuario autenticado
--- ─────────────────────────────────────────────────────────────────────────────
--- SECURITY DEFINER para evitar recursión en políticas RLS que consultan profiles.
--- Se crea antes de la tabla para poder referenciarla en las policies.
-CREATE OR REPLACE FUNCTION fluxion.auth_user_org_id()
-RETURNS uuid
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = fluxion, public
-AS $$
-  SELECT organization_id FROM fluxion.profiles WHERE user_id = auth.uid() LIMIT 1
-$$;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- 4. NUEVA TABLA: profiles
+-- 3. NUEVA TABLA: profiles
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE fluxion.profiles (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,8 +80,27 @@ CREATE TABLE fluxion.profiles (
 
 ALTER TABLE fluxion.profiles ENABLE ROW LEVEL SECURITY;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. FUNCIÓN AUXILIAR: obtener org_id del usuario autenticado
+-- ─────────────────────────────────────────────────────────────────────────────
+-- SECURITY DEFINER para evitar recursión en políticas RLS que consultan profiles.
+-- Se crea aquí, después de que profiles existe, porque PostgreSQL valida
+-- las referencias a tablas en funciones LANGUAGE sql al momento de crearlas.
+CREATE OR REPLACE FUNCTION fluxion.auth_user_org_id()
+RETURNS uuid
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = fluxion, public
+AS $$
+  SELECT organization_id FROM fluxion.profiles WHERE user_id = auth.uid() LIMIT 1
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. POLÍTICAS RLS: profiles
+-- ─────────────────────────────────────────────────────────────────────────────
+
 -- Todos los miembros de la misma org pueden ver los perfiles
--- (usa SECURITY DEFINER function para evitar recursión)
 CREATE POLICY "profiles_select_own_org"
   ON fluxion.profiles FOR SELECT
   USING (organization_id = fluxion.auth_user_org_id());
@@ -118,7 +122,7 @@ CREATE POLICY "profiles_admin_update"
   );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 5. NUEVA TABLA: invitations
+-- 6. NUEVA TABLA: invitations
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE fluxion.invitations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,7 +168,7 @@ CREATE POLICY "invitations_org_admin"
   );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 6. ACTUALIZAR RLS EN organizations
+-- 7. ACTUALIZAR RLS EN organizations
 -- ─────────────────────────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Un miembro puede ver su organizacion" ON fluxion.organizations;
 
@@ -175,7 +179,7 @@ CREATE POLICY "organizations_select_member"
   ));
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 7. ACTUALIZAR current_organization_id() al nuevo modelo
+-- 8. ACTUALIZAR current_organization_id() al nuevo modelo
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION fluxion.current_organization_id()
 RETURNS uuid
@@ -188,7 +192,7 @@ AS $$
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 8. FUNCIÓN Y TRIGGER: updated_at automático
+-- 9. FUNCIÓN Y TRIGGER: updated_at automático
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION fluxion.update_updated_at()
 RETURNS TRIGGER AS $$
@@ -203,7 +207,7 @@ CREATE TRIGGER trg_profiles_updated_at
   FOR EACH ROW EXECUTE FUNCTION fluxion.update_updated_at();
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 9. ÍNDICES
+-- 10. ÍNDICES
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE INDEX idx_profiles_organization ON fluxion.profiles(organization_id);
 CREATE INDEX idx_profiles_user         ON fluxion.profiles(user_id);
@@ -214,7 +218,7 @@ CREATE INDEX idx_invitations_email_org ON fluxion.invitations(email, organizatio
 CREATE INDEX idx_invitations_status    ON fluxion.invitations(status);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 10. FUNCIÓN: expiración de invitaciones
+-- 11. FUNCIÓN: expiración de invitaciones
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Llamar vía pg_cron o desde el backend en cada validación de token.
 CREATE OR REPLACE FUNCTION fluxion.expire_invitations()
