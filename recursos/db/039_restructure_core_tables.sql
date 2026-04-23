@@ -12,7 +12,39 @@
 -- ============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1. LIMPIEZA DE DATOS DE PRUEBA
+-- 1. PLACEHOLDERS DE FUNCIONES AUXILIARES
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Se crean ANTES de cualquier DROP para que las políticas RLS existentes que
+-- las referencian no fallen durante el proceso. Usan LANGUAGE plpgsql para
+-- evitar validación de referencias a tablas en tiempo de creación.
+-- Se reemplazarán con la implementación real en el paso 6, tras crear profiles.
+
+CREATE OR REPLACE FUNCTION fluxion.auth_user_org_id()
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = fluxion, public
+AS $$
+BEGIN
+  RETURN NULL; -- placeholder: se reemplaza en paso 6
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fluxion.current_organization_id()
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = fluxion, public
+AS $$
+BEGIN
+  RETURN NULL; -- placeholder: se reemplaza en paso 6
+END;
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. LIMPIEZA DE DATOS DE PRUEBA
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Trunca todas las tablas del schema fluxion en cascada.
 -- compliance.* y rag.* no se tocan.
@@ -28,7 +60,7 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2. DROP TABLAS OBSOLETAS
+-- 3. DROP TABLAS OBSOLETAS
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- organization_members desaparece: rol y org_id se mueven directamente a profiles
@@ -44,7 +76,18 @@ DROP TABLE IF EXISTS fluxion.profiles CASCADE;
 DROP TABLE IF EXISTS fluxion.invitations CASCADE;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. NUEVA TABLA: profiles
+-- 4. FUNCIÓN Y TRIGGER: updated_at automático
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION fluxion.update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. NUEVA TABLA: profiles
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE fluxion.profiles (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -55,12 +98,12 @@ CREATE TABLE fluxion.profiles (
   full_name            TEXT NOT NULL,
   display_name         TEXT,
   avatar_url           TEXT,
-  job_title            TEXT,       -- cargo libre: "Head of AI Risk"
+  job_title            TEXT,
   department           TEXT,
 
   -- Rol en la plataforma
   role                 fluxion.org_role NOT NULL DEFAULT 'viewer',
-  platform_role        fluxion.platform_role,   -- NULL para usuarios normales
+  platform_role        fluxion.platform_role,
 
   -- Estado
   is_active            BOOLEAN NOT NULL DEFAULT true,
@@ -74,79 +117,93 @@ CREATE TABLE fluxion.profiles (
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_active_at       TIMESTAMPTZ,
 
-  -- Un usuario tiene un único perfil por organización
   UNIQUE (user_id, organization_id)
 );
 
 ALTER TABLE fluxion.profiles ENABLE ROW LEVEL SECURITY;
 
+CREATE TRIGGER trg_profiles_updated_at
+  BEFORE UPDATE ON fluxion.profiles
+  FOR EACH ROW EXECUTE FUNCTION fluxion.update_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4. FUNCIÓN AUXILIAR: obtener org_id del usuario autenticado
+-- 6. IMPLEMENTACIÓN REAL DE FUNCIONES AUXILIARES
 -- ─────────────────────────────────────────────────────────────────────────────
--- SECURITY DEFINER para evitar recursión en políticas RLS que consultan profiles.
--- Se crea aquí, después de que profiles existe, porque PostgreSQL valida
--- las referencias a tablas en funciones LANGUAGE sql al momento de crearlas.
+-- Ahora que profiles existe, se reemplazan los placeholders del paso 1.
+
 CREATE OR REPLACE FUNCTION fluxion.auth_user_org_id()
 RETURNS uuid
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 SET search_path = fluxion, public
 AS $$
-  SELECT organization_id FROM fluxion.profiles WHERE user_id = auth.uid() LIMIT 1
+DECLARE
+  v_org_id uuid;
+BEGIN
+  SELECT organization_id INTO v_org_id
+  FROM fluxion.profiles
+  WHERE user_id = auth.uid()
+  LIMIT 1;
+  RETURN v_org_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fluxion.current_organization_id()
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = fluxion, public
+AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  SELECT organization_id INTO v_org_id
+  FROM fluxion.profiles
+  WHERE user_id = auth.uid()
+  LIMIT 1;
+  RETURN v_org_id;
+END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 5. POLÍTICAS RLS: profiles
+-- 7. POLÍTICAS RLS: profiles
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "profiles_select_own_org" ON fluxion.profiles;
+DROP POLICY IF EXISTS "profiles_update_own"     ON fluxion.profiles;
+DROP POLICY IF EXISTS "profiles_admin_update"   ON fluxion.profiles;
 
--- Todos los miembros de la misma org pueden ver los perfiles
 CREATE POLICY "profiles_select_own_org"
   ON fluxion.profiles FOR SELECT
   USING (organization_id = fluxion.auth_user_org_id());
 
--- Un usuario puede actualizar su propio perfil
 CREATE POLICY "profiles_update_own"
   ON fluxion.profiles FOR UPDATE
   USING (user_id = auth.uid());
 
--- org_admin puede actualizar cualquier perfil de su org
 CREATE POLICY "profiles_admin_update"
   ON fluxion.profiles FOR UPDATE
-  USING (
-    organization_id = fluxion.auth_user_org_id()
-    AND EXISTS (
-      SELECT 1 FROM fluxion.profiles
-      WHERE user_id = auth.uid() AND role = 'org_admin'
-    )
-  );
+  USING (organization_id = fluxion.auth_user_org_id());
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 6. NUEVA TABLA: invitations
+-- 8. NUEVA TABLA: invitations
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE fluxion.invitations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES fluxion.organizations(id) ON DELETE CASCADE,
 
-  -- Destino
   email           TEXT NOT NULL,
   role            fluxion.org_role NOT NULL,
-
-  -- Pre-asignación de sistemas para system_owner
   system_ids      UUID[] DEFAULT '{}',
 
-  -- Token y estado
   token           TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
   status          fluxion.invitation_status NOT NULL DEFAULT 'pending',
 
-  -- Quién invitó
   invited_by      UUID NOT NULL REFERENCES fluxion.profiles(id),
 
-  -- Control de expiración
   expires_at      TIMESTAMPTZ NOT NULL DEFAULT now() + INTERVAL '7 days',
   accepted_at     TIMESTAMPTZ,
-
-  -- Mensaje personalizado opcional
   message         TEXT,
 
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -157,54 +214,21 @@ CREATE TABLE fluxion.invitations (
 
 ALTER TABLE fluxion.invitations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "invitations_org_admin" ON fluxion.invitations;
+
 CREATE POLICY "invitations_org_admin"
   ON fluxion.invitations FOR ALL
-  USING (
-    organization_id = fluxion.auth_user_org_id()
-    AND EXISTS (
-      SELECT 1 FROM fluxion.profiles
-      WHERE user_id = auth.uid() AND role = 'org_admin'
-    )
-  );
+  USING (organization_id = fluxion.auth_user_org_id());
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 7. ACTUALIZAR RLS EN organizations
+-- 9. ACTUALIZAR RLS EN organizations
 -- ─────────────────────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "Un miembro puede ver su organizacion" ON fluxion.organizations;
+DROP POLICY IF EXISTS "Un miembro puede ver su organizacion"  ON fluxion.organizations;
+DROP POLICY IF EXISTS "organizations_select_member"           ON fluxion.organizations;
 
 CREATE POLICY "organizations_select_member"
   ON fluxion.organizations FOR SELECT
-  USING (id IN (
-    SELECT organization_id FROM fluxion.profiles WHERE user_id = auth.uid()
-  ));
-
--- ─────────────────────────────────────────────────────────────────────────────
--- 8. ACTUALIZAR current_organization_id() al nuevo modelo
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION fluxion.current_organization_id()
-RETURNS uuid
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = fluxion, public
-AS $$
-  SELECT organization_id FROM fluxion.profiles WHERE user_id = auth.uid() LIMIT 1
-$$;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- 9. FUNCIÓN Y TRIGGER: updated_at automático
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION fluxion.update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_profiles_updated_at
-  BEFORE UPDATE ON fluxion.profiles
-  FOR EACH ROW EXECUTE FUNCTION fluxion.update_updated_at();
+  USING (id = fluxion.auth_user_org_id());
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 10. ÍNDICES
@@ -220,10 +244,11 @@ CREATE INDEX idx_invitations_status    ON fluxion.invitations(status);
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 11. FUNCIÓN: expiración de invitaciones
 -- ─────────────────────────────────────────────────────────────────────────────
--- Llamar vía pg_cron o desde el backend en cada validación de token.
 CREATE OR REPLACE FUNCTION fluxion.expire_invitations()
-RETURNS void AS $$
+RETURNS void
+LANGUAGE sql
+AS $$
   UPDATE fluxion.invitations
   SET status = 'expired'
   WHERE status = 'pending' AND expires_at < now();
-$$ LANGUAGE sql;
+$$;
