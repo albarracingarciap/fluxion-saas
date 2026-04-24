@@ -83,7 +83,7 @@ export default function AjustesPage() {
   const [showKey, setShowKey] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const isAdmin = role === 'admin'
+  const isAdmin = role === 'org_admin'
 
   const [form, setForm] = useState({
     notifications_email: true,

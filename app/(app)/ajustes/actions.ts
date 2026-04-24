@@ -53,7 +53,7 @@ export async function updateAppSettings(data: {
   if (profileError) return { error: 'Error al guardar preferencias: ' + profileError.message }
 
   // Actualizar settings de la organización (solo admin puede cambiar webhook)
-  if (membership.role === 'admin') {
+  if (membership.role === 'org_admin') {
     const { data: currentOrg } = await fluxion
       .from('organizations')
       .select('settings')
