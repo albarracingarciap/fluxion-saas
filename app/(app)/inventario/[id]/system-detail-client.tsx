@@ -652,8 +652,8 @@ export function SystemDetailClient({
   const [isSubmittingExclusion, setIsSubmittingExclusion] = useState(false);
   const [isAcceptingAll, setIsAcceptingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  // optimistic: code → status override aplicado antes del router.refresh()
-  const [obligationOverrides, setObligationOverrides] = useState<Map<string, string>>(new Map());
+  // Tracks obligation codes currently being saved — suppresses Aceptar/Excluir while refresh is in flight
+  const [pendingObligations, setPendingObligations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -661,8 +661,17 @@ export function SystemDetailClient({
     return () => clearTimeout(t);
   }, [toastMessage]);
 
-  const applyOverride = (code: string, status: string) =>
-    setObligationOverrides((prev) => new Map(prev).set(code, status));
+  // Clear a pending code once obligationRecords confirms it is persisted
+  useEffect(() => {
+    const persistedCodes = new Set(obligationRecords.map((r) => r.obligation_code).filter(Boolean));
+    setPendingObligations((prev) => {
+      const next = new Set(prev);
+      Array.from(prev).forEach((code) => {
+        if (persistedCodes.has(code)) next.delete(code);
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [obligationRecords]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -672,7 +681,7 @@ export function SystemDetailClient({
   const handleAcceptAll = async () => {
     setIsAcceptingAll(true);
     const syntheticOnes = obligations.filter((o) => o.isSynthetic).map((o) => ({ code: o.ref, title: o.name }));
-    syntheticOnes.forEach((o) => applyOverride(o.code, 'pending'));
+    setPendingObligations((prev) => { const next = new Set(prev); syntheticOnes.forEach((o) => next.add(o.code)); return next; });
     const res = await acceptSystemObligations(system.id, syntheticOnes);
     setIsAcceptingAll(false);
     if (res.error) { alert(res.error); return; }
@@ -680,7 +689,7 @@ export function SystemDetailClient({
   };
 
   const handleAcceptOne = async (code: string, title: string) => {
-    applyOverride(code, 'pending');
+    setPendingObligations((prev) => new Set(prev).add(code));
     const res = await acceptSystemObligations(system.id, [{ code, title }]);
     if (res.error) { alert(res.error); return; }
     showToast('Obligación aceptada y añadida a tu plan de cumplimiento');
@@ -705,7 +714,7 @@ export function SystemDetailClient({
     });
     setIsSubmittingExclusion(false);
     if (res.error) { alert(res.error); return; }
-    applyOverride(exclusionData!.code, 'excluded');
+    setPendingObligations((prev) => new Set(prev).add(exclusionData!.code));
     setIsExcludingObligation(false);
     setExclusionData(null);
     setExclusionJustification('');
@@ -747,9 +756,8 @@ export function SystemDetailClient({
       const ref = obligation.split(' — ')[0] ?? obligation;
       const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
       const heuristicStatus = obligationStatusFromSystem(system, obligation);
-      const baseStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
-      const systemStatus = obligationOverrides.get(ref) ?? baseStatus;
-      const isSynthetic = !persisted && !obligationOverrides.has(ref);
+      const systemStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
+      const isSynthetic = !persisted;
       const evIds = persisted?.evidence_ids ?? [];
       const evStatuses = evIds.map((id) => evidenceStatusMap[id]).filter(Boolean) as string[];
       return {
@@ -772,7 +780,7 @@ export function SystemDetailClient({
     });
 
     return items;
-  }, [obligationRecords, system, evidenceStatusMap, obligationOverrides]);
+  }, [obligationRecords, system, evidenceStatusMap]);
 
   const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
 
@@ -1057,19 +1065,20 @@ export function SystemDetailClient({
   };
 
   const openClassificationModal = () => {
+    const domain = system.domain;
     setClassificationForm({
-      domain: system.domain,
+      domain,
       intendedUse: system.intended_use ?? '',
       outputType: system.output_type ?? '',
       interactsPersons: system.interacts_persons,
-      isAISystem: system.is_ai_system,
+      isAISystem: system.is_ai_system ?? true,
       isGPAI: system.is_gpai,
       prohibitedPractice: system.prohibited_practice,
       affectsPersons: system.affects_persons,
       vulnerableGroups: system.vulnerable_groups,
       hasMinors: system.involves_minors,
       biometric: system.uses_biometric_data,
-      criticalInfra: system.manages_critical_infra,
+      criticalInfra: system.manages_critical_infra || domain === 'infra',
       reviewNotes: '',
     });
     setClassificationError(null);
@@ -1492,7 +1501,9 @@ export function SystemDetailClient({
                               </td>
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
-                                  {obligation.isSynthetic ? (
+                                  {pendingObligations.has(obligation.ref) ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-lttm" />
+                                  ) : obligation.isSynthetic ? (
                                     <>
                                       <button
                                         onClick={(e) => {
@@ -2810,7 +2821,14 @@ export function SystemDetailClient({
                       <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Dominio</label>
                       <select
                         value={classificationForm.domain}
-                        onChange={(event) => setClassificationForm((current) => ({ ...current, domain: event.target.value }))}
+                        onChange={(event) => {
+                          const d = event.target.value;
+                          setClassificationForm((current) => ({
+                            ...current,
+                            domain: d,
+                            criticalInfra: d === 'infra' ? true : current.criticalInfra,
+                          }));
+                        }}
                         className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                       >
                         {Object.entries(DOMAIN_LABELS).map(([value, meta]) => (
@@ -2841,70 +2859,95 @@ export function SystemDetailClient({
                   <div>
                     <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Uso previsto</label>
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={classificationForm.intendedUse}
                       onChange={(event) => setClassificationForm((current) => ({ ...current, intendedUse: event.target.value }))}
                       className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      ['isAISystem', 'Es un sistema de IA'],
-                      ['interactsPersons', 'Interactúa con personas'],
-                      ['isGPAI', 'Es modelo GPAI'],
-                      ['prohibitedPractice', 'Puede ser práctica prohibida'],
-                      ['vulnerableGroups', 'Afecta a grupos vulnerables'],
-                      ['hasMinors', 'Involucra menores'],
-                      ['biometric', 'Usa biometría'],
-                      ['criticalInfra', 'Gestiona infraestructura crítica'],
-                    ].map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-2 rounded-[10px] border border-ltb bg-ltbg px-3 py-2.5 text-[12.5px] font-sora text-ltt cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(classificationForm[key as keyof typeof classificationForm])}
-                          onChange={(event) =>
-                            setClassificationForm((current) => ({
-                              ...current,
-                              [key]: event.target.checked,
-                            }))
-                          }
-                        />
-                        {label}
-                      </label>
-                    ))}
+                  {/* affectsPersons es la condición que desbloquea casi todos los dominios de alto riesgo */}
+                  <div>
+                    <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                      ¿Afecta directamente a personas físicas?
+                      <span className="ml-1.5 text-or normal-case tracking-normal font-sora font-normal">requerido para alto riesgo por dominio</span>
+                    </label>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'true', label: 'Sí' },
+                        { value: 'false', label: 'No' },
+                        { value: 'null', label: 'Sin definir' },
+                      ].map(({ value, label }) => {
+                        const current = classificationForm.affectsPersons === null ? 'null' : classificationForm.affectsPersons ? 'true' : 'false';
+                        const active = current === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setClassificationForm((c) => ({ ...c, affectsPersons: value === 'null' ? null : value === 'true' }))}
+                            className={`flex-1 py-2 rounded-lg font-sora text-[12.5px] font-medium border transition-all ${
+                              active
+                                ? value === 'true' ? 'bg-grdim border-grb text-gr' : value === 'false' ? 'bg-red-dim border-reb text-re' : 'bg-ltcard2 border-ltb text-lttm'
+                                : 'bg-ltbg border-ltb text-lttm hover:bg-ltcard'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">¿Afecta a personas?</label>
-                      <select
-                        value={classificationForm.affectsPersons === null ? 'null' : classificationForm.affectsPersons ? 'true' : 'false'}
-                        onChange={(event) =>
-                          setClassificationForm((current) => ({
-                            ...current,
-                            affectsPersons:
-                              event.target.value === 'null' ? null : event.target.value === 'true',
-                          }))
-                        }
-                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
-                      >
-                        <option value="null">Sin definir</option>
-                        <option value="true">Sí</option>
-                        <option value="false">No</option>
-                      </select>
+                  <div>
+                    <div className="text-[11px] font-plex uppercase text-ltt2 mb-2">Factores de clasificación</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {([
+                        ['isAISystem', 'Es un sistema de IA', false],
+                        ['isGPAI', 'Es modelo GPAI (uso general)', false],
+                        ['prohibitedPractice', 'Puede ser práctica prohibida (Art. 5)', false],
+                        ['biometric', 'Procesa datos biométricos', false],
+                        ['criticalInfra', 'Gestiona infraestructura crítica', false],
+                        ['interactsPersons', 'Interactúa directamente con personas', false],
+                        ['vulnerableGroups', 'Afecta a grupos vulnerables', true],
+                        ['hasMinors', 'Involucra menores de edad', true],
+                      ] as [string, string, boolean][]).map(([key, label, infoOnly]) => (
+                        <label
+                          key={key}
+                          className={`flex items-start gap-2.5 rounded-[10px] border px-3 py-2.5 text-[12.5px] font-sora cursor-pointer transition-all ${
+                            Boolean(classificationForm[key as keyof typeof classificationForm])
+                              ? 'border-cyan-border bg-cyan-dim text-ltt'
+                              : 'border-ltb bg-ltbg text-ltt hover:bg-ltcard'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 shrink-0"
+                            checked={Boolean(classificationForm[key as keyof typeof classificationForm])}
+                            onChange={(event) =>
+                              setClassificationForm((current) => ({
+                                ...current,
+                                [key]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span className="leading-tight">
+                            {label}
+                            {infoOnly && <span className="block text-[10px] text-lttm font-normal mt-0.5">Solo informativo — no cambia el nivel AI Act</span>}
+                          </span>
+                        </label>
+                      ))}
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Notas de revisión</label>
-                      <textarea
-                        rows={3}
-                        value={classificationForm.reviewNotes}
-                        onChange={(event) => setClassificationForm((current) => ({ ...current, reviewNotes: event.target.value }))}
-                        className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
-                        placeholder="Motivo de la revisión o contexto del cambio."
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Notas de revisión</label>
+                    <textarea
+                      rows={2}
+                      value={classificationForm.reviewNotes}
+                      onChange={(event) => setClassificationForm((current) => ({ ...current, reviewNotes: event.target.value }))}
+                      className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                      placeholder="Motivo de la revisión o contexto del cambio."
+                    />
                   </div>
                 </div>
 
@@ -2920,35 +2963,47 @@ export function SystemDetailClient({
                     </div>
                   </div>
 
-                  <div className="rounded-[12px] border border-cyan-border bg-cyan-dim p-4">
-                    <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-brand-cyan mb-2">Preview recalculada</div>
-                    <div className="font-fraunces text-[22px] font-semibold text-brand-navy mb-2">
-                      {classificationPreview?.label ?? 'Pendiente'}
-                    </div>
-                    <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
-                      {classificationPreview?.reason ?? 'Faltan datos para determinar la clasificación.'}
-                    </div>
-                    <div className="font-plex text-[11px] text-lttm">
-                      {classificationPreview?.basis ?? 'Sin fundamento calculado'}
-                    </div>
-                  </div>
+                  {(() => {
+                    const preview = classificationPreview;
+                    const previewMeta = preview ? (RISK_CONFIG[preview.level] ?? RISK_CONFIG.pending) : null;
+                    const changed = preview?.level !== liveRiskLevel;
+                    return (
+                      <div className={`rounded-[12px] border p-4 ${previewMeta ? previewMeta.pill : 'bg-ltcard2 border-ltb'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">Preview recalculada</div>
+                          {changed && preview && (
+                            <span className="font-plex text-[10px] text-or bg-ordim border border-orb rounded-full px-2 py-0.5">Cambio de nivel</span>
+                          )}
+                        </div>
+                        <div className={`font-fraunces text-[22px] font-semibold mb-2 ${previewMeta?.text ?? 'text-lttm'}`}>
+                          {preview?.label ?? 'Pendiente'}
+                        </div>
+                        <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
+                          {preview?.reason ?? 'Faltan datos suficientes para determinar la clasificación. Revisa "¿Es un sistema de IA?" y "Tipo de output".'}
+                        </div>
+                        <div className="font-plex text-[11px] text-lttm">
+                          {preview?.basis ?? '—'}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="rounded-[12px] border border-ltb bg-ltcard2 p-4">
                     <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-2">Obligaciones resultantes</div>
-                    <div className="flex flex-wrap gap-2">
-                      {(classificationPreview?.obls ?? []).length > 0 ? (
-                        (classificationPreview?.obls ?? []).map((obligation) => (
+                    {(classificationPreview?.obls ?? []).length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(classificationPreview?.obls ?? []).map((obligation) => (
                           <span
                             key={obligation}
                             className="inline-flex items-center px-2 py-0.5 rounded-full font-plex text-[10.5px] font-medium bg-ltcard text-ltt border border-ltb"
                           >
                             {obligation}
                           </span>
-                        ))
-                      ) : (
-                        <span className="font-sora text-[12px] text-lttm">No se activarían obligaciones adicionales.</span>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="font-sora text-[12px] text-lttm">No se activarían obligaciones adicionales.</span>
+                    )}
                   </div>
                 </div>
               </form>
