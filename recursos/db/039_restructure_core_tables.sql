@@ -46,18 +46,18 @@ $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. LIMPIEZA DE DATOS DE PRUEBA
 -- ─────────────────────────────────────────────────────────────────────────────
--- Trunca todas las tablas del schema fluxion en cascada.
--- compliance.* y rag.* no se tocan.
-DO $$
-DECLARE
-  r RECORD;
-BEGIN
-  FOR r IN (
-    SELECT tablename FROM pg_tables WHERE schemaname = 'fluxion' ORDER BY tablename
-  ) LOOP
-    EXECUTE format('TRUNCATE TABLE fluxion.%I CASCADE', r.tablename);
-  END LOOP;
-END $$;
+-- IMPORTANTE: NO usar TRUNCATE CASCADE indiscriminado sobre fluxion.organizations
+-- porque puede haber FKs desde otros schemas (ej. rag.documents.organization_id)
+-- que eliminarían datos maestros en cascada.
+--
+-- Solo se limpian las tablas que están siendo restructuradas o dependen de ellas.
+-- fluxion.organizations se conserva.
+TRUNCATE TABLE
+  fluxion.invitations,
+  fluxion.organization_members
+CASCADE;
+
+-- profiles se borra con DROP TABLE más abajo (CASCADE elimina dependencias)
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. DROP TABLAS OBSOLETAS
