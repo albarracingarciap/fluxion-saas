@@ -652,12 +652,17 @@ export function SystemDetailClient({
   const [isSubmittingExclusion, setIsSubmittingExclusion] = useState(false);
   const [isAcceptingAll, setIsAcceptingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // optimistic: code → status override aplicado antes del router.refresh()
+  const [obligationOverrides, setObligationOverrides] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!toastMessage) return;
     const t = setTimeout(() => setToastMessage(null), 3500);
     return () => clearTimeout(t);
   }, [toastMessage]);
+
+  const applyOverride = (code: string, status: string) =>
+    setObligationOverrides((prev) => new Map(prev).set(code, status));
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -666,9 +671,8 @@ export function SystemDetailClient({
 
   const handleAcceptAll = async () => {
     setIsAcceptingAll(true);
-    const syntheticOnes = obligations
-      .filter((o) => o.isSynthetic)
-      .map((o) => ({ code: o.ref, title: o.name }));
+    const syntheticOnes = obligations.filter((o) => o.isSynthetic).map((o) => ({ code: o.ref, title: o.name }));
+    syntheticOnes.forEach((o) => applyOverride(o.code, 'pending'));
     const res = await acceptSystemObligations(system.id, syntheticOnes);
     setIsAcceptingAll(false);
     if (res.error) { alert(res.error); return; }
@@ -676,6 +680,7 @@ export function SystemDetailClient({
   };
 
   const handleAcceptOne = async (code: string, title: string) => {
+    applyOverride(code, 'pending');
     const res = await acceptSystemObligations(system.id, [{ code, title }]);
     if (res.error) { alert(res.error); return; }
     showToast('Obligación aceptada y añadida a tu plan de cumplimiento');
@@ -700,6 +705,7 @@ export function SystemDetailClient({
     });
     setIsSubmittingExclusion(false);
     if (res.error) { alert(res.error); return; }
+    applyOverride(exclusionData!.code, 'excluded');
     setIsExcludingObligation(false);
     setExclusionData(null);
     setExclusionJustification('');
@@ -741,7 +747,9 @@ export function SystemDetailClient({
       const ref = obligation.split(' — ')[0] ?? obligation;
       const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
       const heuristicStatus = obligationStatusFromSystem(system, obligation);
-      const systemStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
+      const baseStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
+      const systemStatus = obligationOverrides.get(ref) ?? baseStatus;
+      const isSynthetic = !persisted && !obligationOverrides.has(ref);
       const evIds = persisted?.evidence_ids ?? [];
       const evStatuses = evIds.map((id) => evidenceStatusMap[id]).filter(Boolean) as string[];
       return {
@@ -759,12 +767,12 @@ export function SystemDetailClient({
         evidenceIds: evIds,
         ownerName: persisted?.owner_name ?? null,
         resolvedByName: persisted?.resolved_by_name ?? null,
-        isSynthetic: !persisted,
+        isSynthetic,
       };
     });
 
     return items;
-  }, [obligationRecords, system, evidenceStatusMap]);
+  }, [obligationRecords, system, evidenceStatusMap, obligationOverrides]);
 
   const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
 
