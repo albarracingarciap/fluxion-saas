@@ -349,6 +349,17 @@ const LEGAL_BASES = [
   {v:"interes_legitimo",l:"Interés legítimo (Art. 6.1.f)"},
 ];
 
+// Bases legales específicas para categorías especiales Art. 9 RGPD
+const LEGAL_BASES_ART9 = [
+  {v:"consentimiento_explicito",l:"Consentimiento explícito (Art. 9.2.a)"},
+  {v:"obligacion_laboral",l:"Obligaciones laborales / SS (Art. 9.2.b)"},
+  {v:"interes_vital_9",l:"Interés vital (Art. 9.2.c)"},
+  {v:"interes_publico_9",l:"Interés público sustancial (Art. 9.2.g)"},
+  {v:"medicina_preventiva",l:"Medicina preventiva / laboral (Art. 9.2.h)"},
+  {v:"salud_publica",l:"Salud pública (Art. 9.2.i)"},
+  {v:"investigacion",l:"Investigación científica / estadística (Art. 9.2.j)"},
+];
+
 const DATA_SOURCES = [
   "Datos propios de clientes","Bases de datos internas",
   "Proveedores de datos externos","Fuentes públicas / open data",
@@ -457,7 +468,7 @@ const INIT = {
   name:"",version:"1.0.0",internalId:"",domain:"",
   status:"",deployedAt:"",description:"",technicalDesc:"",tags:[],
   // Step 2
-  intendedUse:"",prohibitedUses:"",outputType:"",fullyAutomated:null,
+  intendedUse:"",prohibitedUses:"",outputTypes:[],
   interactsPersons:false,targetUsers:[],usageScale:"",geoScope:[],
   // Step 3
   isAISystem:null,isGPAI:false,prohibitedPractice:false,
@@ -465,16 +476,18 @@ const INIT = {
   criticalInfra:false,hasMinors:false,
   // Step 4
   processesPersonalData:null,dataCategories:[],specialCategories:[],
-  legalBases:[],dataSources:[],trainingDataDoc:null,
-  dataVolume:"",dataRetention:"",dpiaCompleted:null,
+  legalBases:[],legalBasesArt9:[],dataSources:[],trainingDataDoc:null,
+  dataVolume:"",dataRetention:"",dpiaCompleted:null,intlDataTransfers:false,
   // Step 5
   aiSystemType:"",baseModel:"",externalModel:"",extProvider:"",
+  ossModelName:"",ossLicense:"",
   frameworks:"",origin:"",hasFineTuning:false,
   hasExternalTools:false,environments:[],mlopsIntegration:"",
+  hasExplainability:null,
   // Step 6
   aiOwner:"",responsibleTeam:"",dpoInvolved:false,techLead:"",
-  executiveSponsor:"",criticalProviders:"",reviewFrequency:"",
-  hasSLA:false,incidentContact:"",
+  executiveSponsor:"",criticalProviders:[],reviewFrequency:"",
+  lastReviewDate:"",hasSLA:false,incidentContact:"",
   // Step 7
   hasTechDoc:null,hasLogging:null,humanOversight:null,
   oversightType:"",hasComplaintMechanism:false,
@@ -485,7 +498,8 @@ const INIT = {
 // ─── LIVE PREVIEW ─────────────────────────────────────────────
 
 function LivePreview({f,step,analysing}){
-  const cls = useMemo(()=>classifyAIAct(f),[f]);
+  const fWithOutput = useMemo(()=>({...f,outputType:f.outputTypes?.[0]??""}),[f]);
+  const cls = useMemo(()=>classifyAIAct(fWithOutput),[fWithOutput]);
   const iso = useMemo(()=>calcISO({
     aiOwner:f.aiOwner,hasTechDoc:f.hasTechDoc,hasLogging:f.hasLogging,
     humanOversight:f.humanOversight,hasRiskAssessment:f.hasRiskAssessment,
@@ -495,7 +509,7 @@ function LivePreview({f,step,analysing}){
   }),[f]);
 
   const domObj = DOMAINS.find(d=>d.v===f.domain);
-  const outObj = OUTPUTS.find(o=>o.v===f.outputType);
+  const outObj = OUTPUTS.find(o=>o.v===f.outputTypes?.[0]);
   const statusColors = {produccion:"b-gr",desarrollo:"b-bl",piloto:"b-or",deprecado:"b-gy",retirado:"b-re"};
   
   const clsStyle = {prohibited:"cls-pr",gpai:"cls-gp",high:"cls-hi",limited:"cls-li",minimal:"cls-mi"}[cls?.level]||"cls-unk";
@@ -600,13 +614,22 @@ function LivePreview({f,step,analysing}){
         )}
 
         {/* COMPLETION */}
-        {step===7&&f.name&&f.domain&&cls&&(
-          <div className="comp-banner fi">
-            <div className="comp-ico">✓</div>
-            <div className="comp-ttl">Listo para registrar</div>
-            <div className="comp-sub">El sistema quedará en el inventario y el agente iniciará la evaluación de conformidad formal.</div>
-          </div>
-        )}
+        {step===7&&f.name&&f.domain&&cls&&(()=>{
+          const gaps=[
+            f.hasTechDoc==="no",f.hasLogging==="no",
+            !f.hasAdversarialTest&&f.affectsPersons,
+            !f.hasComplaintMechanism&&f.affectsPersons,
+            f.dpiaCompleted==="no"&&f.specialCategories?.length>0,
+            !f.dpoInvolved&&f.processesPersonalData,
+          ].filter(Boolean).length;
+          return(
+            <div className="comp-banner fi">
+              <div className="comp-ico">{gaps>0?"⚠️":"✓"}</div>
+              <div className="comp-ttl">{gaps>0?`Registrar con ${gaps} gap${gaps>1?"s":""} crítico${gaps>1?"s":""}`:"\u2713 Listo para registrar"}</div>
+              <div className="comp-sub">{gaps>0?"El sistema quedará en el inventario. El agente marcará los gaps críticos para resolución prioritaria.":"El sistema quedará en el inventario y el agente iniciará la evaluación de conformidad formal."}</div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -630,7 +653,7 @@ function Step1({f,set,tags,setTags,tagInput,setTagInput}){
     </div>
     <div className="field-row fr2">
       <div className="field">
-        <Lbl req>Dominio de aplicación <span className="req">*</span></Lbl>
+        <Lbl req>Dominio de aplicación</Lbl>
         <select className="inp" value={f.domain} onChange={e=>set("domain",e.target.value)}>
           <option value="">Seleccionar dominio...</option>
           {DOMAINS.map(d=><option key={d.v} value={d.v}>{d.i} {d.l}</option>)}
@@ -650,7 +673,7 @@ function Step1({f,set,tags,setTags,tagInput,setTagInput}){
         <input className="inp" placeholder="ej. SYS-042" value={f.internalId} onChange={e=>set("internalId",e.target.value)}/>
       </div>
       <div className="field">
-        <Lbl>Fecha de primer despliegue</Lbl>
+        <Lbl>{f.status==="produccion"?"Fecha de primer despliegue":f.status?"Fecha prevista de despliegue":"Fecha de despliegue"}</Lbl>
         <input type="date" className="inp" value={f.deployedAt} onChange={e=>set("deployedAt",e.target.value)}/>
       </div>
     </div>
@@ -680,19 +703,14 @@ function Step2({f,set,cbToggle}){return(<>
     <div className="helper">Artículo 11 AI Act — este campo es obligatorio para sistemas de alto riesgo.</div>
   </div>
   <div className="field">
-    <Lbl>Usos prohibidos / fuera de alcance</Lbl>
-    <textarea className="inp" placeholder="¿Para qué NO debe usarse este sistema? ¿Qué usos están expresamente prohibidos?" value={f.prohibitedUses} onChange={e=>set("prohibitedUses",e.target.value)} rows={2}/>
+    <Lbl tags={["aiact"]} hint="Muy recomendado para sistemas de alto riesgo">Usos prohibidos / fuera de alcance</Lbl>
+    <textarea className="inp" placeholder="¿Para qué NO debe usarse este sistema? ¿Qué usos están expresamente prohibidos? (Requerido en documentación técnica Art. 11)" value={f.prohibitedUses} onChange={e=>set("prohibitedUses",e.target.value)} rows={2}/>
+    {!f.prohibitedUses&&<div className="warn cy" style={{marginTop:6}}><span className="warn-ico">💡</span><span>Documentar los usos prohibidos es obligatorio en la documentación técnica para sistemas de alto riesgo (Art. 11 Anexo IV).</span></div>}
   </div>
   <div className="field">
-    <Lbl req tags={["aiact"]}>Tipo de output que produce <span className="req">*</span></Lbl>
-    <Opt options={OUTPUTS} value={f.outputType} onChange={v=>set("outputType",v)} grid="c2"/>
-  </div>
-  <div className="field">
-    <Lbl req tags={["aiact"]}>¿Las decisiones o recomendaciones son totalmente automáticas?</Lbl>
-    <Opt options={[
-      {v:true,l:"Sí — completamente automático",d:"No hay intervención humana antes de aplicar el output",i:"⚡"},
-      {v:false,l:"No — siempre hay revisión humana",d:"Un analista puede modificar o revertir antes de aplicar",i:"👤"},
-    ]} value={f.fullyAutomated} onChange={v=>set("fullyAutomated",v==="true"||v===true)} grid="c2"/>
+    <Lbl req tags={["aiact"]}>Tipo de output que produce</Lbl>
+    <div className="helper" style={{marginBottom:8}}>Puedes seleccionar varios si el sistema produce múltiples tipos de output.</div>
+    <CBGrid items={OUTPUTS} selected={f.outputTypes} onToggle={v=>cbToggle("outputTypes",v)} grid="cb2"/>
   </div>
   <Toggle on={f.interactsPersons} onToggle={()=>set("interactsPersons",!f.interactsPersons)}
     label="El sistema interactúa directamente con personas en tiempo real"
@@ -744,7 +762,7 @@ function Step3({f,set}){return(<>
   </div>)}
   <SecDiv label="Características de riesgo específicas"/>
   <Toggle on={f.biometric} onToggle={()=>set("biometric",!f.biometric)}
-    label="Procesa datos biométricos" sub="Rostro, voz, huella dactilar, marcha, patrones de comportamiento → Anexo III §1"/>
+    label="Procesa datos biométricos" sub="Rostro, voz, huella dactilar, marcha, patrones de comportamiento, verificación de identidad en onboarding digital → Anexo III §1"/>
   <Toggle on={f.criticalInfra} onToggle={()=>set("criticalInfra",!f.criticalInfra)}
     label="Gestiona infraestructura crítica" sub="Energía, agua, transporte, sistemas financieros → Anexo III §2"/>
   <Toggle on={f.vulnerableGroups} onToggle={()=>set("vulnerableGroups",!f.vulnerableGroups)}
@@ -778,9 +796,16 @@ function Step4({f,set,cbToggle}){return(<>
       <CBGrid items={SPECIAL_CATS} selected={f.specialCategories} onToggle={v=>cbToggle("specialCategories",v)} grid="cb2"/>
     </div>
     <div className="field">
-      <Lbl req tags={["rgpd"]}>Base(s) legal(es) del tratamiento</Lbl>
+      <Lbl req tags={["rgpd"]}>Base(s) legal(es) del tratamiento (Art. 6)</Lbl>
       <CBGrid items={LEGAL_BASES} selected={f.legalBases} onToggle={v=>cbToggle("legalBases",v)} grid="cb2"/>
     </div>
+    {f.specialCategories.length>0&&(
+      <div className="field">
+        <Lbl req tags={["rgpd"]}>Base legal específica para categorías especiales (Art. 9.2)</Lbl>
+        <div className="helper" style={{marginBottom:8}}>Los datos del Art. 9 requieren una base legal adicional del Art. 9.2, distinta de las del Art. 6.</div>
+        <CBGrid items={LEGAL_BASES_ART9} selected={f.legalBasesArt9} onToggle={v=>cbToggle("legalBasesArt9",v)} grid="cb2"/>
+      </div>
+    )}
   </>)}
   <SecDiv label="Origen y ciclo de vida de los datos"/>
   <div className="field">
@@ -816,7 +841,16 @@ function Step4({f,set,cbToggle}){return(<>
       {v:"si",l:"Sí, completada",i:"✅"},{v:"proceso",l:"En proceso",i:"🔄"},{v:"no",l:"No realizada",i:"❌"}
     ]} value={f.dpiaCompleted} onChange={v=>set("dpiaCompleted",v)} grid="c3"/>
     <div className="helper">Obligatoria si hay tratamiento a gran escala de datos sensibles o perfilado de personas.</div>
+    {f.dpiaCompleted==="no"&&f.specialCategories.length>0&&(
+      <div className="warn re" style={{marginTop:8}}>
+        <span className="warn-ico">🚨</span>
+        <span><strong>DPIA obligatoria.</strong> Has seleccionado categorías especiales (Art. 9) y la DPIA no está realizada. El Art. 35 RGPD la exige antes del inicio del tratamiento. Este gap debe resolverse antes del despliegue.</span>
+      </div>
+    )}
   </div>
+  <Toggle on={f.intlDataTransfers} onToggle={()=>set("intlDataTransfers",!f.intlDataTransfers)}
+    label="El sistema transfiere datos fuera de la UE / EEE"
+    sub="Activa obligaciones del Capítulo V RGPD (cláusulas contractuales tipo, decisiones de adecuación, BCR...)"/>
 </>);}
 
 function Step5({f,set,cbToggle}){return(<>
@@ -867,6 +901,19 @@ function Step5({f,set,cbToggle}){return(<>
       </div>
     </div>
   )}
+  {f.origin==="oss"&&(
+    <div className="field-row fr2">
+      <div className="field">
+        <Lbl tags={["aiact"]}>Nombre del modelo / repositorio</Lbl>
+        <input className="inp" placeholder="ej. mistral-7b, llama-3.1, bert-base..." value={f.ossModelName} onChange={e=>set("ossModelName",e.target.value)}/>
+      </div>
+      <div className="field">
+        <Lbl tags={["aiact"]}>Licencia</Lbl>
+        <input className="inp" placeholder="ej. Apache 2.0, MIT, Llama Community License..." value={f.ossLicense} onChange={e=>set("ossLicense",e.target.value)}/>
+        <div className="helper">El AI Act exige documentar la cadena de suministro aunque sea software libre.</div>
+      </div>
+    </div>
+  )}
   <div className="field">
     <Lbl>Frameworks y librerías principales</Lbl>
     <input className="inp" placeholder="ej. PyTorch 2.1, scikit-learn 1.3, LangChain, FastAPI..." value={f.frameworks} onChange={e=>set("frameworks",e.target.value)}/>
@@ -890,7 +937,26 @@ function Step5({f,set,cbToggle}){return(<>
         {MLOPS.map(m=><option key={m.v} value={m.v}>{m.l}</option>)}
       </select>
       <div className="helper">Facilita el cumplimiento del Art. 12 (logging) y el gobierno del ciclo de vida.</div>
+      {(f.mlopsIntegration===""||f.mlopsIntegration==="ninguno")&&f.affectsPersons&&(
+        <div className="warn or" style={{marginTop:6}}><span className="warn-ico">⚠️</span>
+          <span>Para sistemas que afectan a personas, el Art. 12 exige logging automático. Sin MLOps este requisito es difícil de cumplir.</span>
+        </div>
+      )}
     </div>
+  </div>
+  <div className="field">
+    <Lbl tags={["aiact"]}>¿El modelo dispone de mecanismos de explicabilidad?</Lbl>
+    <Opt options={[
+      {v:"si",l:"Sí",i:"✅",d:"SHAP, LIME, importancia de variables u otro método"},
+      {v:"parcial",l:"Parcialmente",i:"🟡",d:"Explicaciones disponibles solo en algunos casos"},
+      {v:"no",l:"No",i:"❌",d:"Modelo caja negra sin explicaciones"},
+    ]} value={f.hasExplainability} onChange={v=>set("hasExplainability",v)} grid="c3"/>
+    {f.hasExplainability==="no"&&f.affectsPersons&&(
+      <div className="warn or" style={{marginTop:8}}><span className="warn-ico">⚠️</span>
+        <span>El Art. 13 AI Act exige información comprensible sobre la lógica del sistema cuando afecta a personas. Un modelo sin explicabilidad dificulta el cumplimiento.</span>
+      </div>
+    )}
+    <div className="helper">Obligatorio para sistemas de alto riesgo — Art. 13 AI Act (transparencia) y RGPD Art. 22 (decisiones automatizadas).</div>
   </div>
 </>);}
 
@@ -917,6 +983,11 @@ function Step6({f,set}){return(<>
   </div>
   <Toggle on={f.dpoInvolved} onToggle={()=>set("dpoInvolved",!f.dpoInvolved)}
     label="El DPO ha revisado este sistema" sub="Obligatorio si trata datos personales o categorías especiales (RGPD + Art. 26 AI Act)"/>
+  {!f.dpoInvolved&&f.processesPersonalData&&(
+    <div className="warn re" style={{marginTop:-4,marginBottom:8}}><span className="warn-ico">🚨</span>
+      <span><strong>Revisión del DPO obligatoria.</strong> Este sistema trata datos personales{f.specialCategories?.length>0?" y categorías especiales Art. 9":""}. El RGPD y el Art. 26 AI Act exigen que el DPO haya revisado el sistema antes del despliegue.</span>
+    </div>
+  )}
   <Toggle on={f.hasSLA} onToggle={()=>set("hasSLA",!f.hasSLA)}
     label="Existe un SLA o acuerdo de nivel de servicio definido" sub="Define disponibilidad, tiempo de respuesta ante incidentes y penalizaciones"/>
   <SecDiv label="Mantenimiento y supervisión"/>
@@ -934,9 +1005,27 @@ function Step6({f,set}){return(<>
       <input className="inp" placeholder="email o canal de escalado" value={f.incidentContact} onChange={e=>set("incidentContact",e.target.value)}/>
     </div>
   </div>
+  <div className="field-row fr2">
+    <div className="field">
+      <Lbl>Fecha de última revisión</Lbl>
+      <input type="date" className="inp" value={f.lastReviewDate} onChange={e=>set("lastReviewDate",e.target.value)}/>
+    </div>
+    <div className="field">
+      <Lbl tags={["aiact","iso"]}>Próxima revisión planificada</Lbl>
+      <input type="date" className="inp" value={f.nextAudit||""} onChange={e=>set("nextAudit",e.target.value)}/>
+    </div>
+  </div>
   <div className="field">
     <Lbl tags={["dora"]}>Proveedores TIC críticos (DORA)</Lbl>
-    <input className="inp" placeholder="ej. Anthropic (Claude), OpenAI (GPT), AWS, Azure, GCP..." value={f.criticalProviders} onChange={e=>set("criticalProviders",e.target.value)}/>
+    <div className="tag-wrap" onClick={()=>document.getElementById("prov-inp").focus()}>
+      {(f.criticalProviders||[]).map((p,i)=>(
+        <span key={i} className="tag">{p}
+          <span className="tag-x" onClick={e=>{e.stopPropagation();set("criticalProviders",f.criticalProviders.filter((_,j)=>j!==i))}}>✕</span>
+        </span>
+      ))}
+      <input id="prov-inp" className="tag-inp" placeholder="Añadir proveedor y pulsar Enter (ej. Azure, AWS, OpenAI...)"
+        onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){set("criticalProviders",[...(f.criticalProviders||[]),e.target.value.trim()]);e.target.value=""}}}/>
+    </div>
     <div className="helper">DORA Art. 28 — los proveedores TIC que prestan servicios críticos deben registrarse y gestionarse formalmente.</div>
   </div>
 </>);}
@@ -1006,9 +1095,19 @@ function Step7({f,set}){return(<>
   <Toggle on={f.hasAdversarialTest} onToggle={()=>set("hasAdversarialTest",!f.hasAdversarialTest)}
     label="Se han realizado pruebas de robustez / adversarial testing"
     sub="Art. 15 AI Act — precisión, robustez y resiliencia frente a ataques o manipulaciones"/>
+  {!f.hasAdversarialTest&&f.affectsPersons&&(
+    <div className="warn or" style={{marginTop:-4,marginBottom:8}}><span className="warn-ico">⚠️</span>
+      <span>Las pruebas de robustez son <strong>obligatorias</strong> para sistemas de alto riesgo (Art. 15). Gap crítico detectado.</span>
+    </div>
+  )}
   <Toggle on={f.hasComplaintMechanism} onToggle={()=>set("hasComplaintMechanism",!f.hasComplaintMechanism)}
     label="Existe mecanismo de reclamación para personas afectadas"
     sub="Art. 13 — las personas afectadas deben poder cuestionar las decisiones del sistema"/>
+  {!f.hasComplaintMechanism&&f.affectsPersons&&(
+    <div className="warn or" style={{marginTop:-4,marginBottom:8}}><span className="warn-ico">⚠️</span>
+      <span>El mecanismo de reclamación es <strong>obligatorio</strong> para sistemas que afectan a personas (Art. 13). Gap crítico detectado.</span>
+    </div>
+  )}
   <div className="field" style={{marginTop:8}}>
     <Lbl>Estado de certificación / conformidad</Lbl>
     <select className="inp" value={f.certStatus} onChange={e=>set("certStatus",e.target.value)}>
@@ -1042,7 +1141,7 @@ export default function NewInventorySystemPage(){
 
   const set=(k,v)=>{
     setF(prev=>({...prev,[k]:v}));
-    if(["domain","outputType","affectsPersons","biometric","criticalInfra","isAISystem","isGPAI","prohibitedPractice","interactsPersons"].includes(k)){
+    if(["domain","outputTypes","affectsPersons","biometric","criticalInfra","isAISystem","isGPAI","prohibitedPractice","interactsPersons"].includes(k)){
       setAnalysing(true);
       setTimeout(()=>setAnalysing(false),700);
     }
@@ -1054,7 +1153,7 @@ export default function NewInventorySystemPage(){
 
   const canNext=()=>{
     if(step===1) return f.name.trim().length>2&&!!f.domain&&!!f.status;
-    if(step===2) return !!f.outputType&&f.fullyAutomated!==null;
+    if(step===2) return f.outputTypes?.length>0;
     if(step===3) return f.isAISystem!==null;
     if(step===4) return f.processesPersonalData!==null;
     return true;
@@ -1075,6 +1174,8 @@ export default function NewInventorySystemPage(){
     const payload = {
       ...f,
       tags,
+      outputType: f.outputTypes[0] ?? "",
+      criticalProviders: (f.criticalProviders||[]).join(", "),
       aiact_risk_level: cls?.level ?? 'pending',
       aiact_risk_basis: cls?.basis ?? null,
       aiact_risk_reason: cls?.reason ?? null,
