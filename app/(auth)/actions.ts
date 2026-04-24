@@ -43,7 +43,7 @@ export async function signup(formData: FormData) {
   const { data: signUpData, error } = await supabase.auth.signUp(data)
 
   if (error) {
-    redirect(`/register?error=${encodeURIComponent(error.message)}`)
+    redirect('/register?error=Error+al+crear+la+cuenta')
   }
 
   if (!signUpData.session) {
