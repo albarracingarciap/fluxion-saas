@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store/authStore';
 import { updateOrganizationProfile } from './actions';
-import { Save, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Building2, Globe, Shield, Settings2, CreditCard } from 'lucide-react';
+import { CommitteesTab } from './CommitteesTab';
+import { Save, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Building2, Globe, Shield, Settings2, CreditCard, Users2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   EU_COUNTRIES,
@@ -72,6 +73,7 @@ function SelectArrow() {
 
 export default function OrganizationPage() {
   const { organization, role, loadUserData } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<'config' | 'comites'>('config');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export default function OrganizationPage() {
     report_language:    'es',
   });
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'org_admin';
 
   useEffect(() => {
     if (organization) {
@@ -196,14 +198,41 @@ export default function OrganizationPage() {
         <span className="text-ltt font-medium">Gestión de Organización</span>
       </div>
 
-      <div className="mb-7">
+      <div className="mb-6">
         <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
-          Detalles de la Organización
+          Organización
         </h1>
         <p className="text-[13px] text-ltt2 font-sora leading-relaxed">
-          Configura y edita los detalles fundamentales de tu tenant corporativo. Solo los usuarios con rol de Administrador pueden realizar cambios.
+          Configura los datos de tu tenant y gestiona los órganos de gobernanza del SGAI.
         </p>
       </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-ltb mb-7">
+        {([
+          { key: 'config',  label: 'Configuración', Icon: Settings2 },
+          { key: 'comites', label: 'Comités',        Icon: Users2   },
+        ] as const).map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 font-sora text-[13px] border-b-2 -mb-px transition-all ${
+              activeTab === key
+                ? 'border-brand-cyan text-brand-navy font-medium'
+                : 'border-transparent text-lttm hover:text-ltt'
+            }`}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Comités ──────────────────────────────────── */}
+      {activeTab === 'comites' && <CommitteesTab />}
+
+      {/* ── Tab: Configuración ───────────────────────────── */}
+      {activeTab === 'config' && <>
 
       {/* Alerts */}
       {error && (
@@ -575,6 +604,8 @@ export default function OrganizationPage() {
         </div>
 
       </form>
+      </>}
+
     </div>
   );
 }
