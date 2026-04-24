@@ -18,6 +18,10 @@
 -- Mover documentos de org a la nueva tabla antes de borrar la columna.
 -- (Tabla vacía ahora por el incidente, pero la lógica queda documentada.)
 
+-- Eliminar primero las políticas RLS que dependen de organization_id
+DROP POLICY IF EXISTS platform_docs_read         ON rag.documents;
+DROP POLICY IF EXISTS tenant_docs_doc_isolation  ON rag.documents;
+
 ALTER TABLE rag.documents
   DROP CONSTRAINT IF EXISTS documents_organization_id_fkey,
   DROP CONSTRAINT IF EXISTS uq_doc_title_version;
