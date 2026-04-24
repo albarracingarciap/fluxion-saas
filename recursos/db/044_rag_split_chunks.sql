@@ -16,6 +16,10 @@
 -- 1. LIMPIAR rag.chunks: eliminar organization_id y FK a fluxion
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- Eliminar primero las políticas RLS que dependen de organization_id
+DROP POLICY IF EXISTS platform_corpus_read   ON rag.chunks;
+DROP POLICY IF EXISTS tenant_docs_isolation  ON rag.chunks;
+
 ALTER TABLE rag.chunks
   DROP CONSTRAINT IF EXISTS chunks_organization_id_fkey;
 
