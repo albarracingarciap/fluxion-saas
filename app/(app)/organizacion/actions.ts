@@ -114,7 +114,7 @@ export async function getCommittees() {
   if (committeeIds.length > 0) {
     const { data: mData } = await fluxion
       .from('committee_members')
-      .select('id, committee_id, committee_role, is_active, joined_at, external_name, external_email, external_org, external_role_desc, profile_id, profiles(id, full_name, avatar_url, role)')
+      .select('id, committee_id, committee_role, is_active, joined_at, external_name, external_email, external_org, external_role_desc, profile_id, profiles!committee_members_profile_id_fkey(id, full_name, avatar_url, role)')
       .in('committee_id', committeeIds)
       .eq('is_active', true);
     members = mData ?? [];
