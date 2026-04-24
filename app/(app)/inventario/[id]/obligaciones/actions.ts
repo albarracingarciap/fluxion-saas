@@ -49,7 +49,7 @@ export async function resolveSystemObligation(input: ResolveSystemObligationInpu
   }
 
   const { data: membership, error: membershipError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single();
@@ -203,7 +203,7 @@ export async function acceptSystemObligations(aiSystemId: string, obligations: {
   if (authError || !user) redirect('/login');
 
   const { data: membership } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single();
@@ -274,7 +274,7 @@ export async function excludeSystemObligation(input: {
   if (authError || !user) redirect('/login');
 
   const { data: membership } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single();

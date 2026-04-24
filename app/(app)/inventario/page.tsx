@@ -82,7 +82,7 @@ export default async function InventarioPage() {
   if (!user) redirect('/login')
 
   const { data: membership, error: memberError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single()

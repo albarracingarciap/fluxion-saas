@@ -11,18 +11,18 @@ export async function getOrganizationMembersAndInvitations() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return { error: 'No autorizado' };
 
-  const { data: membership, error: memberError } = await fluxion
-    .from('organization_members')
-    .select('organization_id, role')
+  const { data: profile, error: profileError } = await fluxion
+    .from('profiles')
+    .select('id, organization_id, role')
     .eq('user_id', user.id)
     .single();
 
-  if (memberError || !membership) return { error: 'No se encontró tu organización.' };
+  if (profileError || !profile) return { error: 'No se encontró tu organización.' };
 
   const { data: members, error: membersError } = await fluxion
-    .from('organization_members')
-    .select(`id, role, user_id, created_at, profiles (first_name, last_name, avatar_url)`)
-    .eq('organization_id', membership.organization_id)
+    .from('profiles')
+    .select('id, role, user_id, full_name, avatar_url, created_at')
+    .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: true });
 
   if (membersError) return { error: 'Error al obtener miembros: ' + membersError.message };
@@ -39,26 +39,25 @@ export async function getOrganizationMembersAndInvitations() {
   const { data: pendingInvitations, error: invError } = await fluxion
     .from('invitations')
     .select('id, email, role, token, created_at, expires_at')
-    .eq('organization_id', membership.organization_id)
-    .is('accepted_at', null);
+    .eq('organization_id', profile.organization_id)
+    .eq('status', 'pending');
 
   if (invError) return { error: 'Error al obtener invitaciones: ' + invError.message };
 
   return {
     success: true,
-    organizationId: membership.organization_id,
-    members: members.map((m: any) => ({
+    organizationId: profile.organization_id,
+    members: (members ?? []).map((m: any) => ({
       id: m.id,
       user_id: m.user_id,
       role: m.role,
       created_at: m.created_at,
-      first_name: m.profiles?.first_name || null,
-      last_name: m.profiles?.last_name || null,
-      avatar_url: m.profiles?.avatar_url || null,
+      full_name: m.full_name || null,
+      avatar_url: m.avatar_url || null,
       email: emailMap[m.user_id] || '',
     })),
     invitations: pendingInvitations ?? [],
-    currentUserRole: membership.role,
+    currentUserRole: profile.role,
     currentUserId: user.id,
   };
 }
@@ -70,23 +69,23 @@ export async function inviteUser(email: string, role: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: membership } = await fluxion
-    .from('organization_members')
-    .select('organization_id, role')
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('id, organization_id, role')
     .eq('user_id', user.id)
     .single();
 
-  if (!membership || membership.role !== 'admin') {
+  if (!profile || profile.role !== 'org_admin') {
     return { error: 'Solo los administradores pueden enviar invitaciones.' };
   }
 
   const { data: invite, error } = await fluxion
     .from('invitations')
     .insert({
-      organization_id: membership.organization_id,
+      organization_id: profile.organization_id,
       email: email.toLowerCase(),
       role,
-      invited_by: user.id,
+      invited_by: profile.id,
     })
     .select('token')
     .single();
@@ -107,16 +106,16 @@ export async function updateMemberRole(memberId: string, newRole: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: membership } = await fluxion
-    .from('organization_members')
+  const { data: profile } = await fluxion
+    .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .single();
 
-  if (!membership || membership.role !== 'admin') return { error: 'Solo administradores pueden cambiar roles.' };
+  if (!profile || profile.role !== 'org_admin') return { error: 'Solo administradores pueden cambiar roles.' };
 
   const { error } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .update({ role: newRole })
     .eq('id', memberId);
 
@@ -133,17 +132,17 @@ export async function removeMember(memberId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: membership } = await fluxion
-    .from('organization_members')
+  const { data: profile } = await fluxion
+    .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .single();
 
-  if (!membership || membership.role !== 'admin') return { error: 'Solo administradores pueden eliminar miembros.' };
+  if (!profile || profile.role !== 'org_admin') return { error: 'Solo administradores pueden eliminar miembros.' };
 
   // Prevent removing self
   const { data: target } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('user_id')
     .eq('id', memberId)
     .single();
@@ -151,7 +150,7 @@ export async function removeMember(memberId: string) {
   if (target?.user_id === user.id) return { error: 'No puedes eliminarte a ti mismo.' };
 
   const { error } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .delete()
     .eq('id', memberId);
 
@@ -170,7 +169,7 @@ export async function cancelInvitation(id: string) {
 
   const { error } = await fluxion
     .from('invitations')
-    .delete()
+    .update({ status: 'revoked' })
     .eq('id', id);
 
   if (error) return { error: 'Error al cancelar.' };

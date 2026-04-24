@@ -36,7 +36,7 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
   }
 
   const { data: membership, error: membershipError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single();

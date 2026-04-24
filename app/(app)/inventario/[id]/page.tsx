@@ -27,7 +27,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (!user) redirect('/login');
 
   const { data: membership, error: memberError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single();

@@ -22,7 +22,7 @@ export async function updateAppSettings(data: {
   if (authError || !user) return { error: 'No autorizado' }
 
   const { data: membership } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id, role')
     .eq('user_id', user.id)
     .single()

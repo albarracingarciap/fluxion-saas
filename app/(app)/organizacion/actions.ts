@@ -35,7 +35,7 @@ export async function updateOrganizationProfile(formData: {
   }
 
   const { data: membership, error: memberError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .eq('organization_id', formData.id)
