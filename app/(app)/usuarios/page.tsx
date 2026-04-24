@@ -35,15 +35,29 @@ type Invitation = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrador',
-  editor: 'Editor',
-  viewer: 'Lector',
+  org_admin:          'Administrador',
+  sgai_manager:       'SGAI Manager',
+  caio:               'CAIO',
+  dpo:                'DPO',
+  system_owner:       'System Owner',
+  risk_analyst:       'Analista de Riesgos',
+  compliance_analyst: 'Analista de Cumplimiento',
+  executive:          'Directivo',
+  auditor:            'Auditor',
+  viewer:             'Lector',
 };
 
 const ROLE_STYLES: Record<string, string> = {
-  admin: 'bg-red-50 text-red-600 border-red-200',
-  editor: 'bg-blue-50 text-blue-600 border-blue-200',
-  viewer: 'bg-gray-100 text-gray-500 border-gray-200',
+  org_admin:          'bg-cyan-50 text-cyan-700 border-cyan-200',
+  sgai_manager:       'bg-blue-50 text-blue-700 border-blue-200',
+  caio:               'bg-purple-50 text-purple-700 border-purple-200',
+  dpo:                'bg-indigo-50 text-indigo-700 border-indigo-200',
+  system_owner:       'bg-teal-50 text-teal-700 border-teal-200',
+  risk_analyst:       'bg-orange-50 text-orange-700 border-orange-200',
+  compliance_analyst: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  executive:          'bg-pink-50 text-pink-700 border-pink-200',
+  auditor:            'bg-red-50 text-red-700 border-red-200',
+  viewer:             'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 function MemberAvatar({ member, size = 40 }: { member: Pick<Member, 'first_name' | 'last_name' | 'avatar_url'>; size?: number }) {
