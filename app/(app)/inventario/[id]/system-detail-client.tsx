@@ -649,8 +649,8 @@ export function SystemDetailClient({
   const [isExcludingObligation, setIsExcludingObligation] = useState(false);
   const [exclusionData, setExclusionData] = useState<{ code: string; title: string } | null>(null);
   const [exclusionJustification, setExclusionJustification] = useState('');
-  const [isSubmittingExclusion, startExclusionTransition] = useTransition();
-  const [isAcceptingAll, startAcceptAllTransition] = useTransition();
+  const [isSubmittingExclusion, setIsSubmittingExclusion] = useState(false);
+  const [isAcceptingAll, setIsAcceptingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -659,31 +659,26 @@ export function SystemDetailClient({
     return () => clearTimeout(t);
   }, [toastMessage]);
 
-  const handleAcceptAll = () => {
-    startAcceptAllTransition(async () => {
-      const syntheticOnes = obligations
-        .filter((o) => o.isSynthetic)
-        .map((o) => ({ code: o.ref, title: o.name }));
-      const res = await acceptSystemObligations(system.id, syntheticOnes);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setToastMessage(`${syntheticOnes.length} obligaciones aceptadas y añadidas a tu plan de cumplimiento`);
-        router.refresh();
-      }
-    });
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    router.refresh();
   };
 
-  const handleAcceptOne = (code: string, title: string) => {
-    startAcceptAllTransition(async () => {
-      const res = await acceptSystemObligations(system.id, [{ code, title }]);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setToastMessage('Obligación aceptada y añadida a tu plan de cumplimiento');
-        router.refresh();
-      }
-    });
+  const handleAcceptAll = async () => {
+    setIsAcceptingAll(true);
+    const syntheticOnes = obligations
+      .filter((o) => o.isSynthetic)
+      .map((o) => ({ code: o.ref, title: o.name }));
+    const res = await acceptSystemObligations(system.id, syntheticOnes);
+    setIsAcceptingAll(false);
+    if (res.error) { alert(res.error); return; }
+    showToast(`${syntheticOnes.length} obligaciones aceptadas y añadidas a tu plan de cumplimiento`);
+  };
+
+  const handleAcceptOne = async (code: string, title: string) => {
+    const res = await acceptSystemObligations(system.id, [{ code, title }]);
+    if (res.error) { alert(res.error); return; }
+    showToast('Obligación aceptada y añadida a tu plan de cumplimiento');
   };
 
   const handleExclude = (code: string, title: string) => {
@@ -691,27 +686,24 @@ export function SystemDetailClient({
     setIsExcludingObligation(true);
   };
 
-  const confirmExclusion = () => {
+  const confirmExclusion = async () => {
     if (!exclusionJustification.trim()) {
       alert('Por favor, indica una justificación para la exclusión.');
       return;
     }
-    startExclusionTransition(async () => {
-      const res = await excludeSystemObligation({
-        aiSystemId: system.id,
-        code: exclusionData!.code,
-        title: exclusionData!.title,
-        justification: exclusionJustification,
-      });
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setIsExcludingObligation(false);
-        setExclusionData(null);
-        setExclusionJustification('');
-        router.refresh();
-      }
+    setIsSubmittingExclusion(true);
+    const res = await excludeSystemObligation({
+      aiSystemId: system.id,
+      code: exclusionData!.code,
+      title: exclusionData!.title,
+      justification: exclusionJustification,
     });
+    setIsSubmittingExclusion(false);
+    if (res.error) { alert(res.error); return; }
+    setIsExcludingObligation(false);
+    setExclusionData(null);
+    setExclusionJustification('');
+    showToast('Obligación excluida y registrada en el historial de auditoría');
   };
   const [failureModeError, setFailureModeError] = useState<string | null>(null);
   const [isActivatingFailureModes, startFailureModeTransition] = useTransition();
@@ -2978,8 +2970,8 @@ export function SystemDetailClient({
 
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3.5 bg-[#0d1520] border border-[#00adef35] rounded-[12px] shadow-[0_8px_32px_rgba(0,74,173,0.25)] animate-fadein">
-          <CheckCircle2 className="w-4 h-4 text-gr shrink-0" />
-          <span className="font-sora text-[13px] text-dt">{toastMessage}</span>
+          <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#1a8f38' }} />
+          <span className="font-sora text-[13px]" style={{ color: '#e8f0fe' }}>{toastMessage}</span>
         </div>
       )}
 
