@@ -305,6 +305,11 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     }
   }
 
+  const evidenceStatusMap: Record<string, string> = {};
+  for (const ev of evidences) {
+    evidenceStatusMap[ev.id] = ev.status;
+  }
+
   const obligationRecords: SystemObligationEntry[] = (obligationRows ?? []).map((row) => ({
     id: row.id,
     source_framework: row.source_framework,
@@ -476,6 +481,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       organizationId={membership.organization_id}
       history={history}
       evidences={evidences}
+      evidenceStatusMap={evidenceStatusMap}
       obligationRecords={obligationRecords}
       failureModes={failureModes}
       systemGraph={systemGraph}

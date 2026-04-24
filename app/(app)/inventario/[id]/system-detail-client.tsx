@@ -484,11 +484,13 @@ function heuristicObligationStatus(systemStatus: string) {
   return 'pending';
 }
 
-function obligationProgressFromStatus(status: string) {
-  if (status === 'resolved') return 100;
-  if (status === 'in_progress') return 55;
-  if (status === 'blocked') return 15;
-  return 0;
+function computeEvidenceBadge(status: string, evStatuses: string[]): { label: string; colorClass: string; dotClass: string } {
+  if (status === 'excluded') return { label: 'Excluida',      colorClass: 'text-lttm', dotClass: 'bg-lttm' };
+  if (status === 'resolved') return { label: 'Resuelta',      colorClass: 'text-gr',   dotClass: 'bg-gr'   };
+  if (status === 'blocked')  return { label: 'Bloqueada',     colorClass: 'text-re',   dotClass: 'bg-re'   };
+  if (evStatuses.length === 0) return { label: 'Sin evidencias', colorClass: 'text-re', dotClass: 'bg-re'  };
+  if (evStatuses.some((s) => s === 'valid')) return { label: 'Documentada', colorClass: 'text-gr', dotClass: 'bg-gr' };
+  return { label: 'En curso', colorClass: 'text-or', dotClass: 'bg-or' };
 }
 
 function getHistoryEventVisual(eventType: string) {
@@ -579,6 +581,7 @@ export function SystemDetailClient({
   organizationId,
   history,
   evidences,
+  evidenceStatusMap,
   obligationRecords,
   failureModes,
   systemGraph,
@@ -588,6 +591,7 @@ export function SystemDetailClient({
   organizationId: string;
   history: SystemHistoryEntry[];
   evidences: SystemEvidenceEntry[];
+  evidenceStatusMap: Record<string, string>;
   obligationRecords: SystemObligationEntry[];
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
@@ -647,6 +651,13 @@ export function SystemDetailClient({
   const [exclusionJustification, setExclusionJustification] = useState('');
   const [isSubmittingExclusion, startExclusionTransition] = useTransition();
   const [isAcceptingAll, startAcceptAllTransition] = useTransition();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   const handleAcceptAll = () => {
     startAcceptAllTransition(async () => {
@@ -657,6 +668,7 @@ export function SystemDetailClient({
       if (res.error) {
         alert(res.error);
       } else {
+        setToastMessage(`${syntheticOnes.length} obligaciones aceptadas y añadidas a tu plan de cumplimiento`);
         router.refresh();
       }
     });
@@ -668,6 +680,7 @@ export function SystemDetailClient({
       if (res.error) {
         alert(res.error);
       } else {
+        setToastMessage('Obligación aceptada y añadida a tu plan de cumplimiento');
         router.refresh();
       }
     });
@@ -737,6 +750,8 @@ export function SystemDetailClient({
       const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
       const heuristicStatus = obligationStatusFromSystem(system, obligation);
       const systemStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
+      const evIds = persisted?.evidence_ids ?? [];
+      const evStatuses = evIds.map((id) => evidenceStatusMap[id]).filter(Boolean) as string[];
       return {
         id: persisted?.id ?? null,
         name: obligation,
@@ -744,12 +759,12 @@ export function SystemDetailClient({
         systemStatus: heuristicStatus,
         status: systemStatus,
         statusLabel: OBLIGATION_STATUS_META[systemStatus]?.label ?? 'Pendiente',
-        progress: systemStatus === 'excluded' ? 0 : obligationProgressFromStatus(systemStatus),
+        evidenceBadge: computeEvidenceBadge(systemStatus, evStatuses),
         priority: persisted?.priority ?? 'medium',
         dueDate: persisted?.due_date ?? null,
         notes: persisted?.notes ?? null,
         resolutionNotes: persisted?.resolution_notes ?? null,
-        evidenceIds: persisted?.evidence_ids ?? [],
+        evidenceIds: evIds,
         ownerName: persisted?.owner_name ?? null,
         resolvedByName: persisted?.resolved_by_name ?? null,
         isSynthetic: !persisted,
@@ -757,20 +772,24 @@ export function SystemDetailClient({
     });
 
     return items;
-  }, [obligationRecords, system]);
+  }, [obligationRecords, system, evidenceStatusMap]);
 
   const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
 
   const compliance = useMemo(() => {
-    if (obligations.length === 0) return 0;
-    return Math.round(obligations.reduce((acc, obligation) => acc + obligation.progress, 0) / obligations.length);
+    const active = obligations.filter((o) => o.status !== 'excluded');
+    if (active.length === 0) return 0;
+    return Math.round((active.filter((o) => o.status === 'resolved').length / active.length) * 100);
   }, [obligations]);
 
   const obligationSummary = useMemo(() => {
-    const resolved = obligations.filter((item) => item.status === 'resolved').length;
+    const resolved  = obligations.filter((item) => item.status === 'resolved').length;
     const inProgress = obligations.filter((item) => item.status === 'in_progress').length;
-    const pending = obligations.filter((item) => item.status === 'pending' || item.status === 'blocked').length;
-    return { resolved, inProgress, pending };
+    const pending   = obligations.filter((item) => item.status === 'pending' || item.status === 'blocked').length;
+    const excluded  = obligations.filter((item) => item.status === 'excluded').length;
+    const withEvidence    = obligations.filter((o) => o.status !== 'excluded' && o.evidenceIds.length > 0).length;
+    const withoutEvidence = obligations.filter((o) => o.status !== 'excluded' && o.evidenceIds.length === 0).length;
+    return { resolved, inProgress, pending, excluded, withEvidence, withoutEvidence };
   }, [obligations]);
 
   const isoChecks = useMemo(() => system.iso_42001_checks ?? [], [system.iso_42001_checks]);
@@ -1336,29 +1355,6 @@ export function SystemDetailClient({
             </div>
 
             <div className="p-8 flex flex-col gap-6">
-              <div className="bg-[#00adef0a] border border-[#00adef30] rounded-[12px] p-5 flex gap-4 transition-all">
-                <div className="w-9 h-9 bg-cyan-dim text-brand-cyan rounded-[8px] flex items-center justify-center shrink-0">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-sora text-[13.5px] font-semibold text-ltt mb-1.5 flex items-center gap-2">
-                    El agente necesita tu input
-                    <span className="px-2 py-0.5 rounded-full bg-ordim text-or border border-orb text-[9.5px] font-plex uppercase tracking-wider">Pendiente</span>
-                  </div>
-                  <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-3.5">
-                    Esta zona sigue en modo guiado. Cuando conectemos las tablas de obligaciones y evidencias, el agente podrá pedir aclaraciones precisas sobre este sistema sin cambiar el diseño actual.
-                  </div>
-                  <div className="flex gap-2.5 flex-wrap">
-                    <button className="px-3.5 py-1.5 rounded-full font-sora text-[12px] font-medium border border-[#00adef40] bg-[#00adef15] text-brand-cyan hover:bg-[#00adef25] transition-colors">
-                      Responder después
-                    </button>
-                    <button className="px-3.5 py-1.5 rounded-full font-sora text-[12px] font-medium border border-ltb bg-transparent text-lttm hover:bg-ltbg hover:text-ltt transition-colors flex items-center gap-1.5">
-                      Abrir contexto <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {activeTab === 'Obligaciones AI Act' && (
                 <>
                   <div className="bg-gradient-to-br from-[#f851490a] to-ltbg border border-reb rounded-[12px] p-5">
@@ -1450,6 +1446,9 @@ export function SystemDetailClient({
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">{obligationSummary.pending} pendientes</span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ordim text-or border border-orb">{obligationSummary.inProgress} en curso</span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-grdim text-gr border border-grb">{obligationSummary.resolved} resueltas</span>
+                          {obligationSummary.excluded > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">{obligationSummary.excluded} excluidas</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1461,7 +1460,7 @@ export function SystemDetailClient({
                           <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Obligación</th>
                           <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Referencia</th>
                           <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Estado</th>
-                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Avance</th>
+                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Evidencias</th>
                           <th className="w-[100px] font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Acción</th>
                         </tr>
                       </thead>
@@ -1488,11 +1487,9 @@ export function SystemDetailClient({
                                 </div>
                               </td>
                               <td className="p-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div className={`w-[70px] h-[4px] rounded-full overflow-hidden ${status.thin}`}>
-                                    <div className={`h-full rounded-full ${status.fill}`} style={{ width: `${obligation.progress}%` }} />
-                                  </div>
-                                  <span className="font-plex text-[11px] text-lttm min-w-[30px]">{obligation.progress}%</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`w-[6px] h-[6px] rounded-full shrink-0 ${obligation.evidenceBadge.dotClass}`} />
+                                  <span className={`font-sora text-[11.5px] font-medium ${obligation.evidenceBadge.colorClass}`}>{obligation.evidenceBadge.label}</span>
                                 </div>
                               </td>
                               <td className="p-3">
@@ -2366,23 +2363,29 @@ export function SystemDetailClient({
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-gr" />{obligationSummary.resolved} resueltas</div>
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-or" />{obligationSummary.inProgress} en curso</div>
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-re" />{obligationSummary.pending} pendientes</div>
+                  {obligationSummary.excluded > 0 && (
+                    <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-lttm" />{obligationSummary.excluded} excluidas</div>
+                  )}
                 </div>
               </div>
 
               <div className="p-4">
+                <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-3">Cobertura de evidencias</div>
                 <div className="flex flex-col gap-2.5">
-                  {obligations.slice(0, 5).map((obligation, index) => {
-                    const status = OBLIGATION_STATUS_META[obligation.status] ?? OBLIGATION_STATUS_META.pending;
-                    return (
-                      <div key={`${obligation.ref}-${index}`} className="flex items-center gap-3">
-                        <div className="text-[11px] font-plex text-lttm w-12 shrink-0">{obligation.ref}</div>
-                        <div className="flex-1 h-[5px] bg-ltb rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${status.fill}`} style={{ width: `${obligation.progress}%` }} />
-                        </div>
-                        <div className="text-[10.5px] font-plex text-ltt2 w-8 text-right">{obligation.progress}%</div>
-                      </div>
-                    );
-                  })}
+                  <div className="flex items-center gap-3">
+                    <div className="font-plex text-[11px] text-lttm flex-1">Con evidencias</div>
+                    <div className="w-[80px] h-[5px] bg-ltb rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-gr transition-all" style={{ width: `${obligationSummary.withEvidence + obligationSummary.withoutEvidence > 0 ? Math.round((obligationSummary.withEvidence / (obligationSummary.withEvidence + obligationSummary.withoutEvidence)) * 100) : 0}%` }} />
+                    </div>
+                    <div className="font-plex text-[10.5px] text-ltt2 w-6 text-right">{obligationSummary.withEvidence}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="font-plex text-[11px] text-lttm flex-1">Sin evidencias</div>
+                    <div className="w-[80px] h-[5px] bg-ltb rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-re transition-all" style={{ width: `${obligationSummary.withEvidence + obligationSummary.withoutEvidence > 0 ? Math.round((obligationSummary.withoutEvidence / (obligationSummary.withEvidence + obligationSummary.withoutEvidence)) * 100) : 0}%` }} />
+                    </div>
+                    <div className="font-plex text-[10.5px] text-ltt2 w-6 text-right">{obligationSummary.withoutEvidence}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2977,6 +2980,13 @@ export function SystemDetailClient({
         </div>
       )}
 
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3.5 bg-[#0d1520] border border-[#00adef35] rounded-[12px] shadow-[0_8px_32px_rgba(0,74,173,0.25)] animate-fadein">
+          <CheckCircle2 className="w-4 h-4 text-gr shrink-0" />
+          <span className="font-sora text-[13px] text-dt">{toastMessage}</span>
+        </div>
+      )}
+
       {isExcludingObligation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
           <div className="bg-white border border-ltb rounded-[16px] shadow-[0_24px_64px_rgba(0,74,173,0.12)] w-full max-w-md overflow-hidden">
@@ -2988,7 +2998,7 @@ export function SystemDetailClient({
             </div>
             <div className="p-6 space-y-4">
               <div className="p-4 rounded-lg bg-red-dim border border-reb">
-                <p className="font-sora text-[13px] font-medium text-re">{exclusionData?.code} — {exclusionData?.title}</p>
+                <p className="font-sora text-[13px] font-medium text-re">{exclusionData?.title}</p>
                 <p className="font-sora text-[12px] text-re/80 mt-1">Estás a punto de excluir esta obligación de cumplimiento. Esto quedará registrado en la auditoría.</p>
               </div>
               <div className="space-y-2">
