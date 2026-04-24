@@ -561,7 +561,7 @@ export async function buildTreatmentPlanData(params: {
   }
 
   const { data: members } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('user_id, role')
     .eq('organization_id', params.organizationId)
     .order('created_at', { ascending: true });

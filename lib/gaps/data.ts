@@ -113,17 +113,13 @@ type GapControlTemplateRow = {
 
 type GapProfileRow = {
   id: string
-  first_name: string | null
-  last_name: string | null
+  full_name: string | null
 }
 
 type GapOrganizationMemberRow = {
   user_id: string
   role: string
-  profiles: {
-    first_name: string | null
-    last_name: string | null
-  } | null
+  full_name: string | null
 }
 
 export type GapAssignableMember = {
@@ -225,7 +221,7 @@ export type GapsDataResult = {
 
 function formatOwnerName(profile: GapProfileRow | undefined) {
   if (!profile) return null
-  return `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Usuario'
+  return profile.full_name?.trim() || 'Usuario'
 }
 
 function getSystemCode(system: GapSystemRow) {
@@ -312,8 +308,8 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       .select('id, system_id, evaluation_id, status, zone_at_creation, zone_target, updated_at')
       .eq('organization_id', organizationId),
     fluxion
-      .from('organization_members')
-      .select('user_id, role, profiles(first_name, last_name)')
+      .from('profiles')
+      .select('user_id, role, full_name')
       .eq('organization_id', organizationId),
   ])
 
@@ -421,7 +417,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       ? { data: [], error: null }
       : fluxion
           .from('profiles')
-          .select('id, first_name, last_name')
+          .select('id, full_name')
           .in('id', profileIds),
   ])
 
@@ -825,8 +821,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     groups,
     members: members.map((member) => ({
       id: member.user_id,
-      full_name:
-        `${member.profiles?.first_name ?? ''} ${member.profiles?.last_name ?? ''}`.trim() || 'Usuario',
+      full_name: member.full_name?.trim() || 'Usuario',
       role: member.role,
     })),
     grouping: {

@@ -43,14 +43,14 @@ export async function updateProfile(data: {
   if (data.role) {
     // Verificar rol actual del usuario para ver si es administrador
     const { data: membership } = await fluxion
-      .from('organization_members')
+      .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (membership?.role === 'admin') {
+    if (membership?.role === 'org_admin') {
       const { error: roleError } = await fluxion
-        .from('organization_members')
+        .from('profiles')
         .update({ role: data.role })
         .eq('user_id', user.id)
 

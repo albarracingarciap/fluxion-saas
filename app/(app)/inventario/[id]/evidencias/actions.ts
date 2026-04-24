@@ -47,7 +47,7 @@ export async function createSystemEvidence(input: CreateSystemEvidenceInput) {
   }
 
   const { data: membership, error: membershipError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id, role')
     .eq('user_id', user.id)
     .single();

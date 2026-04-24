@@ -71,7 +71,7 @@ async function requireEditableTreatmentPlan(params: {
   }
 
   const { data: membership, error: membershipError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id, role')
     .eq('user_id', user.id)
     .single();
@@ -124,7 +124,7 @@ async function resolvePlanApprover(params: {
 }) {
   const { fluxion, organizationId, approvalLevel, actorUserId } = params;
   const { data: members } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('user_id, role')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: true });

@@ -74,7 +74,7 @@ export async function saveAISystem(formData: Record<string, any>) {
 
   // Get user's organization (fluxion schema)
   const { data: membership, error: memberError } = await fluxion
-    .from('organization_members')
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user!.id)
     .single();
