@@ -255,7 +255,7 @@ export default function PerfilPage() {
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className={selectCls}
-                    disabled={role !== 'admin'}
+                    disabled={role !== 'org_admin'}
                   >
                     {Object.entries(ROLE_LABELS).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
@@ -264,7 +264,7 @@ export default function PerfilPage() {
                   <SelectArrow />
                 </div>
                 <p className="font-sora text-[11.5px] text-lttm mt-1.5">
-                  {role === 'admin' 
+                  {role === 'org_admin' 
                     ? "Como administrador, puedes gestionar el rol asignado." 
                     : "Este campo solo puede ser modificado por un administrador de Fluxion."}
                 </p>

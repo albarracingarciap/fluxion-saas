@@ -19,7 +19,7 @@ async function requireAdmin() {
   const supabase = createServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("No autorizado");
-  // Aquí podríamos validar el rol según fluxion.organization_members
+  // TODO: validar rol según fluxion.profiles cuando sea necesario
   return session.user;
 }
 
