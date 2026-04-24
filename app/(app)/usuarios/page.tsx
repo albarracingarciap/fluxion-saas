@@ -19,8 +19,7 @@ type Member = {
   user_id: string;
   role: string;
   created_at: string;
-  first_name: string | null;
-  last_name: string | null;
+  full_name: string | null;
   avatar_url: string | null;
   email: string;
 };
@@ -60,12 +59,32 @@ const ROLE_STYLES: Record<string, string> = {
   viewer:             'bg-gray-100 text-gray-500 border-gray-200',
 };
 
-function MemberAvatar({ member, size = 40 }: { member: Pick<Member, 'first_name' | 'last_name' | 'avatar_url'>; size?: number }) {
-  const initials = ((member.first_name?.[0] ?? '') + (member.last_name?.[0] ?? '')).toUpperCase() || '?';
-  if (member.avatar_url) {
+const INVITABLE_ROLES = [
+  'viewer', 'auditor', 'executive', 'compliance_analyst',
+  'risk_analyst', 'system_owner', 'dpo', 'caio', 'sgai_manager',
+] as const;
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  org_admin:          'Acceso completo. Gestiona miembros, roles, organización y todos los módulos.',
+  sgai_manager:       'Responsable del Sistema de Gestión de IA. Coordina el ciclo de gobernanza.',
+  caio:               'Chief AI Officer. Supervisión estratégica de la cartera de sistemas IA.',
+  dpo:                'Data Protection Officer. Responsable de cumplimiento en protección de datos.',
+  system_owner:       'Propietario de uno o varios sistemas IA. Gestiona su ciclo de vida.',
+  risk_analyst:       'Evalúa y mitiga riesgos de los sistemas IA mediante FMEA y análisis causal.',
+  compliance_analyst: 'Verifica el cumplimiento frente a AI Act, ISO 42001 y normativa aplicable.',
+  executive:          'Directivo con acceso de lectura a KPIs y resúmenes ejecutivos.',
+  auditor:            'Acceso de auditoría de solo lectura a todos los módulos y evidencias.',
+  viewer:             'Acceso de consulta. Puede leer datos e informes pero no modificar registros.',
+};
+
+function MemberAvatar({ fullName, avatarUrl, size = 40 }: { fullName: string | null; avatarUrl: string | null; size?: number }) {
+  const initials = fullName
+    ? fullName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : '?';
+  if (avatarUrl) {
     return (
       <Image
-        src={member.avatar_url}
+        src={avatarUrl}
         alt={initials}
         width={size}
         height={size}
@@ -110,7 +129,7 @@ export default function UsersPage() {
 
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
+  const [inviteRole, setInviteRole] = useState<string>('viewer');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ token?: string; error?: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -165,13 +184,13 @@ export default function UsersPage() {
   };
 
   const copyLink = (token: string) => {
-    const link = `${window.location.origin}/onboarding?invite=${token}`;
+    const link = `${window.location.origin}/register?invite=${token}`;
     navigator.clipboard.writeText(link);
     setCopied(token);
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const isAdmin = data.currentUserRole === 'admin';
+  const isAdmin = data.currentUserRole === 'org_admin';
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -217,7 +236,7 @@ export default function UsersPage() {
               </div>
               <div>
                 <h3 className="font-sora text-[13.5px] font-semibold text-ltt">Nueva invitación</h3>
-                <p className="font-sora text-[11.5px] text-ltt2">El usuario recibirá acceso al registrarse con el enlace.</p>
+                <p className="font-sora text-[11.5px] text-ltt2">El usuario accederá con el enlace de invitación.</p>
               </div>
             </div>
             <button
@@ -243,15 +262,15 @@ export default function UsersPage() {
                   placeholder="colaborador@empresa.com"
                 />
               </div>
-              <div className="w-full md:w-[220px]">
+              <div className="w-full md:w-[240px]">
                 <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
                   Rol
                 </label>
                 <div className="relative">
                   <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className={selectCls}>
-                    <option value="viewer">Lector (Viewer)</option>
-                    <option value="editor">Editor</option>
-                    <option value="admin">Administrador</option>
+                    {INVITABLE_ROLES.map(r => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
                   </select>
                   <SelectArrow />
                 </div>
@@ -278,7 +297,7 @@ export default function UsersPage() {
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-white border border-green-200 rounded px-3 py-2 text-[11px] text-ltt font-plex truncate">
-                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/onboarding?invite=${inviteResult.token}`}
+                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/register?invite=${inviteResult.token}`}
                   </code>
                   <button
                     onClick={() => copyLink(inviteResult.token!)}
@@ -317,11 +336,11 @@ export default function UsersPage() {
                 {data.members.map(member => (
                   <div key={member.id} className="flex items-center justify-between px-6 py-4 hover:bg-ltbg/60 transition-colors group">
                     <div className="flex items-center gap-4 min-w-0">
-                      <MemberAvatar member={member} size={40} />
+                      <MemberAvatar fullName={member.full_name} avatarUrl={member.avatar_url} size={40} />
                       <div className="min-w-0">
                         <p className="font-sora text-[13.5px] font-medium text-ltt flex items-center gap-2 flex-wrap">
-                          {member.first_name || member.last_name
-                            ? `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim()
+                          {member.full_name
+                            ? member.full_name
                             : <span className="text-lttm italic">Sin nombre</span>}
                           {member.user_id === data.currentUserId && (
                             <span className="bg-ltb px-1.5 py-0.5 rounded text-[10px] text-lttm font-plex uppercase">Tú</span>
@@ -337,7 +356,7 @@ export default function UsersPage() {
                         <span>Desde {formatDate(member.created_at)}</span>
                       </div>
 
-                      <div className="w-[160px]">
+                      <div className="w-[190px]">
                         {isAdmin && member.user_id !== data.currentUserId ? (
                           <div className="relative">
                             <select
@@ -345,9 +364,9 @@ export default function UsersPage() {
                               onChange={e => handleRoleChange(member.id, e.target.value)}
                               className="w-full bg-transparent border border-ltb rounded-md py-1.5 px-2.5 text-[12px] font-sora text-ltt2 hover:border-brand-cyan transition-colors outline-none cursor-pointer appearance-none pr-7"
                             >
-                              <option value="viewer">Lector</option>
-                              <option value="editor">Editor</option>
-                              <option value="admin">Administrador</option>
+                              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
                             </select>
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-lttm opacity-70">
                               <ChevronDown size={11} />
@@ -355,9 +374,8 @@ export default function UsersPage() {
                           </div>
                         ) : (
                           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[11px] font-plex uppercase tracking-wider border ${ROLE_STYLES[member.role] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                            {member.role === 'admin' && <ShieldAlert size={11} />}
-                            {member.role === 'editor' && <Shield size={11} />}
-                            {member.role === 'viewer' && <Users size={11} />}
+                            {member.role === 'org_admin' && <ShieldAlert size={11} />}
+                            {['caio', 'sgai_manager', 'dpo'].includes(member.role) && <Shield size={11} />}
                             {ROLE_LABELS[member.role] ?? member.role}
                           </div>
                         )}
@@ -466,18 +484,14 @@ export default function UsersPage() {
             <div className="bg-ltcard2 px-6 py-4 border-b border-ltb">
               <h2 className="font-plex text-xs font-semibold text-ltt2 uppercase tracking-[0.8px]">Roles y permisos</h2>
             </div>
-            <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { role: 'admin', icon: <ShieldAlert size={16} />, label: 'Administrador', desc: 'Acceso completo. Puede gestionar miembros, cambiar roles, editar la organización y acceder a todos los módulos.' },
-                { role: 'editor', icon: <Shield size={16} />, label: 'Editor', desc: 'Puede crear y editar registros en todos los módulos activos, pero no gestiona usuarios ni configuración organizativa.' },
-                { role: 'viewer', icon: <Users size={16} />, label: 'Lector', desc: 'Acceso de sólo lectura. Puede consultar datos y generar informes, pero no puede modificar ningún registro.' },
-              ].map(({ role, icon, label, desc }) => (
+            <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {Object.entries(ROLE_DESCRIPTIONS).map(([role, desc]) => (
                 <div key={role} className="flex gap-3 p-4 bg-ltbg rounded-lg border border-ltb">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${ROLE_STYLES[role]} border`}>
-                    {icon}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border text-[11px] font-plex font-bold ${ROLE_STYLES[role]}`}>
+                    {role === 'org_admin' ? <ShieldAlert size={14} /> : <Shield size={14} />}
                   </div>
                   <div>
-                    <p className="font-sora text-[13px] font-semibold text-ltt mb-1">{label}</p>
+                    <p className="font-sora text-[13px] font-semibold text-ltt mb-1">{ROLE_LABELS[role]}</p>
                     <p className="font-sora text-[12px] text-ltt2 leading-relaxed">{desc}</p>
                   </div>
                 </div>
