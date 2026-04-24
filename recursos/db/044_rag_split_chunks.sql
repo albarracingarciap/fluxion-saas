@@ -52,7 +52,7 @@ CREATE TABLE rag.organization_chunks (
   content_tokens  INT NOT NULL,
   summary         TEXT,
   metadata        JSONB NOT NULL DEFAULT '{}',
-  embedding       public.vector,
+  embedding       public.vector(1536),
   short_name      TEXT,
   language        TEXT NOT NULL DEFAULT 'es',
   is_active       BOOLEAN NOT NULL DEFAULT true,
