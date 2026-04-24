@@ -69,7 +69,7 @@ export function classifyAIAct(f: Record<string, unknown>) {
     };
   }
 
-  if (f.criticalInfra) {
+  if (f.criticalInfra || f.domain === 'infra') {
     return {
       level: 'high',
       label: 'Alto Riesgo',
