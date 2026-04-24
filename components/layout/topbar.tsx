@@ -111,7 +111,18 @@ export function Topbar() {
               {displayName}
             </span>
             <span className="font-plex text-[10px] text-dkt2 leading-tight">
-              {role === 'admin' ? 'Administrador' : role === 'editor' ? 'Editor' : 'Lector'}
+              {{
+                org_admin:          'Administrador',
+                sgai_manager:       'SGAI Manager',
+                caio:               'CAIO',
+                dpo:                'DPO',
+                system_owner:       'System Owner',
+                risk_analyst:       'Analista de Riesgos',
+                compliance_analyst: 'Analista de Cumplimiento',
+                executive:          'Directivo',
+                auditor:            'Auditor',
+                viewer:             'Lector',
+              }[role ?? ''] ?? 'Lector'}
             </span>
           </div>
           <div className="w-[34px] h-[34px] rounded-full overflow-hidden bg-gradient-to-tr from-brand-cyan to-brand-blue flex items-center justify-center text-white font-sora text-[13px] font-bold shadow-[0_2px_8px_rgba(0,173,239,0.3)] border-[1.5px] border-dk8 shrink-0 relative">

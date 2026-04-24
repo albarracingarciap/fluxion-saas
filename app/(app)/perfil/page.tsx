@@ -25,12 +25,16 @@ const TIMEZONES = [
 ]
 
 const ROLE_LABELS: Record<string, string> = {
-  admin:         'Administrador',
-  dpo:           'DPO',
-  technical:     'Technical',
-  executive:     'Executive',
-  auditor:       'Auditor',
-  viewer:        'Viewer',
+  org_admin:          'Administrador',
+  sgai_manager:       'SGAI Manager',
+  caio:               'CAIO',
+  dpo:                'DPO',
+  system_owner:       'System Owner',
+  risk_analyst:       'Analista de Riesgos',
+  compliance_analyst: 'Analista de Cumplimiento',
+  executive:          'Directivo',
+  auditor:            'Auditor',
+  viewer:             'Lector',
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
