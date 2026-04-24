@@ -159,7 +159,7 @@ export async function saveAISystem(formData: Record<string, any>) {
     external_provider: formData.extProvider || null,
     oss_model_name: formData.ossModelName || null,
     oss_license: formData.ossLicense || null,
-    has_explainability: formData.hasExplainability ?? null,
+    has_explainability: normalizeDocStatus(formData.hasExplainability),
     frameworks: formData.frameworks || null,
     provider_origin: formData.origin || null,
     has_fine_tuning: formData.hasFineTuning ?? false,
