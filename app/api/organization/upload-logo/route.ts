@@ -14,13 +14,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
-  const { data: membership } = await fluxion
-    .from('organization_members')
+  const { data: profile } = await fluxion
+    .from('profiles')
     .select('organization_id, role')
     .eq('user_id', user.id)
     .single()
 
-  if (!membership || membership.role !== 'admin') {
+  if (!profile || profile.role !== 'org_admin') {
     return NextResponse.json({ error: 'Sin permisos de administrador' }, { status: 403 })
   }
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png'
-  const path = `${membership.organization_id}/logo.${ext}`
+  const path = `${profile.organization_id}/logo.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
 
   const { error: uploadError } = await supabase.storage
