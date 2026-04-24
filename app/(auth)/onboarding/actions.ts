@@ -6,31 +6,38 @@ import { revalidatePath } from 'next/cache'
 
 import type { NormativeModule, RiskAppetite } from '@/lib/organization/options'
 
+type Iso42001Status = 'certified' | 'in_progress' | 'none'
+type AiInventoryStatus = 'complete' | 'partial' | 'none'
+type ComplianceMaturity = 0 | 25 | 50 | 75
+type FirstFocus = 'inventory' | 'compliance' | 'risk' | 'governance'
+
 export async function saveOnboarding(data: {
-  sector: string,
-  country: string,
-  companySize: string,
-  normativeModules: NormativeModule[],
-  riskAppetite: RiskAppetite,
-  plan: string,
-  invitations: { email: string, role: string }[]
+  sector: string
+  country: string
+  companySize: string
+  normativeModules: NormativeModule[]
+  riskAppetite: RiskAppetite
+  iso42001Status: Iso42001Status
+  iso42001CertDate?: string | null
+  iso42001CertBody?: string | null
+  aiInventoryStatus: AiInventoryStatus
+  complianceMaturity: ComplianceMaturity
+  firstFocus: FirstFocus
 }) {
   const supabase = createClient()
   const fluxion = createFluxionClient()
-  
-  // 1. Obtener usuario actual
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) throw new Error("Acceso denegado. No hay sesión.")
 
-  // 2. Localizar a qué organización pertenece el usuario
-  const { data: member, error: memberError } = await fluxion
-    .from('organization_members')
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) throw new Error('Acceso denegado. No hay sesión.')
+
+  const { data: profile, error: profileError } = await fluxion
+    .from('profiles')
     .select('organization_id')
     .eq('user_id', user.id)
     .single()
 
-  if (memberError || !member) throw new Error("No se encontró una organización vinculada a este usuario.")
-  const orgId = member.organization_id
+  if (profileError || !profile) throw new Error('No se encontró una organización vinculada a este usuario.')
+  const orgId = profile.organization_id
 
   const { data: organization, error: organizationError } = await fluxion
     .from('organizations')
@@ -38,16 +45,13 @@ export async function saveOnboarding(data: {
     .eq('id', orgId)
     .single()
 
-  if (organizationError) {
-    throw new Error("No se pudo cargar la organización para finalizar el onboarding.")
-  }
+  if (organizationError) throw new Error('No se pudo cargar la organización para finalizar el onboarding.')
 
   const existingSettings =
     organization?.settings && typeof organization.settings === 'object'
       ? organization.settings
       : {}
 
-  // 3. Guardar Perfil de Organización y marcar onboarding como completado
   const { error: orgError } = await fluxion
     .from('organizations')
     .update({
@@ -56,39 +60,28 @@ export async function saveOnboarding(data: {
       size: data.companySize || null,
       normative_modules: data.normativeModules ?? [],
       apetito_riesgo: data.riskAppetite || 'moderado',
-      plan: data.plan || 'starter',
+      iso_42001_status: data.iso42001Status,
+      iso_42001_cert_date: data.iso42001Status === 'certified' ? (data.iso42001CertDate ?? null) : null,
+      iso_42001_cert_body: data.iso42001Status === 'certified' ? (data.iso42001CertBody ?? null) : null,
+      ai_inventory_status: data.aiInventoryStatus,
+      compliance_maturity: data.complianceMaturity,
       settings: {
         ...existingSettings,
+        first_focus: data.firstFocus,
         onboarding_completed: true,
         onboarding_completed_at: new Date().toISOString(),
       },
     })
     .eq('id', orgId)
 
-  if (orgError) {
-    throw new Error("No se pudo guardar la configuración inicial de la organización.")
-  }
+  if (orgError) throw new Error('No se pudo guardar la configuración inicial de la organización.')
 
-  // 4. Procesar Invitaciones de Equipo
-  if (data.invitations && data.invitations.length > 0) {
-    for (const invite of data.invitations) {
-      if (!invite.email) continue;
-      
-      const { error: inviteError } = await fluxion
-        .from('invitations')
-        .insert({
-          organization_id: orgId,
-          email: invite.email,
-          role: invite.role || 'viewer',
-          token: crypto.randomUUID(), // Generamos un token arbitrario temporal
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 días
-        })
-        
-      if (inviteError) {
-        console.error("Error insertando invitación en base de datos:", inviteError)
-      }
-    }
-  }
+  const { error: profileUpdateError } = await fluxion
+    .from('profiles')
+    .update({ onboarding_completed: true })
+    .eq('user_id', user.id)
+
+  if (profileUpdateError) throw new Error('No se pudo marcar el onboarding como completado.')
 
   revalidatePath('/dashboard', 'layout')
   return { success: true }
