@@ -1446,9 +1446,7 @@ export function SystemDetailClient({
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">{obligationSummary.pending} pendientes</span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ordim text-or border border-orb">{obligationSummary.inProgress} en curso</span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-grdim text-gr border border-grb">{obligationSummary.resolved} resueltas</span>
-                          {obligationSummary.excluded > 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">{obligationSummary.excluded} excluidas</span>
-                          )}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">{obligationSummary.excluded} excluidas</span>
                         </div>
                       </div>
                     </div>
@@ -1515,12 +1513,12 @@ export function SystemDetailClient({
                                         Excluir
                                       </button>
                                     </>
-                                  ) : (
+                                  ) : obligation.status === 'excluded' ? null : (
                                     <button
                                       onClick={() => openObligationModal(obligation.ref)}
                                       className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
                                     >
-                                      {obligation.status === 'resolved' || obligation.status === 'excluded' ? 'Ver' : 'Resolver →'}
+                                      {obligation.status === 'resolved' ? 'Ver' : 'Resolver →'}
                                     </button>
                                   )}
                                 </div>
@@ -2363,9 +2361,7 @@ export function SystemDetailClient({
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-gr" />{obligationSummary.resolved} resueltas</div>
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-or" />{obligationSummary.inProgress} en curso</div>
                   <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-re" />{obligationSummary.pending} pendientes</div>
-                  {obligationSummary.excluded > 0 && (
-                    <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-lttm" />{obligationSummary.excluded} excluidas</div>
-                  )}
+                  <div className="flex items-center gap-1.5 font-plex text-[11px] text-lttm"><span className="w-2 h-2 rounded-full bg-lttm" />{obligationSummary.excluded} excluidas</div>
                 </div>
               </div>
 
