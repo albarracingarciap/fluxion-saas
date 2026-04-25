@@ -10,14 +10,22 @@ Endpoints:
   GET    /api/v1/systems/{system_id}/classification-events — historial
 """
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Header
+from openai import OpenAI
 from pydantic import BaseModel
 from supabase import Client
+
+from agent1.prompts.classification import (
+    CLASSIFICATION_SYSTEM_PROMPT,
+    build_classification_user_prompt,
+)
+from agent1.rag.retriever import retrieve_for_classification
 
 logger = logging.getLogger("agent1.classification")
 
@@ -335,6 +343,7 @@ def register_classification_routes(
     sb: Client,
     verify_token,
     get_user_profile,
+    openai_client: Optional[OpenAI] = None,
 ):
 
     # ─── POST /classify ───────────────────────────────────────────
@@ -780,3 +789,224 @@ def register_classification_routes(
             .execute()
 
         return {"data": result.data or []}
+
+
+    # ─── POST /reclassify/ai ──────────────────────────────────────
+    @app.post("/api/v1/systems/{system_id}/reclassify/ai")
+    async def reclassify_with_ai(
+        system_id: str,
+        authorization: str = Header(None),
+    ):
+        """
+        Reclasifica un sistema usando el agente IA (gpt-5.4).
+        El agente produce risk_level + obligations_set; el motor de reglas
+        actúa como referencia para detectar divergencias.
+        Si hay diferencias respecto a la clasificación activa, crea un evento
+        pending_reconciliation y devuelve has_changes: true.
+        """
+        if openai_client is None:
+            raise HTTPException(503, "Cliente OpenAI no disponible")
+
+        user = verify_token(authorization)
+        profile = get_user_profile(user.id)
+        org_id = profile["organization_id"]
+        profile_id = profile["id"]
+
+        system_result = sb.schema("fluxion").table("ai_systems") \
+            .select("*") \
+            .eq("id", system_id) \
+            .eq("organization_id", org_id) \
+            .single() \
+            .execute()
+        if not system_result.data:
+            raise HTTPException(404, "Sistema no encontrado o sin acceso")
+        system = system_result.data
+
+        _assert_no_pending_reconciliation(sb, system_id)
+
+        # Referencia del motor de reglas determinista
+        factors = _extract_factors_from_system(system)
+        rules_result = run_classification_engine(factors)
+
+        # RAG: recuperar fragmentos normativos relevantes
+        chunks, _ = retrieve_for_classification(system, max_chunks=8)
+
+        # Inyectar resultado del motor de reglas en el perfil enviado al agente
+        system_with_rules = {**system, "rules_engine_classification": rules_result}
+        user_prompt = build_classification_user_prompt(system_with_rules, chunks)
+
+        # Llamada sincrónica al agente (no streaming)
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-5.4",
+                max_completion_tokens=4000,
+                messages=[
+                    {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
+                    {"role": "user",   "content": user_prompt},
+                ],
+            )
+        except Exception as e:
+            logger.error(f"Error llamando a OpenAI: {e}", exc_info=True)
+            raise HTTPException(502, f"Error del agente IA: {e}")
+
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            lines = raw.split("\n")
+            raw = "\n".join(lines[1:])
+        if raw.endswith("```"):
+            lines = raw.split("\n")
+            raw = "\n".join(lines[:-1])
+        raw = raw.strip()
+
+        try:
+            ai_result = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON inválido del agente: {e}\nRespuesta: {raw[:500]}")
+            raise HTTPException(502, "El agente devolvió una respuesta sin formato JSON válido.")
+
+        # Validar nivel de riesgo
+        ai_risk_level = ai_result.get("aiact_risk_level")
+        valid_levels = {"prohibited", "high", "limited", "minimal", "gpai"}
+        if ai_risk_level not in valid_levels:
+            raise HTTPException(502, f"Nivel de riesgo inválido del agente: {ai_risk_level!r}")
+
+        # Validar obligations_set contra el catálogo canónico
+        valid_keys = set(OBLIGATION_LABELS.keys())
+        raw_obligations = ai_result.get("obligations_set") or []
+        validated_obligations = [k for k in raw_obligations if k in valid_keys]
+        invalid_keys = [k for k in raw_obligations if k not in valid_keys]
+        if invalid_keys:
+            logger.warning(f"Claves de obligaciones desconocidas eliminadas: {invalid_keys}")
+
+        risk_labels_map = {
+            "prohibited": "Práctica Prohibida",
+            "high":       "Alto Riesgo",
+            "limited":    "Riesgo Limitado",
+            "minimal":    "Riesgo Mínimo",
+            "gpai":       "Modelo GPAI",
+        }
+        risk_label = risk_labels_map.get(ai_risk_level, ai_risk_level)
+
+        # Detectar divergencia con el motor de reglas
+        divergence_prefix = ""
+        if rules_result["risk_level"] != ai_risk_level:
+            divergence_prefix = (
+                f"[Divergencia con motor de reglas: "
+                f"motor={rules_result['risk_level']}, agente={ai_risk_level}] "
+            )
+            logger.warning(
+                f"Divergencia AI vs reglas para sistema {system_id}: "
+                f"motor={rules_result['risk_level']}, agente={ai_risk_level}"
+            )
+
+        # Estado actual de clasificación
+        active_result = sb.schema("fluxion").table("classification_events") \
+            .select("risk_level, obligations_set") \
+            .eq("ai_system_id", system_id) \
+            .eq("status", "reconciled") \
+            .order("version", desc=True) \
+            .limit(1) \
+            .execute()
+
+        current_keys: list[str] = []
+        current_risk = None
+        if active_result.data:
+            current_keys = active_result.data[0]["obligations_set"] or []
+            current_risk = active_result.data[0]["risk_level"]
+        else:
+            existing_fallback = _get_active_obligations(sb, system_id)
+            current_keys = list(existing_fallback.keys())
+            sys_res = sb.schema("fluxion").table("ai_systems") \
+                .select("aiact_risk_level") \
+                .eq("id", system_id) \
+                .single() \
+                .execute()
+            if sys_res.data:
+                lvl = sys_res.data.get("aiact_risk_level") or ""
+                current_risk = lvl if lvl in valid_levels else None
+
+        # Sin cambios → respuesta rápida
+        if set(current_keys) == set(validated_obligations) and current_risk == ai_risk_level:
+            return {"data": {"has_changes": False}}
+
+        existing_obligations = _get_active_obligations(sb, system_id)
+        diff_items = compute_diff(current_keys, validated_obligations, existing_obligations)
+
+        version = _get_next_version(sb, system_id)
+        event_id = str(uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Extraer basis de los items del Anexo III si los hay
+        basis_parts = []
+        for item in (ai_result.get("annexiii_items") or []):
+            basis_parts.append(f"{item.get('section', '')}: {item.get('description', '')}")
+        if not basis_parts:
+            if ai_risk_level == "prohibited":
+                basis_parts = ["Art. 5 — Práctica Prohibida"]
+            elif ai_risk_level == "gpai":
+                basis_parts = ["Arts. 51-55 — Modelo GPAI"]
+        basis = "; ".join(basis_parts) or rules_result.get("basis", "")
+
+        classification_note = ai_result.get("classification_note") or ""
+        reason = (divergence_prefix + classification_note)[:4000]
+
+        factors_payload = {
+            "classification_factors": ai_result.get("classification_factors") or {},
+            "ai_agent_output": {
+                k: v for k, v in ai_result.items()
+                if k not in ("classification_note",)
+            },
+            "rules_engine_reference": rules_result,
+        }
+
+        sb.schema("fluxion").table("classification_events").insert({
+            "id":                     event_id,
+            "ai_system_id":           system_id,
+            "organization_id":        org_id,
+            "version":                version,
+            "method":                 "ai_agent",
+            "risk_level":             ai_risk_level,
+            "risk_label":             risk_label,
+            "basis":                  basis,
+            "reason":                 reason,
+            "obligations_set":        validated_obligations,
+            "classification_factors": factors_payload,
+            "created_by":             profile_id,
+            "status":                 "pending_reconciliation",
+        }).execute()
+
+        for item in diff_items:
+            auto_res = get_auto_resolution(item["diff_type"], item["previous_status"])
+            sb.schema("fluxion").table("classification_diffs").insert({
+                "id":                      str(uuid4()),
+                "classification_event_id": event_id,
+                "ai_system_id":            system_id,
+                "organization_id":         org_id,
+                "obligation_key":          item["obligation_key"],
+                "obligation_label":        item["obligation_label"],
+                "diff_type":               item["diff_type"],
+                "previous_obligation_id":  item["previous_obligation_id"],
+                "previous_status":         item["previous_status"],
+                "resolution":              auto_res,
+                "resolved_by":             profile_id if auto_res else None,
+                "resolved_at":             now if auto_res else None,
+                "resolution_note":         "Auto-resuelto por el sistema" if auto_res else None,
+            }).execute()
+
+        logger.info(
+            f"Reclasificación AI: sistema {system_id} → "
+            f"{ai_risk_level} (v{version}, pending_reconciliation, "
+            f"confianza={ai_result.get('confidence')})"
+        )
+
+        return {
+            "data": {
+                "has_changes": True,
+                "event_id":    event_id,
+                "version":     version,
+                "risk_level":  ai_risk_level,
+                "risk_label":  risk_label,
+                "confidence":  ai_result.get("confidence"),
+                "divergence":  bool(divergence_prefix),
+            }
+        }

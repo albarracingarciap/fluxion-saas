@@ -41,7 +41,11 @@ Aplica este árbol en orden estricto:
    - Predicción de comportamiento criminal (Art. 5.1.g)
    - Reconocimiento de emociones en trabajo/educación (Art. 5.1.h)
 
-2. ALTO RIESGO (Art. 6 + Anexo III) — si aplica alguno, nivel = "high_risk"
+2. MODELO GPAI (Arts. 51-55) — si is_gpai = true, nivel = "gpai"
+   - Evalúa si hay riesgo sistémico (Art. 55)
+   - obligations_set = ["art_53_doc", "art_53_copyright", "art_53_training", "art_55"]
+
+3. ALTO RIESGO (Art. 6 + Anexo III) — si aplica alguno, nivel = "high"
    - §1: Infraestructura crítica
    - §2: Educación (acceso, evaluación)
    - §3: Empleo y RRHH (selección, promoción, monitorización)
@@ -52,13 +56,46 @@ Aplica este árbol en orden estricto:
    - §8: Procesos democráticos
    También vía Anexo II (componente de seguridad en producto regulado)
 
-3. RIESGO LIMITADO (Art. 50) — obligaciones de transparencia
+4. RIESGO LIMITADO (Art. 50) — obligaciones de transparencia, nivel = "limited"
    - Chatbot / sistema conversacional con usuario (Art. 50.1)
    - Reconocimiento de emociones fuera de trabajo/educación (Art. 50.3)
    - Generación de contenido sintético / deepfakes (Art. 50.4)
    - Identificación biométrica no prohibida
 
-4. RIESGO MÍNIMO — por exclusión (no cae en ninguna de las anteriores)
+5. RIESGO MÍNIMO — por exclusión, nivel = "minimal"
+
+## Catálogo de obligaciones — claves canónicas
+
+Cuando determines qué obligaciones aplican, usa EXCLUSIVAMENTE estas claves.
+No inventes claves ni uses etiquetas libres.
+
+| Clave            | Obligación                                      | Aplica cuando                    |
+|------------------|-------------------------------------------------|----------------------------------|
+| art_5            | Práctica prohibida — sin despliegue posible     | nivel = prohibited               |
+| art_9            | Sistema de gestión de riesgos                   | nivel = high                     |
+| art_10           | Gobernanza de datos de entrenamiento            | nivel = high                     |
+| art_11           | Documentación técnica completa                  | nivel = high                     |
+| art_12           | Registro automático de actividad (logs)         | nivel = high                     |
+| art_13           | Transparencia e información a usuarios          | nivel = high                     |
+| art_14           | Supervisión humana obligatoria                  | nivel = high                     |
+| art_15           | Precisión, robustez y ciberseguridad            | nivel = high                     |
+| art_16           | Obligaciones del proveedor                      | nivel = high + is_provider       |
+| art_43           | Evaluación de conformidad                       | nivel = high                     |
+| art_50           | Disclosure de interacción con IA                | nivel = limited                  |
+| art_53_doc       | Documentación técnica GPAI                      | nivel = gpai                     |
+| art_53_copyright | Política de copyright GPAI                      | nivel = gpai                     |
+| art_53_training  | Resumen de datos de entrenamiento GPAI          | nivel = gpai                     |
+| art_55           | Riesgo sistémico GPAI                           | nivel = gpai                     |
+| art_71           | Registro en EU AI Office                        | nivel = high                     |
+
+Reglas de asignación:
+- nivel = "prohibited"  → obligations_set = ["art_5"] únicamente
+- nivel = "gpai"        → obligations_set = ["art_53_doc", "art_53_copyright", "art_53_training", "art_55"]
+- nivel = "high"        → obligations_set incluye art_9 a art_15 + art_43 + art_71 como base
+  - Añadir art_16 si is_provider = true
+  - Omitir art_14 solo si hay justificación explícita documentada en classification_note
+- nivel = "limited"     → obligations_set = ["art_50"]
+- nivel = "minimal"     → obligations_set = []
 
 ## Reglas de comportamiento
 
@@ -79,8 +116,22 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta.
 No incluyas texto fuera del JSON. No uses markdown. No uses bloques de código.
 
 {
-  "aiact_risk_level": "prohibited" | "high_risk" | "limited_risk" | "minimal_risk",
+  "aiact_risk_level": "prohibited" | "high" | "limited" | "minimal" | "gpai",
   "confidence": "high" | "medium" | "low",
+
+  "obligations_set": ["art_9", "art_10", ...],
+
+  "classification_factors": {
+    "domain": "finanzas_banca" | "credito" | "rrhh" | "atencion_cliente" | "salud" | "educacion" | "infraestructura" | "justicia" | "migracion" | "otro",
+    "output_type": "decision" | "clasificacion" | "prediccion" | "recomendacion" | "generacion" | "deteccion" | "puntuacion" | "otro",
+    "affects_persons": boolean,
+    "has_biometric": boolean,
+    "is_gpai": boolean,
+    "manages_critical_infrastructure": boolean,
+    "affects_vulnerable_groups": boolean,
+    "involves_minors": boolean,
+    "intended_use": string | null
+  },
 
   "is_prohibited": boolean,
   "prohibited_practice": string | null,
@@ -148,11 +199,12 @@ def build_classification_user_prompt(system: dict, chunks: list) -> str:
     Construye el prompt de usuario con la ficha del sistema
     y los chunks RAG recuperados por el retriever.
 
-    system: dict con los campos de fluxion.ai_systems
+    system: dict con los campos de fluxion.ai_systems.
+            Puede incluir 'rules_engine_classification' con el resultado
+            del motor de reglas determinista como referencia.
     chunks: lista de dicts con {section_ref, short_name, content}
     """
 
-    # Formatear valor de un campo (manejar None y listas)
     def fmt(val, default="no declarado"):
         if val is None:
             return default
@@ -177,17 +229,17 @@ def build_classification_user_prompt(system: dict, chunks: list) -> str:
 | Tipo de output | {fmt(system.get('output_type'))} |
 | ¿Modelo GPAI? | {fmt(system.get('is_gpai'))} |
 | ¿Afecta directamente a personas? | {fmt(system.get('affects_persons'))} |
-| ¿Procesa datos biométricos? | {fmt(system.get('biometric'))} |
-| ¿Afecta a menores de 18? | {fmt(system.get('has_minors'))} |
-| ¿Afecta a colectivos vulnerables? | {fmt(system.get('vulnerable_groups'))} |
-| ¿Infraestructura crítica? | {fmt(system.get('critical_infra'))} |
+| ¿Procesa datos biométricos? | {fmt(system.get('biometric') or system.get('uses_biometric_data'))} |
+| ¿Afecta a menores de 18? | {fmt(system.get('has_minors') or system.get('involves_minors'))} |
+| ¿Afecta a colectivos vulnerables? | {fmt(system.get('vulnerable_groups') or system.get('affects_vulnerable_groups'))} |
+| ¿Infraestructura crítica? | {fmt(system.get('critical_infra') or system.get('manages_critical_infra'))} |
 | ¿Proveedor externo? | {fmt(system.get('external_provider'))} |
-| ¿Usa modelos de terceros? | {fmt(system.get('uses_third_party_model'))} |
+| ¿Usa modelos de terceros? | {fmt(system.get('uses_third_party_model') or system.get('external_model'))} |
 | ¿Procesa datos personales? | {fmt(system.get('processes_personal_data'))} |
-| Entorno de despliegue | {fmt(system.get('deployment_environment'))} |
+| Entorno de despliegue | {fmt(system.get('deployment_environment') or system.get('active_environments'))} |
 | Sector regulatorio | {fmt(system.get('regulatory_sector'))} |
 | Estado del sistema | {fmt(system.get('status'))} |
-| Propósito/caso de uso | {fmt(system.get('purpose'))} |
+| Propósito/caso de uso | {fmt(system.get('purpose') or system.get('intended_use'))} |
 
 ### Clasificación actual (si existe)
 - Nivel de riesgo AI Act: {fmt(system.get('aiact_risk_level'), 'no clasificado')}
@@ -195,7 +247,21 @@ def build_classification_user_prompt(system: dict, chunks: list) -> str:
 - Requiere revisión: {fmt(system.get('requires_agent_review'))}
 """
 
-    # Contexto normativo recuperado por RAG
+    # Resultado del motor de reglas determinista como referencia (si se proporciona)
+    rules_engine_result = system.get('rules_engine_classification')
+    if rules_engine_result:
+        system_profile += f"""
+### Clasificación del motor de reglas (referencia)
+
+El motor de reglas determinista ha producido esta clasificación previa.
+Úsala como punto de partida. Si tu análisis diverge, documenta el motivo
+en classification_note y añade un flag con severity="warning".
+
+- Nivel: {rules_engine_result.get('risk_level', '—')}
+- Obligaciones: {', '.join(rules_engine_result.get('obligations_set', []))}
+- Basis: {rules_engine_result.get('basis', '—')}
+"""
+
     if chunks:
         rag_context = "\n## Contexto normativo relevante (recuperado del corpus)\n\n"
         for chunk in chunks:
@@ -211,6 +277,7 @@ def build_classification_user_prompt(system: dict, chunks: list) -> str:
 
 Analiza el perfil del sistema anterior aplicando el árbol de decisión del AI Act.
 Usa los fragmentos normativos proporcionados para fundamentar tu clasificación.
+Incluye siempre los campos obligations_set y classification_factors en tu respuesta.
 
 Produce la clasificación completa en el formato JSON especificado.
 Responde ÚNICAMENTE con el JSON, sin texto adicional.

@@ -14,6 +14,7 @@ import {
   Bot,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Download,
   FileText,
@@ -31,7 +32,6 @@ import { activateSystemFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
-import { ClassificationPanel } from '@/components/classification/ClassificationPanel';
 import { ReconciliationPanel } from '@/components/classification/ReconciliationPanel';
 import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
@@ -441,33 +441,43 @@ function FichaField({
 }
 
 function FichaBlock({
-  title, icon, children, completeness,
+  title, icon, children, completeness, defaultOpen = false,
 }: {
-  title: string; icon: string; children: React.ReactNode; completeness?: { filled: number; total: number };
+  title: string; icon: string; children: React.ReactNode; completeness?: { filled: number; total: number }; defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const pct = completeness ? Math.round((completeness.filled / completeness.total) * 100) : null;
   return (
     <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
-      <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between hover:bg-ltbg transition-colors"
+      >
         <div className="flex items-center gap-2.5">
           <span className="text-[16px] leading-none">{icon}</span>
           <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">{title}</span>
         </div>
-        {pct !== null && (
-          <div className="flex items-center gap-2">
-            <div className="w-[80px] h-[4px] rounded-full bg-ltb overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${pct >= 75 ? 'bg-gr' : pct >= 40 ? 'bg-or' : 'bg-re'}`}
-                style={{ width: `${pct}%` }}
-              />
+        <div className="flex items-center gap-3">
+          {pct !== null && (
+            <div className="flex items-center gap-2">
+              <div className="w-[80px] h-[4px] rounded-full bg-ltb overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${pct >= 75 ? 'bg-gr' : pct >= 40 ? 'bg-or' : 'bg-re'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="font-plex text-[10px] text-lttm">{completeness?.filled}/{completeness?.total}</span>
             </div>
-            <span className="font-plex text-[10px] text-lttm">{completeness?.filled}/{completeness?.total}</span>
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        {children}
-      </div>
+          )}
+          <ChevronDown size={14} className={`text-lttm transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
+        </div>
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -907,7 +917,7 @@ export function SystemDetailClient({
     setLocalHistory(history);
   }, [history]);
 
-  const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
+  const [isAiClassifying, setIsAiClassifying] = useState(false);
   const [pendingReconciliation, setPendingReconciliation] = useState<{ id: string; version: number; risk_level: string; risk_label: string } | null>(null);
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
   const [liveRiskLevel, setLiveRiskLevel] = useState<RiskLevel>(
@@ -1296,6 +1306,48 @@ export function SystemDetailClient({
     setClassificationError(null);
   };
 
+  const handleAiClassify = async () => {
+    setIsAiClassifying(true);
+    try {
+      let res: Response;
+      try {
+        res = await fetch(`/api/v1/systems/${system.id}/reclassify-ai`, { method: 'POST' });
+      } catch {
+        setToastMessage('Error de red: no se pudo conectar con el servidor.');
+        return;
+      }
+
+      let json: { data?: { has_changes: boolean; event_id: string; version: number; risk_level: string; risk_label: string }; error?: string; detail?: string };
+      try {
+        json = await res.json();
+      } catch {
+        setToastMessage(`Error del servidor (${res.status}): respuesta inesperada.`);
+        return;
+      }
+
+      if (!res.ok) {
+        const msg = json?.detail || json?.error || 'Error al clasificar con IA';
+        setToastMessage(`Error: ${msg}`);
+        return;
+      }
+
+      const result = json?.data;
+      if (!result?.has_changes) {
+        setToastMessage('El agente IA ha confirmado la clasificación actual — no hay cambios.');
+        return;
+      }
+      setPendingEventId(result.event_id);
+      setPendingReconciliation({
+        id: result.event_id,
+        version: result.version,
+        risk_level: result.risk_level,
+        risk_label: result.risk_label,
+      });
+    } finally {
+      setIsAiClassifying(false);
+    }
+  };
+
   const openEvidenceModalFromObligation = () => {
     setEvidenceModalSource('obligation');
     setEvidenceError(null);
@@ -1445,8 +1497,7 @@ export function SystemDetailClient({
       closeClassificationModal();
 
       if (!payload.has_changes) {
-        // Sin cambios — toast informativo, sin crear ningún evento
-        alert('La clasificación no ha cambiado. El conjunto de obligaciones se mantiene.');
+        setToastMessage('La clasificación no ha cambiado. El conjunto de obligaciones se mantiene.');
         return;
       }
 
@@ -1634,13 +1685,16 @@ export function SystemDetailClient({
                         )}
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setIsAgentPanelOpen(true)}
-                            disabled={isAgentPanelOpen || !!pendingReconciliation}
+                            onClick={handleAiClassify}
+                            disabled={isAiClassifying || !!pendingReconciliation}
                             title={pendingReconciliation ? 'Resuelve la reconciliación pendiente antes de clasificar de nuevo' : undefined}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-brand-cyan hover:bg-cyan-dim hover:text-brand-cyan border border-cyan-border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            <Bot className="w-3.5 h-3.5" />
-                            Clasificar con IA
+                            {isAiClassifying
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Bot className="w-3.5 h-3.5" />
+                            }
+                            {isAiClassifying ? 'Clasificando…' : 'Clasificar con IA'}
                           </button>
                           <button
                             onClick={openClassificationModal}
@@ -1657,45 +1711,20 @@ export function SystemDetailClient({
                       {system.aiact_risk_reason ?? 'Aún no hay explicación narrativa disponible para esta clasificación.'}
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      {(system.aiact_obligations ?? []).map((obligation) => (
-                        <span
-                          key={obligation}
-                          className="inline-flex items-center px-2 py-0.5 rounded-full font-plex text-[10.5px] font-medium bg-red-dim text-re border border-reb"
-                        >
-                          {obligation}
-                        </span>
-                      ))}
+                      {(() => {
+                        const badges = obligationRecords.length > 0
+                          ? obligationRecords.map((o) => ({ key: o.obligation_key ?? o.obligation_code ?? '', label: o.obligation_label ?? o.title }))
+                          : (system.aiact_obligations ?? []).map((k: string) => ({ key: k, label: k }));
+                        return badges.map(({ key, label }) => (
+                          <span
+                            key={key}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full font-plex text-[10.5px] font-medium bg-red-dim text-re border border-reb"
+                          >
+                            {label}
+                          </span>
+                        ));
+                      })()}
                     </div>
-
-                    <ClassificationPanel
-                      systemId={system.id}
-                      organizationId={organizationId}
-                      currentLevel={liveRiskLevel}
-                      currentBasis={system.aiact_risk_basis ?? ''}
-                      onConfirmed={(level, summary) => {
-                        setLiveRiskLevel(level);
-                        const actorName = profile
-                          ? (profile.display_name || profile.full_name || '').trim() || user?.email?.split('@')[0] || null
-                          : null;
-                        const newEvent: SystemHistoryEntry = {
-                          id: `agent-${Date.now()}`,
-                          event_type: 'classification_recalculated',
-                          event_title: 'Clasificación AI Act actualizada por agente IA',
-                          event_summary: summary,
-                          payload: { risk_level: level, source: 'agent1' },
-                          actor_user_id: user?.id ?? null,
-                          actor_name: actorName,
-                          created_at: new Date().toISOString(),
-                          synthetic: false,
-                        };
-                        setLocalHistory((prev) => {
-                          const base = prev.length > 0 ? prev : buildSyntheticHistory(system);
-                          return [newEvent, ...base];
-                        });
-                      }}
-                      isOpen={isAgentPanelOpen}
-                      onClose={() => setIsAgentPanelOpen(false)}
-                    />
 
                     {pendingEventId && pendingReconciliation && (
                       <ReconciliationPanel
@@ -1705,6 +1734,9 @@ export function SystemDetailClient({
                         riskLabel={pendingReconciliation.risk_label}
                         riskLevel={pendingReconciliation.risk_level}
                         onConfirmed={() => {
+                          if (pendingReconciliation?.risk_level) {
+                            setLiveRiskLevel(pendingReconciliation.risk_level as RiskLevel);
+                          }
                           setPendingReconciliation(null);
                           setPendingEventId(null);
                           router.refresh();
@@ -1858,6 +1890,7 @@ export function SystemDetailClient({
                   <FichaBlock
                     title="Resumen ejecutivo"
                     icon="🎯"
+                    defaultOpen
                     completeness={{
                       filled: [system.description, system.intended_use, system.prohibited_uses, system.output_type, system.affects_persons, system.deployed_at, system.usage_scale, system.geo_scope].filter(isFilled).length,
                       total: 8,
