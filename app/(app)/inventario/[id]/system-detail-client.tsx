@@ -129,6 +129,8 @@ export type SystemDetailData = {
   description: string | null;
   technical_description: string | null;
   intended_use: string | null;
+  prohibited_uses: string | null;
+  usage_scale: string | null;
   output_type: string | null;
   fully_automated: boolean | null;
   interacts_persons: boolean;
@@ -148,6 +150,12 @@ export type SystemDetailData = {
   aiact_obligations: string[] | null;
   aiact_classified_at: string | null;
   aiact_classified_by: string | null;
+  processes_personal_data: boolean | null;
+  data_categories: string[] | null;
+  special_categories: string[] | null;
+  legal_bases: string[] | null;
+  legal_bases_art9: string[] | null;
+  intl_data_transfers: boolean;
   training_data_doc: string | null;
   data_sources: string[] | null;
   data_volume: string | null;
@@ -159,6 +167,9 @@ export type SystemDetailData = {
   external_provider: string | null;
   frameworks: string | null;
   provider_origin: string | null;
+  oss_model_name: string | null;
+  oss_license: string | null;
+  has_explainability: string | null;
   has_fine_tuning: boolean;
   has_external_tools: boolean;
   active_environments: string[] | null;
@@ -168,7 +179,9 @@ export type SystemDetailData = {
   tech_lead: string | null;
   executive_sponsor: string | null;
   dpo_involved: boolean;
+  has_sla: boolean;
   review_frequency: string | null;
+  last_review_date: string | null;
   incident_contact: string | null;
   critical_providers: string | null;
   has_tech_doc: string | null;
@@ -312,6 +325,148 @@ const CERT_STATUS_LABELS: Record<string, string> = {
   no_aplica: 'No aplica',
 };
 
+const AI_TYPE_LABELS_EXT: Record<string, string> = {
+  // wizard values
+  ml: 'ML Tradicional', dl: 'Deep Learning', llm: 'LLM / Generativo',
+  agentico: 'Sistema Agéntico', reglas: 'Reglas de Negocio', hibrido: 'Híbrido',
+  // legacy values
+  clasico: 'ML clásico', generativo: 'IA generativa', nlp: 'NLP',
+  cv: 'Visión por computador', otro: 'Otro',
+};
+
+const MLOPS_LABELS: Record<string, string> = {
+  mlflow: 'MLflow', azureml: 'Azure ML', sagemaker: 'SageMaker',
+  vertex: 'Vertex AI', databricks: 'Databricks', ninguno: 'Sin integración MLOps', otro: 'Otro',
+};
+
+const DATA_VOLUME_LABELS: Record<string, string> = {
+  menos_1gb: '< 1 GB', '1_100gb': '1 – 100 GB', '100gb_1tb': '100 GB – 1 TB',
+  '1_10tb': '1 – 10 TB', mas_10tb: '> 10 TB', desconocido: 'Desconocido',
+};
+
+const DATA_RETENTION_LABELS: Record<string, string> = {
+  menos_6m: '< 6 meses', '6_12m': '6 – 12 meses', '1_3a': '1 – 3 años',
+  '3_5a': '3 – 5 años', mas_5a: '> 5 años', sin_politica: 'Sin política definida',
+};
+
+const USAGE_SCALE_LABELS: Record<string, string> = {
+  menos_100m: '< 100 decisiones/mes', '100_1k_m': '100 – 1.000/mes',
+  '1k_10k_m': '1.000 – 10.000/mes', '10k_100k_m': '10.000 – 100.000/mes',
+  mas_100k_m: '> 100.000/mes',
+};
+
+const REVIEW_FREQ_LABELS: Record<string, string> = {
+  mensual: 'Mensual', trimestral: 'Trimestral',
+  semestral: 'Semestral', anual: 'Anual', adhoc: 'Ad-hoc',
+};
+
+const LEGAL_BASE_LABELS: Record<string, string> = {
+  consentimiento: 'Consentimiento (Art. 6.1.a)', contrato: 'Contrato (Art. 6.1.b)',
+  obligacion_legal: 'Obligación legal (Art. 6.1.c)', interes_vital: 'Interés vital (Art. 6.1.d)',
+  interes_publico: 'Interés público (Art. 6.1.e)', interes_legitimo: 'Interés legítimo (Art. 6.1.f)',
+};
+
+const LEGAL_BASE_ART9_LABELS: Record<string, string> = {
+  consentimiento_explicito: 'Consentimiento explícito (Art. 9.2.a)',
+  obligacion_laboral: 'Obligaciones laborales (Art. 9.2.b)',
+  interes_vital_9: 'Interés vital (Art. 9.2.c)',
+  interes_publico_9: 'Interés público (Art. 9.2.g)',
+  medicina_preventiva: 'Medicina preventiva (Art. 9.2.h)',
+  salud_publica: 'Salud pública (Art. 9.2.i)',
+  investigacion: 'Investigación (Art. 9.2.j)',
+};
+
+const PROVIDER_LABELS_EXT: Record<string, string> = {
+  interno: 'Desarrollo interno', proveedor: 'Proveedor externo',
+  saas: 'SaaS / API tercero', oss: 'Open Source',
+  // legacy
+  open_source: 'Open Source', mixto: 'Mixto',
+};
+
+const RESIDUAL_RISK_LABELS: Record<string, string> = {
+  bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto', no_determinado: 'No determinado',
+};
+
+function DocStatusBadge({ value }: { value: string | null }) {
+  if (!value) return <span className="font-sora text-[13px] text-lttm">—</span>;
+  const cfg: Record<string, { label: string; cls: string }> = {
+    si:      { label: 'Sí',          cls: 'bg-grdim text-gr border-grb' },
+    parcial: { label: 'Parcial',     cls: 'bg-ordim text-or border-orb' },
+    proceso: { label: 'En proceso',  cls: 'bg-ordim text-or border-orb' },
+    no:      { label: 'No',          cls: 'bg-red-dim text-re border-reb' },
+  };
+  const c = cfg[value] ?? { label: value, cls: 'bg-ltcard2 text-lttm border-ltb' };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10.5px] font-medium border ${c.cls}`}>{c.label}</span>;
+}
+
+function BoolBadge({ value, trueLabel = 'Sí', falseLabel = 'No' }: { value: boolean | null; trueLabel?: string; falseLabel?: string }) {
+  if (value === null || value === undefined) return <span className="font-sora text-[13px] text-lttm">—</span>;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10.5px] font-medium border ${value ? 'bg-grdim text-gr border-grb' : 'bg-red-dim text-re border-reb'}`}>
+      {value ? trueLabel : falseLabel}
+    </span>
+  );
+}
+
+function FwTag({ fw }: { fw: string }) {
+  const cls: Record<string, string> = {
+    'AI ACT': 'bg-cyan-dim text-brand-cyan border-cyan-border',
+    'RGPD':   'bg-[#6b3bbf11] text-[#6b3bbf] border-[#6b3bbf30]',
+    'ISO':    'bg-[#3871c111] text-[#3871c1] border-[#3871c130]',
+    'DORA':   'bg-[#0b8a6d12] text-[#0b8a6d] border-[#0b8a6d30]',
+  };
+  return <span className={`inline-flex items-center px-1.5 py-px rounded-[4px] font-plex text-[9px] font-semibold border tracking-[0.5px] ${cls[fw] ?? 'bg-ltcard2 text-lttm border-ltb'}`}>{fw}</span>;
+}
+
+function FichaField({
+  label, children, fw = [], fullWidth = false, hint,
+}: {
+  label: string; children: React.ReactNode; fw?: string[]; fullWidth?: boolean; hint?: string;
+}) {
+  return (
+    <div className={`px-5 py-4 border-b border-ltb ${fullWidth ? 'col-span-full' : ''}`}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">{label}</span>
+        {fw.map(f => <FwTag key={f} fw={f} />)}
+      </div>
+      <div className="font-sora text-[13px] text-ltt leading-relaxed">{children}</div>
+      {hint && <div className="font-sora text-[11px] text-lttm mt-1 leading-relaxed">{hint}</div>}
+    </div>
+  );
+}
+
+function FichaBlock({
+  title, icon, children, completeness,
+}: {
+  title: string; icon: string; children: React.ReactNode; completeness?: { filled: number; total: number };
+}) {
+  const pct = completeness ? Math.round((completeness.filled / completeness.total) * 100) : null;
+  return (
+    <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+      <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[16px] leading-none">{icon}</span>
+          <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">{title}</span>
+        </div>
+        {pct !== null && (
+          <div className="flex items-center gap-2">
+            <div className="w-[80px] h-[4px] rounded-full bg-ltb overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${pct >= 75 ? 'bg-gr' : pct >= 40 ? 'bg-or' : 'bg-re'}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="font-plex text-[10px] text-lttm">{completeness?.filled}/{completeness?.total}</span>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const EVIDENCE_STATUS_META: Record<string, { label: string; pill: string }> = {
   draft: { label: 'Borrador', pill: 'bg-ltcard2 text-lttm border-ltb' },
   valid: { label: 'Válida', pill: 'bg-grdim text-gr border-grb' },
@@ -422,6 +577,15 @@ function formatBool(value: boolean | null, trueLabel = 'Sí', falseLabel = 'No')
 
 function formatDocStatus(value: string | null) {
   return value ? DOC_STATUS_LABELS[value] ?? value : '—';
+}
+
+function isFilled(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'number') return true;
+  if (typeof v === 'boolean') return true; // false is still a valid answer
+  return false;
 }
 
 function obligationStatusFromSystem(system: SystemDetailData, obligation: string) {
@@ -1239,22 +1403,6 @@ export function SystemDetailClient({
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDasharray = `${circleCircumference * (compliance / 100)} ${circleCircumference}`;
 
-  const fichaRows = [
-    { key: 'Descripción', val: system.description ?? '—' },
-    { key: 'Uso previsto', val: system.intended_use ?? '—' },
-    { key: 'Dominio de aplicación', val: domainMeta.label },
-    { key: 'Tipo de output', val: system.output_type ? OUTPUT_LABELS[system.output_type] ?? system.output_type : '—' },
-    { key: '¿Afecta a personas?', val: formatBool(system.affects_persons) },
-    { key: 'Tipo de sistema IA', val: system.ai_system_type ? AI_TYPE_LABELS[system.ai_system_type] ?? system.ai_system_type : '—' },
-    { key: 'Modelo base', val: system.base_model ?? '—' },
-    { key: 'Datos de entrenamiento', val: `${formatDocStatus(system.training_data_doc)} · ${formatJoined(system.data_sources)}` },
-    { key: 'Proveedor / Origen', val: system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : '—' },
-    { key: 'Responsable técnico', val: system.tech_lead ?? '—' },
-    { key: 'Fecha de despliegue', val: formatDate(system.deployed_at) },
-    { key: 'Entornos activos', val: formatJoined(system.active_environments) },
-    { key: 'Documentación existente', val: formatDocStatus(system.has_tech_doc) },
-    { key: 'Revisión humana', val: system.has_human_oversight ? `${formatDocStatus(system.has_human_oversight)}${system.oversight_type ? ` · ${OVERSIGHT_LABELS[system.oversight_type] ?? system.oversight_type}` : ''}` : '—' },
-  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-ltbg text-ltt">
@@ -1544,27 +1692,248 @@ export function SystemDetailClient({
               )}
 
               {activeTab === 'Ficha técnica' && (
-                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
-                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
-                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Atributos del sistema</span>
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-fraunces text-[18px] font-semibold text-ltt mb-1">Ficha técnica</h2>
+                      <p className="font-sora text-[12px] text-lttm">Información completa del sistema organizada por dominio de responsabilidad</p>
+                    </div>
                     <Link
                       href={`/inventario/${system.id}/editar`}
-                      className="px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltbg border border-ltb transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltbg border border-ltb transition-all"
                     >
-                      ✏ Editar
+                      ✏ Editar ficha
                     </Link>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2">
-                    {fichaRows.map((row, index) => (
-                      <div
-                        key={row.key}
-                        className={`p-4 border-b border-ltb ${index % 2 === 0 ? 'md:border-r' : ''} ${index === 0 ? 'col-span-full border-r-0' : ''}`}
-                      >
-                        <div className="font-plex text-[10px] uppercase text-lttm tracking-[0.8px] mb-1.5">{row.key}</div>
-                        <div className="font-sora text-[13.5px] text-ltt leading-relaxed">{row.val}</div>
+
+                  {/* Bloque 1 — Resumen ejecutivo */}
+                  <FichaBlock
+                    title="Resumen ejecutivo"
+                    icon="🎯"
+                    completeness={{
+                      filled: [system.description, system.intended_use, system.prohibited_uses, system.output_type, system.affects_persons, system.deployed_at, system.usage_scale, system.geo_scope].filter(isFilled).length,
+                      total: 8,
+                    }}
+                  >
+                    <FichaField label="Descripción" fullWidth>
+                      {system.description ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Versión">
+                      <span>{system.version}</span>
+                      {system.internal_id && <span className="text-lttm font-plex text-[11px] ml-2">· ID: {system.internal_id}</span>}
+                    </FichaField>
+                    <FichaField label="Dominio">
+                      {domainMeta.emoji} {domainMeta.label}
+                    </FichaField>
+                    <FichaField label="Uso previsto" fullWidth>
+                      {system.intended_use ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Usos prohibidos" fullWidth>
+                      {system.prohibited_uses ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Tipo de output">
+                      {system.output_type ? OUTPUT_LABELS[system.output_type] ?? system.output_type : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="¿Afecta a personas?">
+                      <BoolBadge value={system.affects_persons} />
+                    </FichaField>
+                    <FichaField label="Fecha de despliegue">
+                      {formatDate(system.deployed_at)}
+                    </FichaField>
+                    <FichaField label="Escala de uso">
+                      {system.usage_scale ? USAGE_SCALE_LABELS[system.usage_scale] ?? system.usage_scale : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Ámbito geográfico">
+                      {formatJoined(system.geo_scope)}
+                    </FichaField>
+                    <FichaField label="Usuarios objetivo">
+                      {formatJoined(system.target_users)}
+                    </FichaField>
+                    <FichaField label="Interacción directa con personas">
+                      <BoolBadge value={system.interacts_persons} />
+                    </FichaField>
+                  </FichaBlock>
+
+                  {/* Bloque 2 — Datos y privacidad */}
+                  <FichaBlock
+                    title="Datos y privacidad"
+                    icon="🔒"
+                    completeness={{
+                      filled: [system.processes_personal_data, system.data_categories, system.legal_bases, system.dpia_completed, system.data_volume, system.data_retention].filter(isFilled).length,
+                      total: 6,
+                    }}
+                  >
+                    <FichaField label="Trata datos personales" fw={['RGPD']}>
+                      <BoolBadge value={system.processes_personal_data} />
+                    </FichaField>
+                    <FichaField label="DPO involucrado" fw={['RGPD']}>
+                      <BoolBadge value={system.dpo_involved} />
+                    </FichaField>
+                    <FichaField label="DPIA completada" fw={['RGPD']}>
+                      <DocStatusBadge value={system.dpia_completed} />
+                    </FichaField>
+                    <FichaField label="Transferencias internacionales" fw={['RGPD']}>
+                      <BoolBadge value={system.intl_data_transfers} trueLabel="Sí, hay transferencias" falseLabel="No" />
+                    </FichaField>
+                    <FichaField label="Categorías de datos" fullWidth fw={['RGPD']}>
+                      {system.data_categories && system.data_categories.length > 0
+                        ? system.data_categories.join(' · ')
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Categorías especiales (Art. 9)" fullWidth fw={['RGPD']}>
+                      {system.special_categories && system.special_categories.length > 0
+                        ? system.special_categories.join(' · ')
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Bases jurídicas (Art. 6)" fullWidth fw={['RGPD']}>
+                      {system.legal_bases && system.legal_bases.length > 0
+                        ? system.legal_bases.map((k) => LEGAL_BASE_LABELS[k] ?? k).join(' · ')
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Bases jurídicas Art. 9" fullWidth fw={['RGPD']}>
+                      {system.legal_bases_art9 && system.legal_bases_art9.length > 0
+                        ? system.legal_bases_art9.map((k) => LEGAL_BASE_ART9_LABELS[k] ?? k).join(' · ')
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Volumen de datos">
+                      {system.data_volume ? DATA_VOLUME_LABELS[system.data_volume] ?? system.data_volume : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Retención de datos">
+                      {system.data_retention ? DATA_RETENTION_LABELS[system.data_retention] ?? system.data_retention : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Fuentes de datos" fullWidth>
+                      {formatJoined(system.data_sources)}
+                    </FichaField>
+                    <FichaField label="Documentación datos de entrenamiento" fullWidth>
+                      <DocStatusBadge value={system.training_data_doc} />
+                    </FichaField>
+                  </FichaBlock>
+
+                  {/* Bloque 3 — Tecnología */}
+                  <FichaBlock
+                    title="Tecnología"
+                    icon="⚙️"
+                    completeness={{
+                      filled: [system.ai_system_type, system.provider_origin, system.base_model || system.external_model || system.oss_model_name, system.frameworks, system.active_environments, system.has_explainability].filter(isFilled).length,
+                      total: 6,
+                    }}
+                  >
+                    <FichaField label="Tipo de sistema IA">
+                      {system.ai_system_type ? AI_TYPE_LABELS_EXT[system.ai_system_type] ?? system.ai_system_type : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Origen del proveedor">
+                      {system.provider_origin ? PROVIDER_LABELS_EXT[system.provider_origin] ?? system.provider_origin : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Modelo base">
+                      {system.base_model ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Modelo externo / Proveedor">
+                      {system.external_model
+                        ? `${system.external_model}${system.external_provider ? ` · ${system.external_provider}` : ''}`
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Modelo OSS">
+                      {system.oss_model_name
+                        ? `${system.oss_model_name}${system.oss_license ? ` · ${system.oss_license}` : ''}`
+                        : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Frameworks">
+                      {system.frameworks ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Fine-tuning">
+                      <BoolBadge value={system.has_fine_tuning} />
+                    </FichaField>
+                    <FichaField label="Herramientas externas (tool use)">
+                      <BoolBadge value={system.has_external_tools} />
+                    </FichaField>
+                    <FichaField label="Explicabilidad">
+                      <DocStatusBadge value={system.has_explainability} />
+                    </FichaField>
+                    <FichaField label="Integración MLOps">
+                      {system.mlops_integration ? MLOPS_LABELS[system.mlops_integration] ?? system.mlops_integration : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Entornos activos" fullWidth>
+                      {formatJoined(system.active_environments)}
+                    </FichaField>
+                    <FichaField label="Descripción técnica" fullWidth>
+                      {system.technical_description ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                  </FichaBlock>
+
+                  {/* Bloque 4 — Gobierno y controles */}
+                  <FichaBlock
+                    title="Gobierno y controles"
+                    icon="🛡️"
+                    completeness={{
+                      filled: [system.ai_owner, system.responsible_team, system.tech_lead, system.review_frequency, system.last_review_date, system.has_tech_doc, system.has_logging, system.has_human_oversight, system.has_risk_assessment, system.cert_status].filter(isFilled).length,
+                      total: 10,
+                    }}
+                  >
+                    <FichaField label="Responsable IA (AI Owner)" fw={['ISO']}>
+                      {system.ai_owner ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Equipo responsable">
+                      {system.responsible_team ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Responsable técnico">
+                      {system.tech_lead ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Sponsor ejecutivo">
+                      {system.executive_sponsor ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="SLA definido">
+                      <BoolBadge value={system.has_sla} />
+                    </FichaField>
+                    <FichaField label="Frecuencia de revisión" fw={['ISO']}>
+                      {system.review_frequency ? REVIEW_FREQ_LABELS[system.review_frequency] ?? system.review_frequency : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Última revisión">
+                      {formatDate(system.last_review_date)}
+                    </FichaField>
+                    <FichaField label="Próxima auditoría" fw={['AI ACT']}>
+                      {formatDate(system.next_audit_date)}
+                    </FichaField>
+                    <FichaField label="Contacto de incidencias">
+                      {system.incident_contact ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Proveedores críticos">
+                      {system.critical_providers ?? <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Documentación técnica" fw={['AI ACT', 'ISO']}>
+                      <DocStatusBadge value={system.has_tech_doc} />
+                    </FichaField>
+                    <FichaField label="Logging y trazabilidad" fw={['AI ACT', 'ISO']}>
+                      <DocStatusBadge value={system.has_logging} />
+                    </FichaField>
+                    <FichaField label="Supervisión humana" fw={['AI ACT']}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <DocStatusBadge value={system.has_human_oversight} />
+                        {system.oversight_type && (
+                          <span className="font-sora text-[12px] text-lttm">{OVERSIGHT_LABELS[system.oversight_type] ?? system.oversight_type}</span>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    </FichaField>
+                    <FichaField label="Mecanismo de reclamación" fw={['AI ACT']}>
+                      <BoolBadge value={system.has_complaint_mechanism} />
+                    </FichaField>
+                    <FichaField label="Evaluación de riesgos" fw={['AI ACT', 'ISO']}>
+                      <DocStatusBadge value={system.has_risk_assessment} />
+                    </FichaField>
+                    <FichaField label="Test adversarial" fw={['AI ACT']}>
+                      <BoolBadge value={system.has_adversarial_test} />
+                    </FichaField>
+                    <FichaField label="Riesgo residual">
+                      {system.residual_risk ? RESIDUAL_RISK_LABELS[system.residual_risk] ?? system.residual_risk : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    <FichaField label="Estado de certificación" fw={['AI ACT']}>
+                      {system.cert_status ? CERT_STATUS_LABELS[system.cert_status] ?? system.cert_status : <span className="text-lttm">—</span>}
+                    </FichaField>
+                    {system.mitigation_notes && (
+                      <FichaField label="Notas de mitigación" fullWidth>
+                        {system.mitigation_notes}
+                      </FichaField>
+                    )}
+                  </FichaBlock>
                 </div>
               )}
 
