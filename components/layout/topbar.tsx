@@ -86,13 +86,18 @@ export function Topbar() {
     setMenuOpen((prev) => !prev)
   }
 
-  const displayName = profile?.first_name
-    ? `${profile.first_name} ${profile.last_name || ''}`.trim()
-    : user?.email?.split('@')[0] || (isLoading ? 'Cargando' : 'Usuario')
+  const displayName = (profile?.display_name || profile?.full_name || '').trim()
+    || user?.email?.split('@')[0]
+    || (isLoading ? 'Cargando' : 'Usuario')
 
-  const initials = `${profile?.first_name?.[0] || user?.email?.[0] || '?'}${profile?.last_name?.[0] || ''}`
-    .trim()
+  const initials = (profile?.display_name || profile?.full_name || user?.email || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map((w: string) => w[0])
+    .slice(0, 2)
+    .join('')
     .toUpperCase()
+    || '?'
 
   return (
     <header className="flex-shrink-0 h-[52px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
