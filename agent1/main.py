@@ -420,4 +420,5 @@ register_classification_routes(
     sb=sb,
     verify_token=verify_token,
     get_user_profile=get_user_profile,
+    openai_client=openai_client,
 )

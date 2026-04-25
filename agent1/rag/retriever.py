@@ -69,8 +69,11 @@ def retrieve_chunks(
     embedding = embed_query(query)
 
     # Llamar a la función RPC pública (wrapper de rag.search_chunks)
+    # pgvector acepta "[0.1,0.2,...]" — str(list) produce espacios tras las comas
+    embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+
     params = {
-        "query_embedding":   str(embedding),
+        "query_embedding":   embedding_str,
         "source_types":      source_types,
         "match_count":       match_count,
         "match_threshold":   match_threshold,
