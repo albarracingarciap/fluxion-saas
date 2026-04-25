@@ -256,6 +256,25 @@ export async function saveAISystem(formData: Record<string, any>) {
     },
   ]);
 
+  // Llamar al backend para crear el classification_event inicial y las system_obligations
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const agentUrl = process.env.AGENT_SERVER_URL || 'http://localhost:8001';
+      await fetch(`${agentUrl}/api/v1/systems/${data.id}/classify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  } catch (classifyError) {
+    // No bloquear el registro si la clasificación inicial falla — el usuario puede
+    // relanzarla manualmente desde la vista de detalle del sistema.
+    console.error('Error en clasificación inicial (no bloqueante):', classifyError);
+  }
+
   revalidatePath('/inventario');
   return { success: true, id: data.id };
 }

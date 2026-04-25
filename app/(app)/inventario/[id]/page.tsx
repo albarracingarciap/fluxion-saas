@@ -117,6 +117,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       iso_42001_score,
       iso_42001_checks,
       iso_42001_updated_at,
+      current_classification_event_id,
       created_by,
       updated_by,
       created_at,
@@ -128,6 +129,13 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
 
   if (systemError || !system) notFound();
 
+  // Historial de clasificaciones (versión, método, autor, fecha)
+  const { data: classificationEventRows } = await fluxion
+    .from('classification_events')
+    .select('id, version, method, risk_level, risk_label, basis, reason, obligations_set, status, review_notes, created_by, created_at')
+    .eq('ai_system_id', params.id)
+    .order('version', { ascending: false });
+
   const { data: historyRows } = await fluxion
     .from('ai_system_history')
     .select('id, event_type, event_title, event_summary, payload, actor_user_id, created_at')
@@ -136,11 +144,14 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     .order('created_at', { ascending: false });
 
   const actorIds = Array.from(
-    new Set(
-      (historyRows ?? [])
+    new Set([
+      ...(historyRows ?? [])
         .map((row) => row.actor_user_id)
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    )
+        .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ...(classificationEventRows ?? [])
+        .map((row) => row.created_by)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0),
+    ])
   );
 
   const actorNames = new Map<string, string>();
@@ -148,11 +159,11 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (actorIds.length > 0) {
     const { data: profiles } = await fluxion
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, full_name, display_name')
       .in('id', actorIds);
 
     for (const profile of profiles ?? []) {
-      const fullName = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim();
+      const fullName = (profile.display_name || profile.full_name || '').trim();
       actorNames.set(profile.id, fullName || 'Usuario');
     }
   }
@@ -167,6 +178,22 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     actor_name: row.actor_user_id ? actorNames.get(row.actor_user_id) ?? 'Usuario' : null,
     created_at: row.created_at,
     synthetic: false,
+  }));
+
+  const classificationEvents = (classificationEventRows ?? []).map((row) => ({
+    id:              row.id as string,
+    version:         row.version as number,
+    method:          row.method as string,
+    risk_level:      row.risk_level as string,
+    risk_label:      row.risk_label as string,
+    basis:           (row.basis ?? null) as string | null,
+    reason:          (row.reason ?? null) as string | null,
+    obligations_set: (row.obligations_set ?? []) as string[],
+    status:          row.status as string,
+    review_notes:    (row.review_notes ?? null) as string | null,
+    created_by:      (row.created_by ?? null) as string | null,
+    created_by_name: row.created_by ? actorNames.get(row.created_by) ?? 'Usuario' : null,
+    created_at:      row.created_at as string,
   }));
 
   const { data: evidenceRows } = await fluxion
@@ -209,11 +236,11 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (missingEvidenceActorIds.length > 0) {
     const { data: profiles } = await fluxion
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, full_name, display_name')
       .in('id', missingEvidenceActorIds);
 
     for (const profile of profiles ?? []) {
-      const fullName = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim();
+      const fullName = (profile.display_name || profile.full_name || '').trim();
       evidenceNames.set(profile.id, fullName || 'Usuario');
     }
   }
@@ -261,6 +288,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       id,
       source_framework,
       obligation_code,
+      obligation_key,
+      obligation_label,
       title,
       description,
       status,
@@ -276,6 +305,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     `)
     .eq('organization_id', membership.organization_id)
     .eq('ai_system_id', params.id)
+    .is('archived_at', null)
     .order('created_at', { ascending: false });
 
   const obligationIds = (obligationRows ?? []).map((row) => row.id);
@@ -309,11 +339,11 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (missingObligationActorIds.length > 0) {
     const { data: profiles } = await fluxion
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, full_name, display_name')
       .in('id', missingObligationActorIds);
 
     for (const profile of profiles ?? []) {
-      const fullName = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim();
+      const fullName = (profile.display_name || profile.full_name || '').trim();
       obligationNames.set(profile.id, fullName || 'Usuario');
     }
   }
@@ -326,7 +356,9 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   const obligationRecords: SystemObligationEntry[] = (obligationRows ?? []).map((row) => ({
     id: row.id,
     source_framework: row.source_framework,
-    obligation_code: row.obligation_code,
+    obligation_code: row.obligation_code ?? null,
+    obligation_key: row.obligation_key ?? null,
+    obligation_label: row.obligation_label ?? null,
     title: row.title,
     description: row.description,
     status: row.status,
@@ -382,11 +414,11 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (missingFailureModeCreatorIds.length > 0) {
     const { data: profiles } = await fluxion
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, full_name, display_name')
       .in('id', missingFailureModeCreatorIds);
 
     for (const profile of profiles ?? []) {
-      const fullName = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim();
+      const fullName = (profile.display_name || profile.full_name || '').trim();
       failureModeNames.set(profile.id, fullName || 'Usuario');
     }
   }
@@ -493,6 +525,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       system={system}
       organizationId={membership.organization_id}
       history={history}
+      classificationEvents={classificationEvents}
       evidences={evidences}
       evidenceStatusMap={evidenceStatusMap}
       obligationRecords={obligationRecords}

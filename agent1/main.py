@@ -28,6 +28,7 @@ from agent1.prompts.classification import (
 )
 from agent1.rag.retriever import retrieve_for_classification
 from agent1.routes.assistant import register_assistant_routes
+from agent1.routes.classification import register_classification_routes
 
 
 load_dotenv(Path(__file__).parent.parent / '.env.local')
@@ -80,8 +81,8 @@ def verify_token(authorization: str) -> dict:
 
 
 def get_user_profile(user_id: str) -> dict:
-    result = sb.schema("fluxion").table("organization_members")\
-        .select("user_id, organization_id, role")\
+    result = sb.schema("fluxion").table("profiles")\
+        .select("id, user_id, organization_id, role")\
         .eq("user_id", user_id)\
         .single()\
         .execute()
@@ -410,6 +411,13 @@ register_assistant_routes(
     app=app,
     sb=sb,
     openai_client=openai_client,
+    verify_token=verify_token,
+    get_user_profile=get_user_profile,
+)
+
+register_classification_routes(
+    app=app,
+    sb=sb,
     verify_token=verify_token,
     get_user_profile=get_user_profile,
 )

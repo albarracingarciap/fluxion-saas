@@ -27,11 +27,14 @@ import {
 } from 'lucide-react';
 import { createSystemEvidence } from './evidencias/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
-import { reviewSystemClassification } from './clasificacion/actions';
 import { activateSystemFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
+import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { ClassificationPanel } from '@/components/classification/ClassificationPanel';
+import { ReconciliationPanel } from '@/components/classification/ReconciliationPanel';
+import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
+import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
 import { useAuthStore } from '@/lib/store/authStore';
 
@@ -73,6 +76,8 @@ export type SystemObligationEntry = {
   id: string;
   source_framework: string;
   obligation_code: string | null;
+  obligation_key: string | null;
+  obligation_label: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -744,6 +749,7 @@ export function SystemDetailClient({
   system,
   organizationId,
   history,
+  classificationEvents,
   evidences,
   evidenceStatusMap,
   obligationRecords,
@@ -754,6 +760,7 @@ export function SystemDetailClient({
   system: SystemDetailData;
   organizationId: string;
   history: SystemHistoryEntry[];
+  classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
   evidenceStatusMap: Record<string, string>;
   obligationRecords: SystemObligationEntry[];
@@ -901,6 +908,8 @@ export function SystemDetailClient({
   }, [history]);
 
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
+  const [pendingReconciliation, setPendingReconciliation] = useState<{ id: string; version: number; risk_level: string; risk_label: string } | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
   const [liveRiskLevel, setLiveRiskLevel] = useState<RiskLevel>(
     (system.aiact_risk_level as RiskLevel) ?? 'pending'
   );
@@ -910,13 +919,42 @@ export function SystemDetailClient({
   const statusMeta = STATUS_CONFIG[system.status] ?? STATUS_CONFIG.deprecado;
 
   const obligations = useMemo(() => {
+    // Si hay registros en system_obligations (fuente de verdad post-reconciliación),
+    // usarlos directamente. Fallback a aiact_obligations para sistemas legacy sin registros.
+    if (obligationRecords.length > 0) {
+      return obligationRecords.map((record) => {
+        const name = record.obligation_label ?? record.title;
+        const ref = record.obligation_key ?? record.obligation_code ?? name.split(' — ')[0] ?? name;
+        const evIds = record.evidence_ids ?? [];
+        const evStatuses = evIds.map((id) => evidenceStatusMap[id]).filter(Boolean) as string[];
+        return {
+          id: record.id,
+          name,
+          ref,
+          systemStatus: record.status,
+          status: record.status,
+          statusLabel: OBLIGATION_STATUS_META[record.status]?.label ?? 'Pendiente',
+          evidenceBadge: computeEvidenceBadge(record.status, evStatuses),
+          priority: record.priority ?? 'medium',
+          dueDate: record.due_date ?? null,
+          notes: record.notes ?? null,
+          resolutionNotes: record.resolution_notes ?? null,
+          evidenceIds: evIds,
+          ownerName: record.owner_name ?? null,
+          resolvedByName: record.resolved_by_name ?? null,
+          isSynthetic: false,
+        };
+      });
+    }
+
+    // Fallback legacy: systems without system_obligations rows
     const persistedByCode = new Map(
       obligationRecords
         .filter((record) => record.source_framework === 'AI_ACT')
         .map((record) => [record.obligation_code ?? record.title, record])
     );
 
-    const items = (system.aiact_obligations ?? []).map((obligation) => {
+    return (system.aiact_obligations ?? []).map((obligation) => {
       const ref = obligation.split(' — ')[0] ?? obligation;
       const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
       const heuristicStatus = obligationStatusFromSystem(system, obligation);
@@ -942,8 +980,6 @@ export function SystemDetailClient({
         isSynthetic,
       };
     });
-
-    return items;
   }, [obligationRecords, system, evidenceStatusMap]);
 
   const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
@@ -1173,6 +1209,12 @@ export function SystemDetailClient({
     }
   }, [failureModePage, paginatedFailureModes.totalPages]);
 
+  useEffect(() => {
+    getPendingReconciliation(system.id).then(({ data }) => {
+      if (data) setPendingReconciliation(data as typeof pendingReconciliation);
+    });
+  }, [system.id]);
+
   const evidenceSummary = useMemo(() => {
     return {
       total: evidences.length,
@@ -1372,30 +1414,50 @@ export function SystemDetailClient({
     setClassificationError(null);
 
     startClassificationTransition(async () => {
-      const result = await reviewSystemClassification({
-        aiSystemId: system.id,
-        domain: classificationForm.domain,
-        intendedUse: classificationForm.intendedUse,
-        outputType: classificationForm.outputType,
-        interactsPersons: classificationForm.interactsPersons,
-        isAISystem: classificationForm.isAISystem,
-        isGPAI: classificationForm.isGPAI,
-        prohibitedPractice: classificationForm.prohibitedPractice,
-        affectsPersons: classificationForm.affectsPersons,
-        vulnerableGroups: classificationForm.vulnerableGroups,
-        hasMinors: classificationForm.hasMinors,
-        biometric: classificationForm.biometric,
-        criticalInfra: classificationForm.criticalInfra,
-        reviewNotes: classificationForm.reviewNotes,
+      const response = await fetch(`/api/v1/systems/${system.id}/reclassify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          factors: {
+            domain: classificationForm.domain,
+            output_type: classificationForm.outputType,
+            affects_persons: classificationForm.affectsPersons ?? false,
+            has_biometric: classificationForm.biometric ?? false,
+            is_gpai: classificationForm.isGPAI ?? false,
+            manages_critical_infrastructure: classificationForm.criticalInfra ?? false,
+            affects_vulnerable_groups: classificationForm.vulnerableGroups ?? false,
+            involves_minors: classificationForm.hasMinors ?? false,
+            intended_use: classificationForm.intendedUse || undefined,
+          },
+          review_notes: classificationForm.reviewNotes || undefined,
+        }),
       });
 
-      if (result?.error) {
-        setClassificationError(result.error);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        setClassificationError(err.detail ?? 'Error al reclasificar. Intenta de nuevo.');
         return;
       }
 
+      const result = await response.json();
+      const payload = result.data;
+
       closeClassificationModal();
-      router.refresh();
+
+      if (!payload.has_changes) {
+        // Sin cambios — toast informativo, sin crear ningún evento
+        alert('La clasificación no ha cambiado. El conjunto de obligaciones se mantiene.');
+        return;
+      }
+
+      // Hay cambios → abrir panel de reconciliación
+      setPendingReconciliation({
+        id: payload.event_id,
+        version: payload.version,
+        risk_level: payload.risk_level,
+        risk_label: payload.risk_label,
+      });
+      setPendingEventId(payload.event_id);
     });
   };
 
@@ -1524,25 +1586,71 @@ export function SystemDetailClient({
                       <div className="flex-1">
                         <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-re mb-1.5">Clasificación AI Act — Resultado general</div>
                         <div className={`font-fraunces text-[22px] font-semibold mb-1.5 ${riskMeta.text}`}>{riskMeta.label}</div>
-                        <div className="font-plex text-[11.5px] text-lttm">
-                          Fundamento: {system.aiact_risk_basis ?? 'Pendiente'} · Evaluado {formatDate(system.aiact_classified_at)}
-                        </div>
+                        {(() => {
+                          const activeEvent = classificationEvents.find(
+                            (e) => e.id === (system as Record<string, unknown>).current_classification_event_id
+                          ) ?? classificationEvents.find((e) => e.status === 'reconciled');
+                          const METHOD_LABELS: Record<string, string> = {
+                            initial: 'Clasificación inicial',
+                            manual_review: 'Revisión manual',
+                            ai_agent: 'Agente IA',
+                            rules_engine: 'Motor de reglas',
+                          };
+                          if (activeEvent) {
+                            return (
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="font-plex text-[11px] text-lttm">
+                                  v{activeEvent.version} · {METHOD_LABELS[activeEvent.method] ?? activeEvent.method}
+                                </span>
+                                {activeEvent.created_by_name && (
+                                  <span className="font-plex text-[11px] text-lttm">
+                                    por {activeEvent.created_by_name}
+                                  </span>
+                                )}
+                                <span className="font-plex text-[11px] text-lttm">
+                                  {formatDate(activeEvent.created_at)}
+                                </span>
+                                {activeEvent.basis && (
+                                  <span className="font-plex text-[11px] text-lttm">
+                                    · {activeEvent.basis}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="font-plex text-[11.5px] text-lttm">
+                              Fundamento: {system.aiact_risk_basis ?? 'Pendiente'} · Evaluado {formatDate(system.aiact_classified_at)}
+                            </div>
+                          );
+                        })()}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setIsAgentPanelOpen(true)}
-                          disabled={isAgentPanelOpen}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-brand-cyan hover:bg-cyan-dim hover:text-brand-cyan border border-cyan-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Bot className="w-3.5 h-3.5" />
-                          Clasificar con IA
-                        </button>
-                        <button
-                          onClick={openClassificationModal}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all"
-                        >
-                          ✏ Revisar clasificación
-                        </button>
+                      <div className="flex flex-col items-end gap-2">
+                        {pendingReconciliation && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-ordim border border-orb font-sora text-[11px] text-or">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            Reclasificación v{pendingReconciliation.version} pendiente de reconciliación
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setIsAgentPanelOpen(true)}
+                            disabled={isAgentPanelOpen || !!pendingReconciliation}
+                            title={pendingReconciliation ? 'Resuelve la reconciliación pendiente antes de clasificar de nuevo' : undefined}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-brand-cyan hover:bg-cyan-dim hover:text-brand-cyan border border-cyan-border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Bot className="w-3.5 h-3.5" />
+                            Clasificar con IA
+                          </button>
+                          <button
+                            onClick={openClassificationModal}
+                            disabled={!!pendingReconciliation || isSubmittingClassification}
+                            title={pendingReconciliation ? 'Resuelve la reconciliación pendiente antes de revisar la clasificación' : undefined}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[11.5px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            ✏ Revisar clasificación
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-4 border-l-2 border-re pl-3 ml-0.5">
@@ -1567,7 +1675,7 @@ export function SystemDetailClient({
                       onConfirmed={(level, summary) => {
                         setLiveRiskLevel(level);
                         const actorName = profile
-                          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || user?.email?.split('@')[0] || null
+                          ? (profile.display_name || profile.full_name || '').trim() || user?.email?.split('@')[0] || null
                           : null;
                         const newEvent: SystemHistoryEntry = {
                           id: `agent-${Date.now()}`,
@@ -1588,6 +1696,25 @@ export function SystemDetailClient({
                       isOpen={isAgentPanelOpen}
                       onClose={() => setIsAgentPanelOpen(false)}
                     />
+
+                    {pendingEventId && pendingReconciliation && (
+                      <ReconciliationPanel
+                        systemId={system.id}
+                        eventId={pendingEventId}
+                        version={pendingReconciliation.version}
+                        riskLabel={pendingReconciliation.risk_label}
+                        riskLevel={pendingReconciliation.risk_level}
+                        onConfirmed={() => {
+                          setPendingReconciliation(null);
+                          setPendingEventId(null);
+                          router.refresh();
+                        }}
+                        onCancelled={() => {
+                          setPendingReconciliation(null);
+                          setPendingEventId(null);
+                        }}
+                      />
+                    )}
                   </div>
 
                   <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
@@ -1693,6 +1820,22 @@ export function SystemDetailClient({
                       </tbody>
                     </table>
                   </div>
+                  {/* Historial de clasificaciones */}
+                  {classificationEvents.length > 0 && (
+                    <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+                      <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb">
+                        <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">
+                          Historial de clasificaciones
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <ClassificationHistorySection
+                          events={classificationEvents}
+                          activeEventId={(system as Record<string, unknown>).current_classification_event_id as string | null}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
