@@ -1435,34 +1435,19 @@ export function SystemDetailClient({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-ltcard rounded-[12px] border border-ltb shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden min-h-full">
           <div className="flex flex-col min-w-0 bg-ltcard">
             <div className="pt-8 px-8 pb-0 border-b border-ltb bg-gradient-to-b from-ltcard to-ltbg">
-              <div className="flex items-start gap-5 mb-6">
+              {/* Fila 1: icono + nombre + panel de KPIs */}
+              <div className="flex items-start gap-5 mb-3">
                 <div className="w-14 h-14 rounded-[12px] bg-ltcard2 border border-ltb flex items-center justify-center text-[28px] shrink-0 shadow-sm">
                   {domainMeta.emoji}
                 </div>
                 <div className="flex-1 min-w-0 mt-1">
-                  <h1 className="font-fraunces text-[24px] font-semibold text-ltt tracking-[-0.5px] mb-2.5 leading-tight">
+                  <h1 className="font-fraunces text-[24px] font-semibold text-ltt tracking-[-0.5px] leading-tight">
                     {system.name}
                   </h1>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${riskMeta.pill} ${riskMeta.text}`}>
-                      <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${riskMeta.text.replace('text-', 'bg-')}`} />
-                      {riskMeta.label}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${statusMeta.pill} ${statusMeta.text}`}>
-                      {statusMeta.label}
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ltcard2 text-lttm border border-ltb">
-                      {system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : 'Origen no definido'}
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-cyan-dim text-brand-cyan border border-cyan-border">
-                      {domainMeta.label}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ordim text-or border border-orb">
-                      <AlertTriangle className="w-3 h-3" /> {system.next_audit_date ? `Auditoría ${formatDate(system.next_audit_date)}` : 'Sin auditoría planificada'}
-                    </span>
+                  <div className="font-plex text-[11px] text-lttm mt-1">
+                    v{system.version}{system.internal_id ? ` · ${system.internal_id}` : ''}
                   </div>
                 </div>
-
                 <div className="flex bg-ltcard2 border border-ltb rounded-[10px] overflow-hidden shrink-0 self-start shadow-sm">
                   <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
                     <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Compliance</div>
@@ -1487,6 +1472,26 @@ export function SystemDetailClient({
                     <div className="font-sora text-[11px] text-lttm mt-[5px]">{system.responsible_team ?? 'Sin equipo asignado'}</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Fila 2: badges en horizontal a ancho completo */}
+              <div className="flex items-center gap-2 flex-wrap mb-5">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${riskMeta.pill} ${riskMeta.text}`}>
+                  <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${riskMeta.text.replace('text-', 'bg-')}`} />
+                  {riskMeta.label}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${statusMeta.pill} ${statusMeta.text}`}>
+                  {statusMeta.label}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ltcard2 text-lttm border border-ltb">
+                  {system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : 'Origen no definido'}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-cyan-dim text-brand-cyan border border-cyan-border">
+                  {domainMeta.label}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ordim text-or border border-orb">
+                  <AlertTriangle className="w-3 h-3" /> {system.next_audit_date ? `Auditoría ${formatDate(system.next_audit_date)}` : 'Sin auditoría planificada'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between border-b border-transparent">
