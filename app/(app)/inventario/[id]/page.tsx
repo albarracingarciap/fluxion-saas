@@ -159,12 +159,16 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   if (actorIds.length > 0) {
     const { data: profiles } = await fluxion
       .from('profiles')
-      .select('id, full_name, display_name')
-      .in('id', actorIds);
+      .select('id, user_id, full_name, display_name')
+      .or(`id.in.(${actorIds.join(',')}),user_id.in.(${actorIds.join(',')})`);
 
     for (const profile of profiles ?? []) {
       const fullName = (profile.display_name || profile.full_name || '').trim();
-      actorNames.set(profile.id, fullName || 'Usuario');
+      const name = fullName || 'Usuario';
+      // Mapear tanto por profile.id como por user_id (auth UID)
+      // porque distintos triggers guardan uno u otro en actor_user_id
+      actorNames.set(profile.id, name);
+      if (profile.user_id) actorNames.set(profile.user_id, name);
     }
   }
 
