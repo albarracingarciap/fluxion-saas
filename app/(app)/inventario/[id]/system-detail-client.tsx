@@ -867,9 +867,35 @@ function HistoryTab({ events }: { events: SystemHistoryEntry[] }) {
                               </div>
                             </div>
                           </div>
-                          {expanded && event.event_summary && (
-                            <div className="px-4 pb-4 pt-3 border-t border-ltb">
-                              <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed">{event.event_summary}</p>
+                          {expanded && (event.event_summary || isClasif) && (
+                            <div className="px-4 pb-4 pt-3 border-t border-ltb space-y-2 bg-ltcard">
+                              {event.event_summary && (
+                                <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed">{event.event_summary}</p>
+                              )}
+                              {isClasif && (
+                                <div className="flex flex-wrap gap-4 pt-1">
+                                  {event.payload.risk_level && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Nivel resultante</span>
+                                      <span className="font-sora text-[12px] font-semibold text-ltt">
+                                        {RISK_CONFIG[event.payload.risk_level as string]?.label ?? String(event.payload.risk_level)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {event.payload.source && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Origen</span>
+                                      <span className="font-sora text-[12px] text-ltt2">{String(event.payload.source)}</span>
+                                    </div>
+                                  )}
+                                  {event.payload.method && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Método</span>
+                                      <span className="font-sora text-[12px] text-ltt2">{String(event.payload.method)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
