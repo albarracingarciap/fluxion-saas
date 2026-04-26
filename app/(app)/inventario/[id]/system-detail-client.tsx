@@ -685,6 +685,233 @@ function getHistoryEventVisual(eventType: string) {
   return { tone: 'bg-ltcard2 text-lttm border-ltb', label: 'Evento' };
 }
 
+const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => boolean }[] = [
+  { key: 'all',         label: 'Todos',        match: () => true },
+  { key: 'aiact',       label: 'AI Act',       match: (t) => t === 'classification_recalculated' || t === 'classification_reviewed' },
+  { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
+  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' },
+  { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' },
+  { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
+  { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
+];
+
+function HistoryTab({ events }: { events: SystemHistoryEntry[] }) {
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const visibleCategories = useMemo(
+    () => HISTORY_CATEGORIES.filter((cat) => cat.key === 'all' || events.some((e) => cat.match(e.event_type))),
+    [events],
+  );
+
+  const filteredEvents = useMemo(() => {
+    const cat = HISTORY_CATEGORIES.find((c) => c.key === activeCategory);
+    if (!cat || cat.key === 'all') return events;
+    return events.filter((e) => cat.match(e.event_type));
+  }, [events, activeCategory]);
+
+  const grouped = useMemo(() => {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayMidnight = new Date(todayMidnight);
+    yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
+    const weekStart = new Date(todayMidnight);
+    weekStart.setDate(weekStart.getDate() - ((todayMidnight.getDay() + 6) % 7));
+
+    const buckets: Map<string, SystemHistoryEntry[]> = new Map();
+    for (const event of filteredEvents) {
+      const d = new Date(event.created_at);
+      const midnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      let label: string;
+      if (midnight.getTime() === todayMidnight.getTime()) label = 'Hoy';
+      else if (midnight.getTime() === yesterdayMidnight.getTime()) label = 'Ayer';
+      else if (midnight >= weekStart) label = 'Esta semana';
+      else label = midnight.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+      if (!buckets.has(label)) buckets.set(label, []);
+      buckets.get(label)!.push(event);
+    }
+    return Array.from(buckets.entries()).map(([label, evts]) => ({ label, events: evts }));
+  }, [filteredEvents]);
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function getClassificationDelta(event: SystemHistoryEntry) {
+    const payload = event.payload as { risk_level?: string; risk_label?: string };
+    if (!payload.risk_level) return null;
+    const idx = events.indexOf(event);
+    const prev = events.slice(idx + 1).find(
+      (e) => e.event_type === 'classification_recalculated' || e.event_type === 'classification_reviewed',
+    );
+    const prevP = prev?.payload as { risk_level?: string; risk_label?: string } | undefined;
+    return {
+      from:      prevP?.risk_level ?? null,
+      fromLabel: prevP?.risk_label ?? (prevP?.risk_level ? (RISK_CONFIG[prevP.risk_level]?.label ?? prevP.risk_level) : null),
+      to:        payload.risk_level,
+      toLabel:   payload.risk_label ?? RISK_CONFIG[payload.risk_level]?.label ?? payload.risk_level,
+    };
+  }
+
+  const isClassificationEvent = (t: string) =>
+    t === 'classification_recalculated' || t === 'classification_reviewed';
+
+  return (
+    <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+      <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
+        <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Historial del sistema</span>
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+          <History className="w-3 h-3" />
+          {events.length} eventos
+        </span>
+      </div>
+
+      {visibleCategories.length > 1 && (
+        <div className="px-5 py-3 flex gap-2 flex-wrap border-b border-ltb bg-ltbg">
+          {visibleCategories.map((cat) => {
+            const count = cat.key === 'all' ? events.length : events.filter((e) => cat.match(e.event_type)).length;
+            return (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] font-medium border transition-all ${
+                  activeCategory === cat.key
+                    ? 'bg-brand-blue text-white border-brand-blue'
+                    : 'bg-ltcard text-lttm border-ltb hover:border-brand-blue hover:text-brand-blue'
+                }`}
+              >
+                {cat.label}
+                <span className={`text-[9.5px] ${activeCategory === cat.key ? 'opacity-75' : 'opacity-50'}`}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="p-5">
+        {grouped.length === 0 ? (
+          <div className="py-8 text-center font-sora text-[13px] text-lttm">Sin eventos en esta categoría</div>
+        ) : (
+          <div className="space-y-6">
+            {grouped.map((group) => (
+              <div key={group.label}>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm whitespace-nowrap">{group.label}</span>
+                  <div className="flex-1 h-px bg-ltb" />
+                </div>
+                <div className="space-y-3">
+                  {group.events.map((event, index, arr) => {
+                    const visual = getHistoryEventVisual(event.event_type);
+                    const isClasif = isClassificationEvent(event.event_type);
+                    const expandable = isClasif || !!event.event_summary;
+                    const expanded = expandedIds.has(event.id);
+                    const delta = isClasif ? getClassificationDelta(event) : null;
+                    return (
+                      <div key={event.id} className="relative pl-8">
+                        {index !== arr.length - 1 && (
+                          <div className="absolute left-[11px] top-7 bottom-[-14px] w-px bg-ltb" />
+                        )}
+                        <div className={`absolute left-0 top-1.5 w-[22px] h-[22px] rounded-full border flex items-center justify-center ${visual.tone}`}>
+                          <span className="font-plex text-[9px] uppercase">{visual.label.slice(0, 2)}</span>
+                        </div>
+                        <div
+                          className={`border border-ltb rounded-[10px] bg-ltbg transition-colors ${expandable ? 'cursor-pointer hover:border-[#004aad30]' : ''}`}
+                          onClick={expandable ? () => toggleExpand(event.id) : undefined}
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className="font-sora text-[13px] font-semibold text-ltt">{event.event_title}</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${visual.tone}`}>
+                                    {visual.label}
+                                  </span>
+                                  {event.synthetic && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm">
+                                      Snapshot heredado
+                                    </span>
+                                  )}
+                                </div>
+                                {delta && (
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    {delta.from && (
+                                      <>
+                                        <span className={`inline-flex items-center px-1.5 py-px rounded-[4px] font-plex text-[10px] border ${RISK_CONFIG[delta.from]?.pill ?? 'bg-ltcard2 border-ltb'} ${RISK_CONFIG[delta.from]?.text ?? 'text-lttm'}`}>
+                                          {delta.fromLabel}
+                                        </span>
+                                        <ArrowRight className="w-3 h-3 text-lttm shrink-0" />
+                                      </>
+                                    )}
+                                    <span className={`inline-flex items-center px-1.5 py-px rounded-[4px] font-plex text-[10px] border ${RISK_CONFIG[delta.to]?.pill ?? 'bg-ltcard2 border-ltb'} ${RISK_CONFIG[delta.to]?.text ?? 'text-lttm'}`}>
+                                      {delta.toLabel}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0 flex items-start gap-2">
+                                <div>
+                                  <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-lttm">
+                                    {formatDate(event.created_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                  <div className="font-sora text-[11.5px] text-lttm mt-0.5">
+                                    {event.actor_name ?? 'Usuario de la organización'}
+                                  </div>
+                                </div>
+                                {expandable && (
+                                  <ChevronDown size={14} className={`text-lttm mt-0.5 shrink-0 transition-transform duration-200 ${expanded ? '' : '-rotate-90'}`} />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {expanded && (event.event_summary || isClasif) && (
+                            <div className="px-4 pb-4 pt-3 border-t border-ltb space-y-2 bg-ltcard">
+                              {event.event_summary && (
+                                <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed">{event.event_summary}</p>
+                              )}
+                              {isClasif && (
+                                <div className="flex flex-wrap gap-4 pt-1">
+                                  {event.payload.risk_level && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Nivel resultante</span>
+                                      <span className="font-sora text-[12px] font-semibold text-ltt">
+                                        {RISK_CONFIG[event.payload.risk_level as string]?.label ?? String(event.payload.risk_level)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {event.payload.source && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Origen</span>
+                                      <span className="font-sora text-[12px] text-ltt2">{String(event.payload.source)}</span>
+                                    </div>
+                                  )}
+                                  {event.payload.method && (
+                                    <div>
+                                      <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Método</span>
+                                      <span className="font-sora text-[12px] text-ltt2">{String(event.payload.method)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function buildSyntheticHistory(system: SystemDetailData): SystemHistoryEntry[] {
   const events: SystemHistoryEntry[] = [
     {
@@ -2206,60 +2433,7 @@ export function SystemDetailClient({
               )}
 
               {activeTab === 'Historial' && (
-                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
-                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
-                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Historial del sistema</span>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
-                      <History className="w-3 h-3" />
-                      {historyTimeline.length} eventos
-                    </span>
-                  </div>
-                  <div className="p-5">
-                    <div className="space-y-4">
-                      {historyTimeline.map((event, index) => {
-                        const visual = getHistoryEventVisual(event.event_type);
-                        return (
-                          <div key={event.id} className="relative pl-8">
-                            {index !== historyTimeline.length - 1 && (
-                              <div className="absolute left-[11px] top-7 bottom-[-18px] w-px bg-ltb" />
-                            )}
-                            <div className={`absolute left-0 top-1 w-[22px] h-[22px] rounded-full border flex items-center justify-center ${visual.tone}`}>
-                              <span className="font-plex text-[9px] uppercase">{visual.label.slice(0, 2)}</span>
-                            </div>
-                            <div className="border border-ltb rounded-[10px] bg-ltbg p-4">
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                    <span className="font-sora text-[13px] font-semibold text-ltt">{event.event_title}</span>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${visual.tone}`}>
-                                      {visual.label}
-                                    </span>
-                                    {event.synthetic && (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm">
-                                        Snapshot heredado
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
-                                    {event.event_summary ?? 'Sin resumen adicional para este evento.'}
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-lttm">
-                                    {formatDate(event.created_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                  </div>
-                                  <div className="font-sora text-[11.5px] text-lttm mt-1">
-                                    {event.actor_name ?? 'Usuario de la organización'}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                <HistoryTab events={historyTimeline} />
               )}
 
               {activeTab === 'Evidencias' && (
