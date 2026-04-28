@@ -16,6 +16,7 @@ type Props = {
   aiSystems: { id: string; name: string; internal_id: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
   members: OrgMember[]
+  aisiaStatusMap: Record<string, string>
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
@@ -38,7 +39,7 @@ const DOMAIN_SHORT: Record<string, string> = {
 type ApplicabilityFilter = 'all' | 'applicable' | 'excluded'
 type StatusFilter = 'all' | 'not_started' | 'planned' | 'in_progress' | 'implemented' | 'externalized' | 'missing_justification'
 
-export function SoAClientView({ controls, aiSystems, evidences, members }: Props) {
+export function SoAClientView({ controls, aiSystems, evidences, members, aisiaStatusMap }: Props) {
   const [selectedControl, setSelectedControl] = useState<SoAControlRecord | null>(null)
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
@@ -339,6 +340,7 @@ export function SoAClientView({ controls, aiSystems, evidences, members }: Props
           aiSystems={aiSystems}
           evidences={evidences}
           members={members}
+          aisiaStatusMap={aisiaStatusMap}
           onClose={() => setSelectedControl(null)}
         />,
         document.body
@@ -362,17 +364,26 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: string }) 
   )
 }
 
+const AISIA_BADGE: Record<string, { label: string; cls: string }> = {
+  approved:  { label: 'AISIA aprobada',  cls: 'bg-[#f0fdf4] border-[#bbf7d0] text-[#16a34a]' },
+  submitted: { label: 'AISIA en revisión', cls: 'bg-[#fff7ed] border-[#fed7aa] text-[#d97706]' },
+  draft:     { label: 'AISIA en borrador', cls: 'bg-ltbg border-ltb text-lttm' },
+  rejected:  { label: 'AISIA rechazada', cls: 'bg-red-dim border-reb text-re' },
+}
+
 function SoAEditSlideOver({
   control,
   aiSystems,
   evidences,
   members,
+  aisiaStatusMap,
   onClose,
 }: {
   control: SoAControlRecord
   aiSystems: { id: string; name: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
   members: OrgMember[]
+  aisiaStatusMap: Record<string, string>
   onClose: () => void
 }) {
   const catalogEntry = ISO_42001_CONTROLS.find((c) => c.id === control.id)
@@ -600,12 +611,14 @@ function SoAEditSlideOver({
                   Selecciona a qué sistemas de IA de tu inventario afecta o restringe concretamente este control.
                 </p>
               </div>
-              <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto p-1">
+              <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto p-1">
                 {aiSystems.length === 0 ? (
                   <p className="text-[12px] text-ltt2 italic">No hay sistemas en el inventario.</p>
                 ) : (
                   aiSystems.map((sys) => {
                     const isLinked = linkedSystems.has(sys.id)
+                    const aisiaStatus = aisiaStatusMap[sys.id]
+                    const aisiaBadge = aisiaStatus ? (AISIA_BADGE[aisiaStatus] ?? null) : null
                     return (
                       <button
                         key={sys.id}
@@ -614,8 +627,20 @@ function SoAEditSlideOver({
                           isLinked ? 'bg-cyan-dim border-cyan-border text-brand-cyan' : 'bg-ltcard border-ltb text-ltt hover:bg-ltbg'
                         }`}
                       >
-                        <span className="font-sora text-[13px]">{sys.name}</span>
-                        {isLinked && <Check size={14} />}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-sora text-[13px] truncate">{sys.name}</span>
+                          {aisiaBadge && (
+                            <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] border ${aisiaBadge.cls}`}>
+                              {aisiaBadge.label}
+                            </span>
+                          )}
+                          {!aisiaStatus && (
+                            <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] border bg-ltbg border-ltb text-lttm">
+                              Sin evaluación
+                            </span>
+                          )}
+                        </div>
+                        {isLinked && <Check size={14} className="shrink-0 ml-2" />}
                       </button>
                     )
                   })

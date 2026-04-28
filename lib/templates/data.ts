@@ -88,7 +88,23 @@ export async function buildSoAData(organizationId: string) {
 
   const memberNameMap = new Map(members.map((m) => [m.id, m.display_name]))
 
-  // 2.e Fetch distinct tags from ai_systems for scope selector
+  // 2.e Fetch latest AISIA assessment status per system
+  const { data: aisiaRows } = await fluxion
+    .from('aisia_assessments')
+    .select('ai_system_id, status, version')
+    .eq('organization_id', organizationId)
+    .order('version', { ascending: false })
+
+  // Keep only the highest-version assessment per system
+  const aisiaStatusMap: Record<string, string> = {}
+  for (const row of aisiaRows ?? []) {
+    const systemId = row.ai_system_id as string
+    if (!aisiaStatusMap[systemId]) {
+      aisiaStatusMap[systemId] = row.status as string
+    }
+  }
+
+  // 2.f Fetch distinct tags from ai_systems for scope selector
   const { data: systemsWithTags } = await fluxion
     .from('ai_systems')
     .select('tags')
@@ -149,6 +165,7 @@ export async function buildSoAData(organizationId: string) {
     aiSystems: aiSystems ?? [],
     evidences: evidences ?? [],
     members,
+    aisiaStatusMap,
     availableTags,
     kpis: {
       totalControls,

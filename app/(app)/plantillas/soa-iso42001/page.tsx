@@ -86,7 +86,7 @@ export default async function SoAPage() {
             />
           </section>
 
-          <SoAClientView controls={data.controls} aiSystems={data.aiSystems} evidences={data.evidences} members={data.members} />
+          <SoAClientView controls={data.controls} aiSystems={data.aiSystems} evidences={data.evidences} members={data.members} aisiaStatusMap={data.aisiaStatusMap} />
           
           <SoAPrintView 
             metadata={data.metadata} 
