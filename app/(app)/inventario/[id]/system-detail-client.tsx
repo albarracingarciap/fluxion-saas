@@ -27,7 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { createSystemEvidence } from './evidencias/actions';
-import { initAisia } from './aisia/actions';
+import { initAisia, approveAisia, rejectAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
@@ -982,21 +982,38 @@ function getSoaBadge(soaState: SoaControlState | undefined) {
   return { label: 'No iniciado', cls: 'bg-ltcard text-lttm border-ltb' };
 }
 
+const APPROVER_ROLES = ['org_admin', 'sgai_manager', 'caio'] as const;
+
 function IsoTab({
   system,
   aisia,
   soaControls,
+  userRole,
   onInitAisia,
   isInitingAisia,
   aisiaError,
+  onApproveAisia,
+  onRejectAisia,
+  isApprovingAisia,
+  isRejectingAisia,
+  aisiaApprovalError,
 }: {
   system: SystemDetailData;
   aisia: AisiaAssessmentEntry | null;
   soaControls: SoaControlState[];
+  userRole: string | null | undefined;
   onInitAisia: () => void;
   isInitingAisia: boolean;
   aisiaError: string | null;
+  onApproveAisia: (assessmentId: string, minutesRef?: string) => void;
+  onRejectAisia: (assessmentId: string, reason: string) => void;
+  isApprovingAisia: boolean;
+  isRejectingAisia: boolean;
+  aisiaApprovalError: string | null;
 }) {
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [minutesRef, setMinutesRef] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const systemControls = ISO_42001_CONTROLS.filter((c) =>
     (SYSTEM_ANNEX_A_GROUPS as readonly string[]).includes(c.group)
   );
@@ -1154,6 +1171,122 @@ function IsoTab({
                   <div className="font-plex text-[12px] font-semibold text-re mb-0.5">Motivo del rechazo</div>
                   <div className="text-[12px] text-lttm">{aisia.rejection_reason}</div>
                 </div>
+              </div>
+            )}
+
+            {/* ── Panel de aprobación (solo cuando submitted) ── */}
+            {aisia.status === 'submitted' && (
+              <div className="mt-4 pt-4 border-t border-ltb space-y-3">
+                {/* Banner de estado */}
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[8px] bg-ordim border border-orb">
+                  <span className="w-2 h-2 rounded-full bg-or shrink-0" />
+                  <span className="font-plex text-[12px] text-or font-medium flex-1">
+                    Evaluación enviada — pendiente de aprobación por el comité
+                  </span>
+                </div>
+
+                {/* Error de acción */}
+                {aisiaApprovalError && (
+                  <div className="px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
+                    {aisiaApprovalError}
+                  </div>
+                )}
+
+                {/* Acciones — solo para aprobadores */}
+                {userRole && (APPROVER_ROLES as readonly string[]).includes(userRole) && (
+                  <div className="space-y-2">
+                    {/* Sin formulario abierto: botones principales */}
+                    {approvalAction === null && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setApprovalAction('approve')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-grdim border border-grb text-gr font-plex text-[12.5px] font-medium hover:bg-gr/20 transition-colors"
+                        >
+                          ✓ Aprobar evaluación
+                        </button>
+                        <button
+                          onClick={() => setApprovalAction('reject')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-red-dim border border-reb text-re font-plex text-[12.5px] font-medium hover:bg-re/20 transition-colors"
+                        >
+                          ✕ Rechazar
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Formulario de aprobación */}
+                    {approvalAction === 'approve' && (
+                      <div className="rounded-[8px] border border-grb bg-grdim p-3.5 space-y-2.5">
+                        <div className="font-plex text-[12px] font-semibold text-gr">Confirmar aprobación</div>
+                        <div>
+                          <label className="block font-plex text-[11px] text-lttm mb-1">
+                            Referencia de actas <span className="text-lttm">(opcional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={minutesRef}
+                            onChange={(e) => setMinutesRef(e.target.value)}
+                            placeholder="Ej. Acta comité 2026-04-28 / punto 3"
+                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#004aad66]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onApproveAisia(aisia.id, minutesRef || undefined)}
+                            disabled={isApprovingAisia}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-gr text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isApprovingAisia ? 'Aprobando…' : 'Confirmar aprobación'}
+                          </button>
+                          <button
+                            onClick={() => { setApprovalAction(null); setMinutesRef(''); }}
+                            disabled={isApprovingAisia}
+                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Formulario de rechazo */}
+                    {approvalAction === 'reject' && (
+                      <div className="rounded-[8px] border border-reb bg-red-dim p-3.5 space-y-2.5">
+                        <div className="font-plex text-[12px] font-semibold text-re">Rechazar evaluación</div>
+                        <div>
+                          <label className="block font-plex text-[11px] text-lttm mb-1">
+                            Motivo del rechazo <span className="text-re">*</span>
+                          </label>
+                          <textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="Describe qué debe corregirse para que la evaluación pueda aprobarse…"
+                            rows={3}
+                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#d9534f66] resize-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (!rejectReason.trim()) return;
+                              onRejectAisia(aisia.id, rejectReason.trim());
+                            }}
+                            disabled={isRejectingAisia || !rejectReason.trim()}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-re text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isRejectingAisia ? 'Rechazando…' : 'Confirmar rechazo'}
+                          </button>
+                          <button
+                            onClick={() => { setApprovalAction(null); setRejectReason(''); }}
+                            disabled={isRejectingAisia}
+                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1475,6 +1608,34 @@ export function SystemDetailClient({
       const result = await initAisia(system.id);
       if ('error' in result && result.error) {
         setAisiaError(result.error);
+      }
+    });
+  };
+
+  const [isApprovingAisia, startApproveAisiaTransition] = useTransition();
+  const [isRejectingAisia, startRejectAisiaTransition] = useTransition();
+  const [aisiaApprovalError, setAisiaApprovalError] = useState<string | null>(null);
+
+  const handleApproveAisia = (assessmentId: string, minutesRef?: string) => {
+    startApproveAisiaTransition(async () => {
+      setAisiaApprovalError(null);
+      const result = await approveAisia(assessmentId, minutesRef);
+      if ('error' in result && result.error) {
+        setAisiaApprovalError(result.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const handleRejectAisia = (assessmentId: string, reason: string) => {
+    startRejectAisiaTransition(async () => {
+      setAisiaApprovalError(null);
+      const result = await rejectAisia(assessmentId, reason);
+      if ('error' in result && result.error) {
+        setAisiaApprovalError(result.error);
+      } else {
+        router.refresh();
       }
     });
   };
@@ -2684,9 +2845,15 @@ export function SystemDetailClient({
                   system={system}
                   aisia={aisia}
                   soaControls={soaControls}
+                  userRole={profile?.role}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
                   aisiaError={aisiaError}
+                  onApproveAisia={handleApproveAisia}
+                  onRejectAisia={handleRejectAisia}
+                  isApprovingAisia={isApprovingAisia}
+                  isRejectingAisia={isRejectingAisia}
+                  aisiaApprovalError={aisiaApprovalError}
                 />
               )}
 
