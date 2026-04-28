@@ -454,3 +454,317 @@ export async function restoreFailureMode(input: RestoreFailureModeInput) {
   revalidatePath(`/inventario/${input.aiSystemId}`);
   return { success: true };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Bulk promote: promociona múltiples modos a prioritized con la misma justificación
+// ────────────────────────────────────────────────────────────────────────────
+
+type BulkPromoteFailureModesInput = {
+  systemFailureModeIds: string[];
+  aiSystemId: string;
+  reason: string;
+};
+
+export async function bulkPromoteFailureModes(input: BulkPromoteFailureModesInput) {
+  if (!input.reason || input.reason.trim().length < 30) {
+    return { error: 'La justificación debe tener al menos 30 caracteres.' };
+  }
+  if (!input.systemFailureModeIds || input.systemFailureModeIds.length === 0) {
+    return { error: 'No hay modos seleccionados para promover.' };
+  }
+
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const reason = input.reason.trim();
+  const now = new Date().toISOString();
+
+  const { data: candidates, error: fetchError } = await fluxion
+    .from('system_failure_modes')
+    .select('id, priority_status')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', input.aiSystemId)
+    .in('id', input.systemFailureModeIds);
+
+  if (fetchError) return { error: fetchError.message };
+
+  const promotable = (candidates ?? []).filter(
+    (row) => row.priority_status === 'monitoring' || row.priority_status === 'pending_review'
+  );
+
+  if (promotable.length === 0) {
+    return { error: 'Ninguno de los modos seleccionados es promovible (deben estar en observación).' };
+  }
+
+  const ids = promotable.map((row) => row.id);
+
+  const { error: updateError } = await fluxion
+    .from('system_failure_modes')
+    .update({
+      priority_status: 'prioritized',
+      priority_source: 'human',
+      priority_notes: reason,
+      priority_reason_code: 'high_in_quota',
+      quota_dropped: false,
+      priority_changed_by: user.id,
+      priority_changed_at: now,
+    })
+    .in('id', ids)
+    .eq('organization_id', membership.organization_id);
+
+  if (updateError) return { error: updateError.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'failure_modes_bulk_promoted',
+      event_title: `${ids.length} modos de fallo promovidos a prioritarios`,
+      event_summary: `Promoción masiva de ${ids.length} modos en observación a la cola priorizada. Motivo: ${reason}`,
+      payload: {
+        system_failure_mode_ids: ids,
+        count: ids.length,
+        reason,
+      },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true, count: ids.length };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Recálculo: re-ejecuta el motor con el contexto actual, preserva decisiones humanas
+// ────────────────────────────────────────────────────────────────────────────
+
+type RecalculateSystemFailureModesInput = {
+  aiSystemId: string;
+};
+
+export async function recalculateSystemFailureModes(input: RecalculateSystemFailureModesInput) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+  const compliance = createComplianceClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  if (!input.aiSystemId) {
+    return { error: 'Falta el sistema sobre el que recalcular los modos de fallo.' };
+  }
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const { data: system, error: systemError } = await fluxion
+    .from('ai_systems')
+    .select(`
+      id, name, domain, status, aiact_risk_level, intended_use, output_type,
+      ai_system_type, provider_origin, external_provider, external_model,
+      active_environments, data_sources, special_categories,
+      is_ai_system, is_gpai, fully_automated, interacts_persons, affects_persons,
+      vulnerable_groups, involves_minors, uses_biometric_data, manages_critical_infra,
+      processes_personal_data, has_external_tools, has_tech_doc, has_logging,
+      has_human_oversight, has_risk_assessment, training_data_doc, dpia_completed,
+      review_frequency, dpo_involved
+    `)
+    .eq('organization_id', membership.organization_id)
+    .eq('id', input.aiSystemId)
+    .maybeSingle();
+
+  if (systemError || !system) {
+    return { error: 'No se pudo localizar el sistema seleccionado.' };
+  }
+
+  const { data: catalogRows, error: catalogError } = await compliance
+    .from('failure_modes')
+    .select('id, code, name, description, dimension_id, bloque, subcategoria, tipo, s_default, w_calculated')
+    .order('code', { ascending: true });
+
+  if (catalogError || !catalogRows) {
+    return { error: catalogError?.message ?? 'No se pudo cargar el catálogo de modos de fallo.' };
+  }
+
+  const context: FailureModeActivationContext = {
+    domain: system.domain,
+    status: system.status,
+    aiactRiskLevel: system.aiact_risk_level,
+    intendedUse: system.intended_use,
+    outputType: system.output_type,
+    aiSystemType: system.ai_system_type,
+    providerOrigin: system.provider_origin,
+    externalProvider: system.external_provider,
+    externalModel: system.external_model,
+    activeEnvironments: system.active_environments,
+    dataSources: system.data_sources,
+    specialCategories: system.special_categories,
+    isAISystem: system.is_ai_system,
+    isGPAI: system.is_gpai,
+    fullyAutomated: system.fully_automated,
+    interactsPersons: system.interacts_persons,
+    affectsPersons: system.affects_persons,
+    vulnerableGroups: system.vulnerable_groups,
+    hasMinors: system.involves_minors,
+    biometric: system.uses_biometric_data,
+    criticalInfra: system.manages_critical_infra,
+    processesPersonalData: system.processes_personal_data,
+    hasExternalTools: system.has_external_tools,
+    hasTechDoc: system.has_tech_doc,
+    hasLogging: system.has_logging,
+    hasHumanOversight: system.has_human_oversight,
+    hasRiskAssessment: system.has_risk_assessment,
+    trainingDataDoc: system.training_data_doc,
+    dpiaCompleted: system.dpia_completed,
+    reviewFrequency: system.review_frequency,
+    dpoInvolved: system.dpo_involved,
+  };
+
+  const activation = activateFailureModesForSystem(context, catalogRows as FailureModeCatalogRow[]);
+
+  const { data: existingRows, error: existingError } = await fluxion
+    .from('system_failure_modes')
+    .select('id, failure_mode_id, priority_source, priority_status')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', input.aiSystemId);
+
+  if (existingError) return { error: existingError.message };
+
+  const existingByModeId = new Map(
+    (existingRows ?? []).map((row) => [row.failure_mode_id, row])
+  );
+
+  const now = new Date().toISOString();
+
+  const toInsert: Record<string, unknown>[] = [];
+  const toUpdate: Array<{ id: string; payload: Record<string, unknown> }> = [];
+  let preservedHuman = 0;
+  let newlyActivated = 0;
+  let updatedByRules = 0;
+
+  for (const mode of activation.activatedModes) {
+    const existing = existingByModeId.get(mode.id);
+
+    if (!existing) {
+      toInsert.push({
+        ai_system_id: input.aiSystemId,
+        organization_id: membership.organization_id,
+        failure_mode_id: mode.id,
+        dimension_id: mode.dimension_id,
+        activation_source: 'rule',
+        activation_reason: mode.activation_reason,
+        activation_family_ids: mode.activation_family_ids,
+        activation_family_labels: mode.activation_family_labels,
+        priority_status: mode.priority_status,
+        priority_source: mode.priority_source,
+        priority_score: mode.priority_score,
+        priority_level: mode.priority_level,
+        priority_notes: mode.priority_notes,
+        priority_reason_code: mode.priority_reason_code,
+        quota_dropped: mode.quota_dropped,
+        engine_version: ENGINE_VERSION,
+        activation_signals: activation.signals,
+        priority_changed_by: user.id,
+        priority_changed_at: now,
+        created_by: user.id,
+      });
+      newlyActivated += 1;
+      continue;
+    }
+
+    if (existing.priority_source === 'human') {
+      toUpdate.push({
+        id: existing.id,
+        payload: {
+          activation_family_ids: mode.activation_family_ids,
+          activation_family_labels: mode.activation_family_labels,
+          activation_reason: mode.activation_reason,
+          engine_version: ENGINE_VERSION,
+          activation_signals: activation.signals,
+        },
+      });
+      preservedHuman += 1;
+      continue;
+    }
+
+    toUpdate.push({
+      id: existing.id,
+      payload: {
+        activation_family_ids: mode.activation_family_ids,
+        activation_family_labels: mode.activation_family_labels,
+        activation_reason: mode.activation_reason,
+        priority_status: mode.priority_status,
+        priority_score: mode.priority_score,
+        priority_level: mode.priority_level,
+        priority_notes: mode.priority_notes,
+        priority_reason_code: mode.priority_reason_code,
+        quota_dropped: mode.quota_dropped,
+        engine_version: ENGINE_VERSION,
+        activation_signals: activation.signals,
+        priority_changed_by: user.id,
+        priority_changed_at: now,
+      },
+    });
+    updatedByRules += 1;
+  }
+
+  if (toInsert.length > 0) {
+    const { error: insertError } = await fluxion
+      .from('system_failure_modes')
+      .upsert(toInsert, { onConflict: 'ai_system_id,failure_mode_id', ignoreDuplicates: false });
+    if (insertError && insertError.code !== '23505') return { error: insertError.message };
+  }
+
+  for (const upd of toUpdate) {
+    const { error: updateError } = await fluxion
+      .from('system_failure_modes')
+      .update(upd.payload)
+      .eq('id', upd.id)
+      .eq('organization_id', membership.organization_id);
+    if (updateError) return { error: updateError.message };
+  }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'failure_modes_recalculated',
+      event_title: 'Modos de fallo recalculados con contexto actual',
+      event_summary: `Recálculo del motor: ${newlyActivated} nuevos, ${updatedByRules} actualizados por reglas, ${preservedHuman} preservados por decisión humana.`,
+      payload: {
+        activation_source: 'rule',
+        engine_version: ENGINE_VERSION,
+        ...activation.metrics,
+        newly_activated: newlyActivated,
+        updated_by_rules: updatedByRules,
+        preserved_human: preservedHuman,
+        active_family_ids: activation.activeFamilies.map((family) => family.id),
+      },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return {
+    success: true,
+    metrics: activation.metrics,
+    delta: { newlyActivated, updatedByRules, preservedHuman },
+  };
+}

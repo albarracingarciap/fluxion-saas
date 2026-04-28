@@ -29,7 +29,7 @@ import {
 import { createSystemEvidence } from './evidencias/actions';
 import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
-import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode } from './modos-de-fallo/actions';
+import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
@@ -603,6 +603,57 @@ const FAILURE_MODE_PRIORITY_LEVEL_META: Record<
   high: { label: 'High', pill: 'bg-[#fff1e6] text-or border-orb' },
   medium: { label: 'Medium', pill: 'bg-cyan-dim text-brand-cyan border-cyan-border' },
   low: { label: 'Low', pill: 'bg-ltcard text-lttm border-ltb' },
+};
+
+const FAILURE_MODE_REASON_META: Record<
+  string,
+  { label: string; tooltip: string; pill: string }
+> = {
+  hard_override_severity: {
+    label: 'Severidad estructural',
+    tooltip: 'Severidad por defecto del catálogo ≥ 8: el modo entra siempre en la cola priorizada.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  hard_override_aiact: {
+    label: 'AI Act',
+    tooltip: 'Sistema clasificado como prohibido o de alto riesgo por AI Act, en dimensión clave con severidad alta.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  hard_override_sensitive_combo: {
+    label: 'Combinación sensible',
+    tooltip: 'Biometría + impacto en personas, o presencia de menores, en dimensión clave con severidad alta.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  hard_override_domain_impact: {
+    label: 'Dominio crítico',
+    tooltip: 'Dominio crítico (salud, finanzas, sector público) con impacto en personas en dimensión clave.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  hard_override_infra: {
+    label: 'Infraestructura crítica',
+    tooltip: 'Sistema gestiona infraestructura crítica y el modo es de seguridad con severidad notable.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  critical_score: {
+    label: 'Score crítico',
+    tooltip: 'El score ponderado por reglas alcanza nivel crítico (≥ 75) en el contexto de este sistema.',
+    pill: 'bg-red-dim text-re border-reb',
+  },
+  high_in_quota: {
+    label: 'Alto en cuota',
+    tooltip: 'Candidato de prioridad alta que entró en la cola priorizada por la cuota del motor.',
+    pill: 'bg-[#fff1e6] text-or border-orb',
+  },
+  high_dropped_by_quota: {
+    label: 'Descartado por cuota',
+    tooltip: 'Era candidato de prioridad alta pero no cupo en la cuota. Promovible manualmente si aplica.',
+    pill: 'bg-ordim text-or border-orb',
+  },
+  monitoring: {
+    label: 'En observación',
+    tooltip: 'No alcanzó criterios de priorización automática; permanece visible para monitorización.',
+    pill: 'bg-cyan-dim text-brand-cyan border-cyan-border',
+  },
 };
 
 const FAILURE_MODE_PAGE_SIZE = 20;
@@ -1791,6 +1842,13 @@ export function SystemDetailClient({
   const [failureModeActionError, setFailureModeActionError] = useState<string | null>(null);
   const [isSubmittingFailureModeAction, startFailureModeActionTransition] = useTransition();
   const [isRestoringFailureMode, startRestoreTransition] = useTransition();
+  const [isRecalculating, startRecalculateTransition] = useTransition();
+  const [recalculateNotice, setRecalculateNotice] = useState<string | null>(null);
+  const [isBulkPromoteOpen, setIsBulkPromoteOpen] = useState(false);
+  const [bulkPromoteSelection, setBulkPromoteSelection] = useState<Set<string>>(new Set());
+  const [bulkPromoteReason, setBulkPromoteReason] = useState('');
+  const [bulkPromoteError, setBulkPromoteError] = useState<string | null>(null);
+  const [isBulkPromoting, startBulkPromoteTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
@@ -2141,6 +2199,32 @@ export function SystemDetailClient({
     });
   };
 
+  const handleRecalculateFailureModes = () => {
+    if (!confirm('Vas a recalcular los modos de fallo con el contexto actual del sistema. Las decisiones manuales (promociones y descartes) se preservarán; solo se actualizarán las priorizaciones por reglas.\n\n¿Continuar?')) {
+      return;
+    }
+    setFailureModeError(null);
+    setRecalculateNotice(null);
+
+    startRecalculateTransition(async () => {
+      const result = await recalculateSystemFailureModes({ aiSystemId: system.id });
+
+      if (result?.error) {
+        setFailureModeError(result.error);
+        return;
+      }
+
+      const delta = result?.delta;
+      if (delta) {
+        setRecalculateNotice(
+          `Recálculo completado: ${delta.newlyActivated} nuevos modos activados, ${delta.updatedByRules} actualizados por reglas, ${delta.preservedHuman} preservados por decisión humana.`
+        );
+      }
+
+      router.refresh();
+    });
+  };
+
   const openFailureModePromoteModal = (mode: SystemFailureModeEntry) => {
     setFailureModeActionModal({ type: 'promote', mode });
     setFailureModeActionReason('');
@@ -2189,6 +2273,63 @@ export function SystemDetailClient({
         setToastMessage(result.error);
         return;
       }
+      router.refresh();
+    });
+  };
+
+  const bulkPromoteCandidates = useMemo(() => {
+    return failureModes
+      .filter((mode) => mode.priority_status === 'monitoring' && mode.quota_dropped)
+      .sort((left, right) => (right.priority_score ?? 0) - (left.priority_score ?? 0));
+  }, [failureModes]);
+
+  const openBulkPromoteModal = () => {
+    setBulkPromoteSelection(new Set(bulkPromoteCandidates.map((m) => m.id)));
+    setBulkPromoteReason('');
+    setBulkPromoteError(null);
+    setIsBulkPromoteOpen(true);
+  };
+
+  const closeBulkPromoteModal = () => {
+    setIsBulkPromoteOpen(false);
+    setBulkPromoteSelection(new Set());
+    setBulkPromoteReason('');
+    setBulkPromoteError(null);
+  };
+
+  const toggleBulkPromoteId = (id: string) => {
+    setBulkPromoteSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSubmitBulkPromote = () => {
+    setBulkPromoteError(null);
+
+    if (bulkPromoteSelection.size === 0) {
+      setBulkPromoteError('Selecciona al menos un modo para promover.');
+      return;
+    }
+    if (bulkPromoteReason.trim().length < 30) {
+      setBulkPromoteError('La justificación debe tener al menos 30 caracteres.');
+      return;
+    }
+
+    startBulkPromoteTransition(async () => {
+      const result = await bulkPromoteFailureModes({
+        systemFailureModeIds: Array.from(bulkPromoteSelection),
+        aiSystemId: system.id,
+        reason: bulkPromoteReason.trim(),
+      });
+
+      if (result?.error) {
+        setBulkPromoteError(result.error);
+        return;
+      }
+
+      closeBulkPromoteModal();
       router.refresh();
     });
   };
@@ -3223,15 +3364,50 @@ export function SystemDetailClient({
                       {hasFailureModeActivationRun && (
                         <button
                           type="button"
+                          onClick={handleRecalculateFailureModes}
+                          disabled={isRecalculating}
+                          title="Re-ejecuta el motor de reglas con el contexto actual del sistema. Preserva decisiones manuales (promociones y descartes)."
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-ltb bg-ltcard text-ltt hover:bg-ltcard2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isRecalculating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {isRecalculating ? 'Recalculando…' : 'Recalcular con contexto actual'}
+                        </button>
+                      )}
+                      {hasFailureModeActivationRun && (
+                        <button
+                          type="button"
                           disabled
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-cyan-border bg-cyan-dim text-brand-cyan opacity-70 cursor-not-allowed"
+                          title="Disponible cuando habilitemos el agente de refinamiento. El motor de reglas ya ha priorizado el conjunto inicial."
+                          aria-disabled="true"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium border border-ltb bg-ltcard2 text-lttm opacity-60 cursor-not-allowed"
                         >
                           <Bot className="w-3.5 h-3.5" />
                           Refinar mediante IA
+                          <span className="ml-1 px-1.5 py-0.5 rounded-[3px] bg-ltbg text-[9px] font-medium text-lttm border border-ltb">
+                            Próximamente
+                          </span>
                         </button>
                       )}
                     </div>
                   </div>
+
+                  {recalculateNotice && (
+                    <div className="mx-6 mt-4 px-3 py-2.5 rounded-lg border border-cyan-border bg-cyan-dim text-[12px] font-sora text-brand-cyan flex items-start justify-between gap-3">
+                      <span>{recalculateNotice}</span>
+                      <button
+                        type="button"
+                        onClick={() => setRecalculateNotice(null)}
+                        className="font-medium hover:underline shrink-0"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  )}
+                  {hasFailureModeActivationRun && failureModeError && (
+                    <div className="mx-6 mt-4 px-3 py-2.5 rounded-lg border border-reb bg-red-dim text-[12px] font-sora text-re">
+                      {failureModeError}
+                    </div>
+                  )}
 
                   {!hasFailureModeActivationRun ? (
                     <div className="p-12 flex flex-col items-center justify-center text-center">
@@ -3367,13 +3543,22 @@ export function SystemDetailClient({
                               Puedes promoverlos manualmente si aplican al sistema.
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setFailureModePriorityFilter('monitoring')}
-                            className="shrink-0 self-start mt-0.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-orb bg-ltcard font-sora text-[11px] text-or hover:bg-ordim transition-colors"
-                          >
-                            Ver en observación
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0 self-start mt-0.5">
+                            <button
+                              type="button"
+                              onClick={openBulkPromoteModal}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-cyan-border bg-cyan-dim font-sora text-[11px] text-brand-cyan hover:bg-cyan-dim/70 transition-colors"
+                            >
+                              Promover varios
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFailureModePriorityFilter('monitoring')}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-orb bg-ltcard font-sora text-[11px] text-or hover:bg-ordim transition-colors"
+                            >
+                              Ver en observación
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -3524,6 +3709,14 @@ export function SystemDetailClient({
                                           {mode.priority_source && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard2 text-lttm">
                                               Prioridad: {mode.priority_source === 'rules' ? 'reglas' : mode.priority_source}
+                                            </span>
+                                          )}
+                                          {mode.priority_reason_code && FAILURE_MODE_REASON_META[mode.priority_reason_code] && (
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${FAILURE_MODE_REASON_META[mode.priority_reason_code].pill}`}
+                                              title={FAILURE_MODE_REASON_META[mode.priority_reason_code].tooltip}
+                                            >
+                                              {FAILURE_MODE_REASON_META[mode.priority_reason_code].label}
                                             </span>
                                           )}
                                         </div>
@@ -4576,6 +4769,132 @@ export function SystemDetailClient({
               >
                 {isSubmittingFailureModeAction && <Loader2 className="w-4 h-4 animate-spin" />}
                 {failureModeActionModal.type === 'promote' ? 'Promover' : 'Descartar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkPromoteOpen && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-3xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[88vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-[16px] font-semibold text-ltt">Promover varios modos descartados por cuota</h2>
+                <p className="font-plex text-[11px] text-lttm mt-0.5">
+                  {bulkPromoteCandidates.length} candidatos altos pendientes de revisión. Selecciona los que apliquen al sistema y justifícalo de forma común.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeBulkPromoteModal}
+                className="p-1.5 rounded-lg text-lttm hover:bg-ltbg hover:text-ltt transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">
+                  {bulkPromoteSelection.size} de {bulkPromoteCandidates.length} seleccionados
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkPromoteSelection(new Set(bulkPromoteCandidates.map((m) => m.id)))}
+                    className="font-sora text-[11.5px] text-brand-cyan hover:underline"
+                  >
+                    Seleccionar todos
+                  </button>
+                  <span className="text-lttm">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setBulkPromoteSelection(new Set())}
+                    className="font-sora text-[11.5px] text-lttm hover:text-ltt hover:underline"
+                  >
+                    Deseleccionar todos
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-ltb rounded-lg divide-y divide-ltb max-h-[320px] overflow-y-auto">
+                {bulkPromoteCandidates.length === 0 ? (
+                  <div className="p-6 text-center font-sora text-[12.5px] text-lttm">
+                    No hay candidatos descartados por cuota en este momento.
+                  </div>
+                ) : (
+                  bulkPromoteCandidates.map((mode) => (
+                    <label
+                      key={mode.id}
+                      className="flex items-start gap-3 px-3 py-2.5 hover:bg-ltbg cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bulkPromoteSelection.has(mode.id)}
+                        onChange={() => toggleBulkPromoteId(mode.id)}
+                        className="mt-1 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[10px] border border-ltb bg-ltcard2 text-lttm">
+                            {mode.code}
+                          </span>
+                          <span className="font-sora text-[12.5px] font-medium text-ltt truncate">
+                            {mode.name}
+                          </span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[10px] border border-ltb bg-ltbg text-lttm">
+                            {FAILURE_MODE_DIMENSIONS[mode.dimension_id]?.label ?? mode.dimension_id}
+                          </span>
+                        </div>
+                        <div className="font-sora text-[11.5px] text-lttm mt-0.5">
+                          Score {mode.priority_score ?? '—'} · S {mode.s_default ?? '—'}
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+
+              <div>
+                <label className="block font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1.5">
+                  Justificación común (mín. 30 caracteres)
+                </label>
+                <textarea
+                  value={bulkPromoteReason}
+                  onChange={(e) => setBulkPromoteReason(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: Tras revisión, estos modos aplican al sistema porque..."
+                  className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2.5 font-sora text-[13px] text-ltt outline-none focus:border-brand-cyan resize-none placeholder:text-lttm"
+                />
+                <div className="text-right font-plex text-[10px] text-lttm mt-1">
+                  {bulkPromoteReason.length} / 30 mín.
+                </div>
+              </div>
+
+              {bulkPromoteError && (
+                <div className="text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2">
+                  {bulkPromoteError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-ltb bg-ltcard2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeBulkPromoteModal}
+                className="px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium border border-ltb bg-ltcard text-lttm hover:bg-ltbg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitBulkPromote}
+                disabled={isBulkPromoting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isBulkPromoting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Promover {bulkPromoteSelection.size} {bulkPromoteSelection.size === 1 ? 'modo' : 'modos'}
               </button>
             </div>
           </div>
