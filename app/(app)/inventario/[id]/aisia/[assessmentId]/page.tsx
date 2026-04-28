@@ -66,10 +66,13 @@ export default async function AisiaWizardPage({
 
   if (!aisiaRow) notFound();
 
-  // Solo se puede editar en borrador
-  if (aisiaRow.status !== 'draft') {
+  // Solo draft, submitted, approved y rejected son accesibles (rejected también es legible)
+  const READABLE_STATUSES = ['draft', 'submitted', 'approved', 'rejected'];
+  if (!READABLE_STATUSES.includes(aisiaRow.status)) {
     redirect(`/inventario/${params.id}?tab=ISO+42001`);
   }
+
+  const readOnly = aisiaRow.status !== 'draft';
 
   const sections: AisiaSectionEntry[] = (
     (aisiaRow.aisia_sections as AisiaSectionEntry[]) ?? []
@@ -108,6 +111,14 @@ export default async function AisiaWizardPage({
     .order('created_at', { ascending: false })
     .limit(3);
 
+  const STATUS_BADGE: Record<string, { label: string; dot: string; pill: string }> = {
+    draft:     { label: 'Borrador',           dot: 'bg-lttm', pill: 'bg-ltcard2 text-lttm border-ltb' },
+    submitted: { label: 'En revisión',        dot: 'bg-or',   pill: 'bg-ordim text-or border-orb' },
+    approved:  { label: 'Aprobada',           dot: 'bg-gr',   pill: 'bg-grdim text-gr border-grb' },
+    rejected:  { label: 'Rechazada',          dot: 'bg-re',   pill: 'bg-red-dim text-re border-reb' },
+  };
+  const badge = STATUS_BADGE[aisia.status] ?? STATUS_BADGE.draft;
+
   return (
     <div className="min-h-screen bg-ltbg">
       {/* ── Breadcrumb header ── */}
@@ -122,9 +133,9 @@ export default async function AisiaWizardPage({
         <span className="font-plex text-[12px] text-ltt font-medium">
           Evaluación AISIA v{aisia.version}
         </span>
-        <span className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] bg-ltcard2 text-lttm border border-ltb">
-          <span className="w-1.5 h-1.5 rounded-full bg-lttm inline-block" />
-          Borrador
+        <span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] border ${badge.pill}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} inline-block`} />
+          {badge.label}
         </span>
       </div>
 
@@ -133,6 +144,7 @@ export default async function AisiaWizardPage({
         system={system as Record<string, unknown>}
         failureModes={failureModeRows ?? []}
         treatmentPlans={treatmentPlanRows ?? []}
+        readOnly={readOnly}
       />
     </div>
   );

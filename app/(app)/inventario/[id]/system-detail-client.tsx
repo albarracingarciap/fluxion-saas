@@ -1131,12 +1131,19 @@ function IsoTab({
                   </div>
                 )}
               </div>
-              {aisia.status === 'draft' && (
+              {aisia.status === 'draft' ? (
                 <Link
                   href={`/inventario/${system.id}/aisia/${aisia.id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors shrink-0"
                 >
                   Continuar evaluación →
+                </Link>
+              ) : (
+                <Link
+                  href={`/inventario/${system.id}/aisia/${aisia.id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard2 text-ltt font-plex text-[13px] font-medium hover:bg-ltcard transition-colors shrink-0"
+                >
+                  Ver evaluación →
                 </Link>
               )}
             </div>
