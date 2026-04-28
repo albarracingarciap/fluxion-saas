@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
-import { buildIsoChecksSnapshot, calcISO, classifyAIAct } from '@/lib/ai-systems/scoring';
+import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -84,18 +84,6 @@ export async function saveAISystem(formData: Record<string, any>) {
   }
 
   const classification = classifyAIAct(formData);
-  const iso = calcISO({
-    aiOwner: formData.aiOwner,
-    hasTechDoc: formData.hasTechDoc,
-    hasLogging: formData.hasLogging,
-    humanOversight: formData.humanOversight,
-    hasRiskAssessment: formData.hasRiskAssessment,
-    dpoInvolved: formData.dpoInvolved,
-    reviewFrequency: formData.reviewFrequency,
-    incidentContact: formData.incidentContact,
-    dpiaCompleted: formData.dpiaCompleted,
-    hasAdversarialTest: formData.hasAdversarialTest,
-  });
 
   // Build the insert payload mapping wizard fields → DB columns
   const payload = {
@@ -192,10 +180,6 @@ export async function saveAISystem(formData: Record<string, any>) {
     cert_status: CERT_STATUS_MAP[formData.certStatus] ?? null,
     next_audit_date: formData.nextAudit || null,
 
-    // ISO 42001 score (passed from frontend)
-    iso_42001_score: iso.score,
-    iso_42001_checks: buildIsoChecksSnapshot(iso.checks),
-    iso_42001_updated_at: now,
   };
 
   const { data, error } = await fluxion
@@ -238,21 +222,6 @@ export async function saveAISystem(formData: Record<string, any>) {
       },
       actor_user_id: user.id,
       created_at: payload.aiact_classified_at,
-    },
-    {
-      ai_system_id: data.id,
-      organization_id: membership.organization_id,
-      event_type: 'iso_recalculated',
-      event_title: 'Madurez ISO 42001 calculada',
-      event_summary: `Se registró un score inicial de ${iso.score}%.`,
-      payload: {
-        score: iso.score,
-        implemented_checks: iso.checks.filter((check) => check.status === 'si').length,
-        partial_checks: iso.checks.filter((check) => check.status === 'parcial' || check.status === 'proceso').length,
-        pending_checks: iso.checks.filter((check) => !check.status || check.status === 'no').length,
-      },
-      actor_user_id: user.id,
-      created_at: payload.iso_42001_updated_at,
     },
   ]);
 
