@@ -250,6 +250,13 @@ export type AisiaAssessmentEntry = {
   sections: AisiaSectionEntry[];
 };
 
+export type SoaControlState = {
+  control_code: string;  // e.g. "A.5.2"
+  is_applicable: boolean;
+  status: string;        // 'not_started' | 'in_progress' | 'implemented'
+  linked_to_system: boolean;
+};
+
 const TABS = [
   'Obligaciones AI Act',
   'Ficha técnica',
@@ -697,6 +704,7 @@ function getHistoryEventVisual(eventType: string) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
   if (eventType === 'iso_recalculated') return { tone: 'bg-ordim text-or border-orb', label: 'ISO 42001' };
+  if (eventType.startsWith('aisia_')) return { tone: 'bg-[#e8f0fb] text-[#1a56c4] border-[#b8cef5]', label: 'AISIA' };
   if (eventType === 'failure_modes_activated') return { tone: 'bg-[#f1ebff] text-[#8850ff] border-[#d2c1ff]', label: 'FMEA' };
   if (eventType.startsWith('obligation_')) return { tone: 'bg-grdim text-gr border-grb', label: 'Obligación' };
   if (eventType.startsWith('evidence_')) return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Evidencia' };
@@ -708,7 +716,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'aiact',       label: 'AI Act',       match: (t) => t === 'classification_recalculated' || t === 'classification_reviewed' },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
   { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' },
-  { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' },
+  { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
 ];
@@ -966,15 +974,25 @@ const AISIA_STATUS_VISUAL: Record<string, { label: string; dot: string; pill: st
   rejected:  { label: 'Rechazada',          dot: 'bg-re',     pill: 'bg-red-dim text-re border-reb' },
 };
 
+function getSoaBadge(soaState: SoaControlState | undefined) {
+  if (!soaState) return { label: 'Sin registrar', cls: 'bg-ltcard text-lttm border-ltb' };
+  if (!soaState.is_applicable) return { label: 'No aplica', cls: 'bg-ltcard2 text-lttm border-ltb' };
+  if (soaState.status === 'implemented') return { label: 'Implantado', cls: 'bg-grdim text-gr border-grb' };
+  if (soaState.status === 'in_progress') return { label: 'En progreso', cls: 'bg-ordim text-or border-orb' };
+  return { label: 'No iniciado', cls: 'bg-ltcard text-lttm border-ltb' };
+}
+
 function IsoTab({
   system,
   aisia,
+  soaControls,
   onInitAisia,
   isInitingAisia,
   aisiaError,
 }: {
   system: SystemDetailData;
   aisia: AisiaAssessmentEntry | null;
+  soaControls: SoaControlState[];
   onInitAisia: () => void;
   isInitingAisia: boolean;
   aisiaError: string | null;
@@ -988,6 +1006,9 @@ function IsoTab({
     shortLabel: ANNEX_A_SHORT[group],
     controls: systemControls.filter((c) => c.group === group),
   }));
+
+  // Lookup map for fast access: control_code → SoaControlState
+  const soaByCode = new Map<string, SoaControlState>(soaControls.map((s) => [s.control_code, s]));
 
   const hasLegacyData = system.iso_42001_score !== null;
   const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
@@ -1165,29 +1186,40 @@ function IsoTab({
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {controls.map((control) => (
-                  <div
-                    key={control.id}
-                    className="border border-ltb rounded-[8px] bg-ltbg p-3 flex items-start gap-2.5"
-                  >
-                    <span className="font-plex text-[10px] font-semibold text-lttm bg-ltcard2 border border-ltb px-1.5 py-0.5 rounded-[4px] shrink-0 mt-0.5">
-                      {control.id}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-plex text-[12px] text-ltt leading-snug">
-                        {control.title}
-                      </div>
-                      {group === 'A.5 Evaluación de impactos de los sistemas de IA' && (
-                        <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-ordim text-or border border-orb">
-                          Requiere AISIA
+                {controls.map((control) => {
+                  const soaState = soaByCode.get(control.id);
+                  const badge = getSoaBadge(soaState);
+                  return (
+                    <div
+                      key={control.id}
+                      className="border border-ltb rounded-[8px] bg-ltbg p-3 flex items-start gap-2.5"
+                    >
+                      <span className="font-plex text-[10px] font-semibold text-lttm bg-ltcard2 border border-ltb px-1.5 py-0.5 rounded-[4px] shrink-0 mt-0.5">
+                        {control.id}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-plex text-[12px] text-ltt leading-snug">
+                          {control.title}
                         </div>
-                      )}
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          {group === 'A.5 Evaluación de impactos de los sistemas de IA' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-ordim text-or border border-orb">
+                              Requiere AISIA
+                            </span>
+                          )}
+                          {soaState?.linked_to_system && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-[#e8f0fb] text-[#1a56c4] border border-[#b8cef5]">
+                              Vinculado
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] border shrink-0 ${badge.cls}`}>
+                        {badge.label}
+                      </span>
                     </div>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-ltcard text-lttm border border-ltb shrink-0">
-                      Pendiente
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -1296,6 +1328,7 @@ export function SystemDetailClient({
   systemGraph,
   treatmentPlanData,
   aisia,
+  soaControls,
 }: {
   system: SystemDetailData;
   organizationId: string;
@@ -1308,6 +1341,7 @@ export function SystemDetailClient({
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
   treatmentPlanData: TreatmentPlanData | null;
   aisia: AisiaAssessmentEntry | null;
+  soaControls: SoaControlState[];
 }) {
   const searchParams = useSearchParams();
   const { profile, user } = useAuthStore();
@@ -2649,6 +2683,7 @@ export function SystemDetailClient({
                 <IsoTab
                   system={system}
                   aisia={aisia}
+                  soaControls={soaControls}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
                   aisiaError={aisiaError}
