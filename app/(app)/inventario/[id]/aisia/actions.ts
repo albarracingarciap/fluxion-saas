@@ -314,8 +314,72 @@ export async function approveAisia(
     },
   ]);
 
+  // ── Fase 7: actualizar controles SoA A.5.x ────────────────────────────────
+  // Si todos los sistemas vinculados a un control A.5.x tienen AISIA aprobada,
+  // ese control pasa a 'implemented' en la declaración de aplicabilidad org.
+  await syncAisiaSoaControls(fluxion, profile.organization_id);
+  // ─────────────────────────────────────────────────────────────────────────
+
   revalidatePath(`/inventario/${assessment.ai_system_id}`);
+  revalidatePath('/plantillas/soa-iso42001');
   return { success: true };
+}
+
+// ─── syncAisiaSoaControls ─────────────────────────────────────────────────────
+// Comprueba los controles A.5.2–A.5.5 de la org y los marca como 'implemented'
+// cuando TODOS los sistemas vinculados al control tienen una AISIA aprobada.
+// Llamada tras cada aprobación de AISIA.
+
+const AISIA_SATISFIES_SOA = ['A.5.2', 'A.5.3', 'A.5.4', 'A.5.5'] as const;
+
+async function syncAisiaSoaControls(
+  fluxion: ReturnType<typeof import('@/lib/supabase/fluxion').createFluxionClient>,
+  organizationId: string,
+) {
+  // 1. Obtener los controles SoA aplicables de la org para los 4 códigos
+  const { data: soaControls } = await fluxion
+    .from('organization_soa_controls')
+    .select('id, control_code, status')
+    .eq('organization_id', organizationId)
+    .eq('is_applicable', true)
+    .in('control_code', AISIA_SATISFIES_SOA);
+
+  if (!soaControls || soaControls.length === 0) return;
+
+  for (const soaControl of soaControls) {
+    // Ya implantado: no hacer nada
+    if (soaControl.status === 'implemented') continue;
+
+    // 2. Sistemas vinculados a este control
+    const { data: links } = await fluxion
+      .from('organization_soa_system_links')
+      .select('ai_system_id')
+      .eq('soa_control_id', soaControl.id);
+
+    if (!links || links.length === 0) continue; // sin sistemas vinculados → no aplica aún
+
+    const linkedSystemIds = links.map((l) => l.ai_system_id as string);
+
+    // 3. ¿Cuántos sistemas vinculados tienen AISIA aprobada?
+    const { data: approvedRows } = await fluxion
+      .from('aisia_assessments')
+      .select('ai_system_id')
+      .eq('organization_id', organizationId)
+      .eq('status', 'approved')
+      .in('ai_system_id', linkedSystemIds);
+
+    const approvedSet = new Set((approvedRows ?? []).map((r) => r.ai_system_id as string));
+    const allApproved = linkedSystemIds.every((id) => approvedSet.has(id));
+
+    if (allApproved) {
+      await fluxion
+        .from('organization_soa_controls')
+        .update({ status: 'implemented' })
+        .eq('id', soaControl.id);
+
+      console.log(`[AISIA] Control ${soaControl.control_code} → implemented (org ${organizationId})`);
+    }
+  }
 }
 
 // ─── rejectAisia ──────────────────────────────────────────────────────────────
