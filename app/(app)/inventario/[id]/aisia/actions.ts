@@ -382,6 +382,136 @@ async function syncAisiaSoaControls(
   }
 }
 
+// ─── reopenAisia ─────────────────────────────────────────────────────────────
+// Crea una nueva versión borrador copiando las secciones de una evaluación
+// rechazada. La versión rechazada se conserva como auditoría.
+
+export async function reopenAisia(rejectedAssessmentId: string) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('id, organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!profile) return { error: 'Perfil no encontrado.' };
+
+  // Obtener la evaluación rechazada + sus secciones
+  const { data: rejected } = await fluxion
+    .from('aisia_assessments')
+    .select(`
+      id, ai_system_id, status, version, title,
+      aisia_sections ( section_code, data, status )
+    `)
+    .eq('id', rejectedAssessmentId)
+    .eq('organization_id', profile.organization_id)
+    .single();
+
+  if (!rejected) return { error: 'Evaluación no encontrada.' };
+  if (rejected.status !== 'rejected') {
+    return { error: 'Solo se puede reabrir una evaluación rechazada.' };
+  }
+
+  // Verificar que no existe ya un borrador o enviado activo
+  const { data: existing } = await fluxion
+    .from('aisia_assessments')
+    .select('id, status')
+    .eq('ai_system_id', rejected.ai_system_id)
+    .in('status', ['draft', 'submitted'])
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      error: 'Ya existe una evaluación activa para este sistema. Complétala primero.',
+      assessmentId: existing.id,
+    };
+  }
+
+  // Calcular siguiente versión
+  const { data: lastVersion } = await fluxion
+    .from('aisia_assessments')
+    .select('version')
+    .eq('ai_system_id', rejected.ai_system_id)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextVersion = (lastVersion?.version ?? 0) + 1;
+
+  // Crear nueva evaluación
+  const { data: newAssessment, error: insertError } = await fluxion
+    .from('aisia_assessments')
+    .insert({
+      ai_system_id:    rejected.ai_system_id,
+      organization_id: profile.organization_id,
+      status:          'draft',
+      version:         nextVersion,
+      title:           rejected.title ?? null,
+      created_by:      profile.id,
+    })
+    .select('id')
+    .single();
+
+  if (insertError || !newAssessment) {
+    console.error('reopenAisia — assessment insert:', insertError);
+    return { error: 'No se pudo crear la nueva versión.' };
+  }
+
+  // Copiar secciones de la versión rechazada (preservando datos y estado)
+  const rejectedSections = (rejected.aisia_sections as { section_code: string; data: unknown; status: string }[]) ?? [];
+
+  // Asegurar que existen las 6 secciones aunque la rechazada no las tenga todas
+  const sectionMap = new Map(rejectedSections.map((s) => [s.section_code, s]));
+  const sectionInserts = AISIA_SECTION_CODES.map((code) => {
+    const prev = sectionMap.get(code);
+    return {
+      assessment_id: newAssessment.id,
+      section_code:  code,
+      data:          (prev?.data ?? {}) as Record<string, unknown>,
+      status:        prev?.status === 'complete' ? 'complete' : (prev?.status ?? 'pending'),
+    };
+  });
+
+  const { error: sectionsError } = await fluxion
+    .from('aisia_sections')
+    .insert(sectionInserts);
+
+  if (sectionsError) {
+    console.error('reopenAisia — sections insert:', sectionsError);
+    await fluxion.from('aisia_assessments').delete().eq('id', newAssessment.id);
+    return { error: 'No se pudieron copiar las secciones.' };
+  }
+
+  // Registrar evento en historial
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id:    rejected.ai_system_id,
+      organization_id: profile.organization_id,
+      event_type:      'aisia_created',
+      event_title:     'AISIA reabierta para corrección',
+      event_summary:   `Se creó la evaluación AISIA v${nextVersion} a partir de la versión rechazada (v${rejected.version}).`,
+      payload: {
+        assessment_id:      newAssessment.id,
+        version:            nextVersion,
+        reopened_from:      rejectedAssessmentId,
+        previous_version:   rejected.version,
+      },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${rejected.ai_system_id}`);
+  return { success: true, assessmentId: newAssessment.id };
+}
+
 // ─── rejectAisia ──────────────────────────────────────────────────────────────
 // Rechaza la evaluación (submitted → rejected) con motivo.
 

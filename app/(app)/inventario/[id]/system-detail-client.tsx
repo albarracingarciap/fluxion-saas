@@ -27,7 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { createSystemEvidence } from './evidencias/actions';
-import { initAisia, approveAisia, rejectAisia } from './aisia/actions';
+import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
@@ -997,6 +997,9 @@ function IsoTab({
   isApprovingAisia,
   isRejectingAisia,
   aisiaApprovalError,
+  onReopenAisia,
+  isReopeningAisia,
+  aisiaReopenError,
 }: {
   system: SystemDetailData;
   aisia: AisiaAssessmentEntry | null;
@@ -1010,6 +1013,9 @@ function IsoTab({
   isApprovingAisia: boolean;
   isRejectingAisia: boolean;
   aisiaApprovalError: string | null;
+  onReopenAisia: (assessmentId: string) => void;
+  isReopeningAisia: boolean;
+  aisiaReopenError: string | null;
 }) {
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [minutesRef, setMinutesRef] = useState('');
@@ -1171,13 +1177,33 @@ function IsoTab({
               </div>
             )}
 
-            {aisia.status === 'rejected' && aisia.rejection_reason && (
-              <div className="mt-4 pt-4 border-t border-ltb flex items-start gap-3">
-                <div className="w-7 h-7 rounded-[7px] bg-red-dim border border-reb flex items-center justify-center text-re text-[12px] shrink-0">✕</div>
-                <div>
-                  <div className="font-plex text-[12px] font-semibold text-re mb-0.5">Motivo del rechazo</div>
-                  <div className="text-[12px] text-lttm">{aisia.rejection_reason}</div>
-                </div>
+            {aisia.status === 'rejected' && (
+              <div className="mt-4 pt-4 border-t border-ltb space-y-3">
+                {aisia.rejection_reason && (
+                  <div className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-[7px] bg-red-dim border border-reb flex items-center justify-center text-re text-[12px] shrink-0">✕</div>
+                    <div>
+                      <div className="font-plex text-[12px] font-semibold text-re mb-0.5">Motivo del rechazo</div>
+                      <div className="text-[12px] text-lttm">{aisia.rejection_reason}</div>
+                    </div>
+                  </div>
+                )}
+                {aisiaReopenError && (
+                  <div className="px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
+                    {aisiaReopenError}
+                  </div>
+                )}
+                <button
+                  onClick={() => onReopenAisia(aisia.id)}
+                  disabled={isReopeningAisia}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isReopeningAisia ? 'Creando nueva versión…' : '✎ Corregir y reenviar'}
+                </button>
+                <p className="font-plex text-[11px] text-lttm">
+                  Se creará una nueva versión borrador con los datos actuales para que puedas corregirlos.
+                  La versión rechazada se conserva como registro de auditoría.
+                </p>
               </div>
             )}
 
@@ -1643,6 +1669,21 @@ export function SystemDetailClient({
         setAisiaApprovalError(result.error);
       } else {
         router.refresh();
+      }
+    });
+  };
+
+  const [isReopeningAisia, startReopenAisiaTransition] = useTransition();
+  const [aisiaReopenError, setAisiaReopenError] = useState<string | null>(null);
+
+  const handleReopenAisia = (assessmentId: string) => {
+    startReopenAisiaTransition(async () => {
+      setAisiaReopenError(null);
+      const result = await reopenAisia(assessmentId);
+      if ('error' in result && result.error) {
+        setAisiaReopenError(result.error);
+      } else if ('assessmentId' in result && result.assessmentId) {
+        router.push(`/inventario/${system.id}/aisia/${result.assessmentId}`);
       }
     });
   };
@@ -2861,6 +2902,9 @@ export function SystemDetailClient({
                   isApprovingAisia={isApprovingAisia}
                   isRejectingAisia={isRejectingAisia}
                   aisiaApprovalError={aisiaApprovalError}
+                  onReopenAisia={handleReopenAisia}
+                  isReopeningAisia={isReopeningAisia}
+                  aisiaReopenError={aisiaReopenError}
                 />
               )}
 
