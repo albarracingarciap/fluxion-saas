@@ -5,6 +5,10 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import {
+  computeResidualPriorities,
+  type FmeaResidualInput,
+} from '@/lib/failure-modes/activation-engine';
+import {
   calculateFmeaZone,
   requiresJustification,
   requiresSecondReview,
@@ -271,6 +275,21 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
   const { fluxion, user, membership } = context;
 
   if (input.items && input.items.length > 0) {
+    // Validar todos los ítems antes de persistir nada (3.2)
+    for (const item of input.items) {
+      if (item.status === 'evaluated') {
+        if (
+          item.oValue !== null && (item.oValue < 1 || item.oValue > 5) ||
+          item.dRealValue !== null && (item.dRealValue < 1 || item.dRealValue > 5) ||
+          item.sActual !== null && (item.sActual < 2 || item.sActual > 9)
+        ) {
+          return { error: `Ítem ${item.itemId}: valores O, D o S fuera de rango. Revisa antes de guardar.` };
+        }
+      }
+    }
+
+    const skippedAt = new Date().toISOString();
+
     for (const item of input.items) {
       const normalizedOValue = item.status === 'skipped' ? null : (item.oValue ?? 3);
       const normalizedDRealValue = item.status === 'skipped' ? null : (item.dRealValue ?? 3);
@@ -287,7 +306,7 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
               second_reviewed_by: null,
               second_reviewed_at: null,
               second_review_notes: null,
-              skipped_at: new Date().toISOString(),
+              skipped_at: skippedAt,
             }
           : {
               status: item.status,
@@ -306,7 +325,7 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
         .eq('evaluation_id', input.evaluationId);
 
       if (itemUpdateError) {
-        return { error: itemUpdateError.message };
+        return { error: `Error al guardar ítem: ${itemUpdateError.message}` };
       }
     }
   }
@@ -356,7 +375,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
   const { data: items, error: itemError } = await fluxion
     .from('fmea_items')
-    .select('id, s_default_frozen, o_value, d_real_value, s_actual, status, narrative_justification, requires_second_review, second_review_status')
+    .select('id, failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, status, narrative_justification, requires_second_review, second_review_status')
     .eq('evaluation_id', input.evaluationId);
 
   if (itemError || !items) {
@@ -421,19 +440,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
     return { error: 'No se pudo leer el sistema antes de enviar la evaluación.' };
   }
 
-  const { error } = await fluxion
-    .from('fmea_evaluations')
-    .update({
-      cached_zone: input.cachedZone,
-      state: 'in_review',
-      evaluator_id: user.id,
-    })
-    .eq('id', input.evaluationId);
-
-  if (error) {
-    return { error: error.message };
-  }
-
+  // Determinar candidatos ANTES de cualquier cambio de estado (3.1)
   const candidateItems = items.filter(
     (item) =>
       item.status === 'evaluated' &&
@@ -441,34 +448,39 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       (item.s_actual >= 7 || item.requires_second_review)
   );
 
+  // ── Ruta sin candidatos: no hay plan que crear, transición directa ──────────
   if (candidateItems.length === 0) {
+    const { error: stateError } = await fluxion
+      .from('fmea_evaluations')
+      .update({ cached_zone: input.cachedZone, state: 'in_review', evaluator_id: user.id })
+      .eq('id', input.evaluationId);
+
+    if (stateError) return { error: stateError.message };
+
     await insertAiSystemHistoryEvents(fluxion, [
       {
         ai_system_id: input.aiSystemId,
         organization_id: membership.organization_id,
         event_type: 'fmea_submitted_for_review',
         event_title: 'Evaluación FMEA enviada a revisión',
-        event_summary:
-          'La evaluación manual se envió a revisión sin acciones candidatas de tratamiento.',
+        event_summary: 'La evaluación manual se envió a revisión sin acciones candidatas de tratamiento.',
         actor_user_id: user.id,
         payload: {
           evaluation_id: input.evaluationId,
           cached_zone: input.cachedZone,
           treatment_plan_id: null,
           treatment_actions_count: 0,
+          residual_downgrades: 0,
         },
       },
     ]);
 
     revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
     revalidatePath(`/inventario/${input.aiSystemId}`);
-
-    return {
-      success: true,
-      planPath: `/inventario/${input.aiSystemId}`,
-    };
+    return { success: true, planPath: `/inventario/${input.aiSystemId}` };
   }
 
+  // ── Ruta con candidatos: crear plan y acciones ANTES de cambiar estado ──────
   const { data: existingPlan } = await fluxion
     .from('treatment_plans')
     .select('id, approver_id')
@@ -482,30 +494,32 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
   if (!treatmentPlanId) {
     const createdAt = new Date();
     const sMax = Math.max(
-      ...items
-        .map((item) => item.s_actual)
-        .filter((value): value is number => typeof value === 'number'),
+      ...items.map((item) => item.s_actual).filter((v): v is number => typeof v === 'number'),
       2
     );
     const zoneIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 9).length;
     const zoneIIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 8).length;
     const aiActFloor = getAiActFloorForSystem(system.aiact_risk_level);
     const approvalLevel = getApprovalLevelForZone(input.cachedZone);
+
     approverId = await resolvePlanApprover({
       fluxion,
       organizationId: membership.organization_id,
       approvalLevel,
       actorUserId: user.id,
     });
+
+    if (!approverId) {
+      return { error: 'No se encontró un aprobador disponible para esta zona FMEA. Revisa los roles de los miembros del equipo.' };
+    }
+
     const pivotNodeIds = candidateItems
       .slice()
-      .sort((left, right) => (right.s_actual ?? 0) - (left.s_actual ?? 0))
+      .sort((l, r) => (r.s_actual ?? 0) - (l.s_actual ?? 0))
       .slice(0, 3)
       .map((item) => item.id);
-    const code = await generateTreatmentPlanCode({
-      organizationId: membership.organization_id,
-      createdAt,
-    });
+
+    const code = await generateTreatmentPlanCode({ organizationId: membership.organization_id, createdAt });
 
     const { data: newPlan, error: planError } = await fluxion
       .from('treatment_plans')
@@ -550,7 +564,6 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       approvalLevel: getApprovalLevelForZone(input.cachedZone),
       actorUserId: user.id,
     });
-
     if (approverId) {
       await fluxion.from('treatment_plans').update({ approver_id: approverId }).eq('id', treatmentPlanId);
     }
@@ -561,12 +574,9 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       .from('treatment_actions')
       .select('fmea_item_id')
       .eq('plan_id', treatmentPlanId)
-      .in(
-        'fmea_item_id',
-        candidateItems.map((item) => item.id)
-      );
+      .in('fmea_item_id', candidateItems.map((item) => item.id));
 
-    const existingItemIds = new Set((existingActions ?? []).map((action) => action.fmea_item_id));
+    const existingItemIds = new Set((existingActions ?? []).map((a) => a.fmea_item_id));
 
     const actionsToInsert = candidateItems
       .filter((item) => !existingItemIds.has(item.id))
@@ -583,12 +593,80 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
     if (actionsToInsert.length > 0) {
       const { error: actionsError } = await fluxion.from('treatment_actions').insert(actionsToInsert);
+      if (actionsError) return { error: actionsError.message };
+    }
+  }
 
-      if (actionsError) {
-        return { error: actionsError.message };
+  // Plan y acciones OK — ahora sí cambiamos el estado de la evaluación (3.1)
+  const { error: stateError } = await fluxion
+    .from('fmea_evaluations')
+    .update({ cached_zone: input.cachedZone, state: 'in_review', evaluator_id: user.id })
+    .eq('id', input.evaluationId);
+
+  if (stateError) return { error: stateError.message };
+
+  // ── Re-cálculo de prioridad residual post-FMEA ──────────────────────────────
+  const evaluatedItems = items.filter(
+    (item) => item.status === 'evaluated' && typeof item.s_actual === 'number'
+  );
+
+  let residualDowngrades = 0;
+
+  if (evaluatedItems.length > 0) {
+    const failureModeIds = evaluatedItems.map((item) => item.failure_mode_id).filter(Boolean);
+
+    const { data: systemModes } = await fluxion
+      .from('system_failure_modes')
+      .select('id, failure_mode_id, priority_score, priority_status, priority_reason_code')
+      .eq('ai_system_id', input.aiSystemId)
+      .eq('organization_id', membership.organization_id)
+      .in('failure_mode_id', failureModeIds);
+
+    if (systemModes && systemModes.length > 0) {
+      const modeByFailureModeId = new Map(systemModes.map((m) => [m.failure_mode_id, m]));
+
+      const residualInputs: FmeaResidualInput[] = evaluatedItems
+        .map((item) => {
+          const systemMode = modeByFailureModeId.get(item.failure_mode_id);
+          if (!systemMode) return null;
+          return {
+            systemFailureModeId: systemMode.id,
+            failureModeId: item.failure_mode_id,
+            sDefaultFrozen: item.s_default_frozen ?? 5,
+            sActual: item.s_actual,
+            currentScore: systemMode.priority_score ?? 0,
+            currentReasonCode: systemMode.priority_reason_code ?? null,
+          } satisfies FmeaResidualInput;
+        })
+        .filter((x): x is FmeaResidualInput => x !== null);
+
+      const residuals = computeResidualPriorities(residualInputs);
+      const now = new Date().toISOString();
+
+      for (const residual of residuals) {
+        const currentMode = systemModes.find((m) => m.id === residual.systemFailureModeId);
+        const newStatus = residual.shouldDowngrade ? 'monitoring' : currentMode?.priority_status ?? 'monitoring';
+
+        await fluxion
+          .from('system_failure_modes')
+          .update({
+            priority_score: residual.residualScore,
+            priority_level: residual.residualLevel,
+            priority_notes: residual.residualNotes,
+            priority_reason_code: residual.residualReasonCode,
+            priority_status: newStatus,
+            priority_source: 'rules',
+            priority_changed_by: user.id,
+            priority_changed_at: now,
+          })
+          .eq('id', residual.systemFailureModeId)
+          .eq('organization_id', membership.organization_id);
+
+        if (residual.shouldDowngrade) residualDowngrades++;
       }
     }
   }
+  // ────────────────────────────────────────────────────────────────────────────
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -596,7 +674,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       organization_id: membership.organization_id,
       event_type: 'fmea_submitted_for_review',
       event_title: 'Evaluación FMEA enviada a revisión',
-      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.`,
+      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
@@ -604,6 +682,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         treatment_plan_id: treatmentPlanId,
         treatment_actions_count: candidateItems.length,
         approver_id: approverId,
+        residual_downgrades: residualDowngrades,
       },
     },
     ...(createdTreatmentPlan && treatmentPlanId
