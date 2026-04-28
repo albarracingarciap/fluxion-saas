@@ -737,10 +737,16 @@ function computeFailureModePriority(
     hardOverride = true;
     hardOverrideReason = 'hard_override_aiact';
   } else if (
-    (context.biometric === true && context.affectsPersons === true) ||
-    (context.hasMinors === true && KEY_RISK_DIMENSIONS.includes(dimensionId))
+    KEY_RISK_DIMENSIONS.includes(dimensionId) &&
+    sDefault >= 7 &&
+    (
+      (context.biometric === true && context.affectsPersons === true) ||
+      context.hasMinors === true
+    )
   ) {
-    // Combinaciones sensibles — biometría o menores con dimensión de riesgo
+    // Combinaciones sensibles — biometría+personas o menores SOLO en dimensiones
+    // clave y con severidad estructural alta. Sin estos filtros, una señal de sistema
+    // (biometría/menores) elevaría todos los modos de fallo del catálogo.
     hardOverride = true;
     hardOverrideReason = 'hard_override_sensitive_combo';
   } else if (
