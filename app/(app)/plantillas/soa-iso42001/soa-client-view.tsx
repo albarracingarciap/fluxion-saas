@@ -4,9 +4,10 @@ import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { SoAControlRecord } from '@/lib/templates/data'
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
+import type { OrgMember } from '@/lib/templates/data'
 import {
   Check, X, Loader2, ArrowRight, Sparkles,
-  AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen,
+  AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen, User,
 } from 'lucide-react'
 import { updateSoAControl, suggestSoAJustification } from './actions'
 
@@ -14,6 +15,7 @@ type Props = {
   controls: SoAControlRecord[]
   aiSystems: { id: string; name: string; internal_id: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
+  members: OrgMember[]
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
@@ -36,7 +38,7 @@ const DOMAIN_SHORT: Record<string, string> = {
 type ApplicabilityFilter = 'all' | 'applicable' | 'excluded'
 type StatusFilter = 'all' | 'not_started' | 'planned' | 'in_progress' | 'implemented' | 'externalized' | 'missing_justification'
 
-export function SoAClientView({ controls, aiSystems, evidences }: Props) {
+export function SoAClientView({ controls, aiSystems, evidences, members }: Props) {
   const [selectedControl, setSelectedControl] = useState<SoAControlRecord | null>(null)
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
@@ -298,6 +300,12 @@ export function SoAClientView({ controls, aiSystems, evidences }: Props) {
                         </p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
+                        {control.ownerName && control.isApplicable && (
+                          <span className="hidden md:inline-flex items-center gap-1 font-sora text-[11px] text-lttm">
+                            <User size={11} />
+                            {control.ownerName}
+                          </span>
+                        )}
                         {control.linkedSystemIds.length > 0 && control.isApplicable && (
                           <span className="font-sora text-[11px] text-brand-cyan">
                             {control.linkedSystemIds.length} sist. vinculados
@@ -330,6 +338,7 @@ export function SoAClientView({ controls, aiSystems, evidences }: Props) {
           control={selectedControl}
           aiSystems={aiSystems}
           evidences={evidences}
+          members={members}
           onClose={() => setSelectedControl(null)}
         />,
         document.body
@@ -357,16 +366,19 @@ function SoAEditSlideOver({
   control,
   aiSystems,
   evidences,
+  members,
   onClose,
 }: {
   control: SoAControlRecord
   aiSystems: { id: string; name: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
+  members: OrgMember[]
   onClose: () => void
 }) {
   const catalogEntry = ISO_42001_CONTROLS.find((c) => c.id === control.id)
   const [descriptionOpen, setDescriptionOpen] = useState(false)
   const [isApplicable, setIsApplicable] = useState(control.isApplicable)
+  const [ownerUserId, setOwnerUserId] = useState<string>(control.ownerUserId ?? '')
   const [validationEvidenceId, setValidationEvidenceId] = useState<string>(control.validationEvidenceId || '')
   const [justification, setJustification] = useState(control.justification || '')
   const [status, setStatus] = useState(control.status)
@@ -393,7 +405,7 @@ function SoAEditSlideOver({
         isApplicable,
         justification,
         status,
-        ownerUserId: control.ownerUserId,
+        ownerUserId: ownerUserId || null,
         notes: notes || null,
         validationEvidenceId: validationEvidenceId || null,
         linkedSystemIds: Array.from(linkedSystems),
@@ -520,17 +532,35 @@ function SoAEditSlideOver({
           </div>
 
           <div className={`space-y-6 transition-opacity ${!isApplicable ? 'opacity-50 pointer-events-none' : ''}`}>
-            <div className="space-y-2">
-              <label className="font-sora text-[13px] font-semibold text-ltt block">Estado de implantación</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full h-[46px] rounded-[10px] border border-ltb bg-ltcard px-4 font-sora text-[13px] text-ltt focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
-              >
-                {Object.entries(STATUS_LABELS).map(([key, meta]) => (
-                  <option key={key} value={key}>{meta.label}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="font-sora text-[13px] font-semibold text-ltt block">Estado de implantación</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full h-[46px] rounded-[10px] border border-ltb bg-ltcard px-4 font-sora text-[13px] text-ltt focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
+                >
+                  {Object.entries(STATUS_LABELS).map(([key, meta]) => (
+                    <option key={key} value={key}>{meta.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="font-sora text-[13px] font-semibold text-ltt flex items-center gap-1.5">
+                  <User size={12} className="text-lttm" />
+                  Propietario
+                </label>
+                <select
+                  value={ownerUserId}
+                  onChange={(e) => setOwnerUserId(e.target.value)}
+                  className="w-full h-[46px] rounded-[10px] border border-ltb bg-ltcard px-4 font-sora text-[13px] text-ltt focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
+                >
+                  <option value="">Sin asignar</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>{m.display_name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className={`space-y-2 transition-opacity ${linkedSystems.size === 0 ? 'opacity-50 pointer-events-none' : ''}`}>

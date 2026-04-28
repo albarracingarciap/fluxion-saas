@@ -13,6 +13,12 @@ export type SoAControlRecord = Iso42001Control & {
   linkedSystemIds: string[]
 }
 
+export type OrgMember = {
+  id: string
+  display_name: string
+  role: string | null
+}
+
 export type SoAMetadata = {
   version: string
   owner_name: string
@@ -67,7 +73,22 @@ export async function buildSoAData(organizationId: string) {
     .eq('organization_id', organizationId)
     .single()
 
-  // 2.d Fetch distinct tags from ai_systems for scope selector
+  // 2.d Fetch org members for owner selector
+  const { data: profileRows } = await fluxion
+    .from('profiles')
+    .select('id, full_name, display_name, role')
+    .eq('organization_id', organizationId)
+    .order('full_name')
+
+  const members: OrgMember[] = (profileRows ?? []).map((p) => ({
+    id: p.id as string,
+    display_name: ((p.display_name || p.full_name || '') as string).trim() || 'Usuario',
+    role: (p.role as string | null) ?? null,
+  }))
+
+  const memberNameMap = new Map(members.map((m) => [m.id, m.display_name]))
+
+  // 2.e Fetch distinct tags from ai_systems for scope selector
   const { data: systemsWithTags } = await fluxion
     .from('ai_systems')
     .select('tags')
@@ -95,7 +116,7 @@ export async function buildSoAData(organizationId: string) {
       justification: dbRecord?.justification ?? null,
       status: dbRecord?.status ?? 'not_started',
       ownerUserId: dbRecord?.owner_user_id ?? null,
-      ownerName: null,
+      ownerName: dbRecord?.owner_user_id ? (memberNameMap.get(dbRecord.owner_user_id) ?? null) : null,
       validationEvidenceId: dbRecord?.validation_evidence_id ?? null,
       notes: dbRecord?.notes ?? null,
       linkedSystemIds: links.map((l) => l.ai_system_id),
@@ -127,6 +148,7 @@ export async function buildSoAData(organizationId: string) {
     controls,
     aiSystems: aiSystems ?? [],
     evidences: evidences ?? [],
+    members,
     availableTags,
     kpis: {
       totalControls,
