@@ -1,16 +1,11 @@
 'use client'
 
 import React from 'react'
-import { SoAControlRecord } from '@/lib/templates/data'
+import { SoAControlRecord, SoAMetadata } from '@/lib/templates/data'
 import './print.css'
 
 type Props = {
-  metadata: {
-    version: string
-    owner_name: string
-    approved_by: string
-    scope: string
-  }
+  metadata: SoAMetadata
   controls: SoAControlRecord[]
   aiSystems: { id: string; name: string }[]
   evidences: { id: string; title: string }[]
@@ -69,17 +64,33 @@ export function SoAPrintView({ metadata, controls, aiSystems, evidences }: Props
             </div>
             <div className="space-y-2">
               <p className="text-sm uppercase tracking-wider text-lttm">Responsable</p>
-              <p className="text-xl font-semibold">{metadata.owner_name}</p>
+              <p className="text-xl font-semibold">{metadata.owner_name || '—'}</p>
             </div>
             <div className="space-y-2">
               <p className="text-sm uppercase tracking-wider text-lttm">Aprobado por</p>
-              <p className="text-xl font-semibold">{metadata.approved_by}</p>
+              <p className="text-xl font-semibold">{metadata.approved_by || '—'}{metadata.approved_by_role ? ` · ${metadata.approved_by_role}` : ''}</p>
+              {metadata.approved_at && (
+                <p className="text-sm text-ltt2">{new Date(metadata.approved_at + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              )}
             </div>
+            {metadata.next_review_date && (
+              <div className="space-y-2">
+                <p className="text-sm uppercase tracking-wider text-lttm">Próxima revisión</p>
+                <p className="text-xl font-semibold">{new Date(metadata.next_review_date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 border-l-4 border-[#004aad] pl-6 bg-slate-50 py-6">
             <p className="text-sm uppercase tracking-wider text-lttm">Alcance del SGIA</p>
-            <p className="text-lg leading-relaxed whitespace-pre-wrap">{metadata.scope}</p>
+            {metadata.scope_system_tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {metadata.scope_system_tags.map((tag) => (
+                  <span key={tag} className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-medium">{tag}</span>
+                ))}
+              </div>
+            )}
+            <p className="text-lg leading-relaxed whitespace-pre-wrap">{metadata.scope || '—'}</p>
           </div>
         </div>
 

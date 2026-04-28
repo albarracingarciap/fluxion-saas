@@ -4,17 +4,14 @@ import { useState } from 'react'
 import { Settings2, History, FileDown } from 'lucide-react'
 import { MetadataModal } from './metadata-modal'
 import { HistoryModal } from './history-modal'
+import type { SoAMetadata } from '@/lib/templates/data'
 
 type Props = {
-  metadata: {
-    version: string
-    owner_name: string
-    approved_by: string
-    scope: string
-  }
+  metadata: SoAMetadata
+  availableTags: string[]
 }
 
-export function HeaderActions({ metadata }: Props) {
+export function HeaderActions({ metadata, availableTags }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
@@ -52,6 +49,7 @@ export function HeaderActions({ metadata }: Props) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialData={metadata}
+        availableTags={availableTags}
       />
 
       <HistoryModal

@@ -44,7 +44,7 @@ export default async function SoAPage() {
               Volver al dashboard
             </Link>
             {data.isInitialized && (
-              <HeaderActions metadata={data.metadata} />
+              <HeaderActions metadata={data.metadata} availableTags={data.availableTags} />
             )}
           </div>
         </div>

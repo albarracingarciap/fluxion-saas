@@ -13,6 +13,17 @@ export type SoAControlRecord = Iso42001Control & {
   linkedSystemIds: string[]
 }
 
+export type SoAMetadata = {
+  version: string
+  owner_name: string
+  approved_by: string
+  approved_by_role: string
+  approved_at: string | null
+  next_review_date: string | null
+  scope: string
+  scope_system_tags: string[]
+}
+
 export async function buildSoAData(organizationId: string) {
   const fluxion = createFluxionClient()
   // RLS en organization_soa_controls referenciaba organization_members (eliminada).
@@ -49,19 +60,33 @@ export async function buildSoAData(organizationId: string) {
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
 
-  // 2.c Fetch SoA Metadata
-  const { data: metadata } = await fluxion
+  // 2.c Fetch SoA Metadata (adminFluxion — RLS referenciaba organization_members)
+  const { data: metadata } = await adminFluxion
     .from('organization_soa_metadata')
     .select('*')
     .eq('organization_id', organizationId)
     .single()
 
+  // 2.d Fetch distinct tags from ai_systems for scope selector
+  const { data: systemsWithTags } = await fluxion
+    .from('ai_systems')
+    .select('tags')
+    .eq('organization_id', organizationId)
+    .not('tags', 'is', null)
+
+  const availableTags: string[] = Array.from(
+    new Set(
+      (systemsWithTags ?? [])
+        .flatMap((s: { tags: string[] | null }) => s.tags ?? [])
+        .filter(Boolean)
+    )
+  ).sort() as string[]
+
   // 3. Merge static catalog with DB data
   const controls: SoAControlRecord[] = ISO_42001_CONTROLS.map((staticControl) => {
     const dbRecord = dbControls?.find((c) => c.control_code === staticControl.id)
 
-    // @ts-expect-error - PostgREST typings
-    const links: { ai_system_id: string }[] = dbRecord?.organization_soa_system_links || []
+    const links: { ai_system_id: string }[] = (dbRecord?.organization_soa_system_links as { ai_system_id: string }[] | undefined) || []
 
     return {
       ...staticControl,
@@ -87,10 +112,22 @@ export async function buildSoAData(organizationId: string) {
   const completionPercentage =
     applicableCount > 0 ? Math.round((implementedCount / applicableCount) * 100) : 0
 
+  const defaultMetadata: SoAMetadata = {
+    version: '1.0',
+    owner_name: '',
+    approved_by: '',
+    approved_by_role: '',
+    approved_at: null,
+    next_review_date: null,
+    scope: '',
+    scope_system_tags: [],
+  }
+
   return {
     controls,
     aiSystems: aiSystems ?? [],
     evidences: evidences ?? [],
+    availableTags,
     kpis: {
       totalControls,
       applicableCount,
@@ -99,11 +136,17 @@ export async function buildSoAData(organizationId: string) {
       completionPercentage,
     },
     isInitialized: dbControls && dbControls.length > 0,
-    metadata: metadata || {
-      version: '1.0',
-      owner_name: '',
-      approved_by: '',
-      scope: '',
-    },
+    metadata: metadata
+      ? {
+          version: metadata.version ?? '1.0',
+          owner_name: metadata.owner_name ?? '',
+          approved_by: metadata.approved_by ?? '',
+          approved_by_role: metadata.approved_by_role ?? '',
+          approved_at: metadata.approved_at ?? null,
+          next_review_date: metadata.next_review_date ?? null,
+          scope: metadata.scope ?? '',
+          scope_system_tags: metadata.scope_system_tags ?? [],
+        }
+      : defaultMetadata,
   }
 }

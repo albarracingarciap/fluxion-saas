@@ -153,22 +153,30 @@ export async function updateSoAMetadata(input: {
   version: string
   owner_name: string
   approved_by: string
+  approved_by_role: string
+  approved_at: string | null
+  next_review_date: string | null
   scope: string
+  scope_system_tags: string[]
 }) {
   const { user, membership, onboardingCompleted } = await getAppAuthState()
-  const fluxion = createFluxionClient()
+  const adminClient = createAdminFluxionClient()
 
   if (!user) redirect('/login')
   if (!membership || !onboardingCompleted) redirect('/onboarding')
 
-  const { error } = await fluxion
+  const { error } = await adminClient
     .from('organization_soa_metadata')
     .upsert({
       organization_id: membership.organization_id,
       version: input.version,
       owner_name: input.owner_name,
       approved_by: input.approved_by,
+      approved_by_role: input.approved_by_role || null,
+      approved_at: input.approved_at || null,
+      next_review_date: input.next_review_date || null,
       scope: input.scope,
+      scope_system_tags: input.scope_system_tags,
       updated_at: new Date().toISOString(),
     })
 
