@@ -21,6 +21,18 @@ export type FailureModeCatalogRow = {
 
 export type FailureModePriorityStatus = 'pending_review' | 'prioritized' | 'monitoring' | 'dismissed';
 export type FailureModePriorityLevel = 'critical' | 'high' | 'medium' | 'low';
+
+export type PriorityReasonCode =
+  | 'hard_override_severity'       // s_default >= 8
+  | 'hard_override_aiact'          // AI Act prohibido / alto riesgo + condición
+  | 'hard_override_sensitive_combo' // biometría+personas, menores+dimensión clave
+  | 'hard_override_domain_impact'  // dominio crítico + personas + severidad alta
+  | 'hard_override_infra'          // infraestructura crítica + seguridad + s_default>=6
+  | 'critical_score'               // score >= 75
+  | 'high_in_quota'                // high candidate que entró en cuota
+  | 'high_dropped_by_quota'        // high candidate descartado por cuota
+  | 'monitoring';                  // no alcanzó criterios de priorización
+
 const PRIORITIZED_SOFT_QUOTA_MAX = 80;
 
 export type FailureModeActivationContext = {
@@ -68,6 +80,7 @@ type ActivationSignals = {
   isPublicSectorDomain: boolean;
   isHealthDomain: boolean;
   isFinanceDomain: boolean;
+  isComplianceDomain: boolean;
   processesSensitiveData: boolean;
   needsHumanOversight: boolean;
   isProductionLike: boolean;
@@ -109,6 +122,8 @@ export type ActivatedFailureMode = FailureModeCatalogRow & {
   priority_score: number;
   priority_level: FailureModePriorityLevel;
   priority_notes: string | null;
+  priority_reason_code: PriorityReasonCode;
+  quota_dropped: boolean;
 };
 
 type FailureModePriorityComputation = {
@@ -116,9 +131,22 @@ type FailureModePriorityComputation = {
   priority_level: FailureModePriorityLevel;
   priority_source: 'rules';
   hard_override: boolean;
+  hard_override_reason: PriorityReasonCode | null;
   has_sensitive_signal: boolean;
   is_critical_candidate: boolean;
   is_high_candidate: boolean;
+};
+
+export type ActivationMetrics = {
+  total_activated: number;
+  prioritized_count: number;
+  monitoring_count: number;
+  hard_override_count: number;
+  critical_candidate_count: number;
+  high_candidate_entered_quota: number;
+  high_dropped_by_quota: number;
+  quota_used: number;
+  quota_max: number;
 };
 
 export type ActivationResult = {
@@ -130,6 +158,7 @@ export type ActivationResult = {
   }>;
   activatedModes: ActivatedFailureMode[];
   groupedByDimension: Record<string, ActivatedFailureMode[]>;
+  metrics: ActivationMetrics;
 };
 
 function normalizeText(value: string | null | undefined) {
@@ -172,7 +201,22 @@ export function deriveActivationSignals(context: FailureModeActivationContext): 
   const isFinanceDomain = ['finanzas', 'credito', 'seguros'].includes(domain ?? '');
   const isHealthDomain = domain === 'salud';
   const isPublicSectorDomain = ['seguridad', 'justicia', 'migracion'].includes(domain ?? '');
-  const highImpactDomain = isFinanceDomain || isHealthDomain || isPublicSectorDomain || domain === 'rrhh' || domain === 'educacion';
+  const isComplianceDomain = domain === 'cumplimiento';
+
+  // 'atencion' entra como high-impact si el sistema interactúa o afecta personas
+  const isAtencionImpacting = domain === 'atencion' && impactsPeople;
+
+  const highImpactDomain =
+    isFinanceDomain ||
+    isHealthDomain ||
+    isPublicSectorDomain ||
+    isComplianceDomain ||
+    isAtencionImpacting ||
+    domain === 'rrhh' ||
+    domain === 'educacion';
+
+  // 'infra' activa infraestructura crítica aunque el booleano esté a false
+  const isCriticalInfrastructure = context.criticalInfra === true || domain === 'infra';
 
   const processesSensitiveData =
     context.biometric === true ||
@@ -226,6 +270,7 @@ export function deriveActivationSignals(context: FailureModeActivationContext): 
     isPublicSectorDomain,
     isHealthDomain,
     isFinanceDomain,
+    isComplianceDomain,
     processesSensitiveData,
     needsHumanOversight,
     isProductionLike,
@@ -233,7 +278,7 @@ export function deriveActivationSignals(context: FailureModeActivationContext): 
     weakLogging,
     weakRiskManagement,
     hasKnowledgeOrRetrievalSurface,
-    isCriticalInfrastructure: context.criticalInfra === true,
+    isCriticalInfrastructure,
     hasVulnerableSubjects,
     hasSecurityExposure,
     roiSensitive,
@@ -418,7 +463,7 @@ export const FAILURE_MODE_ACTIVATION_FAMILIES: ActivationFamily[] = [
   {
     id: 'critical_infrastructure',
     label: 'Infraestructura critica y resiliencia',
-    description: 'Aumenta peso en seguridad, disponibilidad y costes de resiliencia cuando el sistema toca infraestructura critica.',
+    description: 'Aumenta peso en seguridad, disponibilidad y costes de resiliencia cuando el sistema toca infraestructura critica o dominio infra.',
     dimensions: ['seguridad', 'tecnica', 'roi', 'gobernanza'],
     applies: (signals) => signals.isCriticalInfrastructure,
     selectors: [
@@ -466,6 +511,19 @@ export const FAILURE_MODE_ACTIVATION_FAMILIES: ActivationFamily[] = [
       { dimensionIds: ['legal_b'], blocks: ['Discriminación — riesgo de litigio activo', 'Responsabilidad por productos y decisiones', 'Due diligence — controles de proceso'] },
       { dimensionIds: ['gobernanza'], blocks: ['Supervisión humana', 'Gestión de riesgos embebida', 'Trazabilidad'] },
       { dimensionIds: ['roi'], blocks: ['Estimación de costes', 'Cuantificación de beneficios'] },
+    ],
+  },
+  {
+    id: 'compliance_domain',
+    label: 'Cumplimiento normativo y gobernanza regulatoria',
+    description: 'Para sistemas cuyo dominio es cumplimiento, activa auditoría, accountability, gestión de riesgos y comunicación regulatoria.',
+    dimensions: ['gobernanza', 'legal_b', 'roi', 'etica'],
+    applies: (signals) => signals.isComplianceDomain,
+    selectors: [
+      { dimensionIds: ['gobernanza'], blocks: ['Gestión de riesgos embebida', 'Políticas y estándares', 'Estructura de gobernanza', 'Comunicación regulatoria y corporativa', 'Rendición de cuentas'] },
+      { dimensionIds: ['legal_b'], blocks: ['Gestión de incidentes legales', 'Due diligence — controles de proceso', 'Responsabilidad por productos y decisiones'] },
+      { dimensionIds: ['etica'], subcategories: ['Evaluación de impacto ético — ISO 42001 A.5', 'Gobernanza y supervisión ética'] },
+      { dimensionIds: ['roi'], textAny: ['costes no previstos', 'business case', 'estimación de costes'] },
     ],
   },
   {
@@ -529,24 +587,14 @@ function buildActivationReason(
 function isSensitiveDomain(value: string) {
   return [
     'salud',
-    'medicina',
-    'salud y medicina',
     'finanzas',
-    'banca',
-    'banca y finanzas',
     'seguros',
     'credito',
   ].includes(value);
 }
 
-function isPublicSectorDomain(value: string) {
+function isPublicSectorDomainValue(value: string) {
   return [
-    'sector_publico',
-    'sector publico',
-    'sector público',
-    'gobierno',
-    'gobierno y sector publico',
-    'gobierno y sector público',
     'seguridad',
     'justicia',
     'migracion',
@@ -589,21 +637,37 @@ function getPriorityLevel(score: number): FailureModePriorityLevel {
   return 'low';
 }
 
-function buildPriorityNotes(row: FailureModeCatalogRow, level: FailureModePriorityLevel, status: FailureModePriorityStatus) {
-  return `${row.code} queda en ${status === 'prioritized' ? 'revisión prioritaria' : 'observación'} (${level}) por score inicial de reglas.`;
+function buildPriorityNotes(
+  row: FailureModeCatalogRow,
+  level: FailureModePriorityLevel,
+  status: FailureModePriorityStatus,
+  reasonCode: PriorityReasonCode
+): string {
+  const statusLabel = status === 'prioritized' ? 'revisión prioritaria' : 'observación';
+  const reasonLabel: Record<PriorityReasonCode, string> = {
+    hard_override_severity: 'severidad muy alta (s_default ≥ 8)',
+    hard_override_aiact: 'riesgo AI Act prohibido o alto con impacto en personas o datos',
+    hard_override_sensitive_combo: 'combinación sensible (biometría+personas o menores+dimensión clave)',
+    hard_override_domain_impact: 'dominio crítico con impacto en personas y severidad alta',
+    hard_override_infra: 'infraestructura crítica con modo de seguridad y severidad notable',
+    critical_score: 'score crítico por reglas (≥ 75)',
+    high_in_quota: 'candidato alto que entró en la cuota priorizada',
+    high_dropped_by_quota: 'candidato alto descartado por cuota — revisar manualmente si aplica',
+    monitoring: 'no alcanzó criterios de priorización automática',
+  };
+  return `${row.code} queda en ${statusLabel} (${level}): ${reasonLabel[reasonCode]}.`;
 }
 
 function computeFailureModePriority(
   row: FailureModeCatalogRow,
-  context: FailureModeActivationContext
+  context: FailureModeActivationContext,
+  signals: ActivationSignals
 ): FailureModePriorityComputation {
   const sDefault = Math.max(2, Math.min(9, row.s_default ?? 2));
   const weight = Math.max(1, Math.min(2, row.w_calculated ?? 1));
   const dimensionId = normalizeText(row.dimension_id);
   const domain = normalizeText(context.domain);
   const aiactRiskLevel = normalizeText(context.aiactRiskLevel);
-  const outputType = normalizeText(context.outputType);
-  const aiSystemType = normalizeText(context.aiSystemType);
 
   const severityScore = getSeverityScore(sDefault);
   const dimensionScore = getDimensionScore(dimensionId);
@@ -619,13 +683,13 @@ function computeFailureModePriority(
   if (context.vulnerableGroups === true) signalSum += 5;
   if (context.biometric === true) signalSum += 6;
   if (isSensitiveDomain(domain)) signalSum += 6;
-  else if (isPublicSectorDomain(domain)) signalSum += 5;
-  if (context.criticalInfra === true) signalSum += 6;
+  else if (isPublicSectorDomainValue(domain)) signalSum += 5;
+  if (signals.isCriticalInfrastructure) signalSum += 6;
 
-  const generativeSignal = context.isGPAI === true || outputType === 'generacion';
+  const generativeSignal = context.isGPAI === true || normalizeText(context.outputType) === 'generacion';
   if (generativeSignal) signalSum += 4;
 
-  if (aiSystemType === 'agentico' || context.hasExternalTools === true) signalSum += 4;
+  if (normalizeText(context.aiSystemType) === 'agentico' || context.hasExternalTools === true) signalSum += 4;
 
   const systemSignalScore = Math.min(25, signalSum);
   const baseScore = severityScore + dimensionScore + systemSignalScore;
@@ -637,38 +701,75 @@ function computeFailureModePriority(
     context.vulnerableGroups === true ||
     context.biometric === true ||
     ['high', 'prohibited'].includes(aiactRiskLevel);
+
   const hasStrongHumanSignal =
     context.affectsPersons === true ||
     context.hasMinors === true ||
     context.vulnerableGroups === true ||
     context.biometric === true;
 
-  const hardOverride =
-    sDefault >= 8 ||
+  // ── Hard override: el modo entra sí o sí en la cola priorizada ──────────────
+  let hardOverride = false;
+  let hardOverrideReason: PriorityReasonCode | null = null;
+
+  if (sDefault >= 8) {
+    hardOverride = true;
+    hardOverrideReason = 'hard_override_severity';
+  } else if (
+    aiactRiskLevel === 'prohibited' ||
+    (aiactRiskLevel === 'high' && (signals.impactsPeople || signals.processesSensitiveData))
+  ) {
+    hardOverride = true;
+    hardOverrideReason = 'hard_override_aiact';
+  } else if (
     (context.biometric === true && context.affectsPersons === true) ||
-    (context.hasMinors === true && ['etica', 'legal_b', 'seguridad'].includes(dimensionId));
+    (context.hasMinors === true && ['etica', 'legal_b', 'seguridad'].includes(dimensionId))
+  ) {
+    hardOverride = true;
+    hardOverrideReason = 'hard_override_sensitive_combo';
+  } else if (
+    (signals.isHealthDomain || signals.isFinanceDomain || signals.isPublicSectorDomain) &&
+    signals.impactsPeople &&
+    severityScore >= 24 // s_default >= 7
+  ) {
+    hardOverride = true;
+    hardOverrideReason = 'hard_override_domain_impact';
+  } else if (
+    signals.isCriticalInfrastructure &&
+    dimensionId === 'seguridad' &&
+    severityScore >= 16 // s_default >= 6
+  ) {
+    hardOverride = true;
+    hardOverrideReason = 'hard_override_infra';
+  }
 
   const level = getPriorityLevel(weightedScore);
+
+  // ── High candidate: entra en la cuota si hay slots disponibles ──────────────
+  // Lógica OR: basta con que se cumpla una condición de peso para clasificar como candidato
+  const isHighCandidate =
+    level === 'high' &&
+    !hardOverride &&
+    (
+      sDefault >= 7 ||
+      weightedScore >= 65 ||
+      dimensionId === 'seguridad' ||
+      (dimensionId === 'tecnica' && sDefault >= 6) ||
+      (dimensionId === 'legal_b' && hasStrongHumanSignal) ||
+      (dimensionId === 'etica' && (hasStrongHumanSignal || signals.hasVulnerableSubjects)) ||
+      (dimensionId === 'gobernanza' && (signals.weakDocumentation || signals.weakRiskManagement || signals.weakLogging) && signals.isProductionLike) ||
+      (dimensionId === 'roi' && signals.isProductionLike && (signals.usesThirdPartyModel || signals.isGenerative))
+    );
 
   return {
     priority_score: weightedScore,
     priority_level: level,
     priority_source: 'rules' as const,
     hard_override: hardOverride,
+    hard_override_reason: hardOverrideReason,
     has_sensitive_signal: hasSensitiveSignal,
     is_critical_candidate: level === 'critical',
-    is_high_candidate:
-      sDefault >= 7 &&
-      level === 'high' &&
-      (
-        ['seguridad', 'tecnica'].includes(dimensionId) ||
-        (
-          ['legal_b', 'etica'].includes(dimensionId) &&
-          hasStrongHumanSignal
-        )
-      ) &&
-      !(dimensionId === 'gobernanza') &&
-      !(dimensionId === 'roi'),
+    is_high_candidate: isHighCandidate,
   };
 }
 
@@ -693,14 +794,18 @@ export function activateFailureModesForSystem(
       .map((familyId) => familyById.get(familyId))
       .filter((family): family is ActivationFamily => Boolean(family));
 
+    const priority = computeFailureModePriority(row, context, signals);
+
     activatedMap.set(row.id, {
       ...row,
       activation_family_ids: matchedFamilies.map((family) => family.id),
       activation_family_labels: matchedFamilies.map((family) => family.label),
       activation_reason: buildActivationReason(row, matchedFamilies),
-      ...computeFailureModePriority(row, context),
+      ...priority,
       priority_status: 'monitoring',
       priority_notes: null,
+      priority_reason_code: 'monitoring',
+      quota_dropped: false,
     });
   }
 
@@ -723,31 +828,56 @@ export function activateFailureModesForSystem(
     });
 
   const remainingSlots = Math.max(0, quota - prioritizedIds.size);
-  for (const mode of rankedHighCandidates.slice(0, remainingSlots)) {
+  const highCandidatesEntering = rankedHighCandidates.slice(0, remainingSlots);
+  const highCandidatesDropped = rankedHighCandidates.slice(remainingSlots);
+
+  for (const mode of highCandidatesEntering) {
     prioritizedIds.add(mode.id);
   }
 
+  const droppedByQuotaIds = new Set(highCandidatesDropped.map((m) => m.id));
+
   const activatedModes = activatedEntries
     .map((mode) => {
-      const priorityStatus: FailureModePriorityStatus = prioritizedIds.has(mode.id) ? 'prioritized' : 'monitoring';
+      const isPrioritized = prioritizedIds.has(mode.id);
+      const isDroppedByQuota = droppedByQuotaIds.has(mode.id);
+      const priorityStatus: FailureModePriorityStatus = isPrioritized ? 'prioritized' : 'monitoring';
+
+      let reasonCode: PriorityReasonCode;
+      if (isPrioritized) {
+        if (mode.hard_override && mode.hard_override_reason) {
+          reasonCode = mode.hard_override_reason;
+        } else if (mode.is_critical_candidate) {
+          reasonCode = 'critical_score';
+        } else {
+          reasonCode = 'high_in_quota';
+        }
+      } else if (isDroppedByQuota) {
+        reasonCode = 'high_dropped_by_quota';
+      } else {
+        reasonCode = 'monitoring';
+      }
+
       return {
         ...mode,
         priority_status: priorityStatus,
-        priority_notes: buildPriorityNotes(mode, mode.priority_level, priorityStatus),
+        priority_reason_code: reasonCode,
+        quota_dropped: isDroppedByQuota,
+        priority_notes: buildPriorityNotes(mode, mode.priority_level, priorityStatus, reasonCode),
       };
     })
     .sort((left, right) => {
-    if (left.priority_status !== right.priority_status) {
-      return left.priority_status === 'prioritized' ? -1 : 1;
-    }
-    if ((right.priority_score ?? 0) !== (left.priority_score ?? 0)) {
-      return (right.priority_score ?? 0) - (left.priority_score ?? 0);
-    }
-    if (left.dimension_id !== right.dimension_id) {
-      return String(left.dimension_id).localeCompare(String(right.dimension_id));
-    }
-    return left.code.localeCompare(right.code);
-  });
+      if (left.priority_status !== right.priority_status) {
+        return left.priority_status === 'prioritized' ? -1 : 1;
+      }
+      if ((right.priority_score ?? 0) !== (left.priority_score ?? 0)) {
+        return (right.priority_score ?? 0) - (left.priority_score ?? 0);
+      }
+      if (left.dimension_id !== right.dimension_id) {
+        return String(left.dimension_id).localeCompare(String(right.dimension_id));
+      }
+      return left.code.localeCompare(right.code);
+    });
 
   const groupedByDimension = activatedModes.reduce<Record<string, ActivatedFailureMode[]>>((acc, mode) => {
     const key = mode.dimension_id;
@@ -755,6 +885,25 @@ export function activateFailureModesForSystem(
     acc[key].push(mode);
     return acc;
   }, {});
+
+  const hardOverrideCount = activatedModes.filter((m) => m.hard_override).length;
+  const criticalCandidateCount = activatedModes.filter((m) => m.is_critical_candidate && !m.hard_override).length;
+  const highEnteredCount = highCandidatesEntering.length;
+  const highDroppedCount = highCandidatesDropped.length;
+  const prioritizedCount = activatedModes.filter((m) => m.priority_status === 'prioritized').length;
+  const monitoringCount = activatedModes.filter((m) => m.priority_status === 'monitoring').length;
+
+  const metrics: ActivationMetrics = {
+    total_activated: activatedModes.length,
+    prioritized_count: prioritizedCount,
+    monitoring_count: monitoringCount,
+    hard_override_count: hardOverrideCount,
+    critical_candidate_count: criticalCandidateCount,
+    high_candidate_entered_quota: highEnteredCount,
+    high_dropped_by_quota: highDroppedCount,
+    quota_used: prioritizedCount,
+    quota_max: quota,
+  };
 
   return {
     activeFamilies: activeFamilies.map((family) => ({
@@ -765,5 +914,6 @@ export function activateFailureModesForSystem(
     })),
     activatedModes,
     groupedByDimension,
+    metrics,
   };
 }

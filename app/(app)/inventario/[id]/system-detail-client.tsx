@@ -29,7 +29,7 @@ import {
 import { createSystemEvidence } from './evidencias/actions';
 import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
-import { activateSystemFailureModes } from './modos-de-fallo/actions';
+import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
@@ -117,6 +117,8 @@ export type SystemFailureModeEntry = {
   priority_notes: string | null;
   priority_score: number | null;
   priority_level: 'critical' | 'high' | 'medium' | 'low' | null;
+  priority_reason_code: string | null;
+  quota_dropped: boolean;
   created_by: string | null;
   created_by_name: string | null;
   created_at: string;
@@ -1781,6 +1783,14 @@ export function SystemDetailClient({
   const [failureModePriorityFilter, setFailureModePriorityFilter] = useState('all');
   const [failureModeSortBy, setFailureModeSortBy] = useState<'score' | 'cascade'>('score');
   const [failureModePage, setFailureModePage] = useState(1);
+  const [failureModeActionModal, setFailureModeActionModal] = useState<{
+    type: 'promote' | 'dismiss';
+    mode: SystemFailureModeEntry;
+  } | null>(null);
+  const [failureModeActionReason, setFailureModeActionReason] = useState('');
+  const [failureModeActionError, setFailureModeActionError] = useState<string | null>(null);
+  const [isSubmittingFailureModeAction, startFailureModeActionTransition] = useTransition();
+  const [isRestoringFailureMode, startRestoreTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
@@ -1925,6 +1935,7 @@ export function SystemDetailClient({
       monitoring: failureModes.filter((item) => item.priority_status === 'monitoring').length,
       dismissed: failureModes.filter((item) => item.priority_status === 'dismissed').length,
       pendingReview: failureModes.filter((item) => item.priority_status === 'pending_review').length,
+      quotaDropped: failureModes.filter((item) => item.quota_dropped === true).length,
     };
   }, [failureModes]);
 
@@ -2126,6 +2137,58 @@ export function SystemDetailClient({
         return;
       }
 
+      router.refresh();
+    });
+  };
+
+  const openFailureModePromoteModal = (mode: SystemFailureModeEntry) => {
+    setFailureModeActionModal({ type: 'promote', mode });
+    setFailureModeActionReason('');
+    setFailureModeActionError(null);
+  };
+
+  const openFailureModeDismissModal = (mode: SystemFailureModeEntry) => {
+    setFailureModeActionModal({ type: 'dismiss', mode });
+    setFailureModeActionReason('');
+    setFailureModeActionError(null);
+  };
+
+  const closeFailureModeActionModal = () => {
+    setFailureModeActionModal(null);
+    setFailureModeActionReason('');
+    setFailureModeActionError(null);
+  };
+
+  const handleSubmitFailureModeAction = () => {
+    if (!failureModeActionModal) return;
+    setFailureModeActionError(null);
+
+    startFailureModeActionTransition(async () => {
+      const { type, mode } = failureModeActionModal;
+      const action = type === 'promote' ? promoteFailureModeToPrioritized : dismissFailureMode;
+      const result = await action({
+        systemFailureModeId: mode.id,
+        aiSystemId: system.id,
+        reason: failureModeActionReason,
+      });
+
+      if (result?.error) {
+        setFailureModeActionError(result.error);
+        return;
+      }
+
+      closeFailureModeActionModal();
+      router.refresh();
+    });
+  };
+
+  const handleRestoreFailureMode = (mode: SystemFailureModeEntry) => {
+    startRestoreTransition(async () => {
+      const result = await restoreFailureMode({ systemFailureModeId: mode.id, aiSystemId: system.id });
+      if (result?.error) {
+        setToastMessage(result.error);
+        return;
+      }
       router.refresh();
     });
   };
@@ -3290,6 +3353,30 @@ export function SystemDetailClient({
                         )}
                       </div>
 
+                      {failureModeSummary.quotaDropped > 0 && (
+                        <div className="mx-5 mb-4 flex items-start gap-3 rounded-[10px] border border-orb bg-ordim px-4 py-3">
+                          <div className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-or flex items-center justify-center">
+                            <span className="text-white font-bold text-[9px]">!</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-sora text-[12.5px] font-semibold text-or mb-0.5">
+                              {failureModeSummary.quotaDropped} modos descartados por cuota
+                            </div>
+                            <div className="font-sora text-[12px] text-ltt2 leading-relaxed">
+                              Eran candidatos de prioridad alta pero la cuota del motor ({failureModeSummary.prioritized}/{failureModeSummary.prioritized + failureModeSummary.quotaDropped}) los dejó en observación.
+                              Puedes promoverlos manualmente si aplican al sistema.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFailureModePriorityFilter('monitoring')}
+                            className="shrink-0 self-start mt-0.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-orb bg-ltcard font-sora text-[11px] text-or hover:bg-ordim transition-colors"
+                          >
+                            Ver en observación
+                          </button>
+                        </div>
+                      )}
+
                       {failureModeSummary.total === 0 ? (
                         <div className="p-10 text-center">
                           <div className="font-sora text-[14px] font-semibold text-ltt mb-2">No se activaron modos con las reglas actuales</div>
@@ -3506,18 +3593,56 @@ export function SystemDetailClient({
                                       </div>
                                     </div>
 
-                                    {mode.activation_family_labels.length > 0 && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {mode.activation_family_labels.map((label) => (
-                                          <span
-                                            key={`${mode.id}-${label}`}
-                                            className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm"
-                                          >
-                                            {label}
+                                    <div className="flex items-center justify-between gap-3 mt-3">
+                                      {mode.activation_family_labels.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                          {mode.activation_family_labels.map((label) => (
+                                            <span
+                                              key={`${mode.id}-${label}`}
+                                              className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-ltb bg-ltcard text-lttm"
+                                            >
+                                              {label}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : <div />}
+
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {mode.quota_dropped && mode.priority_status === 'monitoring' && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border border-orb bg-ordim text-or">
+                                            Descartado por cuota
                                           </span>
-                                        ))}
+                                        )}
+                                        {mode.priority_status === 'monitoring' && (
+                                          <button
+                                            type="button"
+                                            onClick={() => openFailureModePromoteModal(mode)}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-cyan-border bg-cyan-dim font-sora text-[11px] text-brand-cyan hover:bg-cyan-dim/70 transition-colors"
+                                          >
+                                            Promover a prioritario
+                                          </button>
+                                        )}
+                                        {(mode.priority_status === 'prioritized' || mode.priority_status === 'monitoring') && (
+                                          <button
+                                            type="button"
+                                            onClick={() => openFailureModeDismissModal(mode)}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-ltb bg-ltcard font-sora text-[11px] text-lttm hover:text-re hover:border-reb hover:bg-red-dim transition-colors"
+                                          >
+                                            Descartar
+                                          </button>
+                                        )}
+                                        {mode.priority_status === 'dismissed' && (
+                                          <button
+                                            type="button"
+                                            disabled={isRestoringFailureMode}
+                                            onClick={() => handleRestoreFailureMode(mode)}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-ltb bg-ltcard font-sora text-[11px] text-lttm hover:text-gr hover:border-grb hover:bg-grdim transition-colors disabled:opacity-50"
+                                          >
+                                            Restaurar a observación
+                                          </button>
+                                        )}
                                       </div>
-                                    )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -4365,6 +4490,92 @@ export function SystemDetailClient({
               >
                 {isSubmittingExclusion && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirmar exclusión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {failureModeActionModal && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-[16px] font-semibold text-ltt">
+                  {failureModeActionModal.type === 'promote' ? 'Promover a prioritario' : 'Descartar modo de fallo'}
+                </h2>
+                <p className="font-plex text-[11px] text-lttm mt-0.5">
+                  {failureModeActionModal.mode.code} — {failureModeActionModal.mode.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeFailureModeActionModal}
+                className="p-1.5 rounded-lg text-lttm hover:bg-ltbg hover:text-ltt transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {failureModeActionModal.type === 'promote' ? (
+                <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
+                  Este modo pasará de <span className="font-medium text-ltt">observación</span> a la cola <span className="font-medium text-ltt">prioritaria</span> y quedará disponible para el FMEA.
+                  Justifica por qué es relevante para este sistema.
+                </p>
+              ) : (
+                <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
+                  El modo quedará como <span className="font-medium text-re">descartado</span> (no aplica a este sistema). Indica el motivo para que quede trazabilidad.
+                </p>
+              )}
+
+              <div>
+                <label className="block font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1.5">
+                  {failureModeActionModal.type === 'promote' ? 'Justificación (mín. 30 caracteres)' : 'Motivo del descarte (mín. 20 caracteres)'}
+                </label>
+                <textarea
+                  value={failureModeActionReason}
+                  onChange={(e) => setFailureModeActionReason(e.target.value)}
+                  rows={4}
+                  placeholder={
+                    failureModeActionModal.type === 'promote'
+                      ? 'Ej: Este modo es crítico para nuestro sistema porque...'
+                      : 'Ej: No aplica porque el sistema no realiza...'
+                  }
+                  className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2.5 font-sora text-[13px] text-ltt outline-none focus:border-brand-cyan resize-none placeholder:text-lttm"
+                />
+                <div className="text-right font-plex text-[10px] text-lttm mt-1">
+                  {failureModeActionReason.length} / {failureModeActionModal.type === 'promote' ? 30 : 20} mín.
+                </div>
+              </div>
+
+              {failureModeActionError && (
+                <div className="text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2">
+                  {failureModeActionError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-ltb bg-ltcard2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeFailureModeActionModal}
+                className="px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium border border-ltb bg-ltcard text-lttm hover:bg-ltbg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitFailureModeAction}
+                disabled={isSubmittingFailureModeAction}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                  failureModeActionModal.type === 'promote'
+                    ? 'bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40]'
+                    : 'bg-re hover:bg-re/90'
+                }`}
+              >
+                {isSubmittingFailureModeAction && <Loader2 className="w-4 h-4 animate-spin" />}
+                {failureModeActionModal.type === 'promote' ? 'Promover' : 'Descartar'}
               </button>
             </div>
           </div>

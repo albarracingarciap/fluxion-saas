@@ -400,6 +400,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       priority_notes,
       priority_score,
       priority_level,
+      priority_reason_code,
+      quota_dropped,
       created_by,
       created_at,
       updated_at
@@ -484,6 +486,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
         priority_notes: row.priority_notes,
         priority_score: row.priority_score,
         priority_level: row.priority_level,
+        priority_reason_code: row.priority_reason_code ?? null,
+        quota_dropped: row.quota_dropped ?? false,
         created_by: row.created_by,
         created_by_name: row.created_by ? failureModeNames.get(row.created_by) ?? 'Usuario' : null,
         created_at: row.created_at,

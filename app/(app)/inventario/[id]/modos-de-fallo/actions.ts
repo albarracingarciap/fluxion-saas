@@ -164,6 +164,7 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
   );
 
   if (activation.activatedModes.length > 0) {
+    const now = new Date().toISOString();
     const insertPayload = activation.activatedModes.map((mode) => ({
       ai_system_id: input.aiSystemId,
       organization_id: membership.organization_id,
@@ -178,8 +179,10 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
       priority_score: mode.priority_score,
       priority_level: mode.priority_level,
       priority_notes: mode.priority_notes,
+      priority_reason_code: mode.priority_reason_code,
+      quota_dropped: mode.quota_dropped,
       priority_changed_by: user.id,
-      priority_changed_at: new Date().toISOString(),
+      priority_changed_at: now,
       created_by: user.id,
     }));
 
@@ -188,10 +191,15 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
       .insert(insertPayload);
 
     if (insertError) {
-      console.error('activateSystemFailureModes insert error:', insertError);
       return { error: insertError.message };
     }
   }
+
+  const { metrics } = activation;
+  const eventSummary =
+    metrics.total_activated === 0
+      ? 'Se ejecutó el motor de activación y no se detectaron modos de fallo candidatos con las reglas actuales.'
+      : `Se activaron ${metrics.total_activated} modos de fallo: ${metrics.prioritized_count} prioritarios y ${metrics.monitoring_count} en observación.${metrics.high_dropped_by_quota > 0 ? ` ${metrics.high_dropped_by_quota} candidatos descartados por cuota (${metrics.quota_used}/${metrics.quota_max}).` : ''}`;
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -199,15 +207,10 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
       organization_id: membership.organization_id,
       event_type: 'failure_modes_activated',
       event_title: 'Modos de fallo activados',
-      event_summary:
-        activation.activatedModes.length === 0
-          ? 'Se ejecutó el motor de activación y no se detectaron modos de fallo candidatos con las reglas actuales.'
-          : `Se activaron ${activation.activatedModes.length} modos de fallo: ${activation.activatedModes.filter((mode) => mode.priority_status === 'prioritized').length} prioritarios y ${activation.activatedModes.filter((mode) => mode.priority_status === 'monitoring').length} en observación.`,
+      event_summary: eventSummary,
       payload: {
         activation_source: 'rule',
-        activated_count: activation.activatedModes.length,
-        prioritized_count: activation.activatedModes.filter((mode) => mode.priority_status === 'prioritized').length,
-        monitoring_count: activation.activatedModes.filter((mode) => mode.priority_status === 'monitoring').length,
+        ...metrics,
         active_family_ids: activation.activeFamilies.map((family) => family.id),
         active_dimension_ids: Object.keys(activation.groupedByDimension),
       },
@@ -220,5 +223,225 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
   return {
     success: true,
     activatedCount: activation.activatedModes.length,
+    metrics: activation.metrics,
   };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Promoción manual: monitoring → prioritized
+// ────────────────────────────────────────────────────────────────────────────
+
+type PromoteFailureModeInput = {
+  systemFailureModeId: string;
+  aiSystemId: string;
+  reason: string;
+};
+
+export async function promoteFailureModeToPrioritized(input: PromoteFailureModeInput) {
+  if (!input.reason || input.reason.trim().length < 30) {
+    return { error: 'La justificación debe tener al menos 30 caracteres.' };
+  }
+
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const { data: existing } = await fluxion
+    .from('system_failure_modes')
+    .select('id, priority_status, ai_system_id')
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  if (!existing) return { error: 'Modo de fallo no encontrado.' };
+  if (existing.priority_status === 'prioritized') return { error: 'Este modo ya está en la cola prioritaria.' };
+  if (existing.priority_status === 'dismissed') return { error: 'Un modo descartado no puede promoverse directamente. Restáuralo primero.' };
+
+  const now = new Date().toISOString();
+
+  const { error: updateError } = await fluxion
+    .from('system_failure_modes')
+    .update({
+      priority_status: 'prioritized',
+      priority_source: 'human',
+      priority_notes: input.reason.trim(),
+      priority_reason_code: 'high_in_quota',
+      quota_dropped: false,
+      priority_changed_by: user.id,
+      priority_changed_at: now,
+    })
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id);
+
+  if (updateError) return { error: updateError.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'failure_mode_promoted',
+      event_title: 'Modo de fallo promovido a prioritario',
+      event_summary: `Un modo en observación fue promovido manualmente a la cola priorizada. Motivo: ${input.reason.trim()}`,
+      payload: {
+        system_failure_mode_id: input.systemFailureModeId,
+        previous_status: existing.priority_status,
+        reason: input.reason.trim(),
+      },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Descarte: prioritized | monitoring → dismissed
+// ────────────────────────────────────────────────────────────────────────────
+
+type DismissFailureModeInput = {
+  systemFailureModeId: string;
+  aiSystemId: string;
+  reason: string;
+};
+
+export async function dismissFailureMode(input: DismissFailureModeInput) {
+  if (!input.reason || input.reason.trim().length < 20) {
+    return { error: 'Indica el motivo del descarte (mínimo 20 caracteres).' };
+  }
+
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const { data: existing } = await fluxion
+    .from('system_failure_modes')
+    .select('id, priority_status')
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  if (!existing) return { error: 'Modo de fallo no encontrado.' };
+  if (existing.priority_status === 'dismissed') return { error: 'Este modo ya está descartado.' };
+
+  const now = new Date().toISOString();
+
+  const { error: updateError } = await fluxion
+    .from('system_failure_modes')
+    .update({
+      priority_status: 'dismissed',
+      priority_source: 'human',
+      priority_notes: input.reason.trim(),
+      priority_changed_by: user.id,
+      priority_changed_at: now,
+    })
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id);
+
+  if (updateError) return { error: updateError.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'failure_mode_dismissed',
+      event_title: 'Modo de fallo descartado',
+      event_summary: `Modo descartado manualmente (no aplica al sistema). Motivo: ${input.reason.trim()}`,
+      payload: {
+        system_failure_mode_id: input.systemFailureModeId,
+        previous_status: existing.priority_status,
+        reason: input.reason.trim(),
+      },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Restauración: dismissed → monitoring
+// ────────────────────────────────────────────────────────────────────────────
+
+type RestoreFailureModeInput = {
+  systemFailureModeId: string;
+  aiSystemId: string;
+};
+
+export async function restoreFailureMode(input: RestoreFailureModeInput) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const { data: existing } = await fluxion
+    .from('system_failure_modes')
+    .select('id, priority_status')
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  if (!existing) return { error: 'Modo de fallo no encontrado.' };
+  if (existing.priority_status !== 'dismissed') return { error: 'Solo se pueden restaurar modos descartados.' };
+
+  const now = new Date().toISOString();
+
+  const { error: updateError } = await fluxion
+    .from('system_failure_modes')
+    .update({
+      priority_status: 'monitoring',
+      priority_source: 'human',
+      priority_notes: 'Restaurado a observación tras revisión.',
+      priority_changed_by: user.id,
+      priority_changed_at: now,
+    })
+    .eq('id', input.systemFailureModeId)
+    .eq('organization_id', membership.organization_id);
+
+  if (updateError) return { error: updateError.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'failure_mode_restored',
+      event_title: 'Modo de fallo restaurado a observación',
+      event_summary: 'Modo previamente descartado restaurado a la cola de observación.',
+      payload: { system_failure_mode_id: input.systemFailureModeId },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true };
 }
