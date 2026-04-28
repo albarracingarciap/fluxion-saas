@@ -1,5 +1,5 @@
 import { createComplianceClient } from '@/lib/supabase/compliance';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 
 type DashboardSystemRow = {
   id: string;
@@ -96,7 +96,7 @@ function getComplianceFromSystem(
   system: DashboardSystemRow,
   persistedObligations: DashboardObligationRow[]
 ) {
-  const obligations = system.aiact_obligations ?? [];
+  const obligations = (system.aiact_obligations ?? []) as string[];
   if (obligations.length === 0) return 0;
 
   const persistedByCode = new Map(
@@ -217,6 +217,7 @@ function getNextStep(
 export async function buildDashboardData(organizationId: string) {
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const [
     systemsResult,
@@ -225,6 +226,8 @@ export async function buildDashboardData(organizationId: string) {
     failureModesResult,
     fmeaResult,
     planResult,
+    soaControlsResult,
+    soaMetadataResult,
   ] = await Promise.all([
     fluxion
       .from('ai_systems')
@@ -269,6 +272,15 @@ export async function buildDashboardData(organizationId: string) {
       .from('treatment_plans')
       .select('system_id, status, created_at')
       .eq('organization_id', organizationId),
+    adminFluxion
+      .from('organization_soa_controls')
+      .select('is_applicable, status')
+      .eq('organization_id', organizationId),
+    adminFluxion
+      .from('organization_soa_metadata')
+      .select('lifecycle_status, version')
+      .eq('organization_id', organizationId)
+      .maybeSingle(),
   ]);
 
   if (systemsResult.error) {
@@ -281,6 +293,24 @@ export async function buildDashboardData(organizationId: string) {
   const failureModes = (failureModesResult.data ?? []) as DashboardFailureModeRow[];
   const fmeaRows = (fmeaResult.data ?? []) as DashboardFmeaRow[];
   const planRows = (planResult.data ?? []) as DashboardPlanRow[];
+
+  // SoA KPIs
+  const soaControls = (soaControlsResult.data ?? []) as { is_applicable: boolean; status: string }[];
+  const soaMetadata = soaMetadataResult.data as { lifecycle_status: string; version: string } | null;
+  const soaApplicable = soaControls.filter((c) => c.is_applicable);
+  const soaImplemented = soaApplicable.filter((c) => c.status === 'implemented' || c.status === 'externalized');
+  const soaKpis = soaControls.length > 0
+    ? {
+        totalControls: soaControls.length,
+        applicableCount: soaApplicable.length,
+        implementedCount: soaImplemented.length,
+        completionPct: soaApplicable.length > 0
+          ? Math.round((soaImplemented.length / soaApplicable.length) * 100)
+          : 0,
+        lifecycleStatus: soaMetadata?.lifecycle_status ?? 'draft',
+        version: soaMetadata?.version ?? '1.0',
+      }
+    : null;
 
   const obligationsBySystem = new Map<string, DashboardObligationRow[]>();
   for (const row of obligations) {
@@ -457,5 +487,6 @@ export async function buildDashboardData(organizationId: string) {
     topRiskSubcategories,
     topCriticalFailureModes,
     hasRiskAnalytics: prioritizedModes.length > 0,
+    soaKpis,
   };
 }

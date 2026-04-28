@@ -14,10 +14,12 @@ import { updateSoAControl, suggestSoAJustification, bulkUpdateApplicability } fr
 
 type Props = {
   controls: SoAControlRecord[]
-  aiSystems: { id: string; name: string; internal_id: string }[]
+  aiSystems: { id: string; name: string; internal_id: string; tags: string[] | null }[]
+  inScopeSystems: { id: string; name: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
   members: OrgMember[]
   aisiaStatusMap: Record<string, string>
+  isReadOnly?: boolean
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
@@ -40,7 +42,7 @@ const DOMAIN_SHORT: Record<string, string> = {
 type ApplicabilityFilter = 'all' | 'applicable' | 'excluded'
 type StatusFilter = 'all' | 'not_started' | 'planned' | 'in_progress' | 'implemented' | 'externalized' | 'missing_justification'
 
-export function SoAClientView({ controls, aiSystems, evidences, members, aisiaStatusMap }: Props) {
+export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, members, aisiaStatusMap, isReadOnly = false }: Props) {
   const [selectedControl, setSelectedControl] = useState<SoAControlRecord | null>(null)
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
@@ -105,19 +107,20 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
     return groups
   }, [filteredControls])
 
-  // ── Controls by system (for system view) ───────────────────────────────────
-  const controlsBySystem = useMemo(() => {
-    const map: Record<string, SoAControlRecord[]> = {}
-    for (const sys of aiSystems) {
-      map[sys.id] = controls.filter((c) => c.linkedSystemIds.includes(sys.id))
-    }
-    return map
-  }, [controls, aiSystems])
-
-  const unlinkedControls = useMemo(
-    () => controls.filter((c) => c.isApplicable && c.linkedSystemIds.length === 0),
+  // ── Controls by system (for system view) ─────────────────────────────────
+  // All applicable controls apply to all in-scope systems (Option B: scope-derived linking)
+  const applicableControls = useMemo(
+    () => controls.filter((c) => c.isApplicable),
     [controls]
   )
+
+  const controlsBySystem = useMemo(() => {
+    const map: Record<string, SoAControlRecord[]> = {}
+    for (const sys of inScopeSystems) {
+      map[sys.id] = applicableControls
+    }
+    return map
+  }, [applicableControls, inScopeSystems])
 
   const hasActiveFilters = search || filterApplicability !== 'all' || filterStatus !== 'all'
   const totalShown = filteredControls.length
@@ -289,17 +292,19 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
 
         {/* ── Filter Bar (only in domain view) ── */}
         {viewMode === 'domain' && <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={toggleBulkMode}
-            className={`inline-flex items-center gap-2 h-[42px] px-4 rounded-[10px] border font-sora text-[13px] font-medium transition-all shrink-0 ${
-              isBulkMode
-                ? 'bg-brand-cyan text-white border-brand-cyan shadow-[0_2px_12px_rgba(0,173,239,0.3)]'
-                : 'bg-ltcard border-ltb text-ltt hover:border-brand-cyan/40 hover:text-brand-cyan'
-            }`}
-          >
-            <Zap size={14} />
-            Setup rápido
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={toggleBulkMode}
+              className={`inline-flex items-center gap-2 h-[42px] px-4 rounded-[10px] border font-sora text-[13px] font-medium transition-all shrink-0 ${
+                isBulkMode
+                  ? 'bg-brand-cyan text-white border-brand-cyan shadow-[0_2px_12px_rgba(0,173,239,0.3)]'
+                  : 'bg-ltcard border-ltb text-ltt hover:border-brand-cyan/40 hover:text-brand-cyan'
+              }`}
+            >
+              <Zap size={14} />
+              Setup rápido
+            </button>
+          )}
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lttm pointer-events-none" />
             <input
@@ -474,11 +479,6 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
                             {control.ownerName}
                           </span>
                         )}
-                        {control.linkedSystemIds.length > 0 && control.isApplicable && (
-                          <span className="font-sora text-[11px] text-brand-cyan">
-                            {control.linkedSystemIds.length} sist. vinculados
-                          </span>
-                        )}
                         <ArrowRight size={14} className="text-lttm group-hover:text-brand-cyan transition-colors" />
                       </div>
                     </button>
@@ -504,10 +504,17 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
         {/* ── System view ── */}
         {viewMode === 'system' && (
           <div className="flex flex-col gap-4">
-            {aiSystems.map((sys) => {
+            {inScopeSystems.length === 0 && (
+              <div className="bg-ltcard border border-ltb rounded-[14px] p-10 text-center">
+                <Network size={28} className="text-lttm mx-auto mb-3" />
+                <p className="font-sora text-[14px] text-ltt mb-1">Sin sistemas en alcance</p>
+                <p className="font-sora text-[12px] text-ltt2">Define los tags de alcance en la cabecera SoA para ver esta vista.</p>
+              </div>
+            )}
+            {inScopeSystems.map((sys) => {
               const sysControls = controlsBySystem[sys.id] ?? []
-              const applicable = sysControls.filter((c) => c.isApplicable)
-              const implemented = applicable.filter((c) => c.status === 'implemented' || c.status === 'externalized')
+              const implemented = sysControls.filter((c) => c.status === 'implemented' || c.status === 'externalized')
+              const fullSys = aiSystems.find((s) => s.id === sys.id)
               const aisiaStatus = aisiaStatusMap[sys.id]
               const aisiaBadge = aisiaStatus ? (AISIA_BADGE[aisiaStatus] ?? null) : null
 
@@ -529,27 +536,21 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
                             </span>
                           )}
                         </div>
-                        {sys.internal_id && (
-                          <p className="font-plex text-[10px] text-lttm mt-0.5">{sys.internal_id}</p>
+                        {fullSys?.internal_id && (
+                          <p className="font-plex text-[10px] text-lttm mt-0.5">{fullSys.internal_id}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 text-right">
-                      {sysControls.length > 0 ? (
-                        <>
-                          <span className="font-sora text-[12px] text-ltt2">
-                            {applicable.length} control{applicable.length !== 1 ? 'es' : ''} aplicable{applicable.length !== 1 ? 's' : ''}
-                          </span>
-                          {applicable.length > 0 && (
-                            <span className={`font-plex text-[12px] font-semibold ${
-                              implemented.length === applicable.length ? 'text-[#16a34a]' : implemented.length > 0 ? 'text-[#d97706]' : 'text-lttm'
-                            }`}>
-                              {implemented.length}/{applicable.length} implantados
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="font-sora text-[12px] text-lttm italic">Sin controles vinculados</span>
+                      <span className="font-sora text-[12px] text-ltt2">
+                        {sysControls.length} control{sysControls.length !== 1 ? 'es' : ''} aplicable{sysControls.length !== 1 ? 's' : ''}
+                      </span>
+                      {sysControls.length > 0 && (
+                        <span className={`font-plex text-[12px] font-semibold ${
+                          implemented.length === sysControls.length ? 'text-[#16a34a]' : implemented.length > 0 ? 'text-[#d97706]' : 'text-lttm'
+                        }`}>
+                          {implemented.length}/{sysControls.length} implantados
+                        </span>
                       )}
                     </div>
                   </div>
@@ -565,16 +566,12 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
                           <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-0.5 rounded border border-ltb bg-ltcard text-lttm shrink-0">
                             {control.id}
                           </span>
-                          <span className={`font-sora text-[13px] flex-1 min-w-0 truncate ${!control.isApplicable ? 'text-ltt2 line-through opacity-60' : 'text-ltt'}`}>
+                          <span className="font-sora text-[13px] flex-1 min-w-0 truncate text-ltt">
                             {control.title}
                           </span>
-                          {control.isApplicable ? (
-                            <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
-                              {STATUS_LABELS[control.status]?.label ?? control.status}
-                            </Badge>
-                          ) : (
-                            <Badge tone="neutral">Excluido</Badge>
-                          )}
+                          <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
+                            {STATUS_LABELS[control.status]?.label ?? control.status}
+                          </Badge>
                           <ArrowRight size={13} className="text-lttm group-hover:text-brand-cyan transition-colors shrink-0" />
                         </button>
                       ))}
@@ -582,45 +579,13 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
                   ) : (
                     <div className="px-5 py-5 text-center">
                       <p className="font-sora text-[12.5px] text-lttm italic">
-                        Este sistema no está vinculado a ningún control en la SoA. Abre un control y vincúlalo desde el slide-over.
+                        No hay controles aplicables definidos aún.
                       </p>
                     </div>
                   )}
                 </section>
               )
             })}
-
-            {unlinkedControls.length > 0 && (
-              <section className="bg-ltcard border border-[#fde68a] rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
-                <div className="px-5 py-4 border-b border-[#fde68a] bg-[#fffbeb] flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={14} className="text-[#d97706]" />
-                    <h2 className="font-sora text-[14px] font-semibold text-[#92400e]">
-                      Controles aplicables sin sistema vinculado
-                    </h2>
-                  </div>
-                  <span className="font-plex text-[10px] text-[#d97706]">{unlinkedControls.length} control{unlinkedControls.length !== 1 ? 'es' : ''}</span>
-                </div>
-                <div className="flex flex-col">
-                  {unlinkedControls.map((control) => (
-                    <button
-                      key={control.id}
-                      onClick={() => setSelectedControl(control)}
-                      className="px-5 py-3.5 text-left border-b border-ltb last:border-b-0 hover:bg-ltbg transition-colors flex items-center gap-3 group"
-                    >
-                      <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-0.5 rounded border border-ltb bg-ltcard text-lttm shrink-0">
-                        {control.id}
-                      </span>
-                      <span className="font-sora text-[13px] flex-1 min-w-0 truncate text-ltt">{control.title}</span>
-                      <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
-                        {STATUS_LABELS[control.status]?.label ?? control.status}
-                      </Badge>
-                      <ArrowRight size={13} className="text-lttm group-hover:text-brand-cyan transition-colors shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         )}
       </div>
@@ -669,10 +634,11 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
       {selectedControl && typeof document !== 'undefined' && createPortal(
         <SoAEditSlideOver
           control={selectedControl}
-          aiSystems={aiSystems}
+          inScopeSystems={inScopeSystems}
           evidences={evidences}
           members={members}
           aisiaStatusMap={aisiaStatusMap}
+          isReadOnly={isReadOnly}
           onClose={() => setSelectedControl(null)}
         />,
         document.body
@@ -705,17 +671,19 @@ const AISIA_BADGE: Record<string, { label: string; cls: string }> = {
 
 function SoAEditSlideOver({
   control,
-  aiSystems,
+  inScopeSystems,
   evidences,
   members,
   aisiaStatusMap,
+  isReadOnly,
   onClose,
 }: {
   control: SoAControlRecord
-  aiSystems: { id: string; name: string }[]
+  inScopeSystems: { id: string; name: string }[]
   evidences: { id: string; title: string; ai_system_id: string }[]
   members: OrgMember[]
   aisiaStatusMap: Record<string, string>
+  isReadOnly: boolean
   onClose: () => void
 }) {
   const catalogEntry = ISO_42001_CONTROLS.find((c) => c.id === control.id)
@@ -726,17 +694,12 @@ function SoAEditSlideOver({
   const [justification, setJustification] = useState(control.justification || '')
   const [status, setStatus] = useState(control.status)
   const [notes, setNotes] = useState(control.notes || '')
-  const [linkedSystems, setLinkedSystems] = useState<Set<string>>(new Set(control.linkedSystemIds))
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleToggleSystem = (id: string) => {
-    const next = new Set(linkedSystems)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setLinkedSystems(next)
-  }
+  // In-scope system IDs are used automatically as linked systems (Option B)
+  const inScopeSystemIds = inScopeSystems.map((s) => s.id)
 
   const handleSave = async () => {
     if (!control.dbId) return
@@ -751,7 +714,7 @@ function SoAEditSlideOver({
         ownerUserId: ownerUserId || null,
         notes: notes || null,
         validationEvidenceId: validationEvidenceId || null,
-        linkedSystemIds: Array.from(linkedSystems),
+        linkedSystemIds: isApplicable ? inScopeSystemIds : [],
       })
       if (res.error) setError(res.error)
       else onClose()
@@ -768,7 +731,7 @@ function SoAEditSlideOver({
     try {
       const res = await suggestSoAJustification({
         controlId: control.id,
-        linkedSystemIds: Array.from(linkedSystems),
+        linkedSystemIds: inScopeSystemIds,
         isApplicable,
       })
       if (res.error) setError(res.error)
@@ -800,6 +763,12 @@ function SoAEditSlideOver({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+          {isReadOnly && (
+            <div className="p-3 rounded-lg bg-[#fffbeb] border border-[#fde68a] text-[#b45309] text-[13px] font-sora flex items-center gap-2">
+              <ArrowRight size={14} className="shrink-0" />
+              Documento bloqueado. Solo lectura hasta iniciar una nueva revisión.
+            </div>
+          )}
           {error && (
             <div className="p-3 rounded-lg bg-red-dim border border-reb text-re text-[13px] font-sora">
               {error}
@@ -833,6 +802,7 @@ function SoAEditSlideOver({
             </div>
           )}
 
+          <div className={isReadOnly ? 'pointer-events-none opacity-60' : ''}>
           <div className="bg-ltbg border border-ltb rounded-xl p-5 flex items-center justify-between">
             <div>
               <p className="font-sora text-[14px] font-semibold text-ltt">Aplicabilidad</p>
@@ -906,20 +876,16 @@ function SoAEditSlideOver({
               </div>
             </div>
 
-            <div className={`space-y-2 transition-opacity ${linkedSystems.size === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className="space-y-2">
               <label className="font-sora text-[13px] font-semibold text-ltt block">Evidencia asociada</label>
               <select
                 value={validationEvidenceId}
                 onChange={(e) => setValidationEvidenceId(e.target.value)}
                 className="w-full h-[46px] rounded-[10px] border border-ltb bg-ltcard px-4 font-sora text-[13px] text-ltt focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
               >
-                <option value="">
-                  {linkedSystems.size === 0
-                    ? 'Selecciona sistemas vinculados abajo primero'
-                    : 'Selecciona una evidencia (opcional)'}
-                </option>
+                <option value="">Selecciona una evidencia (opcional)</option>
                 {evidences
-                  .filter((ev) => linkedSystems.has(ev.ai_system_id))
+                  .filter((ev) => inScopeSystemIds.includes(ev.ai_system_id))
                   .map((ev) => (
                     <option key={ev.id} value={ev.id}>{ev.title}</option>
                   ))}
@@ -938,26 +904,22 @@ function SoAEditSlideOver({
 
             <div className="space-y-3">
               <div>
-                <label className="font-sora text-[13px] font-semibold text-ltt block">Sistemas vinculados</label>
+                <label className="font-sora text-[13px] font-semibold text-ltt block">Sistemas en alcance</label>
                 <p className="font-sora text-[11px] text-ltt2 mt-1">
-                  Selecciona a qué sistemas de IA de tu inventario afecta o restringe concretamente este control.
+                  Sistemas incluidos en el alcance SoA. Se vinculan automáticamente al guardar.
                 </p>
               </div>
               <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto p-1">
-                {aiSystems.length === 0 ? (
-                  <p className="text-[12px] text-ltt2 italic">No hay sistemas en el inventario.</p>
+                {inScopeSystems.length === 0 ? (
+                  <p className="text-[12px] text-ltt2 italic">Sin sistemas en alcance. Define los tags de alcance en la cabecera SoA.</p>
                 ) : (
-                  aiSystems.map((sys) => {
-                    const isLinked = linkedSystems.has(sys.id)
+                  inScopeSystems.map((sys) => {
                     const aisiaStatus = aisiaStatusMap[sys.id]
                     const aisiaBadge = aisiaStatus ? (AISIA_BADGE[aisiaStatus] ?? null) : null
                     return (
-                      <button
+                      <div
                         key={sys.id}
-                        onClick={() => handleToggleSystem(sys.id)}
-                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-left transition-colors ${
-                          isLinked ? 'bg-cyan-dim border-cyan-border text-brand-cyan' : 'bg-ltcard border-ltb text-ltt hover:bg-ltbg'
-                        }`}
+                        className="flex items-center justify-between px-3 py-2.5 rounded-lg border bg-ltcard border-ltb text-ltt"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-sora text-[13px] truncate">{sys.name}</span>
@@ -972,14 +934,14 @@ function SoAEditSlideOver({
                             </span>
                           )}
                         </div>
-                        {isLinked && <Check size={14} className="shrink-0 ml-2" />}
-                      </button>
+                      </div>
                     )
                   })
                 )}
               </div>
             </div>
           </div>
+          </div>{/* end isReadOnly wrapper */}
         </div>
 
         <div className="px-6 py-4 border-t border-ltb bg-ltcard2 flex items-center justify-end gap-3">
@@ -987,15 +949,17 @@ function SoAEditSlideOver({
             onClick={onClose}
             className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
           >
-            Cancelar
+            {isReadOnly ? 'Cerrar' : 'Cancelar'}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="inline-flex items-center justify-center min-w-[120px] px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all disabled:opacity-70 disabled:hover:translate-y-0"
-          >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar control'}
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="inline-flex items-center justify-center min-w-[120px] px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all disabled:opacity-70 disabled:hover:translate-y-0"
+            >
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar control'}
+            </button>
+          )}
         </div>
       </div>
     </>

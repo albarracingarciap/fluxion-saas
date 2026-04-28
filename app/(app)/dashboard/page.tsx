@@ -12,6 +12,9 @@ import {
   GitFork,
   Plus,
   ShieldAlert,
+  ShieldCheck,
+  Clock,
+  FileEdit,
 } from 'lucide-react'
 import { OnboardingGuide } from './OnboardingGuide'
 import { getAppAuthState } from '@/lib/auth/app-state'
@@ -104,6 +107,12 @@ export default async function DashboardPage() {
           Icon={FileCheck2}
         />
       </section>
+
+      {dashboard.soaKpis && (
+        <section>
+          <SoAStatusCard soaKpis={dashboard.soaKpis} />
+        </section>
+      )}
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <ComplianceOverviewCard dashboard={dashboard} />
@@ -797,6 +806,93 @@ function CausalChainsAlertCard({ chains }: { chains: ActiveCausalChain[] }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+const LIFECYCLE_BADGE: Record<string, { label: string; cls: string; Icon: React.ComponentType<{ size?: number | string; className?: string }> }> = {
+  draft:        { label: 'Borrador',    cls: 'bg-[#f0f9ff] border-[#bae6fd] text-[#0369a1]', Icon: FileEdit },
+  under_review: { label: 'En revisión', cls: 'bg-[#fffbeb] border-[#fde68a] text-[#b45309]', Icon: Clock },
+  approved:     { label: 'Aprobado',    cls: 'bg-[#f0fdf4] border-[#bbf7d0] text-[#15803d]', Icon: CheckCircle2 },
+}
+
+function SoAStatusCard({
+  soaKpis,
+}: {
+  soaKpis: {
+    totalControls: number
+    applicableCount: number
+    implementedCount: number
+    completionPct: number
+    lifecycleStatus: string
+    version: string
+  }
+}) {
+  const badge = LIFECYCLE_BADGE[soaKpis.lifecycleStatus] ?? LIFECYCLE_BADGE.draft
+  const BadgeIcon = badge.Icon
+  const inProgressCount = soaKpis.applicableCount - soaKpis.implementedCount
+
+  return (
+    <div className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[9px] bg-cyan-dim border border-cyan-border flex items-center justify-center shrink-0">
+            <ShieldCheck size={15} className="text-brand-cyan" />
+          </div>
+          <div>
+            <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">ISO/IEC 42001:2023</p>
+            <p className="font-sora text-[14px] font-semibold text-ltt leading-tight">Declaración de Aplicabilidad</p>
+          </div>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-plex text-[10px] uppercase tracking-[0.7px] ${badge.cls}`}>
+            <BadgeIcon size={10} />
+            {badge.label}
+          </span>
+        </div>
+        <Link
+          href="/plantillas/soa-iso42001"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] border border-ltb text-ltt2 font-sora text-[12px] hover:border-brand-cyan/40 hover:text-brand-cyan transition-colors"
+        >
+          Ver SoA <ArrowRight size={12} />
+        </Link>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 py-5 grid gap-6 sm:grid-cols-[1fr_auto]">
+        {/* Left — completion */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-end gap-3">
+            <span className="font-fraunces text-[42px] leading-none text-ltt">{soaKpis.completionPct}%</span>
+            <span className="font-sora text-[13px] text-ltt2 mb-1">cumplimiento SoA</span>
+          </div>
+          {/* Progress bar */}
+          <div className="relative h-2 rounded-full bg-ltb overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue transition-all"
+              style={{ width: `${soaKpis.completionPct}%` }}
+            />
+          </div>
+          <p className="font-sora text-[12px] text-ltt2">
+            {soaKpis.implementedCount} de {soaKpis.applicableCount} controles implantados
+            {inProgressCount > 0 && <span className="text-[#d97706]"> · {inProgressCount} en progreso</span>}
+          </p>
+        </div>
+
+        {/* Right — stats */}
+        <div className="flex sm:flex-col gap-4 sm:gap-2.5 sm:items-end justify-between sm:justify-start">
+          <StatPill label="Aplicables" value={`${soaKpis.applicableCount} / ${soaKpis.totalControls}`} />
+          <StatPill label="Versión" value={`v${soaKpis.version}`} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-right">
+      <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">{label}</p>
+      <p className="font-sora text-[13px] font-semibold text-ltt mt-0.5">{value}</p>
     </div>
   )
 }

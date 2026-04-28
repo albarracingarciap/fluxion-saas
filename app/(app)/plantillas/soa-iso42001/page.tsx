@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getAppAuthState } from '@/lib/auth/app-state'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { buildSoAData } from '@/lib/templates/data'
 import { initializeSoA } from './actions'
 import { InitSoAButton } from './init-soa-button'
@@ -7,8 +8,35 @@ import { SoAClientView } from './soa-client-view'
 import { HeaderActions } from './header-actions'
 import { SoAPrintView } from './soa-print-view'
 import { SoAMetadataBar } from './metadata-bar'
-import { ShieldCheck, Target, ArrowRight } from 'lucide-react'
+import { ShieldCheck, Clock, CheckCircle2, FileEdit } from 'lucide-react'
 import Link from 'next/link'
+
+const LIFECYCLE_CONFIG = {
+  draft: {
+    label: 'Borrador',
+    description: 'El documento está en edición. Los controles pueden modificarse libremente.',
+    bg: 'bg-[#f0f9ff]',
+    border: 'border-[#bae6fd]',
+    text: 'text-[#0369a1]',
+    icon: FileEdit,
+  },
+  under_review: {
+    label: 'En revisión',
+    description: 'El documento está bloqueado a la espera de aprobación. Solo los usuarios autorizados pueden aprobarlo.',
+    bg: 'bg-[#fffbeb]',
+    border: 'border-[#fde68a]',
+    text: 'text-[#b45309]',
+    icon: Clock,
+  },
+  approved: {
+    label: 'Aprobado',
+    description: 'El documento SoA ha sido aprobado formalmente. Para realizar cambios, inicia una nueva revisión.',
+    bg: 'bg-[#f0fdf4]',
+    border: 'border-[#bbf7d0]',
+    text: 'text-[#15803d]',
+    icon: CheckCircle2,
+  },
+}
 
 export default async function SoAPage() {
   const { user, membership, onboardingCompleted } = await getAppAuthState()
@@ -21,7 +49,20 @@ export default async function SoAPage() {
     redirect('/onboarding')
   }
 
+  // Fetch user role for lifecycle gate
+  const fluxion = createFluxionClient()
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  const userRole: string = profile?.role ?? ''
+
   const data = await buildSoAData(membership.organization_id)
+
+  const lifecycleStatus = data.metadata.lifecycle_status ?? 'draft'
+  const isReadOnly = lifecycleStatus !== 'draft'
+  const lifecycleCfg = LIFECYCLE_CONFIG[lifecycleStatus as keyof typeof LIFECYCLE_CONFIG] ?? LIFECYCLE_CONFIG.draft
 
   return (
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
@@ -44,7 +85,13 @@ export default async function SoAPage() {
               Volver al dashboard
             </Link>
             {data.isInitialized && (
-              <HeaderActions metadata={data.metadata} availableTags={data.availableTags} />
+              <HeaderActions
+                metadata={data.metadata}
+                availableTags={data.availableTags}
+                userRole={userRole}
+                lifecycleStatus={lifecycleStatus}
+                controls={data.controls}
+              />
             )}
           </div>
         </div>
@@ -63,6 +110,19 @@ export default async function SoAPage() {
         </section>
       ) : (
         <>
+          {/* Lifecycle status banner */}
+          <div className={`${lifecycleCfg.bg} border ${lifecycleCfg.border} rounded-[12px] px-5 py-3.5 flex items-center gap-3`}>
+            <lifecycleCfg.icon size={16} className={`${lifecycleCfg.text} shrink-0`} />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`font-plex text-[11px] uppercase tracking-[0.9px] font-semibold ${lifecycleCfg.text}`}>
+                {lifecycleCfg.label}
+              </span>
+              <span className={`font-sora text-[13px] ${lifecycleCfg.text} opacity-80`}>
+                — {lifecycleCfg.description}
+              </span>
+            </div>
+          </div>
+
           <SoAMetadataBar metadata={data.metadata} />
 
           <section className="grid gap-4 md:grid-cols-3">
@@ -86,11 +146,19 @@ export default async function SoAPage() {
             />
           </section>
 
-          <SoAClientView controls={data.controls} aiSystems={data.aiSystems} evidences={data.evidences} members={data.members} aisiaStatusMap={data.aisiaStatusMap} />
-          
-          <SoAPrintView 
-            metadata={data.metadata} 
-            controls={data.controls} 
+          <SoAClientView
+            controls={data.controls}
+            aiSystems={data.aiSystems}
+            inScopeSystems={data.inScopeSystems}
+            evidences={data.evidences}
+            members={data.members}
+            aisiaStatusMap={data.aisiaStatusMap}
+            isReadOnly={isReadOnly}
+          />
+
+          <SoAPrintView
+            metadata={data.metadata}
+            controls={data.controls}
             aiSystems={data.aiSystems.map(s => ({ id: s.id, name: s.name }))}
             evidences={data.evidences.map(e => ({ id: e.id, title: e.title }))}
           />

@@ -28,6 +28,7 @@ export type SoAMetadata = {
   next_review_date: string | null
   scope: string
   scope_system_tags: string[]
+  lifecycle_status: string
 }
 
 export async function buildSoAData(organizationId: string) {
@@ -52,10 +53,10 @@ export async function buildSoAData(organizationId: string) {
     `)
     .eq('organization_id', organizationId)
 
-  // 2. Fetch AI Systems for the selector
+  // 2. Fetch AI Systems (tags needed to compute in-scope set)
   const { data: aiSystems } = await fluxion
     .from('ai_systems')
-    .select('id, name, internal_id')
+    .select('id, name, internal_id, tags')
     .eq('organization_id', organizationId)
     .order('name')
 
@@ -104,20 +105,23 @@ export async function buildSoAData(organizationId: string) {
     }
   }
 
-  // 2.f Fetch distinct tags from ai_systems for scope selector
-  const { data: systemsWithTags } = await fluxion
-    .from('ai_systems')
-    .select('tags')
-    .eq('organization_id', organizationId)
-    .not('tags', 'is', null)
+  // 2.f Compute available tags + in-scope systems from aiSystems (already fetched with tags)
+  const scopeTags: string[] = metadata?.scope_system_tags ?? []
 
   const availableTags: string[] = Array.from(
     new Set(
-      (systemsWithTags ?? [])
-        .flatMap((s: { tags: string[] | null }) => s.tags ?? [])
+      (aiSystems ?? [])
+        .flatMap((s) => (s.tags as string[] | null) ?? [])
         .filter(Boolean)
     )
   ).sort() as string[]
+
+  // Systems whose tags intersect scope_system_tags (or ALL systems if no scope tags defined)
+  const inScopeSystems = (aiSystems ?? []).filter((s) => {
+    if (scopeTags.length === 0) return true
+    const sysTags: string[] = (s.tags as string[] | null) ?? []
+    return sysTags.some((t) => scopeTags.includes(t))
+  })
 
   // 3. Merge static catalog with DB data
   const controls: SoAControlRecord[] = ISO_42001_CONTROLS.map((staticControl) => {
@@ -158,11 +162,13 @@ export async function buildSoAData(organizationId: string) {
     next_review_date: null,
     scope: '',
     scope_system_tags: [],
+    lifecycle_status: 'draft',
   }
 
   return {
     controls,
     aiSystems: aiSystems ?? [],
+    inScopeSystems,
     evidences: evidences ?? [],
     members,
     aisiaStatusMap,
@@ -185,6 +191,7 @@ export async function buildSoAData(organizationId: string) {
           next_review_date: metadata.next_review_date ?? null,
           scope: metadata.scope ?? '',
           scope_system_tags: metadata.scope_system_tags ?? [],
+          lifecycle_status: metadata.lifecycle_status ?? 'draft',
         }
       : defaultMetadata,
   }
