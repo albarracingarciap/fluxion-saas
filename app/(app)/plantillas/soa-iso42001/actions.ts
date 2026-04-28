@@ -16,8 +16,8 @@ export async function initializeSoA(formData: FormData) {
   if (!user) redirect('/login')
   if (!membership || !onboardingCompleted) redirect('/onboarding')
 
-  // Check if SoA is already initialized
-  const { count } = await fluxion
+  // Check if SoA is already initialized — usar adminClient para ignorar RLS
+  const { count } = await adminClient
     .from('organization_soa_controls')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', membership.organization_id)
@@ -26,7 +26,7 @@ export async function initializeSoA(formData: FormData) {
     return { success: true, message: 'SoA already initialized' }
   }
 
-  // Insert all 38 controls
+  // Upsert los 38 controles (ignoreDuplicates evita el error si alguno ya existe)
   const payload = ISO_42001_CONTROLS.map((control) => ({
     organization_id: membership.organization_id,
     control_code: control.id,
@@ -34,7 +34,9 @@ export async function initializeSoA(formData: FormData) {
     status: 'not_started',
   }))
 
-  const { error } = await adminClient.from('organization_soa_controls').insert(payload)
+  const { error } = await adminClient
+    .from('organization_soa_controls')
+    .upsert(payload, { onConflict: 'organization_id,control_code', ignoreDuplicates: true })
 
   if (error) {
     console.error('Error initializing SoA:', error)
