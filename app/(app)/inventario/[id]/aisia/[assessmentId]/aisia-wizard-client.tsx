@@ -718,11 +718,13 @@ export function AisiaWizardClient({
   system,
   failureModes,
   treatmentPlans,
+  readOnly = false,
 }: {
   aisia: AisiaAssessmentEntry;
   system: Record<string, unknown>;
   failureModes: FailureModeRow[];
   treatmentPlans: TreatmentPlanRow[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
@@ -752,6 +754,7 @@ export function AisiaWizardClient({
   const currentData = sectionData[currentSection.code] ?? {};
 
   const handleChange = useCallback((key: string, value: unknown) => {
+    if (readOnly) return;
     setSectionData((prev) => ({
       ...prev,
       [currentSection.code]: { ...prev[currentSection.code], [key]: value },
@@ -761,7 +764,7 @@ export function AisiaWizardClient({
       setSectionStatuses((prev) => ({ ...prev, [currentSection.code]: 'in_progress' }));
     }
     setSavedAt(null);
-  }, [currentSection.code, sectionStatuses]);
+  }, [readOnly, currentSection.code, sectionStatuses]);
 
   const saveCurrentSection = useCallback(
     (markComplete = false) => {
@@ -790,7 +793,7 @@ export function AisiaWizardClient({
   );
 
   const goToStep = (step: number) => {
-    saveCurrentSection(false);
+    if (!readOnly) saveCurrentSection(false);
     setCurrentStep(step);
     setSavedAt(null);
   };
@@ -888,35 +891,45 @@ export function AisiaWizardClient({
       {/* ── Contenido principal ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header de sección */}
-        <div className="border-b border-ltb bg-ltcard2 px-6 py-4 shrink-0">
-          <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-0.5">
-            {currentSection.code} de {SECTIONS.length}
+        <div className="border-b border-ltb bg-ltcard2 px-6 py-4 shrink-0 flex items-start justify-between gap-4">
+          <div>
+            <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-0.5">
+              {currentSection.code} de {SECTIONS.length}
+            </div>
+            <div className="font-fraunces text-[20px] font-semibold text-ltt">
+              {currentSection.label}
+            </div>
           </div>
-          <div className="font-fraunces text-[20px] font-semibold text-ltt">
-            {currentSection.label}
-          </div>
+          {readOnly && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] bg-ltcard border border-ltb text-lttm shrink-0 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-lttm inline-block" />
+              Solo lectura
+            </span>
+          )}
         </div>
 
         {/* Formulario */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {currentStep === 0 && (
-            <SectionS1 data={currentData} system={system} onChange={handleChange} />
-          )}
-          {currentStep === 1 && (
-            <SectionS2 data={currentData} system={system} onChange={handleChange} />
-          )}
-          {currentStep === 2 && (
-            <SectionS3 data={currentData} failureModes={failureModes} onChange={handleChange} />
-          )}
-          {currentStep === 3 && (
-            <SectionS4 data={currentData} treatmentPlans={treatmentPlans} onChange={handleChange} />
-          )}
-          {currentStep === 4 && (
-            <SectionS5 data={currentData} onChange={handleChange} />
-          )}
-          {currentStep === 5 && (
-            <SectionS6 data={currentData} onChange={handleChange} />
-          )}
+          <fieldset disabled={readOnly} className={`border-none p-0 m-0 block ${readOnly ? 'opacity-70' : ''}`}>
+            {currentStep === 0 && (
+              <SectionS1 data={currentData} system={system} onChange={handleChange} />
+            )}
+            {currentStep === 1 && (
+              <SectionS2 data={currentData} system={system} onChange={handleChange} />
+            )}
+            {currentStep === 2 && (
+              <SectionS3 data={currentData} failureModes={failureModes} onChange={handleChange} />
+            )}
+            {currentStep === 3 && (
+              <SectionS4 data={currentData} treatmentPlans={treatmentPlans} onChange={handleChange} />
+            )}
+            {currentStep === 4 && (
+              <SectionS5 data={currentData} onChange={handleChange} />
+            )}
+            {currentStep === 5 && (
+              <SectionS6 data={currentData} onChange={handleChange} />
+            )}
+          </fieldset>
         </div>
 
         {/* Footer de navegación */}
@@ -930,42 +943,64 @@ export function AisiaWizardClient({
               ← Anterior
             </button>
 
-            {/* Estado de guardado */}
-            <div className="font-plex text-[11.5px]">
-              {isSaving && <span className="text-lttm">Guardando…</span>}
-              {!isSaving && savedAt && <span className="text-gr">Guardado a las {savedAt}</span>}
-              {!isSaving && saveError && <span className="text-re">{saveError}</span>}
-            </div>
+            {/* Estado de guardado — solo en modo edición */}
+            {!readOnly && (
+              <div className="font-plex text-[11.5px]">
+                {isSaving && <span className="text-lttm">Guardando…</span>}
+                {!isSaving && savedAt && <span className="text-gr">Guardado a las {savedAt}</span>}
+                {!isSaving && saveError && <span className="text-re">{saveError}</span>}
+              </div>
+            )}
+            {readOnly && (
+              <span className="font-plex text-[11.5px] text-lttm">
+                Solo lectura — los cambios no se guardan
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => saveCurrentSection(true)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[7px] font-plex text-[12px] font-medium border border-ltb bg-ltcard2 text-ltt hover:bg-ltcard disabled:opacity-60 transition-colors"
-            >
-              {isSaving ? 'Guardando…' : '✓ Marcar completa'}
-            </button>
+            {/* Modo edición: "Marcar completa" + "Siguiente/Enviar" */}
+            {!readOnly && (
+              <>
+                <button
+                  onClick={() => saveCurrentSection(true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[7px] font-plex text-[12px] font-medium border border-ltb bg-ltcard2 text-ltt hover:bg-ltcard disabled:opacity-60 transition-colors"
+                >
+                  {isSaving ? 'Guardando…' : '✓ Marcar completa'}
+                </button>
 
-            {!isLastStep ? (
+                {!isLastStep ? (
+                  <button
+                    onClick={() => {
+                      saveCurrentSection(false);
+                      setCurrentStep((s) => s + 1);
+                      setSavedAt(null);
+                    }}
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] font-plex text-[12px] font-medium bg-[#004aad] text-white hover:bg-[#0057cc] disabled:opacity-60 transition-colors"
+                  >
+                    Siguiente →
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || isSaving}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] font-plex text-[12px] font-medium bg-gr text-white hover:opacity-90 disabled:opacity-60 transition-colors"
+                  >
+                    {isSubmitting ? 'Enviando…' : 'Enviar para aprobación →'}
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Modo solo lectura: solo "Siguiente" de navegación */}
+            {readOnly && !isLastStep && (
               <button
-                onClick={() => {
-                  saveCurrentSection(false);
-                  setCurrentStep((s) => s + 1);
-                  setSavedAt(null);
-                }}
-                disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] font-plex text-[12px] font-medium bg-[#004aad] text-white hover:bg-[#0057cc] disabled:opacity-60 transition-colors"
+                onClick={() => goToStep(currentStep + 1)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] font-plex text-[12px] font-medium bg-[#004aad] text-white hover:bg-[#0057cc] transition-colors"
               >
                 Siguiente →
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting || isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] font-plex text-[12px] font-medium bg-gr text-white hover:opacity-90 disabled:opacity-60 transition-colors"
-              >
-                {isSubmitting ? 'Enviando…' : 'Enviar para aprobación →'}
               </button>
             )}
           </div>
