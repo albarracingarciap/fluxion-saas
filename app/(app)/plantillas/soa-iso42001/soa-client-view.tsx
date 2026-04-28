@@ -8,6 +8,7 @@ import type { OrgMember } from '@/lib/templates/data'
 import {
   Check, X, Loader2, ArrowRight, Sparkles,
   AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen, User, Zap,
+  LayoutList, Network,
 } from 'lucide-react'
 import { updateSoAControl, suggestSoAJustification, bulkUpdateApplicability } from './actions'
 
@@ -44,6 +45,9 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all')
+
+  // View mode
+  const [viewMode, setViewMode] = useState<'domain' | 'system'>('domain')
 
   // Bulk mode
   const [isBulkMode, setIsBulkMode] = useState(false)
@@ -100,6 +104,20 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
     }
     return groups
   }, [filteredControls])
+
+  // ── Controls by system (for system view) ───────────────────────────────────
+  const controlsBySystem = useMemo(() => {
+    const map: Record<string, SoAControlRecord[]> = {}
+    for (const sys of aiSystems) {
+      map[sys.id] = controls.filter((c) => c.linkedSystemIds.includes(sys.id))
+    }
+    return map
+  }, [controls, aiSystems])
+
+  const unlinkedControls = useMemo(
+    () => controls.filter((c) => c.isApplicable && c.linkedSystemIds.length === 0),
+    [controls]
+  )
 
   const hasActiveFilters = search || filterApplicability !== 'all' || filterStatus !== 'all'
   const totalShown = filteredControls.length
@@ -247,8 +265,30 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
           </div>
         </div>
 
-        {/* ── Filter Bar ── */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        {/* ── View toggle ── */}
+        <div className="flex items-center gap-1 p-1 bg-ltbg border border-ltb rounded-[10px] self-start">
+          <button
+            onClick={() => { setViewMode('domain'); setIsBulkMode(false); setSelectedDbIds(new Set()) }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] font-medium transition-all ${
+              viewMode === 'domain' ? 'bg-ltcard shadow-sm text-ltt border border-ltb' : 'text-lttm hover:text-ltt'
+            }`}
+          >
+            <LayoutList size={13} />
+            Por dominio
+          </button>
+          <button
+            onClick={() => { setViewMode('system'); setIsBulkMode(false); setSelectedDbIds(new Set()) }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] font-medium transition-all ${
+              viewMode === 'system' ? 'bg-ltcard shadow-sm text-ltt border border-ltb' : 'text-lttm hover:text-ltt'
+            }`}
+          >
+            <Network size={13} />
+            Por sistema
+          </button>
+        </div>
+
+        {/* ── Filter Bar (only in domain view) ── */}
+        {viewMode === 'domain' && <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={toggleBulkMode}
             className={`inline-flex items-center gap-2 h-[42px] px-4 rounded-[10px] border font-sora text-[13px] font-medium transition-all shrink-0 ${
@@ -309,10 +349,10 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
               Limpiar filtros
             </button>
           )}
-        </div>
+        </div>}
 
         {/* ── Result count when filtering ── */}
-        {hasActiveFilters && (
+        {viewMode === 'domain' && hasActiveFilters && (
           <p className="font-sora text-[12px] text-ltt2">
             {totalShown === 0
               ? 'Ningún control coincide con los filtros.'
@@ -331,8 +371,8 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
           </div>
         )}
 
-        {/* ── Controls Grid ── */}
-        <div className="flex flex-col gap-6">
+        {/* ── Controls Grid (domain view) ── */}
+        {viewMode === 'domain' && <div className="flex flex-col gap-6">
           {Object.entries(groupedFiltered).map(([groupName, groupControls]) => {
             const groupDbIds = groupControls.map((c) => c.dbId).filter(Boolean) as string[]
             const allGroupSelected = groupDbIds.length > 0 && groupDbIds.every((id) => selectedDbIds.has(id))
@@ -459,7 +499,130 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
               </button>
             </div>
           )}
-        </div>
+        </div>}
+
+        {/* ── System view ── */}
+        {viewMode === 'system' && (
+          <div className="flex flex-col gap-4">
+            {aiSystems.map((sys) => {
+              const sysControls = controlsBySystem[sys.id] ?? []
+              const applicable = sysControls.filter((c) => c.isApplicable)
+              const implemented = applicable.filter((c) => c.status === 'implemented' || c.status === 'externalized')
+              const aisiaStatus = aisiaStatusMap[sys.id]
+              const aisiaBadge = aisiaStatus ? (AISIA_BADGE[aisiaStatus] ?? null) : null
+
+              return (
+                <section key={sys.id} className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+                  <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="font-sora text-[14px] font-semibold text-ltt truncate">{sys.name}</h2>
+                          {aisiaBadge && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${aisiaBadge.cls}`}>
+                              {aisiaBadge.label}
+                            </span>
+                          )}
+                          {!aisiaStatus && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border bg-ltbg border-ltb text-lttm">
+                              Sin evaluación AISIA
+                            </span>
+                          )}
+                        </div>
+                        {sys.internal_id && (
+                          <p className="font-plex text-[10px] text-lttm mt-0.5">{sys.internal_id}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 text-right">
+                      {sysControls.length > 0 ? (
+                        <>
+                          <span className="font-sora text-[12px] text-ltt2">
+                            {applicable.length} control{applicable.length !== 1 ? 'es' : ''} aplicable{applicable.length !== 1 ? 's' : ''}
+                          </span>
+                          {applicable.length > 0 && (
+                            <span className={`font-plex text-[12px] font-semibold ${
+                              implemented.length === applicable.length ? 'text-[#16a34a]' : implemented.length > 0 ? 'text-[#d97706]' : 'text-lttm'
+                            }`}>
+                              {implemented.length}/{applicable.length} implantados
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="font-sora text-[12px] text-lttm italic">Sin controles vinculados</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {sysControls.length > 0 ? (
+                    <div className="flex flex-col">
+                      {sysControls.map((control) => (
+                        <button
+                          key={control.id}
+                          onClick={() => setSelectedControl(control)}
+                          className="px-5 py-3.5 text-left border-b border-ltb last:border-b-0 hover:bg-ltbg transition-colors flex items-center gap-3 group"
+                        >
+                          <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-0.5 rounded border border-ltb bg-ltcard text-lttm shrink-0">
+                            {control.id}
+                          </span>
+                          <span className={`font-sora text-[13px] flex-1 min-w-0 truncate ${!control.isApplicable ? 'text-ltt2 line-through opacity-60' : 'text-ltt'}`}>
+                            {control.title}
+                          </span>
+                          {control.isApplicable ? (
+                            <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
+                              {STATUS_LABELS[control.status]?.label ?? control.status}
+                            </Badge>
+                          ) : (
+                            <Badge tone="neutral">Excluido</Badge>
+                          )}
+                          <ArrowRight size={13} className="text-lttm group-hover:text-brand-cyan transition-colors shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-5 text-center">
+                      <p className="font-sora text-[12.5px] text-lttm italic">
+                        Este sistema no está vinculado a ningún control en la SoA. Abre un control y vincúlalo desde el slide-over.
+                      </p>
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+
+            {unlinkedControls.length > 0 && (
+              <section className="bg-ltcard border border-[#fde68a] rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+                <div className="px-5 py-4 border-b border-[#fde68a] bg-[#fffbeb] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={14} className="text-[#d97706]" />
+                    <h2 className="font-sora text-[14px] font-semibold text-[#92400e]">
+                      Controles aplicables sin sistema vinculado
+                    </h2>
+                  </div>
+                  <span className="font-plex text-[10px] text-[#d97706]">{unlinkedControls.length} control{unlinkedControls.length !== 1 ? 'es' : ''}</span>
+                </div>
+                <div className="flex flex-col">
+                  {unlinkedControls.map((control) => (
+                    <button
+                      key={control.id}
+                      onClick={() => setSelectedControl(control)}
+                      className="px-5 py-3.5 text-left border-b border-ltb last:border-b-0 hover:bg-ltbg transition-colors flex items-center gap-3 group"
+                    >
+                      <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-0.5 rounded border border-ltb bg-ltcard text-lttm shrink-0">
+                        {control.id}
+                      </span>
+                      <span className="font-sora text-[13px] flex-1 min-w-0 truncate text-ltt">{control.title}</span>
+                      <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
+                        {STATUS_LABELS[control.status]?.label ?? control.status}
+                      </Badge>
+                      <ArrowRight size={13} className="text-lttm group-hover:text-brand-cyan transition-colors shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Bulk action bar (sticky bottom) ── */}
