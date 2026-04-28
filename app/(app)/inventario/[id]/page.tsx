@@ -10,6 +10,7 @@ import {
   SystemDetailClient,
   type AisiaAssessmentEntry,
   type AisiaSectionEntry,
+  type SoaControlState,
   type SystemDetailData,
   type SystemEvidenceEntry,
   type SystemFailureModeEntry,
@@ -576,6 +577,34 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     };
   }
 
+  // ── SoA — estado de controles Annexo A para este sistema ──
+  const { data: soaControlRows } = await fluxion
+    .from('organization_soa_controls')
+    .select('id, control_code, is_applicable, status')
+    .eq('organization_id', membership.organization_id);
+
+  const soaControlIds = (soaControlRows ?? []).map((r) => r.id as string);
+  const linkedSoaControlIdSet = new Set<string>();
+
+  if (soaControlIds.length > 0) {
+    const { data: linkRows } = await fluxion
+      .from('organization_soa_system_links')
+      .select('soa_control_id')
+      .eq('ai_system_id', params.id)
+      .in('soa_control_id', soaControlIds);
+
+    for (const link of linkRows ?? []) {
+      linkedSoaControlIdSet.add(link.soa_control_id as string);
+    }
+  }
+
+  const soaControls: SoaControlState[] = (soaControlRows ?? []).map((r) => ({
+    control_code:      r.control_code as string,
+    is_applicable:     (r.is_applicable ?? false) as boolean,
+    status:            (r.status ?? 'not_started') as string,
+    linked_to_system:  linkedSoaControlIdSet.has(r.id as string),
+  }));
+
   // Fetch treatment plan data for the latest evaluation
   const { data: latestEvaluation } = await fluxion
     .from('fmea_evaluations')
@@ -608,6 +637,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       systemGraph={systemGraph}
       treatmentPlanData={treatmentPlanData}
       aisia={aisia}
+      soaControls={soaControls}
     />
   );
 }
