@@ -121,7 +121,6 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
     .order('code', { ascending: true });
 
   if (catalogError || !catalogRows) {
-    console.error('activateSystemFailureModes catalog error:', catalogError);
     return { error: catalogError?.message ?? 'No se pudo cargar el catálogo de modos de fallo.' };
   }
 
@@ -191,9 +190,16 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
 
     const { error: insertError } = await fluxion
       .from('system_failure_modes')
-      .insert(insertPayload);
+      .upsert(insertPayload, {
+        onConflict: 'ai_system_id,failure_mode_id',
+        ignoreDuplicates: false,
+      });
 
     if (insertError) {
+      // Unique violation (código 23505): ya activado en un intento anterior
+      if (insertError.code === '23505') {
+        return { success: true, activatedCount: 0, metrics: activation.metrics };
+      }
       return { error: insertError.message };
     }
   }
