@@ -854,10 +854,14 @@ export function activateFailureModesForSystem(
       return left.code.localeCompare(right.code);
     });
 
+  // Si los hard_override ya saturaron la cuota base, baseRemaining=0 — pero el suelo
+  // garantiza que entren igualmente HIGH_CANDIDATE_FLOOR candidatos high mejor rankeados.
+  // No aplicamos PRIORITIZED_SOFT_QUOTA_MAX como techo absoluto porque los hard_override
+  // ya pueden excederlo por diseño (son obligatorios), y bloquear el suelo aquí dejaría
+  // sin diversidad cuando más se necesita.
   const baseRemaining = Math.max(0, quota - prioritizedIds.size);
   const floor = Math.min(HIGH_CANDIDATE_FLOOR, rankedHighCandidates.length);
-  const cap = Math.max(0, PRIORITIZED_SOFT_QUOTA_MAX - prioritizedIds.size);
-  const remainingSlots = Math.min(cap, Math.max(baseRemaining, floor));
+  const remainingSlots = Math.max(baseRemaining, floor);
   const highCandidatesEntering = rankedHighCandidates.slice(0, remainingSlots);
   const highCandidatesDropped = rankedHighCandidates.slice(remainingSlots);
 
