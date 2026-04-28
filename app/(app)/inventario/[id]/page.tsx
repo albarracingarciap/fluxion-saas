@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { computeCausalDegrees } from '@/lib/causal-graph/propagation';
 import { buildSystemCausalGraph, type SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { createComplianceClient } from '@/lib/supabase/compliance';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 import {
@@ -22,6 +22,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   const supabase = createClient();
   const compliance = createComplianceClient();
   const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const {
     data: { user },
@@ -121,6 +122,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       iso_42001_checks,
       iso_42001_updated_at,
       current_classification_event_id,
+      tags,
       created_by,
       updated_by,
       created_at,
@@ -605,6 +607,19 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     linked_to_system:  linkedSoaControlIdSet.has(r.id as string),
   }));
 
+  // ── SoA Scope — determinar si este sistema está en el alcance de la SoA org ──
+  const { data: soaMetadata } = await adminFluxion
+    .from('organization_soa_metadata')
+    .select('scope_system_tags')
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  const soaScopeSystemTags: string[] = (soaMetadata?.scope_system_tags as string[] | null) ?? [];
+  const systemTags: string[] = (system as unknown as { tags?: string[] }).tags ?? [];
+  const isInSoaScope =
+    soaScopeSystemTags.length > 0 &&
+    systemTags.some((tag) => soaScopeSystemTags.includes(tag));
+
   // Fetch treatment plan data for the latest evaluation
   const { data: latestEvaluation } = await fluxion
     .from('fmea_evaluations')
@@ -638,6 +653,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       treatmentPlanData={treatmentPlanData}
       aisia={aisia}
       soaControls={soaControls}
+      isInSoaScope={isInSoaScope}
+      soaScopeSystemTags={soaScopeSystemTags}
     />
   );
 }

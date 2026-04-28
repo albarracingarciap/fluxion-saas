@@ -216,6 +216,7 @@ export type SystemDetailData = {
         not_applicable: boolean;
       }>
     | null;
+  tags: string[] | null;
   created_at: string;
   created_by: string;
   updated_at: string;
@@ -988,6 +989,8 @@ function IsoTab({
   system,
   aisia,
   soaControls,
+  isInSoaScope,
+  soaScopeSystemTags,
   userRole,
   onInitAisia,
   isInitingAisia,
@@ -1004,6 +1007,8 @@ function IsoTab({
   system: SystemDetailData;
   aisia: AisiaAssessmentEntry | null;
   soaControls: SoaControlState[];
+  isInSoaScope: boolean;
+  soaScopeSystemTags: string[];
   userRole: string | null | undefined;
   onInitAisia: () => void;
   isInitingAisia: boolean;
@@ -1033,6 +1038,12 @@ function IsoTab({
   // Lookup map for fast access: control_code → SoaControlState
   const soaByCode = new Map<string, SoaControlState>(soaControls.map((s) => [s.control_code, s]));
 
+  // Controls explicitly linked to this system in the org SoA
+  const linkedSoaControls = soaControls.filter((c) => c.linked_to_system);
+
+  // Tags from this system that match the SoA scope tags
+  const matchingTags = (system.tags ?? []).filter((t) => soaScopeSystemTags.includes(t));
+
   const hasLegacyData = system.iso_42001_score !== null;
   const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
 
@@ -1047,6 +1058,78 @@ function IsoTab({
 
   return (
     <div className="space-y-4">
+      {/* ── Indicador de alcance SoA ── */}
+      {soaScopeSystemTags.length > 0 ? (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-[10px] border text-[12.5px] font-sora ${
+          isInSoaScope
+            ? 'bg-grdim border-grb text-gr'
+            : 'bg-ltbg border-ltb text-lttm'
+        }`}>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${isInSoaScope ? 'bg-gr' : 'bg-lttm'}`} />
+          {isInSoaScope ? (
+            <span>
+              Este sistema <strong>está incluido</strong> en el alcance de la Declaración de Aplicabilidad org.
+              {matchingTags.length > 0 && (
+                <span className="ml-2 inline-flex gap-1 flex-wrap">
+                  {matchingTags.map((t) => (
+                    <span key={t} className="px-1.5 py-0.5 rounded-[5px] bg-grdim border border-grb font-plex text-[10px]">{t}</span>
+                  ))}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span>Este sistema <strong>no está incluido</strong> en el alcance de la SoA organizacional actual.</span>
+          )}
+        </div>
+      ) : null}
+
+      {/* ── Controles SoA org vinculados a este sistema ── */}
+      {linkedSoaControls.length > 0 && (
+        <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+          <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">
+                Controles SoA org vinculados
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-[#e8f0fb] text-[#1a56c4] border border-[#b8cef5]">
+                {linkedSoaControls.length} control{linkedSoaControls.length !== 1 ? 'es' : ''}
+              </span>
+            </div>
+            <Link
+              href="/plantillas/soa-iso42001"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-plex text-[11.5px] font-medium text-[#004aad] bg-[#004aad0d] border border-[#004aad22] hover:bg-[#004aad18] transition-colors shrink-0"
+            >
+              Ver SoA →
+            </Link>
+          </div>
+          <div className="divide-y divide-ltb">
+            {linkedSoaControls.map((ctrl) => {
+              const catalogEntry = ISO_42001_CONTROLS.find((c) => c.id === ctrl.control_code);
+              const badge = getSoaBadge(ctrl);
+              return (
+                <div key={ctrl.control_code} className="px-5 py-3 flex items-center gap-3">
+                  <span className="font-plex text-[10px] font-semibold text-lttm bg-ltcard2 border border-ltb px-1.5 py-0.5 rounded-[4px] shrink-0">
+                    {ctrl.control_code}
+                  </span>
+                  <span className="font-plex text-[12.5px] text-ltt flex-1 min-w-0 truncate">
+                    {catalogEntry?.title ?? ctrl.control_code}
+                  </span>
+                  {ctrl.is_applicable ? (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border shrink-0 ${badge.cls}`}>
+                      {badge.label}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border bg-ltcard2 text-lttm border-ltb shrink-0">
+                      No aplica
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── AISIA card ── */}
       <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
         <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
@@ -1495,6 +1578,8 @@ export function SystemDetailClient({
   treatmentPlanData,
   aisia,
   soaControls,
+  isInSoaScope,
+  soaScopeSystemTags,
 }: {
   system: SystemDetailData;
   organizationId: string;
@@ -1508,6 +1593,8 @@ export function SystemDetailClient({
   treatmentPlanData: TreatmentPlanData | null;
   aisia: AisiaAssessmentEntry | null;
   soaControls: SoaControlState[];
+  isInSoaScope: boolean;
+  soaScopeSystemTags: string[];
 }) {
   const searchParams = useSearchParams();
   const { profile, user } = useAuthStore();
@@ -2893,6 +2980,8 @@ export function SystemDetailClient({
                   system={system}
                   aisia={aisia}
                   soaControls={soaControls}
+                  isInSoaScope={isInSoaScope}
+                  soaScopeSystemTags={soaScopeSystemTags}
                   userRole={profile?.role}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
