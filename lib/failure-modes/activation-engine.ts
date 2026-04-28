@@ -712,29 +712,44 @@ function computeFailureModePriority(
     context.biometric === true;
 
   // ── Hard override: el modo entra sí o sí en la cola priorizada ──────────────
+  // IMPORTANTE: las condiciones deben ser selectivas por modo (dimensión + severidad),
+  // no globales por sistema — de lo contrario todos los modos de un sistema de alto
+  // riesgo quedarían priorizados y la cuota no tendría efecto.
+  const KEY_RISK_DIMENSIONS = ['seguridad', 'legal_b', 'etica'];
+
   let hardOverride = false;
   let hardOverrideReason: PriorityReasonCode | null = null;
 
   if (sDefault >= 8) {
+    // Severidad estructural muy alta — independiente del sistema
     hardOverride = true;
     hardOverrideReason = 'hard_override_severity';
   } else if (
     aiactRiskLevel === 'prohibited' ||
-    (aiactRiskLevel === 'high' && (signals.impactsPeople || signals.processesSensitiveData))
+    (
+      aiactRiskLevel === 'high' &&
+      (signals.impactsPeople || signals.processesSensitiveData) &&
+      KEY_RISK_DIMENSIONS.includes(dimensionId) &&
+      sDefault >= 7
+    )
   ) {
+    // AI Act prohibido siempre; alto riesgo solo en dimensiones clave y severidad alta
     hardOverride = true;
     hardOverrideReason = 'hard_override_aiact';
   } else if (
     (context.biometric === true && context.affectsPersons === true) ||
-    (context.hasMinors === true && ['etica', 'legal_b', 'seguridad'].includes(dimensionId))
+    (context.hasMinors === true && KEY_RISK_DIMENSIONS.includes(dimensionId))
   ) {
+    // Combinaciones sensibles — biometría o menores con dimensión de riesgo
     hardOverride = true;
     hardOverrideReason = 'hard_override_sensitive_combo';
   } else if (
     (signals.isHealthDomain || signals.isFinanceDomain || signals.isPublicSectorDomain) &&
     signals.impactsPeople &&
-    severityScore >= 24 // s_default >= 7
+    KEY_RISK_DIMENSIONS.includes(dimensionId) &&
+    sDefault >= 7
   ) {
+    // Dominio crítico: solo dimensiones de riesgo con severidad alta
     hardOverride = true;
     hardOverrideReason = 'hard_override_domain_impact';
   } else if (
@@ -749,19 +764,18 @@ function computeFailureModePriority(
   const level = getPriorityLevel(weightedScore);
 
   // ── High candidate: entra en la cuota si hay slots disponibles ──────────────
-  // Lógica OR: basta con que se cumpla una condición de peso para clasificar como candidato
   const isHighCandidate =
     level === 'high' &&
     !hardOverride &&
     (
       sDefault >= 7 ||
       weightedScore >= 65 ||
-      dimensionId === 'seguridad' ||
+      (dimensionId === 'seguridad' && sDefault >= 6) ||
       (dimensionId === 'tecnica' && sDefault >= 6) ||
-      (dimensionId === 'legal_b' && hasStrongHumanSignal) ||
-      (dimensionId === 'etica' && (hasStrongHumanSignal || signals.hasVulnerableSubjects)) ||
-      (dimensionId === 'gobernanza' && (signals.weakDocumentation || signals.weakRiskManagement || signals.weakLogging) && signals.isProductionLike) ||
-      (dimensionId === 'roi' && signals.isProductionLike && (signals.usesThirdPartyModel || signals.isGenerative))
+      (dimensionId === 'legal_b' && hasStrongHumanSignal && sDefault >= 6) ||
+      (dimensionId === 'etica' && (hasStrongHumanSignal || signals.hasVulnerableSubjects) && sDefault >= 6) ||
+      (dimensionId === 'gobernanza' && (signals.weakDocumentation || signals.weakRiskManagement || signals.weakLogging) && signals.isProductionLike && sDefault >= 6) ||
+      (dimensionId === 'roi' && signals.isProductionLike && (signals.usesThirdPartyModel || signals.isGenerative) && sDefault >= 6)
     );
 
   return {
