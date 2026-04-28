@@ -36,6 +36,10 @@ export type PriorityReasonCode =
   | 'monitoring';                  // no alcanzó criterios de priorización
 
 const PRIORITIZED_SOFT_QUOTA_MAX = 80;
+// Suelo de candidatos high: aunque los hard_override saturen la cuota base, garantizamos
+// que entren hasta N candidatos high ranked por score para mantener diversidad de
+// dimensiones y capturar riesgos contextuales que las reglas duras no detectan.
+const HIGH_CANDIDATE_FLOOR = 15;
 
 export type FailureModeActivationContext = {
   domain?: string | null;
@@ -850,7 +854,10 @@ export function activateFailureModesForSystem(
       return left.code.localeCompare(right.code);
     });
 
-  const remainingSlots = Math.max(0, quota - prioritizedIds.size);
+  const baseRemaining = Math.max(0, quota - prioritizedIds.size);
+  const floor = Math.min(HIGH_CANDIDATE_FLOOR, rankedHighCandidates.length);
+  const cap = Math.max(0, PRIORITIZED_SOFT_QUOTA_MAX - prioritizedIds.size);
+  const remainingSlots = Math.min(cap, Math.max(baseRemaining, floor));
   const highCandidatesEntering = rankedHighCandidates.slice(0, remainingSlots);
   const highCandidatesDropped = rankedHighCandidates.slice(remainingSlots);
 
@@ -925,7 +932,10 @@ export function activateFailureModesForSystem(
     high_candidate_entered_quota: highEnteredCount,
     high_dropped_by_quota: highDroppedCount,
     quota_used: prioritizedCount,
-    quota_max: quota,
+    quota_max: Math.min(
+      PRIORITIZED_SOFT_QUOTA_MAX,
+      Math.max(quota, alwaysPrioritizedIds.size + HIGH_CANDIDATE_FLOOR)
+    ),
   };
 
   return {
