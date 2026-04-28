@@ -1,4 +1,4 @@
-import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { ISO_42001_CONTROLS, type Iso42001Control } from './iso42001-catalog'
 
 export type SoAControlRecord = Iso42001Control & {
@@ -15,9 +15,12 @@ export type SoAControlRecord = Iso42001Control & {
 
 export async function buildSoAData(organizationId: string) {
   const fluxion = createFluxionClient()
+  // RLS en organization_soa_controls referenciaba organization_members (eliminada).
+  // Usar adminClient hasta que se aplique la migración 058_fix_soa_rls.sql.
+  const adminFluxion = createAdminFluxionClient()
 
   // 1. Fetch DB controls
-  const { data: dbControls } = await fluxion
+  const { data: dbControls } = await adminFluxion
     .from('organization_soa_controls')
     .select(`
       id,

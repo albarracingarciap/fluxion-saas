@@ -60,13 +60,14 @@ export type SoAControlUpdatePayload = {
 
 export async function updateSoAControl(input: SoAControlUpdatePayload) {
   const fluxion = createFluxionClient()
+  const adminClient = createAdminFluxionClient()
   const { user, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')
   if (!membership || !onboardingCompleted) redirect('/onboarding')
 
-  // 1. Update main control
-  const { data: control, error: updateError } = await fluxion
+  // 1. Update main control (adminClient — RLS roto hasta migración 058)
+  const { data: control, error: updateError } = await adminClient
     .from('organization_soa_controls')
     .update({
       is_applicable: input.isApplicable,
@@ -86,9 +87,8 @@ export async function updateSoAControl(input: SoAControlUpdatePayload) {
     return { error: 'No se pudo actualizar el control.' }
   }
 
-  // 2. Synchronize System Links
-  // Delete existing links
-  await fluxion
+  // 2. Synchronize System Links (adminClient — misma razón)
+  await adminClient
     .from('organization_soa_system_links')
     .delete()
     .eq('soa_control_id', input.id)
@@ -100,7 +100,7 @@ export async function updateSoAControl(input: SoAControlUpdatePayload) {
       ai_system_id: systemId,
     }))
 
-    const { error: linkError } = await fluxion
+    const { error: linkError } = await adminClient
       .from('organization_soa_system_links')
       .insert(linkPayload)
 
