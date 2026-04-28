@@ -149,6 +149,35 @@ export async function updateSoAControl(input: SoAControlUpdatePayload) {
   return { success: true }
 }
 
+export async function bulkUpdateApplicability(
+  controlDbIds: string[],
+  isApplicable: boolean
+) {
+  const adminClient = createAdminFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+  if (controlDbIds.length === 0) return { success: true }
+
+  const { error } = await adminClient
+    .from('organization_soa_controls')
+    .update({
+      is_applicable: isApplicable,
+      status: isApplicable ? 'not_started' : 'not_started',
+    })
+    .in('id', controlDbIds)
+    .eq('organization_id', membership.organization_id)
+
+  if (error) {
+    console.error('Error in bulk update:', error)
+    return { error: 'No se pudo actualizar la aplicabilidad de los controles.' }
+  }
+
+  revalidatePath('/plantillas/soa-iso42001')
+  return { success: true }
+}
+
 export async function updateSoAMetadata(input: {
   version: string
   owner_name: string

@@ -7,9 +7,9 @@ import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import type { OrgMember } from '@/lib/templates/data'
 import {
   Check, X, Loader2, ArrowRight, Sparkles,
-  AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen, User,
+  AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen, User, Zap,
 } from 'lucide-react'
-import { updateSoAControl, suggestSoAJustification } from './actions'
+import { updateSoAControl, suggestSoAJustification, bulkUpdateApplicability } from './actions'
 
 type Props = {
   controls: SoAControlRecord[]
@@ -44,6 +44,12 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all')
+
+  // Bulk mode
+  const [isBulkMode, setIsBulkMode] = useState(false)
+  const [selectedDbIds, setSelectedDbIds] = useState<Set<string>>(new Set())
+  const [isBulkSaving, setIsBulkSaving] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   // ── Quality alerts ──────────────────────────────────────────────────────────
   const qualityAlerts = useMemo(() => {
@@ -102,6 +108,51 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
     setSearch('')
     setFilterApplicability('all')
     setFilterStatus('all')
+  }
+
+  const toggleBulkMode = () => {
+    setIsBulkMode((v) => !v)
+    setSelectedDbIds(new Set())
+    setBulkError(null)
+  }
+
+  const toggleSelectControl = (dbId: string) => {
+    setSelectedDbIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(dbId)) next.delete(dbId)
+      else next.add(dbId)
+      return next
+    })
+  }
+
+  const toggleSelectGroup = (groupControls: SoAControlRecord[]) => {
+    const groupDbIds = groupControls.map((c) => c.dbId).filter(Boolean) as string[]
+    const allSelected = groupDbIds.every((id) => selectedDbIds.has(id))
+    setSelectedDbIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) groupDbIds.forEach((id) => next.delete(id))
+      else groupDbIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const selectAll = () => {
+    const allDbIds = filteredControls.map((c) => c.dbId).filter(Boolean) as string[]
+    setSelectedDbIds(new Set(allDbIds))
+  }
+
+  const handleBulkApply = async (isApplicable: boolean) => {
+    if (selectedDbIds.size === 0) return
+    setIsBulkSaving(true)
+    setBulkError(null)
+    const res = await bulkUpdateApplicability(Array.from(selectedDbIds), isApplicable)
+    setIsBulkSaving(false)
+    if (res.error) {
+      setBulkError(res.error)
+    } else {
+      setSelectedDbIds(new Set())
+      setIsBulkMode(false)
+    }
   }
 
   return (
@@ -198,6 +249,17 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
 
         {/* ── Filter Bar ── */}
         <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={toggleBulkMode}
+            className={`inline-flex items-center gap-2 h-[42px] px-4 rounded-[10px] border font-sora text-[13px] font-medium transition-all shrink-0 ${
+              isBulkMode
+                ? 'bg-brand-cyan text-white border-brand-cyan shadow-[0_2px_12px_rgba(0,173,239,0.3)]'
+                : 'bg-ltcard border-ltb text-ltt hover:border-brand-cyan/40 hover:text-brand-cyan'
+            }`}
+          >
+            <Zap size={14} />
+            Setup rápido
+          </button>
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lttm pointer-events-none" />
             <input
@@ -258,12 +320,38 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
           </p>
         )}
 
+        {/* ── Bulk mode hint ── */}
+        {isBulkMode && (
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-[10px] bg-cyan-dim2 border border-cyan-border text-[12.5px] font-sora text-brand-cyan">
+            <Zap size={13} className="shrink-0" />
+            <span>Selecciona controles y aplica el cambio en bloque. Haz click en las filas para seleccionarlas.</span>
+            <button onClick={selectAll} className="ml-auto shrink-0 underline underline-offset-2 text-[12px] hover:opacity-70">
+              Seleccionar todos ({filteredControls.filter(c => c.dbId).length})
+            </button>
+          </div>
+        )}
+
         {/* ── Controls Grid ── */}
         <div className="flex flex-col gap-6">
-          {Object.entries(groupedFiltered).map(([groupName, groupControls]) => (
+          {Object.entries(groupedFiltered).map(([groupName, groupControls]) => {
+            const groupDbIds = groupControls.map((c) => c.dbId).filter(Boolean) as string[]
+            const allGroupSelected = groupDbIds.length > 0 && groupDbIds.every((id) => selectedDbIds.has(id))
+            const someGroupSelected = groupDbIds.some((id) => selectedDbIds.has(id))
+
+            return (
             <section key={groupName} className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
-              <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between">
-                <h2 className="font-sora text-[14px] font-semibold text-ltt">{groupName}</h2>
+              <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
+                {isBulkMode && (
+                  <input
+                    type="checkbox"
+                    checked={allGroupSelected}
+                    ref={(el) => { if (el) el.indeterminate = someGroupSelected && !allGroupSelected }}
+                    onChange={() => toggleSelectGroup(groupControls)}
+                    className="w-4 h-4 rounded border-ltb accent-brand-cyan cursor-pointer shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
+                <h2 className="font-sora text-[14px] font-semibold text-ltt flex-1">{groupName}</h2>
                 <span className="font-plex text-[10px] text-lttm">
                   {groupControls.filter(c => c.isApplicable).length}/{groupControls.length} aplic.
                 </span>
@@ -271,6 +359,45 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
               <div className="flex flex-col">
                 {groupControls.map((control) => {
                   const missingJustification = control.isApplicable && !control.justification?.trim()
+                  const isSelected = control.dbId ? selectedDbIds.has(control.dbId) : false
+
+                  if (isBulkMode) {
+                    return (
+                      <div
+                        key={control.id}
+                        onClick={() => control.dbId && toggleSelectControl(control.dbId)}
+                        className={`px-5 py-4 border-b border-ltb last:border-b-0 flex items-center gap-4 cursor-pointer transition-colors ${
+                          isSelected ? 'bg-cyan-dim2' : 'hover:bg-ltbg'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="w-4 h-4 rounded border-ltb accent-brand-cyan shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-0.5 rounded border border-ltb bg-ltcard text-lttm">
+                              {control.id}
+                            </span>
+                            {!control.isApplicable ? (
+                              <span className="font-sora text-[11px] text-ltt2 bg-ltcard2 px-2 py-0.5 rounded border border-ltb">Excluido</span>
+                            ) : (
+                              <Badge tone={STATUS_LABELS[control.status]?.tone ?? 'neutral'}>
+                                {STATUS_LABELS[control.status]?.label ?? control.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className={`font-sora text-[13px] ${!control.isApplicable ? 'text-ltt2 line-through opacity-70' : 'text-ltt'}`}>
+                            {control.title}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   return (
                     <button
                       key={control.id}
@@ -319,7 +446,8 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
                 })}
               </div>
             </section>
-          ))}
+            )
+          })}
 
           {Object.keys(groupedFiltered).length === 0 && hasActiveFilters && (
             <div className="bg-ltcard border border-ltb rounded-[14px] p-10 text-center">
@@ -333,6 +461,47 @@ export function SoAClientView({ controls, aiSystems, evidences, members, aisiaSt
           )}
         </div>
       </div>
+
+      {/* ── Bulk action bar (sticky bottom) ── */}
+      {isBulkMode && typeof document !== 'undefined' && createPortal(
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] transition-all duration-200 ${
+          selectedDbIds.size > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+        }`}>
+          <div className="flex items-center gap-3 px-5 py-3.5 bg-[#001832] rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/10">
+            <span className="font-sora text-[13px] text-white/80 shrink-0">
+              <strong className="text-white">{selectedDbIds.size}</strong> control{selectedDbIds.size !== 1 ? 'es' : ''} seleccionado{selectedDbIds.size !== 1 ? 's' : ''}
+            </span>
+            <div className="w-px h-5 bg-white/20" />
+            {bulkError && (
+              <span className="font-sora text-[12px] text-red-400">{bulkError}</span>
+            )}
+            <button
+              onClick={() => handleBulkApply(true)}
+              disabled={isBulkSaving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[9px] bg-[#22c55e] text-white font-sora text-[12.5px] font-medium hover:bg-[#16a34a] transition-colors disabled:opacity-60"
+            >
+              {isBulkSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+              Marcar aplicables
+            </button>
+            <button
+              onClick={() => handleBulkApply(false)}
+              disabled={isBulkSaving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[9px] bg-white/10 text-white font-sora text-[12.5px] font-medium hover:bg-white/20 transition-colors disabled:opacity-60"
+            >
+              <X size={13} />
+              Marcar excluidos
+            </button>
+            <button
+              onClick={() => setSelectedDbIds(new Set())}
+              disabled={isBulkSaving}
+              className="p-1.5 rounded-lg text-white/50 hover:text-white transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {selectedControl && typeof document !== 'undefined' && createPortal(
         <SoAEditSlideOver
