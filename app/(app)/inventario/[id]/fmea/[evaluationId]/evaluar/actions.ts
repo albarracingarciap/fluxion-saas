@@ -5,6 +5,10 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import {
+  computeResidualPriorities,
+  type FmeaResidualInput,
+} from '@/lib/failure-modes/activation-engine';
+import {
   calculateFmeaZone,
   requiresJustification,
   requiresSecondReview,
@@ -356,7 +360,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
   const { data: items, error: itemError } = await fluxion
     .from('fmea_items')
-    .select('id, s_default_frozen, o_value, d_real_value, s_actual, status, narrative_justification, requires_second_review, second_review_status')
+    .select('id, failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, status, narrative_justification, requires_second_review, second_review_status')
     .eq('evaluation_id', input.evaluationId);
 
   if (itemError || !items) {
@@ -590,13 +594,76 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
     }
   }
 
+  // ── Re-cálculo de prioridad residual post-FMEA ──────────────────────────────
+  const evaluatedItems = items.filter(
+    (item) => item.status === 'evaluated' && typeof item.s_actual === 'number'
+  );
+
+  let residualDowngrades = 0;
+
+  if (evaluatedItems.length > 0) {
+    const failureModeIds = evaluatedItems.map((item) => item.failure_mode_id).filter(Boolean);
+
+    const { data: systemModes } = await fluxion
+      .from('system_failure_modes')
+      .select('id, failure_mode_id, priority_score, priority_status, priority_reason_code')
+      .eq('ai_system_id', input.aiSystemId)
+      .eq('organization_id', membership.organization_id)
+      .in('failure_mode_id', failureModeIds);
+
+    if (systemModes && systemModes.length > 0) {
+      const modeByFailureModeId = new Map(systemModes.map((m) => [m.failure_mode_id, m]));
+
+      const residualInputs: FmeaResidualInput[] = evaluatedItems
+        .map((item) => {
+          const systemMode = modeByFailureModeId.get(item.failure_mode_id);
+          if (!systemMode) return null;
+          return {
+            systemFailureModeId: systemMode.id,
+            failureModeId: item.failure_mode_id,
+            sDefaultFrozen: item.s_default_frozen ?? 5,
+            sActual: item.s_actual,
+            currentScore: systemMode.priority_score ?? 0,
+            currentReasonCode: systemMode.priority_reason_code ?? null,
+          } satisfies FmeaResidualInput;
+        })
+        .filter((x): x is FmeaResidualInput => x !== null);
+
+      const residuals = computeResidualPriorities(residualInputs);
+      const now = new Date().toISOString();
+
+      for (const residual of residuals) {
+        const currentMode = systemModes.find((m) => m.id === residual.systemFailureModeId);
+        const newStatus = residual.shouldDowngrade ? 'monitoring' : currentMode?.priority_status ?? 'monitoring';
+
+        await fluxion
+          .from('system_failure_modes')
+          .update({
+            priority_score: residual.residualScore,
+            priority_level: residual.residualLevel,
+            priority_notes: residual.residualNotes,
+            priority_reason_code: residual.residualReasonCode,
+            priority_status: newStatus,
+            priority_source: 'rules',
+            priority_changed_by: user.id,
+            priority_changed_at: now,
+          })
+          .eq('id', residual.systemFailureModeId)
+          .eq('organization_id', membership.organization_id);
+
+        if (residual.shouldDowngrade) residualDowngrades++;
+      }
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: input.aiSystemId,
       organization_id: membership.organization_id,
       event_type: 'fmea_submitted_for_review',
       event_title: 'Evaluación FMEA enviada a revisión',
-      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.`,
+      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
@@ -604,6 +671,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         treatment_plan_id: treatmentPlanId,
         treatment_actions_count: candidateItems.length,
         approver_id: approverId,
+        residual_downgrades: residualDowngrades,
       },
     },
     ...(createdTreatmentPlan && treatmentPlanId

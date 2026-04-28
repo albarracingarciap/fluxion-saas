@@ -1,3 +1,5 @@
+export const ENGINE_VERSION = '2.0.0';
+
 export type FailureModeDimension =
   | 'tecnica'
   | 'legal_b'
@@ -71,7 +73,7 @@ export type FailureModeActivationContext = {
   dpoInvolved?: boolean;
 };
 
-type ActivationSignals = {
+export type ActivationSignals = {
   isGenerative: boolean;
   isAgentic: boolean;
   usesThirdPartyModel: boolean;
@@ -159,6 +161,7 @@ export type ActivationResult = {
   activatedModes: ActivatedFailureMode[];
   groupedByDimension: Record<string, ActivatedFailureMode[]>;
   metrics: ActivationMetrics;
+  signals: ActivationSignals;
 };
 
 function normalizeText(value: string | null | undefined) {
@@ -915,5 +918,94 @@ export function activateFailureModesForSystem(
     activatedModes,
     groupedByDimension,
     metrics,
+    signals,
   };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Re-cálculo de prioridad residual post-FMEA (2.2)
+// ────────────────────────────────────────────────────────────────────────────
+
+export type FmeaResidualInput = {
+  systemFailureModeId: string;
+  failureModeId: string;
+  sDefaultFrozen: number;
+  sActual: number | null;
+  currentScore: number;
+  currentReasonCode: string | null;
+};
+
+export type FmeaResidualOutput = {
+  systemFailureModeId: string;
+  residualScore: number;
+  residualLevel: FailureModePriorityLevel;
+  residualReasonCode: string;
+  residualNotes: string;
+  shouldDowngrade: boolean;
+};
+
+const HARD_OVERRIDE_REASON_CODES = new Set<string>([
+  'hard_override_severity',
+  'hard_override_aiact',
+  'hard_override_sensitive_combo',
+  'hard_override_domain_impact',
+  'hard_override_infra',
+]);
+
+export function computeResidualPriorities(items: FmeaResidualInput[]): FmeaResidualOutput[] {
+  return items.map((item) => {
+    // Sin s_actual (skipped) → sin cambio
+    if (item.sActual === null) {
+      return {
+        systemFailureModeId: item.systemFailureModeId,
+        residualScore: item.currentScore,
+        residualLevel: getPriorityLevel(item.currentScore),
+        residualReasonCode: item.currentReasonCode ?? 'monitoring',
+        residualNotes: 'Ítem pospuesto en evaluación — prioridad sin cambio.',
+        shouldDowngrade: false,
+      };
+    }
+
+    const sDefault = Math.max(2, Math.min(9, item.sDefaultFrozen));
+    const sActual = Math.max(2, Math.min(9, item.sActual));
+
+    const originalSeverityScore = getSeverityScore(sDefault);
+    const residualSeverityScore = getSeverityScore(sActual);
+
+    // Ajuste proporcional del score original por el cambio de severidad
+    const residualScore = Math.round(
+      Math.min(100, item.currentScore * (residualSeverityScore / Math.max(originalSeverityScore, 1)))
+    );
+    const residualLevel = getPriorityLevel(residualScore);
+
+    const isHardOverride = HARD_OVERRIDE_REASON_CODES.has(item.currentReasonCode ?? '');
+    const delta = sDefault - sActual;
+
+    // Solo degradar si no es hard override y la reducción es significativa (≥ 3 puntos)
+    // y el residual cae por debajo del umbral 'medium'
+    const shouldDowngrade = !isHardOverride && delta >= 3 && residualScore < 30;
+
+    const residualReasonCode = shouldDowngrade
+      ? 'post_fmea_residual_low'
+      : isHardOverride
+        ? (item.currentReasonCode ?? 'hard_override_severity')
+        : residualLevel === 'critical'
+          ? 'critical_score'
+          : 'post_fmea_confirmed';
+
+    const residualNotes = shouldDowngrade
+      ? `Prioridad reducida tras FMEA: S_actual ${sActual} vs S_default ${sDefault} (−${delta}). Score residual: ${residualScore}. Pasa a observación.`
+      : isHardOverride
+        ? `Modo de override obligatorio — prioridad mantenida. Score residual: ${residualScore} (S_actual ${sActual}).`
+        : `Score residual tras evaluación FMEA: ${residualScore} (S_actual ${sActual} / S_default ${sDefault}).`;
+
+    return {
+      systemFailureModeId: item.systemFailureModeId,
+      residualScore,
+      residualLevel,
+      residualReasonCode,
+      residualNotes,
+      shouldDowngrade,
+    };
+  });
 }

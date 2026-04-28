@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import {
   activateFailureModesForSystem,
+  ENGINE_VERSION,
   type FailureModeActivationContext,
   type FailureModeCatalogRow,
 } from '@/lib/failure-modes/activation-engine';
@@ -181,6 +182,8 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
       priority_notes: mode.priority_notes,
       priority_reason_code: mode.priority_reason_code,
       quota_dropped: mode.quota_dropped,
+      engine_version: ENGINE_VERSION,
+      activation_signals: activation.signals,
       priority_changed_by: user.id,
       priority_changed_at: now,
       created_by: user.id,
