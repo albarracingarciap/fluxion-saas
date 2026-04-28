@@ -27,11 +27,13 @@ import {
   X,
 } from 'lucide-react';
 import { createSystemEvidence } from './evidencias/actions';
+import { initAisia, approveAisia, rejectAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
+import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog';
 import { ReconciliationPanel } from '@/components/classification/ReconciliationPanel';
 import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
@@ -218,6 +220,41 @@ export type SystemDetailData = {
   created_by: string;
   updated_at: string;
   updated_by: string | null;
+};
+
+export type AisiaSectionEntry = {
+  id: string;
+  assessment_id: string;
+  section_code: string;
+  data: Record<string, unknown>;
+  status: string; // pending | in_progress | complete
+  last_generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AisiaAssessmentEntry = {
+  id: string;
+  ai_system_id: string;
+  status: string; // draft | submitted | approved | rejected
+  version: number;
+  title: string | null;
+  created_by: string;
+  created_by_name: string | null;
+  submitted_at: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  sections: AisiaSectionEntry[];
+};
+
+export type SoaControlState = {
+  control_code: string;  // e.g. "A.5.2"
+  is_applicable: boolean;
+  status: string;        // 'not_started' | 'in_progress' | 'implemented'
+  linked_to_system: boolean;
 };
 
 const TABS = [
@@ -627,18 +664,6 @@ function getOblStatus(status: string) {
   }[status] ?? { color: 'text-lttm', dot: 'bg-ltb', label: 'Desconocido', fill: 'bg-ltb', thin: 'bg-ltb' };
 }
 
-function getIsoCheckStyle(status: string | null) {
-  if (status === 'si') return { pill: 'bg-grdim text-gr border-grb', bar: 'bg-gr', label: 'Implementado' };
-  if (status === 'parcial' || status === 'proceso') return { pill: 'bg-ordim text-or border-orb', bar: 'bg-or', label: 'Parcial' };
-  return { pill: 'bg-red-dim text-re border-reb', bar: 'bg-re', label: 'Pendiente' };
-}
-
-function getIsoGroupForCheck(key: string | null) {
-  if (!key) return 'Seguimiento';
-  if (['aiOwner', 'dpoInvolved', 'reviewFrequency', 'incidentContact'].includes(key)) return 'Gobierno';
-  if (['hasRiskAssessment', 'humanOversight', 'dpiaCompleted', 'hasAdversarialTest'].includes(key)) return 'Riesgo y supervisión';
-  return 'Documentación y trazabilidad';
-}
 
 function getEvidenceTypeLabel(value: string) {
   return EVIDENCE_TYPE_LABELS[value] ?? value;
@@ -679,6 +704,7 @@ function getHistoryEventVisual(eventType: string) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
   if (eventType === 'iso_recalculated') return { tone: 'bg-ordim text-or border-orb', label: 'ISO 42001' };
+  if (eventType.startsWith('aisia_')) return { tone: 'bg-[#e8f0fb] text-[#1a56c4] border-[#b8cef5]', label: 'AISIA' };
   if (eventType === 'failure_modes_activated') return { tone: 'bg-[#f1ebff] text-[#8850ff] border-[#d2c1ff]', label: 'FMEA' };
   if (eventType.startsWith('obligation_')) return { tone: 'bg-grdim text-gr border-grb', label: 'Obligación' };
   if (eventType.startsWith('evidence_')) return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Evidencia' };
@@ -690,7 +716,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'aiact',       label: 'AI Act',       match: (t) => t === 'classification_recalculated' || t === 'classification_reviewed' },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
   { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' },
-  { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' },
+  { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
 ];
@@ -912,6 +938,447 @@ function HistoryTab({ events }: { events: SystemHistoryEntry[] }) {
   );
 }
 
+// ─── IsoTab ───────────────────────────────────────────────────────────────────
+
+const SYSTEM_ANNEX_A_GROUPS = [
+  'A.4 Recursos para sistemas de IA',
+  'A.5 Evaluación de impactos de los sistemas de IA',
+  'A.6 Ciclo de vida del sistema de IA',
+  'A.7 Datos para sistemas de IA',
+  'A.8 Información para las partes interesadas de los sistemas de IA',
+  'A.9 Uso de sistemas de IA',
+] as const;
+
+const ANNEX_A_SHORT: Record<string, string> = {
+  'A.4 Recursos para sistemas de IA':                                         'A.4 Recursos',
+  'A.5 Evaluación de impactos de los sistemas de IA':                         'A.5 Evaluación de impactos',
+  'A.6 Ciclo de vida del sistema de IA':                                      'A.6 Ciclo de vida',
+  'A.7 Datos para sistemas de IA':                                            'A.7 Datos',
+  'A.8 Información para las partes interesadas de los sistemas de IA':        'A.8 Información',
+  'A.9 Uso de sistemas de IA':                                                'A.9 Uso responsable',
+};
+
+const AISIA_SECTION_LABELS: Record<string, string> = {
+  S1: 'Descripción del sistema',
+  S2: 'Datos e información',
+  S3: 'Modos de fallo identificados',
+  S4: 'Acciones de tratamiento',
+  S5: 'Impacto en personas',
+  S6: 'Impacto social',
+};
+
+const AISIA_STATUS_VISUAL: Record<string, { label: string; dot: string; pill: string }> = {
+  draft:     { label: 'Borrador',           dot: 'bg-lttm',   pill: 'bg-ltcard text-lttm border-ltb' },
+  submitted: { label: 'Enviada — revisión', dot: 'bg-or',     pill: 'bg-ordim text-or border-orb' },
+  approved:  { label: 'Aprobada',           dot: 'bg-gr',     pill: 'bg-grdim text-gr border-grb' },
+  rejected:  { label: 'Rechazada',          dot: 'bg-re',     pill: 'bg-red-dim text-re border-reb' },
+};
+
+function getSoaBadge(soaState: SoaControlState | undefined) {
+  if (!soaState) return { label: 'Sin registrar', cls: 'bg-ltcard text-lttm border-ltb' };
+  if (!soaState.is_applicable) return { label: 'No aplica', cls: 'bg-ltcard2 text-lttm border-ltb' };
+  if (soaState.status === 'implemented') return { label: 'Implantado', cls: 'bg-grdim text-gr border-grb' };
+  if (soaState.status === 'in_progress') return { label: 'En progreso', cls: 'bg-ordim text-or border-orb' };
+  return { label: 'No iniciado', cls: 'bg-ltcard text-lttm border-ltb' };
+}
+
+const APPROVER_ROLES = ['org_admin', 'sgai_manager', 'caio'] as const;
+
+function IsoTab({
+  system,
+  aisia,
+  soaControls,
+  userRole,
+  onInitAisia,
+  isInitingAisia,
+  aisiaError,
+  onApproveAisia,
+  onRejectAisia,
+  isApprovingAisia,
+  isRejectingAisia,
+  aisiaApprovalError,
+}: {
+  system: SystemDetailData;
+  aisia: AisiaAssessmentEntry | null;
+  soaControls: SoaControlState[];
+  userRole: string | null | undefined;
+  onInitAisia: () => void;
+  isInitingAisia: boolean;
+  aisiaError: string | null;
+  onApproveAisia: (assessmentId: string, minutesRef?: string) => void;
+  onRejectAisia: (assessmentId: string, reason: string) => void;
+  isApprovingAisia: boolean;
+  isRejectingAisia: boolean;
+  aisiaApprovalError: string | null;
+}) {
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [minutesRef, setMinutesRef] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const systemControls = ISO_42001_CONTROLS.filter((c) =>
+    (SYSTEM_ANNEX_A_GROUPS as readonly string[]).includes(c.group)
+  );
+
+  const groupedControls = SYSTEM_ANNEX_A_GROUPS.map((group) => ({
+    group,
+    shortLabel: ANNEX_A_SHORT[group],
+    controls: systemControls.filter((c) => c.group === group),
+  }));
+
+  // Lookup map for fast access: control_code → SoaControlState
+  const soaByCode = new Map<string, SoaControlState>(soaControls.map((s) => [s.control_code, s]));
+
+  const hasLegacyData = system.iso_42001_score !== null;
+  const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
+
+  // Progreso de secciones cuando hay AISIA
+  const sectionProgress = aisia
+    ? {
+        complete: aisia.sections.filter((s) => s.status === 'complete').length,
+        inProgress: aisia.sections.filter((s) => s.status === 'in_progress').length,
+        total: aisia.sections.length,
+      }
+    : null;
+
+  return (
+    <div className="space-y-4">
+      {/* ── AISIA card ── */}
+      <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+        <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">
+              Evaluación de Impacto (AISIA)
+            </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+              ISO 42001 · A.5.2–A.5.5
+            </span>
+            {aisia && (
+              <span className="font-plex text-[10px] text-lttm">v{aisia.version}</span>
+            )}
+          </div>
+          {statusVisual ? (
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] border ${statusVisual.pill}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusVisual.dot} inline-block`} />
+              {statusVisual.label}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10.5px] bg-ltcard text-lttm border border-ltb">
+              <span className="w-1.5 h-1.5 rounded-full bg-lttm inline-block" />
+              Sin iniciar
+            </span>
+          )}
+        </div>
+
+        {/* ── Estado vacío ── */}
+        {!aisia && (
+          <div className="p-6">
+            <div className="max-w-[520px]">
+              <div className="font-fraunces text-[20px] font-semibold text-ltt mb-2">
+                Este sistema no tiene ninguna evaluación AISIA
+              </div>
+              <div className="text-[13px] text-ltt2 leading-relaxed mb-5">
+                La AISIA (Evaluación de Impacto del Sistema IA) documenta el impacto
+                de este sistema sobre personas y sociedad. Es necesaria para satisfacer
+                los controles{' '}
+                <span className="font-medium text-ltt">A.5.2, A.5.3, A.5.4 y A.5.5</span>{' '}
+                del Anexo A de ISO 42001.
+              </div>
+              {aisiaError && (
+                <div className="mb-4 px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
+                  {aisiaError}
+                </div>
+              )}
+              <button
+                onClick={onInitAisia}
+                disabled={isInitingAisia}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isInitingAisia ? 'Iniciando…' : 'Iniciar evaluación AISIA'}
+              </button>
+            </div>
+            {hasLegacyData && (
+              <div className="mt-5 pt-5 border-t border-ltb flex items-start gap-3">
+                <div className="w-8 h-8 rounded-[8px] bg-ordim border border-orb flex items-center justify-center text-or text-[13px] shrink-0">
+                  !
+                </div>
+                <div>
+                  <div className="font-plex text-[12px] font-semibold text-or mb-0.5">
+                    Score legacy disponible
+                  </div>
+                  <div className="text-[12px] text-lttm leading-relaxed">
+                    Este sistema tiene un score ISO anterior del{' '}
+                    <span className="font-medium">{system.iso_42001_score}%</span> (calculado
+                    con el modelo de 10 checks). Ese dato se conserva pero ya no se actualiza.
+                    Inicia una AISIA para obtener la evaluación formal por cláusulas.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Estado con evaluación activa ── */}
+        {aisia && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-5 items-start">
+              <div>
+                <div className="font-fraunces text-[18px] font-semibold text-ltt mb-1">
+                  {aisia.title ?? `Evaluación AISIA v${aisia.version}`}
+                </div>
+                {sectionProgress && (
+                  <div className="text-[12.5px] text-lttm">
+                    {sectionProgress.complete} de {sectionProgress.total} secciones completadas
+                    {sectionProgress.inProgress > 0 && ` · ${sectionProgress.inProgress} en progreso`}
+                  </div>
+                )}
+              </div>
+              {aisia.status === 'draft' && (
+                <Link
+                  href={`/inventario/${system.id}/aisia/${aisia.id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors shrink-0"
+                >
+                  Continuar evaluación →
+                </Link>
+              )}
+            </div>
+
+            {/* Barra de progreso de secciones */}
+            {sectionProgress && (
+              <div className="mt-4 grid grid-cols-6 gap-1.5">
+                {aisia.sections.map((section) => (
+                  <div key={section.section_code} className="text-center">
+                    <div
+                      className={`h-1.5 rounded-full mb-1 ${
+                        section.status === 'complete'
+                          ? 'bg-gr'
+                          : section.status === 'in_progress'
+                          ? 'bg-or'
+                          : 'bg-ltb'
+                      }`}
+                    />
+                    <div className="font-plex text-[9.5px] text-lttm">{section.section_code}</div>
+                    <div className="font-plex text-[9px] text-lttm leading-tight hidden sm:block">
+                      {AISIA_SECTION_LABELS[section.section_code]?.split(' ').slice(0, 2).join(' ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {aisia.status === 'rejected' && aisia.rejection_reason && (
+              <div className="mt-4 pt-4 border-t border-ltb flex items-start gap-3">
+                <div className="w-7 h-7 rounded-[7px] bg-red-dim border border-reb flex items-center justify-center text-re text-[12px] shrink-0">✕</div>
+                <div>
+                  <div className="font-plex text-[12px] font-semibold text-re mb-0.5">Motivo del rechazo</div>
+                  <div className="text-[12px] text-lttm">{aisia.rejection_reason}</div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Panel de aprobación (solo cuando submitted) ── */}
+            {aisia.status === 'submitted' && (
+              <div className="mt-4 pt-4 border-t border-ltb space-y-3">
+                {/* Banner de estado */}
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[8px] bg-ordim border border-orb">
+                  <span className="w-2 h-2 rounded-full bg-or shrink-0" />
+                  <span className="font-plex text-[12px] text-or font-medium flex-1">
+                    Evaluación enviada — pendiente de aprobación por el comité
+                  </span>
+                </div>
+
+                {/* Error de acción */}
+                {aisiaApprovalError && (
+                  <div className="px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
+                    {aisiaApprovalError}
+                  </div>
+                )}
+
+                {/* Acciones — solo para aprobadores */}
+                {userRole && (APPROVER_ROLES as readonly string[]).includes(userRole) && (
+                  <div className="space-y-2">
+                    {/* Sin formulario abierto: botones principales */}
+                    {approvalAction === null && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setApprovalAction('approve')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-grdim border border-grb text-gr font-plex text-[12.5px] font-medium hover:bg-gr/20 transition-colors"
+                        >
+                          ✓ Aprobar evaluación
+                        </button>
+                        <button
+                          onClick={() => setApprovalAction('reject')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-red-dim border border-reb text-re font-plex text-[12.5px] font-medium hover:bg-re/20 transition-colors"
+                        >
+                          ✕ Rechazar
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Formulario de aprobación */}
+                    {approvalAction === 'approve' && (
+                      <div className="rounded-[8px] border border-grb bg-grdim p-3.5 space-y-2.5">
+                        <div className="font-plex text-[12px] font-semibold text-gr">Confirmar aprobación</div>
+                        <div>
+                          <label className="block font-plex text-[11px] text-lttm mb-1">
+                            Referencia de actas <span className="text-lttm">(opcional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={minutesRef}
+                            onChange={(e) => setMinutesRef(e.target.value)}
+                            placeholder="Ej. Acta comité 2026-04-28 / punto 3"
+                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#004aad66]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onApproveAisia(aisia.id, minutesRef || undefined)}
+                            disabled={isApprovingAisia}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-gr text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isApprovingAisia ? 'Aprobando…' : 'Confirmar aprobación'}
+                          </button>
+                          <button
+                            onClick={() => { setApprovalAction(null); setMinutesRef(''); }}
+                            disabled={isApprovingAisia}
+                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Formulario de rechazo */}
+                    {approvalAction === 'reject' && (
+                      <div className="rounded-[8px] border border-reb bg-red-dim p-3.5 space-y-2.5">
+                        <div className="font-plex text-[12px] font-semibold text-re">Rechazar evaluación</div>
+                        <div>
+                          <label className="block font-plex text-[11px] text-lttm mb-1">
+                            Motivo del rechazo <span className="text-re">*</span>
+                          </label>
+                          <textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="Describe qué debe corregirse para que la evaluación pueda aprobarse…"
+                            rows={3}
+                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#d9534f66] resize-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (!rejectReason.trim()) return;
+                              onRejectAisia(aisia.id, rejectReason.trim());
+                            }}
+                            disabled={isRejectingAisia || !rejectReason.trim()}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-re text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isRejectingAisia ? 'Rechazando…' : 'Confirmar rechazo'}
+                          </button>
+                          <button
+                            onClick={() => { setApprovalAction(null); setRejectReason(''); }}
+                            disabled={isRejectingAisia}
+                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Controles Anexo A — nivel sistema ── */}
+      <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
+        <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
+          <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">
+            Controles Anexo A — nivel sistema
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
+            {systemControls.length} controles · A.4–A.9
+          </span>
+        </div>
+
+        <div className="divide-y divide-ltb">
+          {groupedControls.map(({ group, shortLabel, controls }) => (
+            <div key={group} className="p-5">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-0.5">
+                    Dominio
+                  </div>
+                  <div className="font-sora text-[14px] font-semibold text-ltt">{shortLabel}</div>
+                </div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">
+                  {controls.length} controles
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {controls.map((control) => {
+                  const soaState = soaByCode.get(control.id);
+                  const badge = getSoaBadge(soaState);
+                  return (
+                    <div
+                      key={control.id}
+                      className="border border-ltb rounded-[8px] bg-ltbg p-3 flex items-start gap-2.5"
+                    >
+                      <span className="font-plex text-[10px] font-semibold text-lttm bg-ltcard2 border border-ltb px-1.5 py-0.5 rounded-[4px] shrink-0 mt-0.5">
+                        {control.id}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-plex text-[12px] text-ltt leading-snug">
+                          {control.title}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          {group === 'A.5 Evaluación de impactos de los sistemas de IA' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-ordim text-or border border-orb">
+                              Requiere AISIA
+                            </span>
+                          )}
+                          {soaState?.linked_to_system && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] bg-[#e8f0fb] text-[#1a56c4] border border-[#b8cef5]">
+                              Vinculado
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[4px] font-plex text-[9.5px] border shrink-0 ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* SoA strip */}
+        <div className="border-t border-ltb bg-ltcard2 px-5 py-3 flex items-center justify-between gap-3">
+          <div className="text-[12px] text-lttm">
+            El estado de estos controles se gestiona desde la{' '}
+            <span className="text-ltt font-medium">Declaración de Aplicabilidad</span>{' '}
+            organizacional.
+          </div>
+          <Link
+            href="/plantillas/soa-iso42001"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-plex text-[11.5px] font-medium text-[#004aad] bg-[#004aad0d] border border-[#004aad22] hover:bg-[#004aad18] transition-colors shrink-0"
+          >
+            Ver SoA org →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── buildSyntheticHistory ────────────────────────────────────────────────────
+
 function buildSyntheticHistory(system: SystemDetailData): SystemHistoryEntry[] {
   const events: SystemHistoryEntry[] = [
     {
@@ -993,6 +1460,8 @@ export function SystemDetailClient({
   failureModes,
   systemGraph,
   treatmentPlanData,
+  aisia,
+  soaControls,
 }: {
   system: SystemDetailData;
   organizationId: string;
@@ -1004,6 +1473,8 @@ export function SystemDetailClient({
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
   treatmentPlanData: TreatmentPlanData | null;
+  aisia: AisiaAssessmentEntry | null;
+  soaControls: SoaControlState[];
 }) {
   const searchParams = useSearchParams();
   const { profile, user } = useAuthStore();
@@ -1128,6 +1599,47 @@ export function SystemDetailClient({
     setExclusionJustification('');
     showToast('Obligación excluida y registrada en el historial de auditoría');
   };
+  const [isInitingAisia, startAisiaTransition] = useTransition();
+  const [aisiaError, setAisiaError] = useState<string | null>(null);
+
+  const handleInitAisia = () => {
+    startAisiaTransition(async () => {
+      setAisiaError(null);
+      const result = await initAisia(system.id);
+      if ('error' in result && result.error) {
+        setAisiaError(result.error);
+      }
+    });
+  };
+
+  const [isApprovingAisia, startApproveAisiaTransition] = useTransition();
+  const [isRejectingAisia, startRejectAisiaTransition] = useTransition();
+  const [aisiaApprovalError, setAisiaApprovalError] = useState<string | null>(null);
+
+  const handleApproveAisia = (assessmentId: string, minutesRef?: string) => {
+    startApproveAisiaTransition(async () => {
+      setAisiaApprovalError(null);
+      const result = await approveAisia(assessmentId, minutesRef);
+      if ('error' in result && result.error) {
+        setAisiaApprovalError(result.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const handleRejectAisia = (assessmentId: string, reason: string) => {
+    startRejectAisiaTransition(async () => {
+      setAisiaApprovalError(null);
+      const result = await rejectAisia(assessmentId, reason);
+      if ('error' in result && result.error) {
+        setAisiaApprovalError(result.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
   const [failureModeError, setFailureModeError] = useState<string | null>(null);
   const [isActivatingFailureModes, startFailureModeTransition] = useTransition();
   const [failureModeDimensionFilter, setFailureModeDimensionFilter] = useState('all');
@@ -1236,23 +1748,6 @@ export function SystemDetailClient({
     const withoutEvidence = obligations.filter((o) => o.status !== 'excluded' && o.evidenceIds.length === 0).length;
     return { resolved, inProgress, pending, excluded, withEvidence, withoutEvidence };
   }, [obligations]);
-
-  const isoChecks = useMemo(() => system.iso_42001_checks ?? [], [system.iso_42001_checks]);
-
-  const isoSummary = useMemo(() => {
-    const implemented = isoChecks.filter((check) => check.status === 'si').length;
-    const partial = isoChecks.filter((check) => check.status === 'parcial' || check.status === 'proceso').length;
-    const pending = isoChecks.filter((check) => !check.status || check.status === 'no').length;
-
-    const groups = isoChecks.reduce<Record<string, typeof isoChecks>>((acc, check) => {
-      const group = getIsoGroupForCheck(check.key);
-      acc[group] = acc[group] ?? [];
-      acc[group].push(check);
-      return acc;
-    }, {});
-
-    return { implemented, partial, pending, groups };
-  }, [isoChecks]);
 
   const historyTimeline = useMemo(() => {
     if (localHistory.length > 0) return localHistory;
@@ -2346,90 +2841,20 @@ export function SystemDetailClient({
               )}
 
               {activeTab === 'ISO 42001' && (
-                <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
-                  <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between">
-                    <span className="font-plex text-[11.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">Evaluación ISO 42001</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
-                      Madurez org. {system.iso_42001_score ?? 0}%
-                    </span>
-                  </div>
-                  <div className="p-5 border-b border-ltb bg-gradient-to-br from-[#004aad08] to-ltbg">
-                    <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-5">
-                      <div>
-                        <div className="font-fraunces text-[22px] font-semibold text-ltt mb-2">Snapshot real de madurez ISO</div>
-                        <div className="text-[13px] text-ltt2 leading-relaxed">
-                          Esta vista ya usa los checks guardados del sistema y deja preparada la estructura para evolucionar después a una evaluación formal por cláusulas ISO 42001.
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
-                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Implementado</div>
-                          <div className="font-fraunces text-[24px] font-semibold text-gr leading-none">{isoSummary.implemented}</div>
-                        </div>
-                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
-                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Parcial</div>
-                          <div className="font-fraunces text-[24px] font-semibold text-or leading-none">{isoSummary.partial}</div>
-                        </div>
-                        <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
-                          <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Pendiente</div>
-                          <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{isoSummary.pending}</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-ltb">
-                    {Object.entries(isoSummary.groups).map(([groupName, checks]) => (
-                      <div key={groupName} className="p-5">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                          <div>
-                            <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-1">Bloque preparatorio</div>
-                            <div className="font-sora text-[15px] font-semibold text-ltt">{groupName}</div>
-                          </div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard2 text-lttm border border-ltb">
-                            {checks.length} checks
-                          </span>
-                        </div>
-                        <div className="space-y-3">
-                          {checks.map((check, index) => {
-                            const style = getIsoCheckStyle(check.status);
-                            const segments = Math.max(1, Math.round(((check.weight ?? 0) * 4)));
-                            return (
-                              <div key={`${check.key ?? 'check'}-${index}`} className="border border-ltb rounded-[10px] bg-ltbg p-4">
-                                <div className="flex items-start gap-3 mb-3">
-                                  <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center text-[13px] border ${style.pill}`}>
-                                    {check.status === 'si' ? '✓' : check.status === 'parcial' || check.status === 'proceso' ? '~' : '!'}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                      <span className="font-sora text-[13px] font-semibold text-ltt">{check.label ?? check.key ?? 'Check ISO'}</span>
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${style.pill}`}>
-                                        {check.status_label ?? style.label}
-                                      </span>
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltcard text-lttm border border-ltb">
-                                        {check.points_earned ?? 0}/{check.points ?? 0} pts
-                                      </span>
-                                    </div>
-                                    <div className="text-[12.5px] text-lttm leading-relaxed">
-                                      Check guardado en el snapshot actual. Este bloque podrá mapearse más adelante a cláusulas y subcláusulas ISO con notas, prioridades y evidencias.
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex gap-1.5 w-full max-w-[220px]">
-                                  {Array.from({ length: 4 }).map((_, level) => (
-                                    <div
-                                      key={level}
-                                      className={`h-1.5 rounded-[2px] flex-1 ${level < segments ? style.bar : 'bg-ltb'}`}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <IsoTab
+                  system={system}
+                  aisia={aisia}
+                  soaControls={soaControls}
+                  userRole={profile?.role}
+                  onInitAisia={handleInitAisia}
+                  isInitingAisia={isInitingAisia}
+                  aisiaError={aisiaError}
+                  onApproveAisia={handleApproveAisia}
+                  onRejectAisia={handleRejectAisia}
+                  isApprovingAisia={isApprovingAisia}
+                  isRejectingAisia={isRejectingAisia}
+                  aisiaApprovalError={aisiaApprovalError}
+                />
               )}
 
               {activeTab === 'Historial' && (

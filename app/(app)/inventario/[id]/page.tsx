@@ -8,6 +8,9 @@ import { createClient } from '@/lib/supabase/server';
 
 import {
   SystemDetailClient,
+  type AisiaAssessmentEntry,
+  type AisiaSectionEntry,
+  type SoaControlState,
   type SystemDetailData,
   type SystemEvidenceEntry,
   type SystemFailureModeEntry,
@@ -505,6 +508,103 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     };
   });
 
+  // ── AISIA — evaluación activa del sistema (draft o submitted primero; si no, la última aprobada) ──
+  let aisia: AisiaAssessmentEntry | null = null;
+
+  const { data: aisiaRow } = await fluxion
+    .from('aisia_assessments')
+    .select(`
+      id,
+      ai_system_id,
+      status,
+      version,
+      title,
+      created_by,
+      submitted_at,
+      approved_at,
+      rejected_at,
+      rejection_reason,
+      created_at,
+      updated_at,
+      aisia_sections (
+        id,
+        assessment_id,
+        section_code,
+        data,
+        status,
+        last_generated_at,
+        created_at,
+        updated_at
+      )
+    `)
+    .eq('ai_system_id', params.id)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (aisiaRow) {
+    // Resolver el nombre de quien lo creó
+    let createdByName: string | null = null;
+    if (aisiaRow.created_by) {
+      const { data: creator } = await fluxion
+        .from('profiles')
+        .select('full_name, display_name')
+        .eq('id', aisiaRow.created_by)
+        .single();
+      if (creator) {
+        createdByName = (creator.display_name || creator.full_name || '').trim() || 'Usuario';
+      }
+    }
+
+    const sections: AisiaSectionEntry[] = ((aisiaRow.aisia_sections as AisiaSectionEntry[]) ?? [])
+      .sort((a, b) => a.section_code.localeCompare(b.section_code));
+
+    aisia = {
+      id:               aisiaRow.id,
+      ai_system_id:     aisiaRow.ai_system_id,
+      status:           aisiaRow.status,
+      version:          aisiaRow.version,
+      title:            aisiaRow.title ?? null,
+      created_by:       aisiaRow.created_by,
+      created_by_name:  createdByName,
+      submitted_at:     aisiaRow.submitted_at ?? null,
+      approved_at:      aisiaRow.approved_at ?? null,
+      rejected_at:      aisiaRow.rejected_at ?? null,
+      rejection_reason: aisiaRow.rejection_reason ?? null,
+      created_at:       aisiaRow.created_at,
+      updated_at:       aisiaRow.updated_at,
+      sections,
+    };
+  }
+
+  // ── SoA — estado de controles Annexo A para este sistema ──
+  const { data: soaControlRows } = await fluxion
+    .from('organization_soa_controls')
+    .select('id, control_code, is_applicable, status')
+    .eq('organization_id', membership.organization_id);
+
+  const soaControlIds = (soaControlRows ?? []).map((r) => r.id as string);
+  const linkedSoaControlIdSet = new Set<string>();
+
+  if (soaControlIds.length > 0) {
+    const { data: linkRows } = await fluxion
+      .from('organization_soa_system_links')
+      .select('soa_control_id')
+      .eq('ai_system_id', params.id)
+      .in('soa_control_id', soaControlIds);
+
+    for (const link of linkRows ?? []) {
+      linkedSoaControlIdSet.add(link.soa_control_id as string);
+    }
+  }
+
+  const soaControls: SoaControlState[] = (soaControlRows ?? []).map((r) => ({
+    control_code:      r.control_code as string,
+    is_applicable:     (r.is_applicable ?? false) as boolean,
+    status:            (r.status ?? 'not_started') as string,
+    linked_to_system:  linkedSoaControlIdSet.has(r.id as string),
+  }));
+
   // Fetch treatment plan data for the latest evaluation
   const { data: latestEvaluation } = await fluxion
     .from('fmea_evaluations')
@@ -536,6 +636,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       failureModes={failureModes}
       systemGraph={systemGraph}
       treatmentPlanData={treatmentPlanData}
+      aisia={aisia}
+      soaControls={soaControls}
     />
   );
 }
