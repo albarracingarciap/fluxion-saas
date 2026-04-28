@@ -198,6 +198,11 @@ export function getStatusCode(val: unknown) {
   return null;
 }
 
+/**
+ * @deprecated desde 2026-04-28 — sustituido por el módulo AISIA (aisia_assessments).
+ * Conservado solo para leer datos históricos en dashboards y dossier técnico.
+ * NO llamar desde nuevas acciones de creación/edición de sistemas.
+ */
 export function calcISO(f: Record<string, unknown>) {
   const totalPossible = ISO_CHECKS.reduce((acc, check) => acc + check.points, 0);
   let total = 0;
@@ -226,6 +231,10 @@ export function calcISO(f: Record<string, unknown>) {
   return { score, checks };
 }
 
+/**
+ * @deprecated desde 2026-04-28 — sustituido por aisia_sections.
+ * Conservado solo para leer snapshots históricos.
+ */
 export function buildIsoChecksSnapshot(
   checks: Array<{
     k: string;
