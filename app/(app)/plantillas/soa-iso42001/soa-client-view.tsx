@@ -3,9 +3,10 @@
 import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { SoAControlRecord } from '@/lib/templates/data'
+import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import {
   Check, X, Loader2, ArrowRight, Sparkles,
-  AlertTriangle, Search, SlidersHorizontal, ChevronDown,
+  AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen,
 } from 'lucide-react'
 import { updateSoAControl, suggestSoAJustification } from './actions'
 
@@ -363,6 +364,8 @@ function SoAEditSlideOver({
   evidences: { id: string; title: string; ai_system_id: string }[]
   onClose: () => void
 }) {
+  const catalogEntry = ISO_42001_CONTROLS.find((c) => c.id === control.id)
+  const [descriptionOpen, setDescriptionOpen] = useState(false)
   const [isApplicable, setIsApplicable] = useState(control.isApplicable)
   const [validationEvidenceId, setValidationEvidenceId] = useState<string>(control.validationEvidenceId || '')
   const [justification, setJustification] = useState(control.justification || '')
@@ -445,6 +448,33 @@ function SoAEditSlideOver({
           {error && (
             <div className="p-3 rounded-lg bg-red-dim border border-reb text-re text-[13px] font-sora">
               {error}
+            </div>
+          )}
+
+          {/* ── Descripción normativa ISO 42001 ── */}
+          {catalogEntry?.description && (
+            <div className="rounded-[10px] border border-ltb overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setDescriptionOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-ltbg hover:bg-ltcard2 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2 text-lttm">
+                  <BookOpen size={13} />
+                  <span className="font-plex text-[11px] uppercase tracking-[0.7px]">Texto normativo ISO 42001</span>
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`text-lttm transition-transform ${descriptionOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {descriptionOpen && (
+                <div className="px-4 py-3 bg-ltcard border-t border-ltb">
+                  <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+                    {catalogEntry.description}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
