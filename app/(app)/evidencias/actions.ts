@@ -45,6 +45,7 @@ export type UpdateSystemEvidenceInput = {
   issuedAt?: string;
   expiresAt?: string;
   storagePath?: string | null;
+  tags?: string[];
 };
 
 export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
@@ -84,6 +85,7 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
       issued_at: input.issuedAt || null,
       expires_at: input.expiresAt || null,
       ...(input.storagePath !== undefined ? { storage_path: input.storagePath } : {}),
+      ...(input.tags !== undefined ? { tags: input.tags.map((t) => t.trim().toLowerCase()).filter(Boolean) } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.evidenceId)
@@ -346,6 +348,7 @@ export type CreateOrganizationEvidenceInput = {
   issuedAt?: string;
   expiresAt?: string;
   storagePath?: string | null;
+  tags?: string[];
 };
 
 export async function createOrganizationEvidence(input: CreateOrganizationEvidenceInput) {
@@ -381,6 +384,7 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
       issued_at: input.issuedAt || null,
       expires_at: input.expiresAt || null,
       storage_path: input.storagePath ?? null,
+      tags: (input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
     })
     .select('id')
     .single();

@@ -93,7 +93,64 @@ type EditForm = {
   issuedAt: string;
   expiresAt: string;
   storagePath: string | null;
+  tags: string[];
 };
+
+function TagEditor({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [input, setInput] = useState('');
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim().toLowerCase();
+    if (!tag || tags.includes(tag)) { setInput(''); return; }
+    onChange([...tags, tag]);
+    setInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(input);
+    }
+    if (e.key === 'Backspace' && !input && tags.length > 0) {
+      onChange(tags.slice(0, -1));
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center min-h-[38px] w-full bg-ltbg border border-ltb rounded-lg px-2.5 py-1.5 focus-within:border-brand-cyan transition-colors">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-dim border border-cyan-border text-brand-cyan font-plex text-[10px] uppercase tracking-[0.5px]"
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={() => onChange(tags.filter((t) => t !== tag))}
+            className="hover:opacity-60 transition-opacity leading-none"
+          >
+            <X className="w-2.5 h-2.5" />
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => { if (input.trim()) addTag(input); }}
+        placeholder={tags.length === 0 ? 'Escribe un tag y pulsa Enter…' : ''}
+        className="flex-1 min-w-[120px] bg-transparent font-sora text-[12.5px] text-ltt outline-none placeholder:text-lttm"
+      />
+    </div>
+  );
+}
 
 type Props = {
   evidences: OrganizationEvidenceRecord[];
@@ -106,7 +163,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
   const [editForm, setEditForm] = useState<EditForm>({
     title: '', evidenceType: 'technical_doc', externalUrl: '',
     description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '',
-    storagePath: null,
+    storagePath: null, tags: [],
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
@@ -193,7 +250,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
 
   // Org-scope evidence creation
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
-  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '', tags: [] as string[] });
   const [orgError, setOrgError] = useState<string | null>(null);
   const [isCreatingOrg, startOrgTransition] = useTransition();
 
@@ -209,6 +266,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
       issuedAt: evidence.issued_at ?? '',
       expiresAt: evidence.expires_at ?? '',
       storagePath: evidence.storage_path ?? null,
+      tags: evidence.tags ?? [],
     });
     setEditError(null);
     setUploadEditError(null);
@@ -240,6 +298,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         issuedAt: editForm.issuedAt,
         expiresAt: editForm.expiresAt,
         storagePath: editForm.storagePath,
+        tags: editForm.tags,
       });
 
       if (result?.error) {
@@ -284,6 +343,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         version: orgForm.version,
         issuedAt: orgForm.issuedAt,
         expiresAt: orgForm.expiresAt,
+        tags: orgForm.tags,
       });
       if (result?.error) { setOrgError(result.error); return; }
 
@@ -303,26 +363,59 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
       }
 
       setIsOrgModalOpen(false);
-      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '', tags: [] });
       setPendingOrgFile(null);
       setUploadOrgError(null);
       router.refresh();
     });
   };
 
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+
+  const allTags = Array.from(new Set(evidences.flatMap((e) => e.tags))).sort();
+  const visibleEvidences = activeTagFilter
+    ? evidences.filter((e) => e.tags.includes(activeTagFilter))
+    : evidences;
+
   return (
     <>
-      {/* Botón de nueva evidencia organizacional */}
-      <div className="flex justify-end">
+      {/* Controles de la biblioteca */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Tags:</span>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                className={`px-2 py-0.5 rounded-full border font-plex text-[10px] uppercase tracking-[0.5px] transition-colors ${
+                  activeTagFilter === tag
+                    ? 'border-cyan-border bg-cyan-dim text-brand-cyan'
+                    : 'border-ltb bg-ltbg text-lttm hover:border-cyan-border hover:text-brand-cyan'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+            {activeTagFilter && (
+              <button
+                onClick={() => setActiveTagFilter(null)}
+                className="font-sora text-[11px] text-lttm hover:text-ltt transition-colors"
+              >
+                <X className="w-3 h-3 inline" /> Quitar filtro
+              </button>
+            )}
+          </div>
+        )}
         <button
           onClick={() => setIsOrgModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+          className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
         >
           + Evidencia organizacional
         </button>
       </div>
 
-      {evidences.map((evidence) => {
+      {visibleEvidences.map((evidence) => {
         const statusMeta = STATUS_META[evidence.status] ?? STATUS_META.draft;
         const isConfirmingDelete = deletingId === evidence.id;
         const isRejectingThis = rejectingId === evidence.id;
@@ -358,6 +451,18 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                   <p className="font-sora text-[12px] text-ltt2 mt-2">
                     {evidence.system_name} · {evidence.evidence_type} · {evidence.owner_name ?? 'Sin owner'}
                   </p>
+                  {evidence.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {evidence.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 rounded-full bg-cyan-dim border border-cyan-border text-brand-cyan font-plex text-[9.5px] uppercase tracking-[0.5px]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
                   <span
@@ -691,6 +796,17 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                     onChange={(e) => setEditForm((f) => ({ ...f, version: e.target.value }))}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     placeholder="1.0"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    Tags
+                    <span className="ml-1.5 normal-case text-lttm">Enter o coma para añadir · Backspace para eliminar el último</span>
+                  </label>
+                  <TagEditor
+                    tags={editForm.tags}
+                    onChange={(next) => setEditForm((f) => ({ ...f, tags: next }))}
                   />
                 </div>
 
@@ -1092,6 +1208,17 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                     onChange={(e) => setOrgForm((f) => ({ ...f, version: e.target.value }))}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     placeholder="1.0"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    Tags
+                    <span className="ml-1.5 normal-case text-lttm">Enter o coma para añadir</span>
+                  </label>
+                  <TagEditor
+                    tags={orgForm.tags}
+                    onChange={(next) => setOrgForm((f) => ({ ...f, tags: next }))}
                   />
                 </div>
 
