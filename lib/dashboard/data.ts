@@ -31,6 +31,8 @@ type DashboardObligationRow = {
 type DashboardEvidenceRow = {
   ai_system_id: string;
   status: string;
+  expires_at: string | null;
+  owner_user_id: string | null;
 };
 
 type DashboardFailureModeRow = {
@@ -258,7 +260,7 @@ export async function buildDashboardData(organizationId: string) {
       .eq('source_framework', 'AI_ACT'),
     fluxion
       .from('system_evidences')
-      .select('ai_system_id, status')
+      .select('ai_system_id, status, expires_at, owner_user_id')
       .eq('organization_id', organizationId),
     fluxion
       .from('system_failure_modes')
@@ -465,6 +467,13 @@ export async function buildDashboardData(organizationId: string) {
     systemsHighRisk: systems.filter((system) => ['high', 'prohibited'].includes(system.aiact_risk_level)).length,
     evidencesValid: evidences.filter((row) => row.status === 'valid').length,
     evidencesPending: evidences.filter((row) => ['draft', 'pending_review'].includes(row.status)).length,
+    evidencesExpired: evidences.filter((row) => row.status === 'expired').length,
+    evidencesExpiringSoon: evidences.filter((row) => {
+      if (!row.expires_at || row.status === 'expired') return false;
+      const diff = Math.ceil((new Date(row.expires_at).getTime() - Date.now()) / 86400000);
+      return diff >= 0 && diff <= 30;
+    }).length,
+    evidencesNoOwner: evidences.filter((row) => !row.owner_user_id).length,
     isoAverage,
   };
 
