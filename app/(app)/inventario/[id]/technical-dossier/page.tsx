@@ -45,7 +45,14 @@ export default async function TechnicalDossierPage({ params }: TechnicalDossierP
       dossier={dossier}
       actions={
         <div className="flex items-start gap-3">
-          <SaveTechnicalDossierButton aiSystemId={params.id} />
+          <SaveTechnicalDossierButton
+            aiSystemId={params.id}
+            systemName={dossier.system.name}
+            systemDomain={dossier.system.domain}
+            riskLevel={dossier.system.aiact_risk_level}
+            evidenceSummary={dossier.evidenceSummary}
+            failureModeTotal={dossier.failureModeSummary?.total}
+          />
           <TechnicalDossierPrintButton />
         </div>
       }

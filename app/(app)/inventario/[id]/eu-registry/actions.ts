@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/server';
 
 type SaveEuRegistryAsEvidenceInput = {
   aiSystemId: string;
+  tags?: string[];
+  expiresAt?: string | null;
+  validationNotes?: string | null;
 };
 
 export async function saveEuRegistryAsEvidence(input: SaveEuRegistryAsEvidenceInput) {
@@ -78,19 +81,36 @@ export async function saveEuRegistryAsEvidence(input: SaveEuRegistryAsEvidenceIn
 
   const externalUrl = `${origin}/inventario/${input.aiSystemId}/eu-registry/snapshots/${snapshot.id}`;
 
+  const missingCount = registry.missingItems?.length ?? 0;
+  const description = `Ficha de pre-registro EU — ` +
+    `readiness ${registry.readinessScore}% · ` +
+    (registry.ready
+      ? 'lista para presentar al registro EU'
+      : `${missingCount} item${missingCount !== 1 ? 's' : ''} pendiente${missingCount !== 1 ? 's' : ''}`);
+
+  const autoTags = Array.from(new Set([
+    'auto-generated',
+    'registro-eu',
+    ...(registry.ready ? ['ready'] : ['no-ready']),
+    ...(input.tags ?? []),
+  ]));
+
   const { data: evidence, error: evidenceError } = await fluxion
     .from('system_evidences')
     .insert({
       ai_system_id: input.aiSystemId,
       organization_id: membership.organization_id,
       title,
-      description: 'Snapshot congelado de la ficha de pre-registro EU generada desde la ficha del sistema.',
+      description,
       evidence_type: 'report',
-      status: 'valid',
+      status: 'pending_review',
       external_url: externalUrl,
       version: now.slice(0, 10),
       owner_user_id: user.id,
       issued_at: now.slice(0, 10),
+      expires_at: input.expiresAt ?? null,
+      validation_notes: input.validationNotes ?? null,
+      tags: autoTags,
     })
     .select('id')
     .single();

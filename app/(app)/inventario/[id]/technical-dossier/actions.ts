@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/server';
 
 type SaveTechnicalDossierAsEvidenceInput = {
   aiSystemId: string;
+  tags?: string[];
+  expiresAt?: string | null;
+  validationNotes?: string | null;
 };
 
 export async function saveTechnicalDossierAsEvidence(input: SaveTechnicalDossierAsEvidenceInput) {
@@ -78,19 +81,37 @@ export async function saveTechnicalDossierAsEvidence(input: SaveTechnicalDossier
 
   const externalUrl = `${origin}/inventario/${input.aiSystemId}/technical-dossier/snapshots/${snapshot.id}`;
 
+  const ev = dossier.evidenceSummary;
+  const fmTotal = dossier.failureModeSummary?.total ?? 0;
+  const isoImpl = dossier.isoSummary?.implemented ?? 0;
+  const isoTotal = isoImpl + (dossier.isoSummary?.partial ?? 0) + (dossier.isoSummary?.pending ?? 0);
+  const description = `Snapshot del dossier técnico — ` +
+    `evidencias ${ev.valid}/${ev.total} válidas (${ev.pending} pendientes, ${ev.expired} caducadas) · ` +
+    `${fmTotal} modos de fallo activos · ` +
+    `ISO 42001 ${isoImpl}/${isoTotal} implantados`;
+
+  const autoTags = Array.from(new Set([
+    'auto-generated',
+    'dossier-tecnico',
+    ...(input.tags ?? []),
+  ]));
+
   const { data: evidence, error: evidenceError } = await fluxion
     .from('system_evidences')
     .insert({
       ai_system_id: input.aiSystemId,
       organization_id: membership.organization_id,
       title,
-      description: 'Snapshot congelado del dossier técnico generado desde la ficha del sistema.',
+      description,
       evidence_type: 'technical_doc',
-      status: 'valid',
+      status: 'pending_review',
       external_url: externalUrl,
       version: now.slice(0, 10),
       owner_user_id: user.id,
       issued_at: now.slice(0, 10),
+      expires_at: input.expiresAt ?? null,
+      validation_notes: input.validationNotes ?? null,
+      tags: autoTags,
     })
     .select('id')
     .single();

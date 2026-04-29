@@ -12,6 +12,9 @@ import { createClient } from '@/lib/supabase/server';
 
 type SaveGapReportAsEvidenceInput = {
   aiSystemId: string;
+  tags?: string[];
+  expiresAt?: string | null;
+  validationNotes?: string | null;
 };
 
 export async function saveGapReportAsEvidence(input: SaveGapReportAsEvidenceInput) {
@@ -81,19 +84,34 @@ export async function saveGapReportAsEvidence(input: SaveGapReportAsEvidenceInpu
 
   const externalUrl = `${origin}/inventario/${input.aiSystemId}/gap-report/snapshots/${snapshot.id}`;
 
+  const description = `Snapshot de gap report — ` +
+    `${report.totalGapSignals} señales de gap activas · ` +
+    `${report.pendingObligations.length} obligaciones pendientes · ` +
+    `${report.isoGaps.length} gaps ISO 42001 · ` +
+    `${report.evidenceSummary.pending + report.evidenceSummary.expired} evidencias en riesgo`;
+
+  const autoTags = Array.from(new Set([
+    'auto-generated',
+    'gap-report',
+    ...(input.tags ?? []),
+  ]));
+
   const { data: evidence, error: evidenceError } = await fluxion
     .from('system_evidences')
     .insert({
       ai_system_id: input.aiSystemId,
       organization_id: membership.organization_id,
       title,
-      description: 'Snapshot congelado del gap report generado desde la ficha del sistema.',
+      description,
       evidence_type: 'report',
-      status: 'valid',
+      status: 'pending_review',
       external_url: externalUrl,
       version: now.slice(0, 10),
       owner_user_id: user.id,
       issued_at: now.slice(0, 10),
+      expires_at: input.expiresAt ?? null,
+      validation_notes: input.validationNotes ?? null,
+      tags: autoTags,
     })
     .select('id')
     .single();

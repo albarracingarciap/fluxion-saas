@@ -48,7 +48,14 @@ export default async function GapReportPage({ params }: GapReportPageProps) {
       report={report}
       actions={
         <div className="flex items-start gap-3">
-          <SaveGapReportButton aiSystemId={params.id} />
+          <SaveGapReportButton
+            aiSystemId={params.id}
+            systemName={report.system.name}
+            riskLevel={report.system.aiact_risk_level}
+            totalGapSignals={report.totalGapSignals}
+            pendingObligationsCount={report.pendingObligations?.length ?? 0}
+            isoGapsCount={report.isoGaps?.length ?? 0}
+          />
           <GapReportPrintButton />
         </div>
       }

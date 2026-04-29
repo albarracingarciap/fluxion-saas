@@ -45,7 +45,14 @@ export default async function EuRegistryPage({ params }: EuRegistryPageProps) {
       registry={registry}
       actions={
         <div className="flex items-start gap-3">
-          <SaveEuRegistryButton aiSystemId={params.id} />
+          <SaveEuRegistryButton
+            aiSystemId={params.id}
+            systemName={registry.system.name}
+            riskLevel={registry.system.aiact_risk_level}
+            readinessScore={registry.readinessScore}
+            ready={registry.ready}
+            missingCount={registry.missingItems?.length ?? 0}
+          />
           <EuRegistryPrintButton />
         </div>
       }
