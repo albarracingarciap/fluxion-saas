@@ -16,7 +16,7 @@ export async function fetchTasks(
       assignee_id, created_by, due_date, completed_at,
       tags, created_at, updated_at,
       ai_systems!tasks_system_id_fkey(name),
-      profiles!tasks_assignee_id_fkey(full_name, email)
+      profiles!tasks_assignee_id_fkey(full_name)
     `)
     .eq('organization_id', organizationId)
     .order('due_date', { ascending: true, nullsFirst: false })
@@ -74,7 +74,7 @@ export async function fetchTask(
       assignee_id, created_by, due_date, completed_at,
       tags, created_at, updated_at,
       ai_systems!tasks_system_id_fkey(name),
-      profiles!tasks_assignee_id_fkey(full_name, email)
+      profiles!tasks_assignee_id_fkey(full_name)
     `)
     .eq('organization_id', organizationId)
     .eq('id', taskId)
