@@ -11,6 +11,7 @@ import {
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildEvidencesData, type OrganizationEvidenceRecord } from '@/lib/evidences/data'
+import { EvidencesLibraryClient } from './evidences-library-client'
 
 type EvidencePageSearchParams = Promise<{
   system?: string
@@ -775,9 +776,7 @@ export default async function EvidencesPage({
                 </p>
               </div>
             ) : filteredLibrary.length > 0 ? (
-              filteredLibrary.slice(0, 24).map((evidence) => (
-                <EvidenceRow key={evidence.id} evidence={evidence} />
-              ))
+              <EvidencesLibraryClient evidences={filteredLibrary.slice(0, 24)} />
             ) : (
               <div className="rounded-[12px] border border-dashed border-ltb bg-ltbg p-5">
                 <p className="font-sora text-[13px] font-semibold text-ltt">Sin resultados con el filtro actual</p>

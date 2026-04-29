@@ -256,16 +256,29 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
 
   const evidenceIds = (evidenceRows ?? []).map((row) => row.id);
   const obligationLinksCount = new Map<string, number>();
+  const failureModeLinks = new Map<string, string[]>(); // evidence_id → system_failure_mode_id[]
 
   if (evidenceIds.length > 0) {
-    const { data: linkRows } = await fluxion
-      .from('system_obligation_evidences')
-      .select('evidence_id')
-      .in('evidence_id', evidenceIds);
+    const [obligationLinkRows, failureModeLinkRows] = await Promise.all([
+      fluxion
+        .from('system_obligation_evidences')
+        .select('evidence_id')
+        .in('evidence_id', evidenceIds),
+      fluxion
+        .from('system_failure_mode_evidences')
+        .select('evidence_id, system_failure_mode_id')
+        .in('evidence_id', evidenceIds),
+    ]);
 
-    for (const link of linkRows ?? []) {
+    for (const link of obligationLinkRows.data ?? []) {
       const current = obligationLinksCount.get(link.evidence_id) ?? 0;
       obligationLinksCount.set(link.evidence_id, current + 1);
+    }
+
+    for (const link of failureModeLinkRows.data ?? []) {
+      const current = failureModeLinks.get(link.evidence_id) ?? [];
+      current.push(link.system_failure_mode_id);
+      failureModeLinks.set(link.evidence_id, current);
     }
   }
 
@@ -289,6 +302,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     created_at: row.created_at,
     updated_at: row.updated_at,
     linked_obligations_count: obligationLinksCount.get(row.id) ?? 0,
+    linked_failure_mode_ids: failureModeLinks.get(row.id) ?? [],
   }));
 
   const { data: obligationRows } = await fluxion
