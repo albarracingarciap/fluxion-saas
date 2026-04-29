@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import type { TaskPriority } from '@/lib/tasks/types';
 import {
   computeResidualPriorities,
   type FmeaResidualInput,
@@ -737,6 +738,73 @@ export async function recomputeFmeaZone(input: {
   items: FmeaEditableItem[];
 }) {
   return calculateFmeaZone(input.items, input.aiActLevel);
+}
+
+export async function delegateFmeaItemAsTaskAction(input: {
+  aiSystemId: string;
+  evaluationId: string;
+  itemId: string;
+  title: string;
+  assigneeId: string | null;
+  priority: TaskPriority;
+  dueDate: string | null;
+}) {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  const { data: existingTask } = await fluxion
+    .from('tasks')
+    .select('id')
+    .eq('source_type', 'fmea_item')
+    .eq('source_id', input.itemId)
+    .maybeSingle();
+
+  if (existingTask) {
+    return { error: 'Ya existe una tarea delegada para este modo de fallo.' };
+  }
+
+  const { data: item } = await fluxion
+    .from('fmea_items')
+    .select('id')
+    .eq('id', input.itemId)
+    .eq('evaluation_id', input.evaluationId)
+    .maybeSingle();
+
+  if (!item) {
+    return { error: 'No se encontró el ítem FMEA.' };
+  }
+
+  const { data: newTask, error: insertError } = await fluxion
+    .from('tasks')
+    .insert({
+      organization_id: membership.organization_id,
+      system_id: input.aiSystemId,
+      title: input.title.trim(),
+      status: 'todo',
+      priority: input.priority,
+      source_type: 'fmea_item',
+      source_id: input.itemId,
+      assignee_id: input.assigneeId || null,
+      created_by: user.id,
+      due_date: input.dueDate || null,
+    })
+    .select('id')
+    .single();
+
+  if (insertError || !newTask) {
+    return { error: insertError?.message ?? 'No se pudo crear la tarea.' };
+  }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+  revalidatePath(`/tareas`);
+
+  return { success: true, taskId: newTask.id as string };
 }
 
 export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInput) {

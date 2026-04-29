@@ -1,6 +1,6 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'in_review' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
-export type TaskSourceType = 'manual' | 'treatment_action' | 'gap' | 'evaluation'
+export type TaskSourceType = 'manual' | 'treatment_action' | 'gap' | 'evaluation' | 'fmea_item'
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo:        'Pendiente',
@@ -23,6 +23,7 @@ export const TASK_SOURCE_LABELS: Record<TaskSourceType, string> = {
   treatment_action: 'Plan de tratamiento',
   gap:              'Análisis de gaps',
   evaluation:       'Evaluación de riesgos',
+  fmea_item:        'Modo FMEA',
 }
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [

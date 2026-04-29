@@ -46,6 +46,10 @@ export type FmeaEvaluationItemRecord = {
     compliance_score: number | null;
     notes: string | null;
   }>;
+  linked_task_id: string | null;
+  linked_task_status: string | null;
+  linked_task_assignee_name: string | null;
+  linked_task_due_date: string | null;
 };
 
 export type FmeaEvaluationRecord = {
@@ -75,6 +79,12 @@ export type FmeaSystemRecord = {
   intended_use: string | null;
 };
 
+export type FmeaOrgMember = {
+  user_id: string;
+  full_name: string | null;
+  role: string;
+};
+
 export type FmeaEvaluationData = {
   system: FmeaSystemRecord;
   evaluation: FmeaEvaluationRecord;
@@ -85,6 +95,7 @@ export type FmeaEvaluationData = {
     prioritizedCount: number;
     seedStrategy: 'prioritized' | 'all_activated';
   };
+  members: FmeaOrgMember[];
 };
 
 export async function requireFmeaContext() {
@@ -317,10 +328,45 @@ export async function buildFmeaEvaluationData(params: {
 
   const itemRows = fmeaItems ?? [];
   const failureModeIds = itemRows.map((item) => item.failure_mode_id);
+  const itemIds = itemRows.map((item) => item.id);
   const activatedCount = activationRows?.length ?? 0;
   const prioritizedCount = (activationRows ?? []).filter((row) => row.priority_status === 'prioritized').length;
   const seedStrategy: 'prioritized' | 'all_activated' =
     prioritizedCount > 0 ? 'prioritized' : 'all_activated';
+
+  const [{ data: linkedTasks }, { data: orgMembers }] = await Promise.all([
+    itemIds.length > 0
+      ? fluxion
+          .from('tasks')
+          .select('id, source_id, status, due_date, profiles!tasks_assignee_id_fkey(full_name)')
+          .eq('organization_id', organizationId)
+          .eq('source_type', 'fmea_item')
+          .in('source_id', itemIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    fluxion
+      .from('profiles')
+      .select('user_id, full_name, role')
+      .eq('organization_id', organizationId)
+      .order('full_name', { ascending: true, nullsFirst: false }),
+  ]);
+
+  const tasksByItemId = new Map(
+    (linkedTasks ?? []).map((task) => [
+      task.source_id as string,
+      {
+        id: task.id as string,
+        status: task.status as string,
+        due_date: task.due_date as string | null,
+        assignee_name: (task.profiles as { full_name?: string } | null)?.full_name ?? null,
+      },
+    ])
+  );
+
+  const members: FmeaOrgMember[] = (orgMembers ?? []).map((m) => ({
+    user_id: m.user_id as string,
+    full_name: m.full_name as string | null,
+    role: m.role as string,
+  }));
 
   if (failureModeIds.length === 0) {
     return {
@@ -333,6 +379,7 @@ export async function buildFmeaEvaluationData(params: {
         prioritizedCount,
         seedStrategy,
       },
+      members,
     };
   }
 
@@ -482,6 +529,10 @@ export async function buildFmeaEvaluationData(params: {
         d_value: catalog.d_value,
         e_value: catalog.e_value,
         control_refs: refsByFailureMode.get(item.failure_mode_id) ?? [],
+        linked_task_id: tasksByItemId.get(item.id)?.id ?? null,
+        linked_task_status: tasksByItemId.get(item.id)?.status ?? null,
+        linked_task_assignee_name: tasksByItemId.get(item.id)?.assignee_name ?? null,
+        linked_task_due_date: tasksByItemId.get(item.id)?.due_date ?? null,
       };
     })
     .filter((item): item is FmeaEvaluationItemRecord => item !== null)
@@ -502,5 +553,6 @@ export async function buildFmeaEvaluationData(params: {
       prioritizedCount,
       seedStrategy,
     },
+    members,
   };
 }

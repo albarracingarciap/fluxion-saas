@@ -10,11 +10,16 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
+  ExternalLink,
   Loader2,
   Save,
+  UserPlus,
 } from 'lucide-react';
 
 import type { FmeaEvaluationData, FmeaEvaluationItemRecord } from '@/lib/fmea/data';
+import type { TaskPriority } from '@/lib/tasks/types';
+import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '@/lib/tasks/types';
 import {
   calculateFmeaZone,
   calculateSuggestedSActual,
@@ -26,7 +31,7 @@ import {
 } from '@/lib/fmea/domain';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
-import { resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
+import { delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
 
 const DIMENSION_META: Record<string, { label: string; badge: string }> = {
   tecnica: { label: 'Técnica', badge: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
@@ -93,6 +98,189 @@ const SECOND_REVIEW_STATUS_META: Record<
     pill: 'bg-red-dim border-reb text-re',
   },
 };
+
+const TASK_STATUS_PILL: Record<string, string> = {
+  todo:        'bg-ltcard border-ltb text-lttm',
+  in_progress: 'bg-cyan-dim border-cyan-border text-brand-cyan',
+  blocked:     'bg-red-dim border-reb text-re',
+  in_review:   'bg-ordim border-orb text-or',
+  done:        'bg-grdim border-grb text-gr',
+  cancelled:   'bg-ltcard2 border-ltb text-lttm',
+};
+
+type DelegateTaskSectionProps = {
+  item: EditableItemState;
+  aiSystemId: string;
+  evaluationId: string;
+  members: FmeaEvaluationData['members'];
+  readOnly: boolean;
+  onTaskCreated: (itemId: string, taskId: string) => void;
+};
+
+function DelegateTaskSection({ item, aiSystemId, evaluationId, members, readOnly, onTaskCreated }: DelegateTaskSectionProps) {
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState(`Evaluar modo: ${item.failure_mode_name}`);
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [dueDate, setDueDate] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const hasTask = item.linked_task_id !== null;
+
+  if (hasTask) {
+    const taskStatusLabel = item.linked_task_status ? (TASK_STATUS_LABELS[item.linked_task_status as keyof typeof TASK_STATUS_LABELS] ?? item.linked_task_status) : '—';
+    const taskStatusPill = TASK_STATUS_PILL[item.linked_task_status ?? ''] ?? TASK_STATUS_PILL.todo;
+
+    return (
+      <div className="mt-4 rounded-[10px] border border-ltb bg-ltbg p-4">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-lttm shrink-0" />
+            <span className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">Tarea delegada</span>
+          </div>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-[6px] border font-plex text-[10px] ${taskStatusPill}`}>
+            {taskStatusLabel}
+          </span>
+        </div>
+        <div className="space-y-1 font-sora text-[12.5px] text-ltt2">
+          {item.linked_task_assignee_name && (
+            <div><span className="text-ltt font-medium">Asignado a:</span> {item.linked_task_assignee_name}</div>
+          )}
+          {item.linked_task_due_date && (
+            <div><span className="text-ltt font-medium">Fecha límite:</span> {item.linked_task_due_date}</div>
+          )}
+        </div>
+        <Link
+          href="/tareas"
+          className="mt-3 inline-flex items-center gap-1.5 font-sora text-[12px] text-brand-cyan hover:underline"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Ver en Tareas
+        </Link>
+      </div>
+    );
+  }
+
+  if (readOnly) return null;
+
+  return (
+    <div className="mt-4 rounded-[10px] border border-ltb bg-ltbg p-4">
+      {!showForm ? (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="inline-flex items-center gap-2 font-sora text-[12.5px] text-ltt2 hover:text-brand-cyan transition-colors"
+        >
+          <UserPlus className="w-4 h-4" />
+          Delegar como tarea
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-1">Delegar modo de fallo como tarea</div>
+
+          <div>
+            <label className="block font-sora text-[11.5px] text-ltt2 mb-1">Título</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border focus:ring-2 focus:ring-cyan-200"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-sora text-[11.5px] text-ltt2 mb-1">Asignar a</label>
+              <select
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border focus:ring-2 focus:ring-cyan-200"
+              >
+                <option value="">Sin asignar</option>
+                {members.map((member) => (
+                  <option key={member.user_id} value={member.user_id}>
+                    {member.full_name ?? member.user_id.slice(0, 8)} ({member.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-sora text-[11.5px] text-ltt2 mb-1">Prioridad</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border focus:ring-2 focus:ring-cyan-200"
+              >
+                {(Object.entries(TASK_PRIORITY_LABELS) as [TaskPriority, string][]).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-sora text-[11.5px] text-ltt2 mb-1">Fecha límite (opcional)</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border focus:ring-2 focus:ring-cyan-200"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-re font-sora text-[12px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={isPending || !title.trim()}
+              onClick={() => {
+                setError(null);
+                startTransition(async () => {
+                  const result = await delegateFmeaItemAsTaskAction({
+                    aiSystemId,
+                    evaluationId,
+                    itemId: item.id,
+                    title: title.trim(),
+                    assigneeId: assigneeId || null,
+                    priority,
+                    dueDate: dueDate || null,
+                  });
+                  if (result?.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  if (result?.taskId) {
+                    onTaskCreated(item.id, result.taskId);
+                  }
+                  setShowForm(false);
+                });
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] disabled:opacity-60 disabled:translate-y-0 disabled:shadow-none"
+            >
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              Crear tarea
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setError(null); }}
+              className="font-sora text-[12.5px] text-lttm hover:text-ltt transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function getContextLabel(value: number | null, kind: 'o' | 'd') {
   if (value === null) return 'Sin evaluar';
@@ -238,6 +426,16 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
 
   const isReadOnly = data.evaluation.state === 'approved' || data.evaluation.state === 'superseded';
 
+  function handleTaskCreated(itemId: string, taskId: string) {
+    setItems((current) =>
+      current.map((row) =>
+        row.id === itemId
+          ? { ...row, linked_task_id: taskId, linked_task_status: 'todo', linked_task_assignee_name: null, linked_task_due_date: null }
+          : row
+      )
+    );
+  }
+
   useEffect(() => {
     const requestedItemId = searchParams.get('item');
     if (requestedItemId && items.some((item) => item.id === requestedItemId)) {
@@ -325,6 +523,10 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     : hasPendingLocalChanges
       ? 'Cambios pendientes'
       : 'Borrador sincronizado';
+  const linkedTasksCount = useMemo(
+    () => items.filter((item) => item.linked_task_id !== null).length,
+    [items]
+  );
   const isFallbackEvaluation = data.activationSummary.seedStrategy === 'all_activated';
   const unresolvedCount = progress.pending + progress.skipped;
   const totalBlockingCount = unresolvedCount + secondReviewCount;
@@ -849,14 +1051,14 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#18324a] border-t border-[#18324a]">
+        <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-[#18324a] border-t border-[#18324a]">
           <div className="px-5 py-3">
             <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Pospuestos</div>
             <div className="font-sora text-[13px] text-white">{progress.skipped}</div>
           </div>
           <div className="px-5 py-3">
             <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">2ª revisión</div>
-                    <div className="font-sora text-[13px] text-white">{secondReviewCount}</div>
+            <div className="font-sora text-[13px] text-white">{secondReviewCount}</div>
           </div>
           <div className="px-5 py-3">
             <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">S_actual = 9</div>
@@ -865,6 +1067,10 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           <div className="px-5 py-3">
             <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Suelo AI Act</div>
             <div className="font-sora text-[13px] text-white">{getZoneLabel(calculateFmeaZone([], data.system.aiact_risk_level))}</div>
+          </div>
+          <div className="px-5 py-3">
+            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Tareas delegadas</div>
+            <div className="font-sora text-[13px] text-white">{linkedTasksCount > 0 ? linkedTasksCount : 'Ninguna'}</div>
           </div>
         </div>
       </div>
@@ -1082,6 +1288,12 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                     <span className="uppercase tracking-[0.7px]">act</span>
                                     <span>{item.status === 'evaluated' ? item.s_actual : effectiveSActual ?? '—'}</span>
                                   </span>
+                                  {item.linked_task_id !== null && (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] border font-plex text-[10px] ${TASK_STATUS_PILL[item.linked_task_status ?? ''] ?? TASK_STATUS_PILL.todo}`}>
+                                      <ClipboardList className="w-3 h-3" />
+                                      {item.linked_task_status ? (TASK_STATUS_LABELS[item.linked_task_status as keyof typeof TASK_STATUS_LABELS] ?? item.linked_task_status) : 'Tarea'}
+                                    </span>
+                                  )}
                                 </div>
                               </button>
 
@@ -1341,8 +1553,17 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                     </div>
                                   )}
 
+                                  <DelegateTaskSection
+                                    item={item}
+                                    aiSystemId={data.system.id}
+                                    evaluationId={data.evaluation.id}
+                                    members={data.members}
+                                    readOnly={isReadOnly}
+                                    onTaskCreated={handleTaskCreated}
+                                  />
+
                                   {!isReadOnly && (
-                                    <div className="flex items-center gap-3">
+                                    <div className="mt-4 flex items-center gap-3">
                                       <button
                                         type="button"
                                         disabled={
