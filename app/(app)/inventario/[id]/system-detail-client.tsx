@@ -34,6 +34,8 @@ import {
   deleteSystemEvidence,
   linkEvidenceToFailureMode,
   unlinkEvidenceFromFailureMode,
+  reviewSystemEvidence,
+  type ReviewAction,
 } from '@/app/(app)/evidencias/actions';
 import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
@@ -1683,6 +1685,10 @@ export function SystemDetailClient({
   const [isDeletingEvidence, startDeleteEvidenceTransition] = useTransition();
   const [linkingEvidence, setLinkingEvidence] = useState<SystemEvidenceEntry | null>(null);
   const [isLinkingFailureMode, startLinkTransition] = useTransition();
+  // Review flow state
+  const [rejectingEvidenceId, setRejectingEvidenceId] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [isReviewing, startReviewTransition] = useTransition();
   const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
   const [obligationError, setObligationError] = useState<string | null>(null);
   const [selectedObligationCode, setSelectedObligationCode] = useState<string | null>(null);
@@ -2567,6 +2573,15 @@ export function SystemDetailClient({
     });
   };
 
+  const handleReviewAction = (evidenceId: string, action: ReviewAction, notes?: string) => {
+    startReviewTransition(async () => {
+      await reviewSystemEvidence(evidenceId, system.id, action, notes);
+      setRejectingEvidenceId(null);
+      setRejectNotes('');
+      router.refresh();
+    });
+  };
+
   const handleObligationSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedObligation) return;
@@ -3430,6 +3445,81 @@ export function SystemDetailClient({
                                       Abrir enlace
                                     </a>
                                   ))}
+
+                                {/* Review flow actions */}
+                                {evidence.status === 'draft' && (
+                                  <button
+                                    onClick={() => handleReviewAction(evidence.id, 'request_review')}
+                                    disabled={isReviewing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-or bg-ordim border border-orb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                  >
+                                    {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                    Enviar a revisión
+                                  </button>
+                                )}
+                                {evidence.status === 'pending_review' && (
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleReviewAction(evidence.id, 'approve')}
+                                        disabled={isReviewing}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                      >
+                                        {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                        Aprobar
+                                      </button>
+                                      <button
+                                        onClick={() => { setRejectingEvidenceId(evidence.id); setRejectNotes(''); }}
+                                        disabled={isReviewing}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-re bg-red-dim border border-reb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                      >
+                                        Rechazar
+                                      </button>
+                                    </div>
+                                    {rejectingEvidenceId === evidence.id && (
+                                      <div className="flex flex-col items-end gap-1.5 w-full max-w-[260px]">
+                                        <textarea
+                                          rows={2}
+                                          placeholder="Motivo del rechazo (obligatorio)"
+                                          value={rejectNotes}
+                                          onChange={(e) => setRejectNotes(e.target.value)}
+                                          className="w-full bg-ltbg border border-reb rounded-[6px] px-2.5 py-1.5 text-[11.5px] font-sora outline-none focus:border-re resize-none"
+                                        />
+                                        <div className="flex gap-1.5">
+                                          <button
+                                            onClick={() => setRejectingEvidenceId(null)}
+                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
+                                          >
+                                            Cancelar
+                                          </button>
+                                          <button
+                                            onClick={() => handleReviewAction(evidence.id, 'reject', rejectNotes)}
+                                            disabled={isReviewing || !rejectNotes.trim()}
+                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                          >
+                                            {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirmar rechazo'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {evidence.status === 'rejected' && (
+                                  <button
+                                    onClick={() => handleReviewAction(evidence.id, 'reopen')}
+                                    disabled={isReviewing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm bg-ltbg border border-ltb hover:bg-ltcard2 disabled:opacity-50 transition-colors"
+                                  >
+                                    {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                    Reabrir
+                                  </button>
+                                )}
+                                {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
+                                  <p className="font-sora text-[10.5px] text-lttm italic max-w-[200px] text-right leading-tight">
+                                    "{evidence.validation_notes}"
+                                  </p>
+                                )}
+
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     onClick={() => openEditEvidenceModal(evidence)}

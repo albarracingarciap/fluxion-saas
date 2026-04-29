@@ -188,3 +188,97 @@ export async function unlinkEvidenceFromFailureMode(
 
   return { success: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Review flow
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReviewAction = 'request_review' | 'approve' | 'reject' | 'reopen';
+
+const REVIEW_TRANSITIONS: Record<ReviewAction, { from: string[]; to: string }> = {
+  request_review: { from: ['draft', 'rejected'], to: 'pending_review' },
+  approve:        { from: ['pending_review'],    to: 'valid' },
+  reject:         { from: ['pending_review'],    to: 'rejected' },
+  reopen:         { from: ['rejected'],          to: 'draft' },
+};
+
+const REVIEW_EVENT_LABELS: Record<ReviewAction, { type: string; title: string }> = {
+  request_review: { type: 'evidence_review_requested', title: 'Revisión solicitada' },
+  approve:        { type: 'evidence_approved',         title: 'Evidencia aprobada' },
+  reject:         { type: 'evidence_rejected',         title: 'Evidencia rechazada' },
+  reopen:         { type: 'evidence_reopened',         title: 'Evidencia reabierta' },
+};
+
+export async function reviewSystemEvidence(
+  evidenceId: string,
+  aiSystemId: string,
+  action: ReviewAction,
+  notes?: string,
+) {
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return ctx;
+  const { user, profile, fluxion } = ctx;
+
+  if (action === 'reject' && !notes?.trim()) {
+    return { error: 'Las notas de rechazo son obligatorias.' };
+  }
+
+  const transition = REVIEW_TRANSITIONS[action];
+
+  const { data: evidence } = await fluxion
+    .from('system_evidences')
+    .select('title, status')
+    .eq('id', evidenceId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  if (!evidence) return { error: 'Evidencia no encontrada.' };
+
+  if (!transition.from.includes(evidence.status)) {
+    return { error: `No se puede aplicar "${action}" desde el estado "${evidence.status}".` };
+  }
+
+  const updates: Record<string, unknown> = {
+    status: transition.to,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (action === 'approve' || action === 'reject') {
+    updates.reviewed_by = user.id;
+    updates.reviewed_at = new Date().toISOString();
+    updates.validation_notes = notes?.trim() || null;
+  }
+
+  if (action === 'reopen') {
+    updates.reviewed_by = null;
+    updates.reviewed_at = null;
+    updates.validation_notes = null;
+  }
+
+  const { error } = await fluxion
+    .from('system_evidences')
+    .update(updates)
+    .eq('id', evidenceId)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) return { error: error.message };
+
+  const { type, title } = REVIEW_EVENT_LABELS[action];
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: aiSystemId,
+      organization_id: profile.organization_id,
+      event_type: type,
+      event_title: title,
+      event_summary: `Evidencia "${evidence.title}" — ${title.toLowerCase()}.${notes ? ` Notas: ${notes.trim()}` : ''}`,
+      payload: { evidence_id: evidenceId, from_status: evidence.status, to_status: transition.to, notes: notes?.trim() ?? null },
+      actor_user_id: user.id,
+    },
+  ]);
+
+  revalidatePath(`/inventario/${aiSystemId}`);
+  revalidatePath('/evidencias');
+
+  return { success: true };
+}
