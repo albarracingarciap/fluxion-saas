@@ -11,7 +11,8 @@ type EvidenceSystemRow = {
 
 type EvidenceRow = {
   id: string
-  ai_system_id: string
+  ai_system_id: string | null
+  scope: 'system' | 'organization'
   title: string
   description: string | null
   evidence_type: string
@@ -27,6 +28,7 @@ type EvidenceRow = {
   validation_notes: string | null
   created_at: string
   updated_at: string
+  tags: string[]
 }
 
 type EvidenceProfileRow = {
@@ -59,6 +61,7 @@ export type EvidenceOrigin =
 
 export type OrganizationEvidenceRecord = {
   id: string
+  scope: 'system' | 'organization'
   system_id: string
   system_name: string
   system_code: string
@@ -82,6 +85,7 @@ export type OrganizationEvidenceRecord = {
   validation_notes: string | null
   created_at: string
   updated_at: string
+  tags: string[]
   days_until_expiry: number | null
   linked_obligations_count: number
   is_orphan: boolean
@@ -258,7 +262,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
     fluxion
       .from('system_evidences')
       .select(
-        'id, ai_system_id, title, description, evidence_type, status, storage_path, external_url, version, owner_user_id, reviewed_by, issued_at, expires_at, reviewed_at, validation_notes, created_at, updated_at'
+        'id, ai_system_id, scope, title, description, evidence_type, status, storage_path, external_url, version, owner_user_id, reviewed_by, issued_at, expires_at, reviewed_at, validation_notes, created_at, updated_at, tags'
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
@@ -326,11 +330,57 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
   }
 
   const records: OrganizationEvidenceRecord[] = evidences
-    .map((evidence) => {
-      const system = systemMap.get(evidence.ai_system_id)
+    .map((evidence): OrganizationEvidenceRecord | null => {
+      const daysUntilExpiry = getDaysUntil(evidence.expires_at, now)
+      const linkedObligationsCount = obligationCounts.get(evidence.id) ?? 0
+      const isOrgScope = evidence.scope === 'organization' || !evidence.ai_system_id
+
+      if (isOrgScope) {
+        const origin = inferEvidenceOrigin({ evidence, snapshotType: null })
+        return {
+          id: evidence.id,
+          scope: 'organization' as const,
+          system_id: '',
+          system_name: 'Organización',
+          system_code: 'ORG',
+          system_status: 'active',
+          system_domain: 'organization',
+          aiact_risk_level: 'N/A',
+          title: evidence.title,
+          description: evidence.description,
+          evidence_type: evidence.evidence_type,
+          status: evidence.status,
+          storage_path: evidence.storage_path,
+          external_url: evidence.external_url,
+          version: evidence.version,
+          owner_id: evidence.owner_user_id,
+          owner_name: formatPersonName(profileMap.get(evidence.owner_user_id ?? '')),
+          reviewed_by: evidence.reviewed_by,
+          reviewer_name: formatPersonName(profileMap.get(evidence.reviewed_by ?? '')),
+          issued_at: evidence.issued_at,
+          expires_at: evidence.expires_at,
+          reviewed_at: evidence.reviewed_at,
+          validation_notes: evidence.validation_notes,
+          created_at: evidence.created_at,
+          updated_at: evidence.updated_at,
+          tags: evidence.tags ?? [],
+          days_until_expiry: daysUntilExpiry,
+          linked_obligations_count: linkedObligationsCount,
+          is_orphan: linkedObligationsCount === 0,
+          origin,
+          origin_label: getOriginLabel(origin),
+          snapshot_id: null,
+          snapshot_url: null,
+          system_url: '/evidencias',
+          quick_action_label: 'Ver evidencias',
+          quick_action_url: '/evidencias',
+          detail_url: `/evidencias/${evidence.id}`,
+        }
+      }
+
+      const system = systemMap.get(evidence.ai_system_id!)
       if (!system) return null
 
-      const daysUntilExpiry = getDaysUntil(evidence.expires_at, now)
       const snapshotId = inferSnapshotId(evidence.external_url)
       const snapshot = snapshotId ? snapshotById.get(snapshotId) ?? null : null
       const origin = inferEvidenceOrigin({
@@ -343,10 +393,10 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
         snapshotId,
         origin,
       })
-      const linkedObligationsCount = obligationCounts.get(evidence.id) ?? 0
 
       return {
         id: evidence.id,
+        scope: 'system' as const,
         system_id: system.id,
         system_name: system.name,
         system_code: getSystemCode(system),
@@ -370,6 +420,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
         validation_notes: evidence.validation_notes,
         created_at: evidence.created_at,
         updated_at: evidence.updated_at,
+        tags: evidence.tags ?? [],
         days_until_expiry: daysUntilExpiry,
         linked_obligations_count: linkedObligationsCount,
         is_orphan: linkedObligationsCount === 0,
@@ -380,7 +431,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
         system_url: `/inventario/${system.id}`,
         quick_action_label: quickAction.label,
         quick_action_url: quickAction.url,
-        detail_url: `/inventario/${system.id}?tab=evidencias`,
+        detail_url: `/evidencias/${evidence.id}`,
       }
     })
     .filter((value): value is OrganizationEvidenceRecord => value !== null)

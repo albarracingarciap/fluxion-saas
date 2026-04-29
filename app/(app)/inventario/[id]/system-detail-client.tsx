@@ -22,11 +22,21 @@ import {
   History,
   Link2,
   Loader2,
+  Pencil,
   Plus,
   ShieldAlert,
+  Trash2,
   X,
 } from 'lucide-react';
 import { createSystemEvidence } from './evidencias/actions';
+import {
+  updateSystemEvidence,
+  deleteSystemEvidence,
+  linkEvidenceToFailureMode,
+  unlinkEvidenceFromFailureMode,
+  reviewSystemEvidence,
+  type ReviewAction,
+} from '@/app/(app)/evidencias/actions';
 import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
@@ -72,6 +82,7 @@ export type SystemEvidenceEntry = {
   created_at: string;
   updated_at: string;
   linked_obligations_count: number;
+  linked_failure_mode_ids: string[];
 };
 
 export type SystemObligationEntry = {
@@ -1668,6 +1679,16 @@ export function SystemDetailClient({
     expiresAt: '',
   });
   const [isSubmittingEvidence, startEvidenceTransition] = useTransition();
+  // Edit / delete / failure-mode linking state
+  const [editingEvidence, setEditingEvidence] = useState<SystemEvidenceEntry | null>(null);
+  const [deletingEvidenceId, setDeletingEvidenceId] = useState<string | null>(null);
+  const [isDeletingEvidence, startDeleteEvidenceTransition] = useTransition();
+  const [linkingEvidence, setLinkingEvidence] = useState<SystemEvidenceEntry | null>(null);
+  const [isLinkingFailureMode, startLinkTransition] = useTransition();
+  // Review flow state
+  const [rejectingEvidenceId, setRejectingEvidenceId] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [isReviewing, startReviewTransition] = useTransition();
   const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
   const [obligationError, setObligationError] = useState<string | null>(null);
   const [selectedObligationCode, setSelectedObligationCode] = useState<string | null>(null);
@@ -2335,8 +2356,26 @@ export function SystemDetailClient({
   };
 
   const openEvidenceModal = () => {
+    setEditingEvidence(null);
+    setEvidenceForm({ title: '', evidenceType: 'technical_doc', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
     setActiveTab('Evidencias');
     setEvidenceModalSource('general');
+    setEvidenceError(null);
+    setIsEvidenceModalOpen(true);
+  };
+
+  const openEditEvidenceModal = (evidence: SystemEvidenceEntry) => {
+    setEditingEvidence(evidence);
+    setEvidenceForm({
+      title: evidence.title,
+      evidenceType: evidence.evidence_type,
+      externalUrl: evidence.external_url ?? '',
+      description: evidence.description ?? '',
+      status: evidence.status,
+      version: evidence.version ?? '',
+      issuedAt: evidence.issued_at ?? '',
+      expiresAt: evidence.expires_at ?? '',
+    });
     setEvidenceError(null);
     setIsEvidenceModalOpen(true);
   };
@@ -2462,33 +2501,83 @@ export function SystemDetailClient({
     setEvidenceError(null);
 
     startEvidenceTransition(async () => {
-      const result = await createSystemEvidence({
-        aiSystemId: system.id,
-        title: evidenceForm.title,
-        description: evidenceForm.description,
-        evidenceType: evidenceForm.evidenceType,
-        externalUrl: evidenceForm.externalUrl,
-        status: evidenceForm.status,
-        version: evidenceForm.version,
-        issuedAt: evidenceForm.issuedAt,
-        expiresAt: evidenceForm.expiresAt,
-      });
+      if (editingEvidence) {
+        const result = await updateSystemEvidence({
+          evidenceId: editingEvidence.id,
+          aiSystemId: system.id,
+          title: evidenceForm.title,
+          description: evidenceForm.description,
+          evidenceType: evidenceForm.evidenceType,
+          externalUrl: evidenceForm.externalUrl,
+          status: evidenceForm.status,
+          version: evidenceForm.version,
+          issuedAt: evidenceForm.issuedAt,
+          expiresAt: evidenceForm.expiresAt,
+        });
 
-      if (result?.error) {
-        setEvidenceError(result.error);
-        return;
-      }
+        if (result?.error) {
+          setEvidenceError(result.error);
+          return;
+        }
+      } else {
+        const result = await createSystemEvidence({
+          aiSystemId: system.id,
+          title: evidenceForm.title,
+          description: evidenceForm.description,
+          evidenceType: evidenceForm.evidenceType,
+          externalUrl: evidenceForm.externalUrl,
+          status: evidenceForm.status,
+          version: evidenceForm.version,
+          issuedAt: evidenceForm.issuedAt,
+          expiresAt: evidenceForm.expiresAt,
+        });
 
-      if (evidenceModalSource === 'obligation' && result?.id) {
-        setObligationForm((current) => ({
-          ...current,
-          evidenceIds: current.evidenceIds.includes(result.id)
-            ? current.evidenceIds
-            : [...current.evidenceIds, result.id],
-        }));
+        if (result?.error) {
+          setEvidenceError(result.error);
+          return;
+        }
+
+        if (evidenceModalSource === 'obligation' && result?.id) {
+          setObligationForm((current) => ({
+            ...current,
+            evidenceIds: current.evidenceIds.includes(result.id)
+              ? current.evidenceIds
+              : [...current.evidenceIds, result.id],
+          }));
+        }
       }
 
       closeEvidenceModal();
+      router.refresh();
+    });
+  };
+
+  const handleDeleteEvidence = (evidenceId: string) => {
+    startDeleteEvidenceTransition(async () => {
+      const result = await deleteSystemEvidence(evidenceId, system.id);
+      if (!result?.error) {
+        setDeletingEvidenceId(null);
+        router.refresh();
+      }
+    });
+  };
+
+  const handleToggleFailureModeLink = (evidenceId: string, systemFailureModeId: string, linked: boolean) => {
+    startLinkTransition(async () => {
+      if (linked) {
+        await unlinkEvidenceFromFailureMode(evidenceId, systemFailureModeId, system.id);
+      } else {
+        await linkEvidenceToFailureMode(evidenceId, systemFailureModeId, system.id);
+      }
+      router.refresh();
+    });
+  };
+
+  const handleReviewAction = (evidenceId: string, action: ReviewAction, notes?: string) => {
+    startReviewTransition(async () => {
+      await reviewSystemEvidence(evidenceId, system.id, action, notes);
+      setRejectingEvidenceId(null);
+      setRejectNotes('');
       router.refresh();
     });
   };
@@ -3263,6 +3352,10 @@ export function SystemDetailClient({
                     <div className="divide-y divide-ltb">
                       {evidences.map((evidence) => {
                         const statusMeta = EVIDENCE_STATUS_META[evidence.status] ?? EVIDENCE_STATUS_META.draft;
+                        const linkedModes = failureModes.filter((m) =>
+                          evidence.linked_failure_mode_ids.includes(m.id)
+                        );
+                        const isConfirmingDelete = deletingEvidenceId === evidence.id;
                         return (
                           <div key={evidence.id} className="p-5 hover:bg-ltbg transition-colors">
                             <div className="flex items-start justify-between gap-4">
@@ -3302,6 +3395,34 @@ export function SystemDetailClient({
                                     {evidence.linked_obligations_count} obligaciones vinculadas
                                   </span>
                                 </div>
+
+                                {/* Modos de fallo vinculados */}
+                                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                  {linkedModes.map((mode) => (
+                                    <span
+                                      key={mode.id}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-[#f1ebff] text-[#8850ff] border border-[#d2c1ff]"
+                                    >
+                                      {mode.code}
+                                      <button
+                                        onClick={() => handleToggleFailureModeLink(evidence.id, mode.id, true)}
+                                        disabled={isLinkingFailureMode}
+                                        className="ml-0.5 hover:text-re transition-colors"
+                                      >
+                                        <X className="w-2.5 h-2.5" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                  {failureModes.length > 0 && (
+                                    <button
+                                      onClick={() => setLinkingEvidence(evidence)}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] font-plex text-[10px] bg-ltbg text-lttm border border-ltb hover:border-brand-cyan hover:text-brand-cyan transition-colors"
+                                    >
+                                      <Plus className="w-2.5 h-2.5" />
+                                      Modo de fallo
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <div className="shrink-0 flex flex-col items-end gap-2">
                                 {evidence.external_url &&
@@ -3324,6 +3445,116 @@ export function SystemDetailClient({
                                       Abrir enlace
                                     </a>
                                   ))}
+
+                                {/* Review flow actions */}
+                                {evidence.status === 'draft' && (
+                                  <button
+                                    onClick={() => handleReviewAction(evidence.id, 'request_review')}
+                                    disabled={isReviewing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-or bg-ordim border border-orb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                  >
+                                    {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                    Enviar a revisión
+                                  </button>
+                                )}
+                                {evidence.status === 'pending_review' && (
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleReviewAction(evidence.id, 'approve')}
+                                        disabled={isReviewing}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                      >
+                                        {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                        Aprobar
+                                      </button>
+                                      <button
+                                        onClick={() => { setRejectingEvidenceId(evidence.id); setRejectNotes(''); }}
+                                        disabled={isReviewing}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-re bg-red-dim border border-reb hover:opacity-80 disabled:opacity-50 transition-opacity"
+                                      >
+                                        Rechazar
+                                      </button>
+                                    </div>
+                                    {rejectingEvidenceId === evidence.id && (
+                                      <div className="flex flex-col items-end gap-1.5 w-full max-w-[260px]">
+                                        <textarea
+                                          rows={2}
+                                          placeholder="Motivo del rechazo (obligatorio)"
+                                          value={rejectNotes}
+                                          onChange={(e) => setRejectNotes(e.target.value)}
+                                          className="w-full bg-ltbg border border-reb rounded-[6px] px-2.5 py-1.5 text-[11.5px] font-sora outline-none focus:border-re resize-none"
+                                        />
+                                        <div className="flex gap-1.5">
+                                          <button
+                                            onClick={() => setRejectingEvidenceId(null)}
+                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
+                                          >
+                                            Cancelar
+                                          </button>
+                                          <button
+                                            onClick={() => handleReviewAction(evidence.id, 'reject', rejectNotes)}
+                                            disabled={isReviewing || !rejectNotes.trim()}
+                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                          >
+                                            {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirmar rechazo'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {evidence.status === 'rejected' && (
+                                  <button
+                                    onClick={() => handleReviewAction(evidence.id, 'reopen')}
+                                    disabled={isReviewing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm bg-ltbg border border-ltb hover:bg-ltcard2 disabled:opacity-50 transition-colors"
+                                  >
+                                    {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                    Reabrir
+                                  </button>
+                                )}
+                                {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
+                                  <p className="font-sora text-[10.5px] text-lttm italic max-w-[200px] text-right leading-tight">
+                                    "{evidence.validation_notes}"
+                                  </p>
+                                )}
+
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => openEditEvidenceModal(evidence)}
+                                    className="p-1.5 rounded-[5px] text-lttm hover:bg-ltcard2 hover:text-ltt transition-colors"
+                                    title="Editar evidencia"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  {isConfirmingDelete ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-sora text-[11px] text-re">¿Eliminar?</span>
+                                      <button
+                                        onClick={() => handleDeleteEvidence(evidence.id)}
+                                        disabled={isDeletingEvidence}
+                                        className="px-2 py-1 rounded-[5px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-60 transition-opacity"
+                                      >
+                                        {isDeletingEvidence ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Sí'}
+                                      </button>
+                                      <button
+                                        onClick={() => setDeletingEvidenceId(null)}
+                                        className="px-2 py-1 rounded-[5px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setDeletingEvidenceId(evidence.id)}
+                                      className="p-1.5 rounded-[5px] text-lttm hover:bg-red-dim hover:text-re transition-colors"
+                                      title="Eliminar evidencia"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                                 <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">
                                   Registrada {formatDate(evidence.created_at)}
                                 </span>
@@ -4099,9 +4330,11 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-2xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-lg font-semibold text-ltt">Nueva evidencia</h2>
+                <h2 className="font-fraunces text-lg font-semibold text-ltt">
+                  {editingEvidence ? 'Editar evidencia' : 'Nueva evidencia'}
+                </h2>
                 <p className="font-sora text-[12px] text-lttm mt-1">
-                  Alta básica por URL para empezar a documentar el sistema sin cambiar el diseño actual.
+                  {editingEvidence ? `Modificando "${editingEvidence.title}"` : 'Alta básica por URL para documentar el sistema.'}
                 </p>
               </div>
               <button onClick={closeEvidenceModal} className="text-lttm hover:text-ltt transition-colors">
@@ -4230,7 +4463,65 @@ export function SystemDetailClient({
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSubmittingEvidence && <Loader2 className="w-4 h-4 animate-spin" />}
-                Guardar evidencia
+                {editingEvidence ? 'Guardar cambios' : 'Guardar evidencia'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de vinculación a modos de fallo */}
+      {linkingEvidence && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[80vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-base font-semibold text-ltt">Vincular a modos de fallo</h2>
+                <p className="font-sora text-[11.5px] text-lttm mt-0.5 truncate max-w-[340px]">{linkingEvidence.title}</p>
+              </div>
+              <button onClick={() => setLinkingEvidence(null)} className="text-lttm hover:text-ltt transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto divide-y divide-ltb">
+              {failureModes.length === 0 ? (
+                <div className="p-8 text-center font-sora text-[13px] text-lttm">
+                  No hay modos de fallo activados para este sistema.
+                </div>
+              ) : (
+                failureModes.map((mode) => {
+                  const linked = linkingEvidence.linked_failure_mode_ids.includes(mode.id);
+                  return (
+                    <div key={mode.id} className="flex items-center justify-between px-5 py-3 hover:bg-ltbg transition-colors">
+                      <div className="min-w-0 flex-1 mr-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-plex text-[10px] text-[#8850ff]">{mode.code}</span>
+                          <span className="font-sora text-[12.5px] text-ltt truncate">{mode.name}</span>
+                        </div>
+                        <div className="font-plex text-[10px] uppercase text-lttm tracking-wider mt-0.5">{mode.dimension_id} · {mode.priority_level ?? mode.priority_status}</div>
+                      </div>
+                      <button
+                        onClick={() => handleToggleFailureModeLink(linkingEvidence.id, mode.id, linked)}
+                        disabled={isLinkingFailureMode}
+                        className={`shrink-0 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium transition-all disabled:opacity-60 ${
+                          linked
+                            ? 'bg-[#f1ebff] text-[#8850ff] border border-[#d2c1ff] hover:bg-red-dim hover:text-re hover:border-reb'
+                            : 'bg-ltbg text-lttm border border-ltb hover:border-brand-cyan hover:text-brand-cyan'
+                        }`}
+                      >
+                        {linked ? 'Desvincular' : 'Vincular'}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="px-6 py-3 bg-ltbg border-t border-ltb">
+              <button
+                onClick={() => { setLinkingEvidence(null); router.refresh(); }}
+                className="px-4 py-2 rounded-lg border border-ltb text-[13px] font-sora text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cerrar
               </button>
             </div>
           </div>

@@ -6,9 +6,11 @@ import {
   ArrowRight,
   Boxes,
   Building2,
+  CalendarClock,
   CheckCircle2,
   ClipboardCheck,
   FileCheck2,
+  FileText,
   GitFork,
   Plus,
   ShieldAlert,
@@ -113,6 +115,10 @@ export default async function DashboardPage() {
           <SoAStatusCard soaKpis={dashboard.soaKpis} />
         </section>
       )}
+
+      <section>
+        <EvidenceHealthCard kpis={dashboard.kpis} />
+      </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <ComplianceOverviewCard dashboard={dashboard} />
@@ -229,6 +235,108 @@ function KpiCard({
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">
           <Icon size={17} className={valueClass} />
         </div>
+      </div>
+    </div>
+  )
+}
+
+function EvidenceHealthCard({ kpis }: { kpis: DashboardData['kpis'] }) {
+  const total = kpis.evidencesValid + kpis.evidencesPending + kpis.evidencesExpired
+  const hasUrgency = kpis.evidencesExpired > 0 || kpis.evidencesExpiringSoon > 0
+
+  return (
+    <div className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+      <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText size={14} className="text-lttm" />
+          <h2 className="font-plex text-[11px] uppercase tracking-[0.9px] text-ltt2">
+            Gobierno documental
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasUrgency && (
+            <span className="font-plex text-[10px] uppercase tracking-[0.6px] px-2 py-1 rounded-full bg-red-dim text-re border border-reb">
+              Requiere atención
+            </span>
+          )}
+          <Link
+            href="/evidencias"
+            className="inline-flex items-center gap-1 font-sora text-[11.5px] text-lttm hover:text-brand-cyan transition-colors"
+          >
+            Ver biblioteca
+            <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {/* Stat: Total */}
+          <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
+            <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Total</p>
+            <p className="font-fraunces text-[28px] text-ltt mt-1">{total}</p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">evidencias registradas</p>
+          </div>
+
+          {/* Stat: Válidas */}
+          <div className="rounded-[12px] border border-grb bg-grdim px-4 py-3">
+            <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-gr">Válidas</p>
+            <p className="font-fraunces text-[28px] text-gr mt-1">{kpis.evidencesValid}</p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">aprobadas y vigentes</p>
+          </div>
+
+          {/* Stat: Pendientes */}
+          <div className="rounded-[12px] border border-orb bg-ordim px-4 py-3">
+            <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-or">Pendientes</p>
+            <p className="font-fraunces text-[28px] text-or mt-1">{kpis.evidencesPending}</p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">borrador o en revisión</p>
+          </div>
+
+          {/* Stat: Caducan pronto */}
+          <div className={`rounded-[12px] border px-4 py-3 ${kpis.evidencesExpiringSoon > 0 ? 'border-reb bg-red-dim' : 'border-ltb bg-ltbg'}`}>
+            <div className="flex items-center gap-1.5">
+              <CalendarClock size={11} className={kpis.evidencesExpiringSoon > 0 ? 'text-re' : 'text-lttm'} />
+              <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${kpis.evidencesExpiringSoon > 0 ? 'text-re' : 'text-lttm'}`}>
+                Caducan ≤ 30 d
+              </p>
+            </div>
+            <p className={`font-fraunces text-[28px] mt-1 ${kpis.evidencesExpiringSoon > 0 ? 'text-re' : 'text-ltt'}`}>
+              {kpis.evidencesExpiringSoon}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {kpis.evidencesExpired > 0 ? `+ ${kpis.evidencesExpired} ya caducadas` : 'ventana preventiva'}
+            </p>
+          </div>
+
+          {/* Stat: Sin owner */}
+          <div className={`rounded-[12px] border px-4 py-3 ${kpis.evidencesNoOwner > 0 ? 'border-orb bg-ordim' : 'border-ltb bg-ltbg'}`}>
+            <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${kpis.evidencesNoOwner > 0 ? 'text-or' : 'text-lttm'}`}>
+              Sin owner
+            </p>
+            <p className={`font-fraunces text-[28px] mt-1 ${kpis.evidencesNoOwner > 0 ? 'text-or' : 'text-ltt'}`}>
+              {kpis.evidencesNoOwner}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">sin responsable asignado</p>
+          </div>
+        </div>
+
+        {/* Progress bar cobertura */}
+        {total > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Cobertura documental válida</p>
+              <p className="font-plex text-[10px] text-lttm">
+                {Math.round((kpis.evidencesValid / total) * 100)}%
+              </p>
+            </div>
+            <div className="h-2 rounded-full bg-[#e7eef8] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-gr to-[#2b9d6f] transition-all"
+                style={{ width: `${Math.max(4, Math.round((kpis.evidencesValid / total) * 100))}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

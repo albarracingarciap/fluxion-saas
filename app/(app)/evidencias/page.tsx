@@ -11,6 +11,9 @@ import {
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildEvidencesData, type OrganizationEvidenceRecord } from '@/lib/evidences/data'
+import { getActiveExpiryAlerts, type EvidenceExpiryAlert } from '@/lib/evidences/expiry-alerts'
+import { EvidencesLibraryClient } from './evidences-library-client'
+import { ExpiryAlertsBanner } from './expiry-alerts-client'
 
 type EvidencePageSearchParams = Promise<{
   system?: string
@@ -275,6 +278,14 @@ export default async function EvidencesPage({
 
   const resolvedSearchParams = (await searchParams) ?? {}
   const data = await buildEvidencesData(membership.organization_id)
+
+  // Graceful fallback: table may not exist yet (migration 070)
+  let expiryAlerts: EvidenceExpiryAlert[] = []
+  try {
+    expiryAlerts = await getActiveExpiryAlerts(membership.organization_id)
+  } catch {
+    // pre-migration: table does not exist yet
+  }
   const activeSystem = resolvedSearchParams.system ?? 'all'
   const activeStatus = resolvedSearchParams.status ?? 'all'
   const activeType = resolvedSearchParams.type ?? 'all'
@@ -316,6 +327,10 @@ export default async function EvidencesPage({
 
   return (
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
+      {expiryAlerts.length > 0 && (
+        <ExpiryAlertsBanner alerts={expiryAlerts} />
+      )}
+
       <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -775,9 +790,7 @@ export default async function EvidencesPage({
                 </p>
               </div>
             ) : filteredLibrary.length > 0 ? (
-              filteredLibrary.slice(0, 24).map((evidence) => (
-                <EvidenceRow key={evidence.id} evidence={evidence} />
-              ))
+              <EvidencesLibraryClient evidences={filteredLibrary.slice(0, 24)} organizationId={membership.organization_id} />
             ) : (
               <div className="rounded-[12px] border border-dashed border-ltb bg-ltbg p-5">
                 <p className="font-sora text-[13px] font-semibold text-ltt">Sin resultados con el filtro actual</p>
