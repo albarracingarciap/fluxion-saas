@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   ArrowRight,
   CalendarClock,
+  CheckSquare,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -13,9 +14,11 @@ import {
   ExternalLink,
   FileText,
   ImageIcon,
+  Link2,
   Loader2,
   Paperclip,
   Pencil,
+  Square,
   Trash2,
   X,
 } from 'lucide-react';
@@ -39,7 +42,12 @@ import {
   reviewSystemEvidence,
   createOrganizationEvidence,
   setEvidenceStoragePath,
+  bulkReviewEvidences,
+  bulkLinkToObligation,
+  getOrganizationObligations,
   type ReviewAction,
+  type BulkReviewAction,
+  type ObligationOption,
 } from './actions';
 
 const STATUS_META: Record<string, { label: string; pill: string }> = {
@@ -372,6 +380,103 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
 
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
 
+  // ── Bulk selection ───────────────────────────────────────────────────────
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isBulkReviewing, startBulkReviewTransition] = useTransition();
+  const [isBulkLinking, startBulkLinkTransition] = useTransition();
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
+
+  // Obligation picker for bulk link
+  const [obligationPickerOpen, setObligationPickerOpen] = useState(false);
+  const [obligations, setObligations] = useState<ObligationOption[]>([]);
+  const [obligationSearch, setObligationSearch] = useState('');
+  const [isLoadingObligations, setIsLoadingObligations] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === visibleEvidences.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(visibleEvidences.map((e) => e.id)));
+    }
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const handleBulkReview = (action: BulkReviewAction) => {
+    startBulkReviewTransition(async () => {
+      const result = await bulkReviewEvidences(Array.from(selected), action);
+      if (result.error) {
+        setBulkResult(`Error: ${result.error}`);
+      } else {
+        setBulkResult(`${result.updated} actualizada${result.updated !== 1 ? 's' : ''}${result.skipped > 0 ? ` · ${result.skipped} omitida${result.skipped !== 1 ? 's' : ''} (estado incompatible)` : ''}`);
+        clearSelection();
+        router.refresh();
+      }
+    });
+  };
+
+  const handleOpenObligationPicker = async () => {
+    setObligationPickerOpen(true);
+    if (obligations.length === 0) {
+      setIsLoadingObligations(true);
+      const data = await getOrganizationObligations();
+      setObligations(data);
+      setIsLoadingObligations(false);
+    }
+  };
+
+  const handleBulkLink = (obligationId: string) => {
+    startBulkLinkTransition(async () => {
+      const result = await bulkLinkToObligation(Array.from(selected), obligationId);
+      if (result.error) {
+        setBulkResult(`Error: ${result.error}`);
+      } else {
+        setBulkResult(`${result.linked} evidencia${result.linked !== 1 ? 's' : ''} vinculada${result.linked !== 1 ? 's' : ''} a la obligación`);
+        setObligationPickerOpen(false);
+        clearSelection();
+        router.refresh();
+      }
+    });
+  };
+
+  const handleExportCSV = () => {
+    const toExport = visibleEvidences.filter((e) => selected.has(e.id));
+    const headers = ['id', 'titulo', 'tipo', 'estado', 'ambito', 'sistema', 'codigo_sistema', 'owner', 'version', 'emitida', 'caducidad', 'tags', 'url_externa', 'creada', 'actualizada'];
+    const rows = toExport.map((e) => [
+      e.id,
+      `"${e.title.replace(/"/g, '""')}"`,
+      e.evidence_type,
+      e.status,
+      e.scope,
+      `"${e.system_name.replace(/"/g, '""')}"`,
+      e.system_code,
+      e.owner_name ?? '',
+      e.version ?? '',
+      e.issued_at ?? '',
+      e.expires_at ?? '',
+      `"${e.tags.join(';')}"`,
+      e.external_url ?? '',
+      e.created_at,
+      e.updated_at,
+    ].join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evidencias_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const allTags = Array.from(new Set(evidences.flatMap((e) => e.tags))).sort();
   const visibleEvidences = activeTagFilter
     ? evidences.filter((e) => e.tags.includes(activeTagFilter))
@@ -407,12 +512,27 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
             )}
           </div>
         )}
-        <button
-          onClick={() => setIsOrgModalOpen(true)}
-          className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
-        >
-          + Evidencia organizacional
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {visibleEvidences.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] font-sora text-[12px] text-lttm border border-ltb bg-ltbg hover:bg-ltcard2 hover:text-ltt transition-colors"
+              title={selected.size === visibleEvidences.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+            >
+              {selected.size === visibleEvidences.length && visibleEvidences.length > 0
+                ? <CheckSquare className="w-3.5 h-3.5 text-brand-cyan" />
+                : <Square className="w-3.5 h-3.5" />
+              }
+              {selected.size > 0 ? `${selected.size} sel.` : 'Seleccionar'}
+            </button>
+          )}
+          <button
+            onClick={() => setIsOrgModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+          >
+            + Evidencia organizacional
+          </button>
+        </div>
       </div>
 
       {visibleEvidences.map((evidence) => {
@@ -427,6 +547,18 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
           >
             <div className="px-5 py-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
+                {/* Checkbox de selección */}
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(evidence.id)}
+                  className="shrink-0 mt-0.5 text-lttm hover:text-brand-cyan transition-colors"
+                  title={selected.has(evidence.id) ? 'Deseleccionar' : 'Seleccionar'}
+                >
+                  {selected.has(evidence.id)
+                    ? <CheckSquare className="w-4 h-4 text-brand-cyan" />
+                    : <Square className="w-4 h-4" />
+                  }
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${statusMeta.pill}`}>
@@ -655,6 +787,153 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
           </div>
         );
       })}
+
+      {/* ── Floating bulk action bar ─────────────────────────────────────── */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10005] animate-fadein">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-[14px] bg-ltcard border border-ltb shadow-[0_8px_32px_rgba(0,74,173,0.18)] backdrop-blur-md">
+            <span className="font-plex text-[11px] uppercase tracking-[0.6px] text-lttm mr-1">
+              {selected.size} evidencia{selected.size !== 1 ? 's' : ''}
+            </span>
+
+            <button
+              onClick={() => handleBulkReview('request_review')}
+              disabled={isBulkReviewing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-or bg-ordim border border-orb hover:opacity-80 disabled:opacity-50 transition-opacity"
+            >
+              {isBulkReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Enviar a revisión
+            </button>
+
+            <button
+              onClick={() => handleBulkReview('approve')}
+              disabled={isBulkReviewing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
+            >
+              {isBulkReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Aprobar
+            </button>
+
+            <button
+              onClick={handleOpenObligationPicker}
+              disabled={isBulkLinking}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-brand-cyan bg-cyan-dim border border-cyan-border hover:opacity-80 disabled:opacity-50 transition-opacity"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Vincular obligación
+            </button>
+
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-lttm bg-ltbg border border-ltb hover:bg-ltcard2 hover:text-ltt transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              CSV
+            </button>
+
+            <button
+              onClick={clearSelection}
+              className="p-1.5 rounded-[7px] text-lttm hover:bg-ltcard2 hover:text-ltt border border-transparent hover:border-ltb transition-colors"
+              title="Limpiar selección"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {bulkResult && (
+            <div className="mt-2 mx-auto max-w-fit px-4 py-2 rounded-[10px] bg-grdim border border-grb font-sora text-[11.5px] text-gr text-center shadow">
+              {bulkResult}
+              <button onClick={() => setBulkResult(null)} className="ml-2 text-lttm hover:text-ltt">
+                <X className="w-3 h-3 inline" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Obligation picker modal ───────────────────────────────────────── */}
+      {obligationPickerOpen && (
+        <div className="fixed inset-0 z-[10015] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[70vh]">
+            <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-fraunces text-[16px] font-semibold text-ltt">Vincular a obligación</h2>
+                <p className="font-sora text-[11.5px] text-lttm mt-0.5">
+                  {selected.size} evidencia{selected.size !== 1 ? 's' : ''} seleccionada{selected.size !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setObligationPickerOpen(false)}
+                className="shrink-0 text-lttm hover:text-ltt transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-4 py-3 border-b border-ltb">
+              <input
+                type="text"
+                value={obligationSearch}
+                onChange={(e) => setObligationSearch(e.target.value)}
+                placeholder="Buscar por código o título…"
+                className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[12.5px] font-sora outline-none focus:border-brand-cyan"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {isLoadingObligations ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-5 h-5 animate-spin text-lttm" />
+                </div>
+              ) : obligations.length === 0 ? (
+                <p className="text-center font-sora text-[12.5px] text-lttm py-10">
+                  No hay obligaciones disponibles.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {obligations
+                    .filter((ob) => {
+                      if (!obligationSearch.trim()) return true;
+                      const q = obligationSearch.toLowerCase();
+                      return ob.obligation_code.toLowerCase().includes(q) || ob.title.toLowerCase().includes(q);
+                    })
+                    .map((ob) => (
+                      <button
+                        key={ob.id}
+                        onClick={() => handleBulkLink(ob.id)}
+                        disabled={isBulkLinking}
+                        className="w-full text-left rounded-[10px] border border-ltb bg-ltbg hover:border-cyan-border hover:bg-ltcard2 px-4 py-3 transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-plex text-[10px] uppercase tracking-[0.6px] text-lttm">
+                            {ob.obligation_code}
+                          </span>
+                          {ob.system_name && (
+                            <span className="font-plex text-[9.5px] uppercase tracking-[0.5px] text-lttm/70">
+                              {ob.system_name}
+                            </span>
+                          )}
+                          {isBulkLinking && <Loader2 className="w-3 h-3 animate-spin ml-auto text-lttm" />}
+                        </div>
+                        <p className="font-sora text-[12.5px] text-ltt leading-snug">{ob.title}</p>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-ltb bg-ltbg">
+              <button
+                onClick={() => setObligationPickerOpen(false)}
+                className="w-full px-4 py-2 rounded-lg border border-ltb font-sora text-[12.5px] text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de edición */}
       {editingEvidence && (
