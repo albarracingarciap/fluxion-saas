@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { detectActiveCausalChains, type ActiveCausalChain } from '@/lib/causal-graph/chains'
+
 export const TECH_DOC_DOMAIN_LABELS: Record<string, string> = {
   finanzas: 'Finanzas y Banca',
   seguros: 'Seguros',
@@ -131,6 +133,30 @@ type TechnicalEvidenceRow = {
   status: string
   external_url: string | null
   created_at: string
+  expires_at: string | null
+  tags: string[] | null
+}
+
+export type ObligationCoverageRow = {
+  id: string
+  obligation_code: string | null
+  title: string
+  status: string
+  priority: string | null
+  evidences_count: number
+}
+
+export type TreatmentPlanSummary = {
+  id: string
+  code: string
+  status: string
+  zone_at_creation: string | null
+  zone_target: string | null
+  actions_total: number
+  actions_completed: number
+  approved_at: string | null
+  deadline: string | null
+  review_cadence: string | null
 }
 
 export type TechnicalDossierData = {
@@ -152,6 +178,13 @@ export type TechnicalDossierData = {
     partial: number
     pending: number
   }
+  obligationsCoverage: {
+    total: number
+    withEvidence: number
+    rows: ObligationCoverageRow[]
+  }
+  treatmentPlans: TreatmentPlanSummary[]
+  causalChains: ActiveCausalChain[]
 }
 
 export async function buildTechnicalDossierData(params: {
@@ -242,7 +275,7 @@ export async function buildTechnicalDossierData(params: {
 
   const { data: evidenceRows } = await fluxion
     .from('system_evidences')
-    .select('id, title, evidence_type, status, external_url, created_at')
+    .select('id, title, evidence_type, status, external_url, created_at, expires_at, tags')
     .eq('organization_id', organizationId)
     .eq('ai_system_id', aiSystemId)
     .order('created_at', { ascending: false })
@@ -279,6 +312,80 @@ export async function buildTechnicalDossierData(params: {
     pending: isoChecks.filter((check) => !check.status || check.status === 'no').length,
   }
 
+  // ─── Obligaciones del sistema con cobertura de evidencia ──────────────────
+  const { data: obligationRows } = await fluxion
+    .from('system_obligations')
+    .select('id, obligation_code, title, status, priority')
+    .eq('organization_id', organizationId)
+    .eq('ai_system_id', aiSystemId)
+    .order('priority', { ascending: false, nullsFirst: false })
+
+  const obligationIds = (obligationRows ?? []).map((row) => (row as { id: string }).id)
+  const evidenceCountByObligation = new Map<string, number>()
+
+  if (obligationIds.length > 0) {
+    const { data: links } = await fluxion
+      .from('system_obligation_evidences')
+      .select('obligation_id')
+      .in('obligation_id', obligationIds)
+
+    for (const link of (links ?? []) as Array<{ obligation_id: string }>) {
+      evidenceCountByObligation.set(
+        link.obligation_id,
+        (evidenceCountByObligation.get(link.obligation_id) ?? 0) + 1
+      )
+    }
+  }
+
+  const obligationsRows: ObligationCoverageRow[] = (obligationRows ?? []).map((row) => {
+    const r = row as { id: string; obligation_code: string | null; title: string; status: string; priority: string | null }
+    return {
+      id: r.id,
+      obligation_code: r.obligation_code,
+      title: r.title,
+      status: r.status,
+      priority: r.priority,
+      evidences_count: evidenceCountByObligation.get(r.id) ?? 0,
+    }
+  })
+
+  const obligationsCoverage = {
+    total: obligationsRows.length,
+    withEvidence: obligationsRows.filter((o) => o.evidences_count > 0).length,
+    rows: obligationsRows,
+  }
+
+  // ─── Planes de tratamiento del sistema ────────────────────────────────────
+  const { data: planRows } = await fluxion
+    .from('treatment_plans')
+    .select('id, code, status, zone_at_creation, zone_target, actions_total, actions_completed, approved_at, deadline, review_cadence, created_at')
+    .eq('organization_id', organizationId)
+    .eq('system_id', aiSystemId)
+    .order('created_at', { ascending: false })
+
+  const treatmentPlans: TreatmentPlanSummary[] = ((planRows ?? []) as Array<TreatmentPlanSummary>).map((p) => ({
+    id: p.id,
+    code: p.code,
+    status: p.status,
+    zone_at_creation: p.zone_at_creation,
+    zone_target: p.zone_target,
+    actions_total: p.actions_total ?? 0,
+    actions_completed: p.actions_completed ?? 0,
+    approved_at: p.approved_at,
+    deadline: p.deadline,
+    review_cadence: p.review_cadence,
+  }))
+
+  // ─── Cadenas causales activas para este sistema ───────────────────────────
+  let causalChains: ActiveCausalChain[] = []
+  try {
+    const allChains = await detectActiveCausalChains(organizationId, { minLength: 3, limit: 20 })
+    causalChains = allChains.filter((c) => c.system_id === aiSystemId)
+  } catch (e) {
+    // Si falla la detección (ej. compliance DB inaccesible) seguimos sin cadenas
+    causalChains = []
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     system,
@@ -286,5 +393,8 @@ export async function buildTechnicalDossierData(params: {
     evidences,
     failureModeSummary,
     isoSummary,
+    obligationsCoverage,
+    treatmentPlans,
+    causalChains,
   }
 }
