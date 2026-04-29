@@ -68,6 +68,8 @@ type PipelineRow = {
   planApprovalLevel: string | null
   planZoneTarget: string | null
   planDeadline: string | null
+  planDeadlineOverdue: boolean
+  linkedTasksCount: number
   currentStage: string
   actionHref: string
   actionLabel: string
@@ -132,6 +134,16 @@ function getNextEvaluationStep(rows: PipelineRow[]) {
     }
   }
 
+  const overdue = rows.find((row) => row.planDeadlineOverdue)
+  if (overdue) {
+    return {
+      title: 'Plan de tratamiento vencido',
+      description: `${overdue.systemName} tiene un plan con fecha límite superada. Revisa el estado de las acciones y actualiza el plazo si es necesario.`,
+      href: overdue.actionHref,
+      cta: 'Abrir plan',
+    }
+  }
+
   const secondReview = rows.find((row) => row.secondReviewPendingCount > 0)
   if (secondReview) {
     return {
@@ -182,12 +194,14 @@ function getNextEvaluationStep(rows: PipelineRow[]) {
 
 export async function buildEvaluationsDashboardData(organizationId: string) {
   const fluxion = createFluxionClient()
+  const today = new Date().toISOString().split('T')[0]!
 
   const [
     systemsResult,
     failureModesResult,
     evaluationsResult,
     plansResult,
+    tasksResult,
   ] = await Promise.all([
     fluxion
       .from('ai_systems')
@@ -206,6 +220,12 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
       .from('treatment_plans')
       .select('id, system_id, evaluation_id, status, approval_level, zone_at_creation, zone_target, deadline, created_at, updated_at')
       .eq('organization_id', organizationId),
+    fluxion
+      .from('tasks')
+      .select('system_id, status')
+      .eq('organization_id', organizationId)
+      .eq('source_type', 'fmea_item')
+      .not('status', 'in', '("done","cancelled")'),
   ])
 
   if (systemsResult.error) {
@@ -216,6 +236,14 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
   const failureModes = (failureModesResult.data ?? []) as EvaluationFailureModeRow[]
   const evaluations = (evaluationsResult.data ?? []) as EvaluationRow[]
   const plans = (plansResult.data ?? []) as TreatmentPlanRow[]
+  const fmeaItemTasks = (tasksResult.data ?? []) as Array<{ system_id: string | null; status: string }>
+
+  const linkedTasksBySystem = new Map<string, number>()
+  for (const task of fmeaItemTasks) {
+    if (task.system_id) {
+      linkedTasksBySystem.set(task.system_id, (linkedTasksBySystem.get(task.system_id) ?? 0) + 1)
+    }
+  }
 
   const evaluationIds = evaluations.map((row) => row.id)
   const { data: itemRowsData, error: itemRowsError } =
@@ -260,8 +288,8 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
     failureModesBySystem.set(row.ai_system_id, bucket)
   }
 
-  const pipeline = systems
-    .map<PipelineRow>((system) => {
+  const pipeline: PipelineRow[] = systems
+    .map((system) => {
       const systemModes = failureModesBySystem.get(system.id) ?? []
       const prioritized = systemModes.filter((row) => row.priority_status === 'prioritized')
       const monitoring = systemModes.filter((row) => row.priority_status === 'monitoring')
@@ -290,6 +318,15 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
         prioritizedCount: prioritized.length,
       })
 
+      const planDeadline = latestPlan?.deadline ?? null
+      const openPlanStatuses = ['draft', 'in_review', 'approved', 'in_progress']
+      const planDeadlineOverdue = Boolean(
+        planDeadline &&
+        latestPlan &&
+        openPlanStatuses.includes(latestPlan.status) &&
+        planDeadline < today
+      )
+
       return {
         systemId: system.id,
         systemName: system.name,
@@ -312,21 +349,30 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
         planStatus: latestPlan?.status ?? null,
         planApprovalLevel: latestPlan?.approval_level ?? null,
         planZoneTarget: latestPlan?.zone_target ?? latestPlan?.zone_at_creation ?? null,
-        planDeadline: latestPlan?.deadline ?? null,
+        planDeadline,
+        planDeadlineOverdue,
+        linkedTasksCount: linkedTasksBySystem.get(system.id) ?? 0,
         currentStage,
         actionHref: action.href,
         actionLabel: action.label,
         needsAttention:
           sActual9Count > 0 ||
           secondReviewPendingCount > 0 ||
+          planDeadlineOverdue ||
           latestPlan?.status === 'draft' ||
           latestEvaluation?.state === 'draft',
       }
     })
     .sort((a, b) => {
+      // 1. Zona I primero
       if (Number(b.sActual9Count > 0) !== Number(a.sActual9Count > 0)) {
         return Number(b.sActual9Count > 0) - Number(a.sActual9Count > 0)
       }
+      // 2. Planes vencidos
+      if (Number(b.planDeadlineOverdue) !== Number(a.planDeadlineOverdue)) {
+        return Number(b.planDeadlineOverdue) - Number(a.planDeadlineOverdue)
+      }
+      // 3. Segundas revisiones pendientes
       if (b.secondReviewPendingCount !== a.secondReviewPendingCount) {
         return b.secondReviewPendingCount - a.secondReviewPendingCount
       }
@@ -345,6 +391,7 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
   const activeEvaluations = evaluations.filter((row) => ['draft', 'in_review'].includes(row.state))
   const activePlans = plans.filter((row) => ['draft', 'in_review'].includes(row.status))
 
+  const openPlanStatusesForKpi = ['draft', 'in_review', 'approved', 'in_progress']
   const kpis = {
     fmeaDraft: evaluations.filter((row) => row.state === 'draft').length,
     fmeaInReview: evaluations.filter((row) => row.state === 'in_review').length,
@@ -353,9 +400,13 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
     ).length,
     plansDraft: plans.filter((row) => row.status === 'draft').length,
     plansInReview: plans.filter((row) => row.status === 'in_review').length,
+    plansOverdue: plans.filter(
+      (row) => openPlanStatusesForKpi.includes(row.status) && row.deadline && row.deadline < today
+    ).length,
     zoneI: pipeline.filter((row) => row.sActual9Count > 0 || row.planZoneTarget === 'zona_i').length,
     pendingStart: pipeline.filter((row) => row.prioritizedCount > 0 && row.fmeaState === null).length,
     activeWorkflows: new Set([...activeEvaluations.map((row) => row.system_id), ...activePlans.map((row) => row.system_id)]).size,
+    linkedTasksActive: fmeaItemTasks.length,
   }
 
   return {

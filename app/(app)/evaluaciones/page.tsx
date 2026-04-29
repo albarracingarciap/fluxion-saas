@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   ArrowRight,
   ClipboardCheck,
+  ClipboardList,
+  Clock,
   FileCheck,
   ShieldAlert,
   Siren,
@@ -54,7 +56,7 @@ export default async function EvaluacionesPage() {
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
       <EvaluationsHero />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="FMEA activas"
           value={String(dashboard.kpis.fmeaDraft + dashboard.kpis.fmeaInReview)}
@@ -77,9 +79,16 @@ export default async function EvaluacionesPage() {
           Icon={FileCheck}
         />
         <KpiCard
+          label="Planes vencidos"
+          value={String(dashboard.kpis.plansOverdue)}
+          detail={dashboard.kpis.plansOverdue > 0 ? 'Requieren revisión urgente del plazo' : 'Todos los plazos vigentes'}
+          accent={dashboard.kpis.plansOverdue > 0 ? 'red' : 'green'}
+          Icon={Clock}
+        />
+        <KpiCard
           label="Escalados Zona I"
           value={String(dashboard.kpis.zoneI)}
-          detail={`${dashboard.kpis.pendingStart} sistemas con priorización sin iniciar`}
+          detail={`${dashboard.kpis.pendingStart} sistemas sin iniciar · ${dashboard.kpis.linkedTasksActive} tareas FMEA activas`}
           accent="red"
           Icon={Siren}
         />
@@ -136,7 +145,7 @@ function KpiCard({
   label: string
   value: string
   detail: string
-  accent: 'cyan' | 'amber' | 'blue' | 'red'
+  accent: 'cyan' | 'amber' | 'blue' | 'red' | 'green'
   Icon: React.ComponentType<{ size?: number | string; className?: string }>
 }) {
   const accentClass =
@@ -146,7 +155,9 @@ function KpiCard({
         ? 'border-t-[#f59e0b] bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_28%)]'
         : accent === 'blue'
           ? 'border-t-[#3b82f6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
-          : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
+          : accent === 'green'
+            ? 'border-t-[#22c55e] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
+            : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
 
   const valueClass =
     accent === 'red'
@@ -155,7 +166,9 @@ function KpiCard({
         ? 'text-[#d97706]'
         : accent === 'blue'
           ? 'text-[#2563eb]'
-          : 'text-brand-cyan'
+          : accent === 'green'
+            ? 'text-[#16a34a]'
+            : 'text-brand-cyan'
 
   return (
     <div
@@ -234,7 +247,13 @@ function PipelineCard({ pipeline }: { pipeline: EvaluationsDashboardData['pipeli
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+                  {row.planDeadlineOverdue && (
+                    <InlineBadge tone="red">
+                      <Clock size={10} className="inline mr-1" />
+                      Vencido
+                    </InlineBadge>
+                  )}
                   {row.fmeaZone ? (
                     <InlineBadge tone={row.fmeaZone === 'zona_i' ? 'red' : 'blue'}>
                       {ZONE_LABELS[row.fmeaZone] ?? row.fmeaZone}
@@ -245,6 +264,12 @@ function PipelineCard({ pipeline }: { pipeline: EvaluationsDashboardData['pipeli
                       Objetivo {ZONE_LABELS[row.planZoneTarget] ?? row.planZoneTarget}
                     </InlineBadge>
                   ) : null}
+                  {row.linkedTasksCount > 0 && (
+                    <InlineBadge tone="neutral">
+                      <ClipboardList size={10} className="inline mr-1" />
+                      {row.linkedTasksCount} tarea{row.linkedTasksCount !== 1 ? 's' : ''}
+                    </InlineBadge>
+                  )}
                   <span className="font-sora text-[12px] text-brand-cyan font-medium inline-flex items-center gap-1">
                     {row.actionLabel}
                     <ArrowRight size={14} />
@@ -256,7 +281,11 @@ function PipelineCard({ pipeline }: { pipeline: EvaluationsDashboardData['pipeli
                 <MiniMetric label="FMEA" value={row.fmeaState ? (row.fmeaVersion ? `v${row.fmeaVersion} · ${row.fmeaState}` : row.fmeaState) : 'Sin iniciar'} />
                 <MiniMetric label="Pendientes" value={`${row.fmeaPendingCount} · ${row.fmeaSkippedCount} pospuestos`} />
                 <MiniMetric label="2ª revisión" value={String(row.secondReviewPendingCount)} />
-                <MiniMetric label="Tratamiento" value={row.planStatus ?? 'Sin plan'} />
+                <DeadlineMetric
+                  deadline={row.planDeadline}
+                  planStatus={row.planStatus}
+                  overdue={row.planDeadlineOverdue}
+                />
               </div>
             </Link>
           ))}
@@ -288,28 +317,53 @@ function ImmediateAttentionCard({ dashboard }: { dashboard: EvaluationsDashboard
               <Link
                 key={row.systemId}
                 href={row.actionHref}
-                className="rounded-[12px] border border-ltb bg-ltbg p-4 hover:border-cyan-border transition-colors"
+                className={`rounded-[12px] border p-4 transition-colors hover:border-cyan-border ${row.planDeadlineOverdue ? 'border-[#fecdd3] bg-[#fff8f8]' : 'border-ltb bg-ltbg'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-sora text-[13px] font-semibold text-ltt">{row.systemName}</p>
                     <p className="font-sora text-[12px] text-ltt2 mt-1">{row.currentStage}</p>
                   </div>
-                  {row.sActual9Count > 0 ? (
-                    <InlineBadge tone="red">Zona I</InlineBadge>
-                  ) : row.secondReviewPendingCount > 0 ? (
-                    <InlineBadge tone="amber">2ª revisión</InlineBadge>
-                  ) : (
-                    <InlineBadge tone="blue">Seguimiento</InlineBadge>
-                  )}
+                  <div className="flex flex-wrap gap-1.5 justify-end">
+                    {row.sActual9Count > 0 && <InlineBadge tone="red">Zona I</InlineBadge>}
+                    {row.planDeadlineOverdue && (
+                      <InlineBadge tone="red">
+                        <Clock size={10} className="inline mr-1" />
+                        Vencido
+                      </InlineBadge>
+                    )}
+                    {row.secondReviewPendingCount > 0 && <InlineBadge tone="amber">2ª revisión</InlineBadge>}
+                    {!row.sActual9Count && !row.planDeadlineOverdue && !row.secondReviewPendingCount && (
+                      <InlineBadge tone="blue">Seguimiento</InlineBadge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-3 mt-3">
-                  <span className="font-sora text-[12px] text-lttm">
-                    {row.sActual9Count} críticos · {row.secondReviewPendingCount} validaciones
-                  </span>
+                  {row.sActual9Count > 0 && (
+                    <span className="font-sora text-[12px] text-[#dc2626]">
+                      {row.sActual9Count} críticos
+                    </span>
+                  )}
+                  {row.planDeadlineOverdue && row.planDeadline && (
+                    <span className="font-sora text-[12px] text-[#dc2626] flex items-center gap-1">
+                      <Clock size={11} />
+                      Venció el {new Date(row.planDeadline + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                  {row.secondReviewPendingCount > 0 && (
+                    <span className="font-sora text-[12px] text-lttm">
+                      {row.secondReviewPendingCount} validaciones pendientes
+                    </span>
+                  )}
                   <span className="font-sora text-[12px] text-lttm">
                     {row.prioritizedCount} priorizados
                   </span>
+                  {row.linkedTasksCount > 0 && (
+                    <span className="font-sora text-[12px] text-lttm flex items-center gap-1">
+                      <ClipboardList size={11} />
+                      {row.linkedTasksCount} tarea{row.linkedTasksCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
                 </div>
               </Link>
             ))
@@ -354,6 +408,43 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
       <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">{label}</p>
       <p className="font-sora text-[12px] text-ltt mt-1">{value}</p>
+    </div>
+  )
+}
+
+function DeadlineMetric({
+  deadline,
+  planStatus,
+  overdue,
+}: {
+  deadline: string | null
+  planStatus: string | null
+  overdue: boolean
+}) {
+  if (!deadline || !planStatus) {
+    return (
+      <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
+        <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">Deadline</p>
+        <p className="font-sora text-[12px] text-lttm mt-1">Sin plan</p>
+      </div>
+    )
+  }
+
+  const formatted = new Date(deadline + 'T00:00:00').toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+
+  return (
+    <div className={`rounded-[10px] border px-3 py-2 ${overdue ? 'border-[#fecdd3] bg-[#fff1f2]' : 'border-ltb bg-ltcard'}`}>
+      <p className={`font-plex text-[10px] uppercase tracking-[0.8px] ${overdue ? 'text-[#dc2626]' : 'text-lttm'}`}>
+        Deadline{overdue ? ' · Vencido' : ''}
+      </p>
+      <p className={`font-sora text-[12px] mt-1 flex items-center gap-1 ${overdue ? 'text-[#dc2626] font-medium' : 'text-ltt'}`}>
+        {overdue && <Clock size={11} />}
+        {formatted}
+      </p>
     </div>
   )
 }
