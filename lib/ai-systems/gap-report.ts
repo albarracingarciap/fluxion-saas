@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import type { TreatmentPlanSummary } from './technical-dossier'
+
 export const GAP_REPORT_DOMAIN_LABELS: Record<string, string> = {
   finanzas: 'Finanzas y Banca',
   seguros: 'Seguros',
@@ -94,6 +96,8 @@ type GapReportEvidenceRow = {
   evidence_type: string
   status: string
   expires_at: string | null
+  external_url: string | null
+  tags: string[] | null
 }
 
 type GapReportFailureModeRow = {
@@ -189,6 +193,7 @@ export type GapReportData = {
     count: number
     items: Array<{ code: string; name: string }>
   }>
+  treatmentPlans: TreatmentPlanSummary[]
   totalGapSignals: number
 }
 
@@ -274,7 +279,7 @@ export async function buildGapReportData(params: {
 
   const { data: evidenceRows } = await fluxion
     .from('system_evidences')
-    .select('id, title, evidence_type, status, expires_at')
+    .select('id, title, evidence_type, status, expires_at, external_url, tags')
     .eq('organization_id', organizationId)
     .eq('ai_system_id', aiSystemId)
     .order('created_at', { ascending: false })
@@ -340,6 +345,27 @@ export async function buildGapReportData(params: {
       items: items.slice(0, 8),
     }))
 
+  // ─── Planes de tratamiento ────────────────────────────────────────────────
+  const { data: planRows } = await fluxion
+    .from('treatment_plans')
+    .select('id, code, status, zone_at_creation, zone_target, actions_total, actions_completed, approved_at, deadline, review_cadence, created_at')
+    .eq('organization_id', organizationId)
+    .eq('system_id', aiSystemId)
+    .order('created_at', { ascending: false })
+
+  const treatmentPlans: TreatmentPlanSummary[] = ((planRows ?? []) as Array<TreatmentPlanSummary>).map((p) => ({
+    id: p.id,
+    code: p.code,
+    status: p.status,
+    zone_at_creation: p.zone_at_creation,
+    zone_target: p.zone_target,
+    actions_total: p.actions_total ?? 0,
+    actions_completed: p.actions_completed ?? 0,
+    approved_at: p.approved_at,
+    deadline: p.deadline,
+    review_cadence: p.review_cadence,
+  }))
+
   const totalGapSignals =
     pendingObligations.length +
     isoGaps.length +
@@ -356,6 +382,7 @@ export async function buildGapReportData(params: {
     evidences,
     failureModes,
     failureModesByDimension,
+    treatmentPlans,
     totalGapSignals,
   }
 }
