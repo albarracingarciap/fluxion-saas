@@ -374,7 +374,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
           system_url: '/evidencias',
           quick_action_label: 'Ver evidencias',
           quick_action_url: '/evidencias',
-          detail_url: '/evidencias',
+          detail_url: `/evidencias/${evidence.id}`,
         }
       }
 
@@ -431,7 +431,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
         system_url: `/inventario/${system.id}`,
         quick_action_label: quickAction.label,
         quick_action_url: quickAction.url,
-        detail_url: `/inventario/${system.id}?tab=evidencias`,
+        detail_url: `/evidencias/${evidence.id}`,
       }
     })
     .filter((value): value is OrganizationEvidenceRecord => value !== null)

@@ -445,9 +445,12 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                       {evidence.origin_label}
                     </span>
                   </div>
-                  <p className="font-sora text-[14px] font-semibold text-ltt leading-[1.35]">
+                  <Link
+                    href={`/evidencias/${evidence.id}`}
+                    className="font-sora text-[14px] font-semibold text-ltt leading-[1.35] hover:text-brand-cyan transition-colors"
+                  >
                     {evidence.title}
-                  </p>
+                  </Link>
                   <p className="font-sora text-[12px] text-ltt2 mt-2">
                     {evidence.system_name} · {evidence.evidence_type} · {evidence.owner_name ?? 'Sin owner'}
                   </p>
