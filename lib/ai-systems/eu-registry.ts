@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import type { ObligationCoverageRow, TreatmentPlanSummary } from './technical-dossier'
+
 export const EU_REGISTRY_DOMAIN_LABELS: Record<string, string> = {
   finanzas: 'Finanzas y Banca',
   seguros: 'Seguros',
@@ -75,6 +77,17 @@ export type EuRegistryChecklistItem = {
   detail: string
 }
 
+export type EuRegistryEvidenceRow = {
+  id: string
+  title: string
+  evidence_type: string
+  status: string
+  external_url: string | null
+  expires_at: string | null
+  tags: string[] | null
+  created_at: string
+}
+
 export type EuRegistryData = {
   generatedAt: string
   system: EuRegistrySystemRow
@@ -83,6 +96,13 @@ export type EuRegistryData = {
   ready: boolean
   checklist: EuRegistryChecklistItem[]
   missingItems: EuRegistryChecklistItem[]
+  obligationsCoverage: {
+    total: number
+    withEvidence: number
+    rows: ObligationCoverageRow[]
+  }
+  evidences: EuRegistryEvidenceRow[]
+  treatmentPlans: TreatmentPlanSummary[]
 }
 
 function hasDocStatus(value: string | null | undefined) {
@@ -135,11 +155,15 @@ export async function buildEuRegistryData(params: {
 
   if (systemError || !system) return null
 
-  const { count: evidenceCount } = await fluxion
+  const { data: evidenceRows } = await fluxion
     .from('system_evidences')
-    .select('id', { count: 'exact', head: true })
+    .select('id, title, evidence_type, status, external_url, expires_at, tags, created_at')
     .eq('organization_id', organizationId)
     .eq('ai_system_id', aiSystemId)
+    .order('created_at', { ascending: false })
+
+  const evidences = (evidenceRows ?? []) as EuRegistryEvidenceRow[]
+  const evidenceCount = evidences.length
 
   const checklist: EuRegistryChecklistItem[] = [
     {
@@ -233,13 +257,93 @@ export async function buildEuRegistryData(params: {
   const missingItems = checklist.filter((item) => item.status === 'missing')
   const readinessScore = Math.round((checklist.filter((item) => item.status === 'ready').length / checklist.length) * 100)
 
+  // ─── Obligaciones del sistema ─────────────────────────────────────────────
+  const { data: obligationRows } = await fluxion
+    .from('system_obligations')
+    .select('id, obligation_code, title, status, priority')
+    .eq('organization_id', organizationId)
+    .eq('ai_system_id', aiSystemId)
+    .order('priority', { ascending: false, nullsFirst: false })
+
+  const obligationIds = (obligationRows ?? []).map((row) => (row as { id: string }).id)
+  const evidenceCountByObligation = new Map<string, number>()
+
+  if (obligationIds.length > 0) {
+    const { data: links } = await fluxion
+      .from('system_obligation_evidences')
+      .select('obligation_id')
+      .in('obligation_id', obligationIds)
+
+    for (const link of (links ?? []) as Array<{ obligation_id: string }>) {
+      evidenceCountByObligation.set(
+        link.obligation_id,
+        (evidenceCountByObligation.get(link.obligation_id) ?? 0) + 1
+      )
+    }
+  }
+
+  const rawObligations: ObligationCoverageRow[] = (obligationRows ?? []).map((row) => {
+    const r = row as { id: string; obligation_code: string | null; title: string; status: string; priority: string | null }
+    return {
+      id: r.id,
+      obligation_code: r.obligation_code,
+      title: r.title,
+      status: r.status,
+      priority: r.priority,
+      evidences_count: evidenceCountByObligation.get(r.id) ?? 0,
+    }
+  })
+
+  const seenObligations = new Map<string, ObligationCoverageRow>()
+  for (const row of rawObligations) {
+    const key = row.obligation_code ?? row.title
+    const existing = seenObligations.get(key)
+    if (!existing || (!existing.obligation_code && row.obligation_code)) {
+      seenObligations.set(key, {
+        ...row,
+        evidences_count: Math.max(row.evidences_count, existing?.evidences_count ?? 0),
+      })
+    }
+  }
+  const dedupedObligations = Array.from(seenObligations.values())
+
+  const obligationsCoverage = {
+    total: dedupedObligations.length,
+    withEvidence: dedupedObligations.filter((o) => o.evidences_count > 0).length,
+    rows: dedupedObligations,
+  }
+
+  // ─── Planes de tratamiento ────────────────────────────────────────────────
+  const { data: planRows } = await fluxion
+    .from('treatment_plans')
+    .select('id, code, status, zone_at_creation, zone_target, actions_total, actions_completed, approved_at, deadline, review_cadence, created_at')
+    .eq('organization_id', organizationId)
+    .eq('system_id', aiSystemId)
+    .order('created_at', { ascending: false })
+
+  const treatmentPlans: TreatmentPlanSummary[] = ((planRows ?? []) as Array<TreatmentPlanSummary>).map((p) => ({
+    id: p.id,
+    code: p.code,
+    status: p.status,
+    zone_at_creation: p.zone_at_creation,
+    zone_target: p.zone_target,
+    actions_total: p.actions_total ?? 0,
+    actions_completed: p.actions_completed ?? 0,
+    approved_at: p.approved_at,
+    deadline: p.deadline,
+    review_cadence: p.review_cadence,
+  }))
+
   return {
     generatedAt: new Date().toISOString(),
     system,
-    evidenceCount: evidenceCount ?? 0,
+    evidenceCount,
     readinessScore,
     ready: missingItems.length === 0,
     checklist,
     missingItems,
+    obligationsCoverage,
+    evidences,
+    treatmentPlans,
   }
 }
