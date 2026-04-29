@@ -147,6 +147,7 @@ export type TreatmentPlanData = {
   read_only: boolean;
   tasks_total: number;
   tasks_done: number;
+  is_approver: boolean;
 };
 
 export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
@@ -273,6 +274,7 @@ export async function buildTreatmentPlanData(params: {
   organizationId: string;
   aiSystemId: string;
   evaluationId: string;
+  currentUserId?: string;
 }) {
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
@@ -680,6 +682,7 @@ export async function buildTreatmentPlanData(params: {
     read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(currentPlan.status) || !plan,
     tasks_total: tasksWithStatus.length,
     tasks_done: tasksDone,
+    is_approver: !!(params.currentUserId && currentPlan.approver_id && params.currentUserId === currentPlan.approver_id),
   } satisfies TreatmentPlanData;
 }
 

@@ -13,7 +13,7 @@ type TreatmentPlanPageProps = {
 };
 
 export default async function TreatmentPlanPage({ params }: TreatmentPlanPageProps) {
-  const { fluxion, membership } = await requireFmeaContext();
+  const { fluxion, membership, user } = await requireFmeaContext();
 
   const { data: evaluationItems } = await fluxion
     .from('fmea_items')
@@ -29,6 +29,7 @@ export default async function TreatmentPlanPage({ params }: TreatmentPlanPagePro
     organizationId: membership.organization_id,
     aiSystemId: params.id,
     evaluationId: params.evaluationId,
+    currentUserId: user.id,
   });
 
   if (!data) notFound();

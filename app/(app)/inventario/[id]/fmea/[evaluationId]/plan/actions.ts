@@ -695,6 +695,139 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
   };
 }
 
+export async function approveTreatmentPlanAction(input: {
+  aiSystemId: string;
+  evaluationId: string;
+  committeeNotes?: string | null;
+}): Promise<{ success: true } | { error: string }> {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: 'No autenticado.' };
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('user_id', user.id)
+    .single();
+  if (!membership) return { error: 'Perfil no encontrado.' };
+
+  const { data: plan } = await fluxion
+    .from('treatment_plans')
+    .select('id, status, approver_id, code, approval_level')
+    .eq('organization_id', membership.organization_id)
+    .eq('system_id', input.aiSystemId)
+    .eq('evaluation_id', input.evaluationId)
+    .maybeSingle();
+
+  if (!plan) return { error: 'Plan no encontrado.' };
+  if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
+  if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
+
+  const { error } = await fluxion
+    .from('treatment_plans')
+    .update({
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      approval_committee_notes: input.committeeNotes?.trim() || null,
+    })
+    .eq('id', plan.id);
+
+  if (error) return { error: error.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'treatment_plan_approved',
+      event_title: 'Plan de tratamiento aprobado',
+      event_summary: `El plan ${plan.code} fue aprobado por el aprobador asignado (nivel ${plan.approval_level}).`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        treatment_plan_id: plan.id,
+        approval_level: plan.approval_level,
+        committee_notes: input.committeeNotes?.trim() || null,
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`);
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return { success: true };
+}
+
+export async function rejectTreatmentPlanAction(input: {
+  aiSystemId: string;
+  evaluationId: string;
+  rejectionReason: string;
+}): Promise<{ success: true } | { error: string }> {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: 'No autenticado.' };
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('user_id', user.id)
+    .single();
+  if (!membership) return { error: 'Perfil no encontrado.' };
+
+  const { data: plan } = await fluxion
+    .from('treatment_plans')
+    .select('id, status, approver_id, code, approval_level')
+    .eq('organization_id', membership.organization_id)
+    .eq('system_id', input.aiSystemId)
+    .eq('evaluation_id', input.evaluationId)
+    .maybeSingle();
+
+  if (!plan) return { error: 'Plan no encontrado.' };
+  if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
+  if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
+
+  if (!input.rejectionReason.trim()) {
+    return { error: 'Debes indicar el motivo de devolución para que el autor pueda corregir el plan.' };
+  }
+
+  const { error } = await fluxion
+    .from('treatment_plans')
+    .update({
+      status: 'draft',
+      approved_at: null,
+      approval_committee_notes: `[DEVUELTO] ${input.rejectionReason.trim()}`,
+    })
+    .eq('id', plan.id);
+
+  if (error) return { error: error.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'treatment_plan_rejected',
+      event_title: 'Plan devuelto al autor',
+      event_summary: `El plan ${plan.code} fue devuelto al autor por el aprobador para su corrección.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        treatment_plan_id: plan.id,
+        approval_level: plan.approval_level,
+        rejection_reason: input.rejectionReason.trim(),
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+
+  return { success: true };
+}
+
 export async function updateLinkedTaskStatusAction(
   taskId: string,
   status: TaskStatus,
