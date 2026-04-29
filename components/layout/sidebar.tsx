@@ -54,8 +54,8 @@ const NAV: NavSection[] = [
       {
         label: "Ejecución", icon: <List size={15} />,
         children: [
-          { label: "Tareas", href: "/tareas", disabled: true, hint: "Disponible cuando esta area se implemente" },
-          { label: "Kanban", href: "/kanban", disabled: true, hint: "Disponible cuando esta area se implemente" },
+          { label: "Tareas", href: "/tareas" },
+          { label: "Kanban", href: "/kanban" },
         ],
       },
     ],

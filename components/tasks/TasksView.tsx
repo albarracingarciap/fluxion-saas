@@ -1,0 +1,431 @@
+'use client'
+
+import { useState, useMemo, useTransition } from 'react'
+import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock } from 'lucide-react'
+import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
+import {
+  TASK_STATUS_LABELS,
+  TASK_PRIORITY_LABELS,
+  TASK_SOURCE_LABELS,
+} from '@/lib/tasks/types'
+import { updateTaskStatusAction, deleteTaskAction } from '@/app/(app)/tareas/actions'
+import { CreateTaskModal, type Member, type System } from './CreateTaskModal'
+
+// ─── Badge helpers ────────────────────────────────────────────────────────────
+
+const STATUS_STYLES: Record<TaskStatus, string> = {
+  todo:        'bg-ltbg text-lttm border-ltb',
+  in_progress: 'bg-cyan-dim text-brand-cyan border-cyan-border',
+  blocked:     'bg-redim text-re border-reb',
+  in_review:   'bg-ordim text-or border-orb',
+  done:        'bg-grdim text-gr border-grb',
+  cancelled:   'bg-ltbg text-lttm border-ltb',
+}
+
+const STATUS_DOT: Record<TaskStatus, string> = {
+  todo:        'bg-lttm',
+  in_progress: 'bg-brand-cyan',
+  blocked:     'bg-re',
+  in_review:   'bg-or',
+  done:        'bg-gr',
+  cancelled:   'bg-lttm',
+}
+
+const PRIORITY_STYLES: Record<TaskPriority, string> = {
+  low:      'bg-ltbg text-lttm border-ltb',
+  medium:   'bg-cyan-dim text-brand-cyan border-cyan-border',
+  high:     'bg-ordim text-or border-orb',
+  critical: 'bg-redim text-re border-reb',
+}
+
+function StatusBadge({ status }: { status: TaskStatus }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-plex text-[10px] uppercase tracking-[0.5px] ${STATUS_STYLES[status]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />
+      {TASK_STATUS_LABELS[status]}
+    </span>
+  )
+}
+
+function PriorityBadge({ priority }: { priority: TaskPriority }) {
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border font-plex text-[10px] uppercase tracking-[0.5px] ${PRIORITY_STYLES[priority]}`}>
+      {TASK_PRIORITY_LABELS[priority]}
+    </span>
+  )
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function isOverdue(dateStr: string | null, status: TaskStatus): boolean {
+  if (!dateStr || status === 'done' || status === 'cancelled') return false
+  return dateStr < new Date().toISOString().split('T')[0]!
+}
+
+// ─── Row ─────────────────────────────────────────────────────────────────────
+
+type RowProps = {
+  task: TaskRow
+  onStatusChange: (taskId: string, status: TaskStatus) => void
+  onDelete: (taskId: string) => void
+  deleting: string | null
+}
+
+const STATUS_OPTIONS: TaskStatus[] = ['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled']
+
+const selectCls =
+  'bg-transparent border-0 outline-none font-plex text-[10px] uppercase tracking-[0.5px] cursor-pointer appearance-none w-full pr-3'
+
+function TaskRow({ task, onStatusChange, onDelete, deleting }: RowProps) {
+  const overdue = isOverdue(task.due_date, task.status)
+
+  return (
+    <div className="grid grid-cols-[2.5fr_1fr_1fr_0.9fr_1.1fr_0.8fr_80px] gap-3 items-center px-5 py-3 hover:bg-ltbg transition-colors group border-b border-ltb last:border-0">
+      {/* Title */}
+      <div className="min-w-0">
+        <p className="font-sora text-[13px] text-ltt font-medium truncate">{task.title}</p>
+        {task.description && (
+          <p className="font-sora text-[11px] text-lttm truncate mt-0.5">{task.description}</p>
+        )}
+        {task.tags.length > 0 && (
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {task.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="font-plex text-[9px] uppercase tracking-[0.5px] px-1.5 py-0.5 bg-cyan-dim text-brand-cyan border border-cyan-border rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sistema */}
+      <div className="min-w-0">
+        <p className="font-sora text-[12px] text-ltt2 truncate">{task.system_name ?? '—'}</p>
+      </div>
+
+      {/* Asignado */}
+      <div className="min-w-0">
+        <p className="font-sora text-[12px] text-ltt2 truncate">{task.assignee_name ?? '—'}</p>
+      </div>
+
+      {/* Prioridad */}
+      <div>
+        <PriorityBadge priority={task.priority} />
+      </div>
+
+      {/* Estado (editable) */}
+      <div>
+        <div className={`relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${STATUS_STYLES[task.status]}`}>
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[task.status]}`} />
+          <select
+            value={task.status}
+            onChange={e => onStatusChange(task.id, e.target.value as TaskStatus)}
+            className={selectCls}
+            style={{ color: 'inherit' }}
+          >
+            {STATUS_OPTIONS.map(s => (
+              <option key={s} value={s} style={{ color: '#0d1b2e', backgroundColor: '#ffffff', textTransform: 'none', letterSpacing: 'normal' }}>
+                {TASK_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Vencimiento */}
+      <div className="min-w-0">
+        <span className={`font-sora text-[12px] ${overdue ? 'text-re font-medium' : 'text-ltt2'}`}>
+          {formatDate(task.due_date)}
+        </span>
+      </div>
+
+      {/* Acciones */}
+      <div className="flex items-center justify-end gap-1">
+        {task.source_type === 'manual' && (
+          <button
+            onClick={() => onDelete(task.id)}
+            disabled={deleting === task.id}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-lttm hover:text-re hover:bg-redim transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+            title="Eliminar tarea"
+          >
+            {deleting === task.id ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+        )}
+        {task.source_type !== 'manual' && (
+          <span className="font-plex text-[9px] uppercase tracking-[0.5px] text-lttm opacity-0 group-hover:opacity-100">
+            {TASK_SOURCE_LABELS[task.source_type].split(' ')[0]}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Summary cards ────────────────────────────────────────────────────────────
+
+type SummaryCard = {
+  label: string
+  value: number
+  icon: React.ReactNode
+  accent: string
+  bar: string
+}
+
+function KpiCard({ label, value, icon, accent, bar }: SummaryCard) {
+  return (
+    <div className={`relative bg-ltcard border border-ltb rounded-[12px] overflow-hidden`}>
+      <div className={`absolute top-0 left-0 right-0 h-[3px] ${bar}`} />
+      <div className="p-4 px-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-plex text-[10.5px] uppercase tracking-wider text-lttm">{label}</span>
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${accent}`}>
+            {icon}
+          </div>
+        </div>
+        <span className="font-fraunces text-[32px] font-semibold text-ltt leading-none">{value}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Filter bar ───────────────────────────────────────────────────────────────
+
+const filterSelectCls =
+  'bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[12px] text-ltt font-sora outline-none appearance-none pr-7 cursor-pointer transition-all focus:border-brand-cyan text-[12px] h-[36px]'
+
+// ─── Main view ────────────────────────────────────────────────────────────────
+
+type Props = {
+  tasks: TaskRow[]
+  summary: TaskSummary
+  members: Member[]
+  systems: System[]
+}
+
+export function TasksView({ tasks: initialTasks, summary, members, systems }: Props) {
+  const [tasks, setTasks] = useState(initialTasks)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | ''>('')
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
+  const [sourceFilter, setSourceFilter] = useState<TaskSourceType | ''>('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [, startTransition] = useTransition()
+
+  const filtered = useMemo(() => {
+    return tasks.filter(t => {
+      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
+      if (statusFilter && t.status !== statusFilter) return false
+      if (priorityFilter && t.priority !== priorityFilter) return false
+      if (sourceFilter && t.source_type !== sourceFilter) return false
+      return true
+    })
+  }, [tasks, search, statusFilter, priorityFilter, sourceFilter])
+
+  function handleStatusChange(taskId: string, newStatus: TaskStatus) {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
+    startTransition(async () => {
+      const res = await updateTaskStatusAction(taskId, newStatus)
+      if ('error' in res) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: tasks.find(x => x.id === taskId)?.status ?? t.status } : t))
+      }
+    })
+  }
+
+  function handleDelete(taskId: string) {
+    setDeleting(taskId)
+    startTransition(async () => {
+      const res = await deleteTaskAction(taskId)
+      if ('ok' in res) {
+        setTasks(prev => prev.filter(t => t.id !== taskId))
+      }
+      setDeleting(null)
+    })
+  }
+
+  const openCount = tasks.filter(t => !['done', 'cancelled'].includes(t.status)).length
+  const inProgressCount = tasks.filter(t => t.status === 'in_progress').length
+  const blockedCount = tasks.filter(t => t.status === 'blocked').length
+
+  return (
+    <>
+      <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein pb-10">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-fraunces text-[28px] leading-none font-semibold text-ltt mb-2">
+              Gestión de Tareas
+            </h1>
+            <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
+              Seguimiento de tareas de cumplimiento — manuales y generadas automáticamente
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:shadow-[0_4px_12px_rgba(0,173,239,0.4)] transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva tarea
+          </button>
+        </div>
+
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <KpiCard
+            label="Total tareas"
+            value={summary.total}
+            icon={<ListTodo className="w-3.5 h-3.5 text-brand-cyan" />}
+            accent="bg-cyan-dim"
+            bar="bg-gradient-to-r from-brand-cyan to-[#33c3f5]"
+          />
+          <KpiCard
+            label="En progreso"
+            value={inProgressCount}
+            icon={<Activity className="w-3.5 h-3.5 text-brand-blue" />}
+            accent="bg-blue-dim"
+            bar="bg-gradient-to-r from-brand-blue to-[#5a8fd6]"
+          />
+          <KpiCard
+            label="Bloqueadas"
+            value={blockedCount}
+            icon={<AlertOctagon className="w-3.5 h-3.5 text-re" />}
+            accent="bg-redim"
+            bar="bg-gradient-to-r from-re to-[#ef5350]"
+          />
+          <KpiCard
+            label="Vencidas"
+            value={summary.overdue}
+            icon={<CalendarClock className="w-3.5 h-3.5 text-or" />}
+            accent="bg-ordim"
+            bar="bg-gradient-to-r from-or to-[#f59e0b]"
+          />
+        </div>
+
+        {/* Table card */}
+        <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_4px_24px_rgba(0,74,173,0.04)] overflow-hidden">
+          {/* Filters */}
+          <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center gap-3 flex-wrap">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-lttm pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar tarea..."
+                className="w-full pl-8 pr-3 py-2 bg-ltbg border border-ltb rounded-lg text-[12px] text-ltt font-sora outline-none focus:border-brand-cyan focus:ring-[3px] focus:ring-brand-cyan/10 transition-all h-[36px]"
+              />
+            </div>
+
+            {/* Status */}
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as TaskStatus | '')}
+                className={filterSelectCls}
+              >
+                <option value="">Todos los estados</option>
+                {(['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled'] as TaskStatus[]).map(s => (
+                  <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+              <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+
+            {/* Priority */}
+            <div className="relative">
+              <select
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value as TaskPriority | '')}
+                className={filterSelectCls}
+              >
+                <option value="">Todas las prioridades</option>
+                {(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map(p => (
+                  <option key={p} value={p}>{TASK_PRIORITY_LABELS[p]}</option>
+                ))}
+              </select>
+              <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+
+            {/* Source */}
+            <div className="relative">
+              <select
+                value={sourceFilter}
+                onChange={e => setSourceFilter(e.target.value as TaskSourceType | '')}
+                className={filterSelectCls}
+              >
+                <option value="">Todos los orígenes</option>
+                {(['manual', 'treatment_action', 'gap', 'evaluation'] as TaskSourceType[]).map(s => (
+                  <option key={s} value={s}>{TASK_SOURCE_LABELS[s]}</option>
+                ))}
+              </select>
+              <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+
+            <span className="font-plex text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-cyan-dim text-brand-cyan border border-cyan-border ml-auto">
+              {filtered.length} TAREA{filtered.length !== 1 ? 'S' : ''}
+            </span>
+          </div>
+
+          {/* Column headers */}
+          <div className="grid grid-cols-[2.5fr_1fr_1fr_0.9fr_1.1fr_0.8fr_80px] gap-3 px-5 py-2.5 border-b border-ltb bg-ltbg">
+            {['Tarea', 'Sistema', 'Asignado', 'Prioridad', 'Estado', 'Vencimiento', ''].map((col, i) => (
+              <span key={i} className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">
+                {col}
+              </span>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-lttm">
+              <ListTodo className="w-10 h-10 mb-3 opacity-30" />
+              <p className="font-sora text-[13px]">
+                {tasks.length === 0 ? 'No hay tareas aún' : 'No hay tareas con estos filtros'}
+              </p>
+              {tasks.length === 0 && (
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="mt-4 font-sora text-[12px] text-brand-cyan hover:underline"
+                >
+                  Crear la primera tarea
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              {filtered.map(task => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                  deleting={deleting}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showCreate && (
+        <CreateTaskModal
+          members={members}
+          systems={systems}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            // page will revalidate via server action
+          }}
+        />
+      )}
+    </>
+  )
+}

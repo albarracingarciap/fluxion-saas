@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TaskFilters, TaskRow, TaskSummary, TaskStatus, TaskPriority } from './types'
 
 export async function fetchTasks(
-  fluxion: SupabaseClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
   organizationId: string,
   filters: TaskFilters = {}
 ): Promise<TaskRow[]> {
@@ -60,7 +61,8 @@ export async function fetchTasks(
 }
 
 export async function fetchTask(
-  fluxion: SupabaseClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
   organizationId: string,
   taskId: string
 ): Promise<TaskRow | null> {
@@ -105,7 +107,8 @@ export async function fetchTask(
 }
 
 export async function computeTaskSummary(
-  fluxion: SupabaseClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
   organizationId: string,
   systemId?: string
 ): Promise<TaskSummary> {
