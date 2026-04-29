@@ -14,7 +14,13 @@ import {
 } from 'lucide-react';
 
 import type { OrganizationEvidenceRecord } from '@/lib/evidences/data';
-import { updateSystemEvidence, deleteSystemEvidence, reviewSystemEvidence, type ReviewAction } from './actions';
+import {
+  updateSystemEvidence,
+  deleteSystemEvidence,
+  reviewSystemEvidence,
+  createOrganizationEvidence,
+  type ReviewAction,
+} from './actions';
 
 const STATUS_META: Record<string, { label: string; pill: string }> = {
   draft:          { label: 'Borrador',          pill: 'bg-ltbg text-lttm border-ltb' },
@@ -89,6 +95,12 @@ export function EvidencesLibraryClient({ evidences }: Props) {
   const [rejectNotes, setRejectNotes] = useState('');
   const [isReviewing, startReviewTransition] = useTransition();
 
+  // Org-scope evidence creation
+  const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+  const [orgError, setOrgError] = useState<string | null>(null);
+  const [isCreatingOrg, startOrgTransition] = useTransition();
+
   const openEdit = (evidence: OrganizationEvidenceRecord) => {
     setEditingEvidence(evidence);
     setEditForm({
@@ -157,8 +169,39 @@ export function EvidencesLibraryClient({ evidences }: Props) {
     });
   };
 
+  const handleOrgSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setOrgError(null);
+    startOrgTransition(async () => {
+      const result = await createOrganizationEvidence({
+        title: orgForm.title,
+        description: orgForm.description,
+        evidenceType: orgForm.evidenceType,
+        externalUrl: orgForm.externalUrl,
+        status: orgForm.status,
+        version: orgForm.version,
+        issuedAt: orgForm.issuedAt,
+        expiresAt: orgForm.expiresAt,
+      });
+      if (result?.error) { setOrgError(result.error); return; }
+      setIsOrgModalOpen(false);
+      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+      router.refresh();
+    });
+  };
+
   return (
     <>
+      {/* Botón de nueva evidencia organizacional */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setIsOrgModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12.5px] font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
+        >
+          + Evidencia organizacional
+        </button>
+      </div>
+
       {evidences.map((evidence) => {
         const statusMeta = STATUS_META[evidence.status] ?? STATUS_META.draft;
         const isConfirmingDelete = deletingId === evidence.id;
@@ -176,9 +219,15 @@ export function EvidencesLibraryClient({ evidences }: Props) {
                     <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${statusMeta.pill}`}>
                       {statusMeta.label}
                     </span>
-                    <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-ltb bg-ltbg text-lttm">
-                      {evidence.system_code}
-                    </span>
+                    {evidence.scope === 'organization' ? (
+                      <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-cyan-border bg-cyan-dim text-brand-cyan">
+                        ORG
+                      </span>
+                    ) : (
+                      <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-ltb bg-ltbg text-lttm">
+                        {evidence.system_code}
+                      </span>
+                    )}
                     <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-ltb bg-ltbg text-lttm">
                       {evidence.origin_label}
                     </span>
@@ -308,12 +357,14 @@ export function EvidencesLibraryClient({ evidences }: Props) {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <Link
-                      href={evidence.system_url}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltbg text-ltt font-sora text-[11px] hover:bg-ltcard2 transition-colors"
-                    >
-                      Ver sistema
-                    </Link>
+                    {evidence.scope === 'system' && (
+                      <Link
+                        href={evidence.system_url}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltbg text-ltt font-sora text-[11px] hover:bg-ltcard2 transition-colors"
+                      >
+                        Ver sistema
+                      </Link>
+                    )}
                     {evidence.external_url && (
                       <a
                         href={evidence.external_url}
@@ -498,6 +549,148 @@ export function EvidencesLibraryClient({ evidences }: Props) {
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nueva evidencia organizacional */}
+      {isOrgModalOpen && (
+        <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-2xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
+              <div>
+                <h2 className="font-fraunces text-lg font-semibold text-ltt">Nueva evidencia organizacional</h2>
+                <p className="font-sora text-[12px] text-lttm mt-1">
+                  Políticas corporativas, certificaciones ISO, planes de formación y otros documentos que aplican a toda la organización.
+                </p>
+              </div>
+              <button onClick={() => setIsOrgModalOpen(false)} className="text-lttm hover:text-ltt transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <form id="org-evidence-form" onSubmit={handleOrgSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                {orgError && (
+                  <div className="md:col-span-2 text-[12px] font-sora text-re bg-red-dim border border-reb rounded-lg px-3 py-2.5">
+                    {orgError}
+                  </div>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Título</label>
+                  <input
+                    type="text"
+                    required
+                    value={orgForm.title}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, title: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="Ej. Política de IA corporativa v2, Certificación ISO 42001..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo</label>
+                  <select
+                    value={orgForm.evidenceType}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, evidenceType: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    {EVIDENCE_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado</label>
+                  <select
+                    value={orgForm.status}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, status: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="draft">Borrador</option>
+                    <option value="pending_review">Pendiente de revisión</option>
+                    <option value="valid">Válida</option>
+                    <option value="expired">Caducada</option>
+                    <option value="rejected">Rechazada</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">URL del documento</label>
+                  <input
+                    type="url"
+                    required
+                    value={orgForm.externalUrl}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, externalUrl: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Descripción</label>
+                  <textarea
+                    rows={3}
+                    value={orgForm.description}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, description: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan resize-none"
+                    placeholder="Alcance, versión, referencias normativas..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Versión</label>
+                  <input
+                    type="text"
+                    value={orgForm.version}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, version: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                    placeholder="1.0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Fecha de emisión</label>
+                  <input
+                    type="date"
+                    value={orgForm.issuedAt}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, issuedAt: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Caducidad</label>
+                  <input
+                    type="date"
+                    value={orgForm.expiresAt}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, expiresAt: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="px-6 py-4 bg-ltbg border-t border-ltb flex justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsOrgModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-ltb text-[13px] font-sora text-lttm hover:bg-ltcard transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                form="org-evidence-form"
+                type="submit"
+                disabled={isCreatingOrg}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-sora font-medium text-white bg-gradient-to-r from-brand-cyan to-brand-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isCreatingOrg && <Loader2 className="w-4 h-4 animate-spin" />}
+                Crear evidencia organizacional
               </button>
             </div>
           </div>

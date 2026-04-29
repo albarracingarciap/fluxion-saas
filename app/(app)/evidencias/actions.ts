@@ -282,3 +282,61 @@ export async function reviewSystemEvidence(
 
   return { success: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Evidencias de organización (sin sistema concreto)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CreateOrganizationEvidenceInput = {
+  title: string;
+  description?: string;
+  evidenceType: string;
+  externalUrl: string;
+  status?: string;
+  version?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+};
+
+export async function createOrganizationEvidence(input: CreateOrganizationEvidenceInput) {
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return ctx;
+  const { user, profile, fluxion } = ctx;
+
+  if (!input.title?.trim() || !input.evidenceType?.trim() || !input.externalUrl?.trim()) {
+    return { error: 'Faltan datos obligatorios.' };
+  }
+
+  try {
+    new URL(input.externalUrl);
+  } catch {
+    return { error: 'La URL no es válida.' };
+  }
+
+  const { data, error } = await fluxion
+    .from('system_evidences')
+    .insert({
+      organization_id: profile.organization_id,
+      ai_system_id: null,
+      scope: 'organization',
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      evidence_type: input.evidenceType.trim(),
+      external_url: input.externalUrl.trim(),
+      status: VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
+        ? input.status
+        : 'draft',
+      version: input.version?.trim() || null,
+      owner_user_id: user.id,
+      issued_at: input.issuedAt || null,
+      expires_at: input.expiresAt || null,
+    })
+    .select('id')
+    .single();
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/evidencias');
+
+  return { success: true, id: data.id };
+}
