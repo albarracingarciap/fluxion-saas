@@ -44,6 +44,7 @@ export type UpdateSystemEvidenceInput = {
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
+  storagePath?: string | null;
 };
 
 export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
@@ -82,6 +83,7 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
       version: input.version?.trim() || null,
       issued_at: input.issuedAt || null,
       expires_at: input.expiresAt || null,
+      ...(input.storagePath !== undefined ? { storage_path: input.storagePath } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.evidenceId)
@@ -343,6 +345,7 @@ export type CreateOrganizationEvidenceInput = {
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
+  storagePath?: string | null;
 };
 
 export async function createOrganizationEvidence(input: CreateOrganizationEvidenceInput) {
@@ -377,6 +380,7 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
       owner_user_id: user.id,
       issued_at: input.issuedAt || null,
       expires_at: input.expiresAt || null,
+      storage_path: input.storagePath ?? null,
     })
     .select('id')
     .single();
@@ -386,4 +390,26 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
   revalidatePath('/evidencias');
 
   return { success: true, id: data.id };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Storage — actualizar storage_path de forma independiente
+// (se llama tras el upload client-side cuando ya existe la evidencia)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function setEvidenceStoragePath(evidenceId: string, storagePath: string | null) {
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return ctx;
+  const { profile, fluxion } = ctx;
+
+  const { error } = await fluxion
+    .from('system_evidences')
+    .update({ storage_path: storagePath, updated_at: new Date().toISOString() })
+    .eq('id', evidenceId)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/evidencias');
+  return { success: true };
 }

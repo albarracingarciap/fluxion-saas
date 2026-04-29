@@ -776,7 +776,7 @@ export default async function EvidencesPage({
                 </p>
               </div>
             ) : filteredLibrary.length > 0 ? (
-              <EvidencesLibraryClient evidences={filteredLibrary.slice(0, 24)} />
+              <EvidencesLibraryClient evidences={filteredLibrary.slice(0, 24)} organizationId={membership.organization_id} />
             ) : (
               <div className="rounded-[12px] border border-dashed border-ltb bg-ltbg p-5">
                 <p className="font-sora text-[13px] font-semibold text-ltt">Sin resultados con el filtro actual</p>

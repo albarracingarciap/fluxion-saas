@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,8 +9,12 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Download,
   ExternalLink,
+  FileText,
+  ImageIcon,
   Loader2,
+  Paperclip,
   Pencil,
   Trash2,
   X,
@@ -24,10 +28,17 @@ import {
   type EvidenceVersionRecord,
 } from '@/lib/evidences/versions';
 import {
+  uploadEvidenceFile,
+  getSignedUrl,
+  getPreviewType,
+  formatFileSize,
+} from '@/lib/evidences/storage';
+import {
   updateSystemEvidence,
   deleteSystemEvidence,
   reviewSystemEvidence,
   createOrganizationEvidence,
+  setEvidenceStoragePath,
   type ReviewAction,
 } from './actions';
 
@@ -81,18 +92,21 @@ type EditForm = {
   version: string;
   issuedAt: string;
   expiresAt: string;
+  storagePath: string | null;
 };
 
 type Props = {
   evidences: OrganizationEvidenceRecord[];
+  organizationId: string;
 };
 
-export function EvidencesLibraryClient({ evidences }: Props) {
+export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
   const router = useRouter();
   const [editingEvidence, setEditingEvidence] = useState<OrganizationEvidenceRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     title: '', evidenceType: 'technical_doc', externalUrl: '',
     description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '',
+    storagePath: null,
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
@@ -103,6 +117,60 @@ export function EvidencesLibraryClient({ evidences }: Props) {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [isReviewing, startReviewTransition] = useTransition();
+
+  // File upload (edit modal)
+  const [isUploadingEdit, setIsUploadingEdit] = useState(false);
+  const [uploadEditError, setUploadEditError] = useState<string | null>(null);
+  const [pendingEditFile, setPendingEditFile] = useState<{ name: string; size: number } | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  // File upload (org modal)
+  const [isUploadingOrg, setIsUploadingOrg] = useState(false);
+  const [uploadOrgError, setUploadOrgError] = useState<string | null>(null);
+  const [pendingOrgFile, setPendingOrgFile] = useState<{ name: string; size: number; path: string } | null>(null);
+  const orgFileInputRef = useRef<HTMLInputElement>(null);
+
+  // File preview
+  const [previewEvidence, setPreviewEvidence] = useState<OrganizationEvidenceRecord | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const handleOpenPreview = async (evidence: OrganizationEvidenceRecord) => {
+    if (!evidence.storage_path) return;
+    setPreviewEvidence(evidence);
+    setPreviewUrl(null);
+    setIsLoadingPreview(true);
+    const url = await getSignedUrl(evidence.storage_path);
+    setPreviewUrl(url);
+    setIsLoadingPreview(false);
+  };
+
+  const handleEditFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingEvidence) return;
+    setUploadEditError(null);
+    setIsUploadingEdit(true);
+    const result = await uploadEvidenceFile(file, organizationId, editingEvidence.id);
+    setIsUploadingEdit(false);
+    if (result.error) {
+      setUploadEditError(result.error);
+      return;
+    }
+    setPendingEditFile({ name: file.name, size: file.size });
+    setEditForm((f) => ({ ...f, storagePath: result.path ?? null }));
+  };
+
+  const handleOrgFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadOrgError(null);
+    // For new org evidences we don't have an ID yet — store the file locally and upload after creation
+    setPendingOrgFile({ name: file.name, size: file.size, path: '' });
+    // Mark as pending (upload happens post-creation in handleOrgSubmit)
+    setPendingOrgFile({ name: file.name, size: file.size, path: '__pending__' });
+    // Store the File object to upload it after evidence creation
+    (orgFileInputRef.current as unknown as { _pendingFile?: File })._pendingFile = file;
+  };
 
   // Version history drawer
   const [historyEvidence, setHistoryEvidence] = useState<OrganizationEvidenceRecord | null>(null);
@@ -140,13 +208,18 @@ export function EvidencesLibraryClient({ evidences }: Props) {
       version: evidence.version ?? '',
       issuedAt: evidence.issued_at ?? '',
       expiresAt: evidence.expires_at ?? '',
+      storagePath: evidence.storage_path ?? null,
     });
     setEditError(null);
+    setUploadEditError(null);
+    setPendingEditFile(null);
   };
 
   const closeEdit = () => {
     setEditingEvidence(null);
     setEditError(null);
+    setUploadEditError(null);
+    setPendingEditFile(null);
   };
 
   const handleEditSubmit = (event: React.FormEvent) => {
@@ -166,6 +239,7 @@ export function EvidencesLibraryClient({ evidences }: Props) {
         version: editForm.version,
         issuedAt: editForm.issuedAt,
         expiresAt: editForm.expiresAt,
+        storagePath: editForm.storagePath,
       });
 
       if (result?.error) {
@@ -212,8 +286,26 @@ export function EvidencesLibraryClient({ evidences }: Props) {
         expiresAt: orgForm.expiresAt,
       });
       if (result?.error) { setOrgError(result.error); return; }
+
+      // Upload pending file after evidence creation (we now have the ID)
+      const pendingFile = (orgFileInputRef.current as unknown as { _pendingFile?: File })?._pendingFile;
+      const createdId = 'id' in result ? result.id : undefined;
+      if (pendingFile && createdId) {
+        setIsUploadingOrg(true);
+        const uploadResult = await uploadEvidenceFile(pendingFile, organizationId, createdId);
+        setIsUploadingOrg(false);
+        if (!uploadResult.error && uploadResult.path) {
+          await setEvidenceStoragePath(createdId, uploadResult.path);
+        }
+        if (orgFileInputRef.current) {
+          (orgFileInputRef.current as unknown as { _pendingFile?: File })._pendingFile = undefined;
+        }
+      }
+
       setIsOrgModalOpen(false);
       setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+      setPendingOrgFile(null);
+      setUploadOrgError(null);
       router.refresh();
     });
   };
@@ -352,6 +444,15 @@ export function EvidencesLibraryClient({ evidences }: Props) {
                   )}
 
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    {evidence.storage_path && (
+                      <button
+                        onClick={() => handleOpenPreview(evidence)}
+                        className="p-1.5 rounded-[6px] text-lttm hover:bg-ltcard2 hover:text-ltt border border-transparent hover:border-ltb transition-colors"
+                        title="Vista previa del archivo adjunto"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleOpenHistory(evidence)}
                       className="p-1.5 rounded-[6px] text-lttm hover:bg-ltcard2 hover:text-ltt border border-transparent hover:border-ltb transition-colors"
@@ -520,6 +621,56 @@ export function EvidencesLibraryClient({ evidences }: Props) {
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     placeholder="https://..."
                   />
+                </div>
+
+                {/* Archivo adjunto */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    Archivo adjunto
+                    <span className="ml-1.5 normal-case text-lttm">(PDF, imagen, Word, Excel — máx. 20 MB)</span>
+                  </label>
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.xlsx,.pptx,.txt,.csv"
+                    onChange={handleEditFileChange}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isUploadingEdit}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-ltb bg-ltbg font-sora text-[12px] text-lttm hover:bg-ltcard2 hover:text-ltt disabled:opacity-50 transition-colors"
+                    >
+                      {isUploadingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                      {isUploadingEdit ? 'Subiendo…' : 'Adjuntar archivo'}
+                    </button>
+                    {pendingEditFile && (
+                      <div className="flex items-center gap-2 rounded-[8px] border border-grb bg-grdim px-3 py-2">
+                        <FileText className="w-3.5 h-3.5 text-gr shrink-0" />
+                        <span className="font-sora text-[11.5px] text-ltt truncate max-w-[200px]">{pendingEditFile.name}</span>
+                        <span className="font-plex text-[10px] text-lttm">{formatFileSize(pendingEditFile.size)}</span>
+                      </div>
+                    )}
+                    {!pendingEditFile && editForm.storagePath && (
+                      <div className="flex items-center gap-2 rounded-[8px] border border-ltb bg-ltbg px-3 py-2">
+                        <FileText className="w-3.5 h-3.5 text-lttm shrink-0" />
+                        <span className="font-sora text-[11.5px] text-lttm">Archivo adjunto existente</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditForm((f) => ({ ...f, storagePath: null }))}
+                          className="text-re hover:opacity-80"
+                          title="Quitar archivo adjunto"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {uploadEditError && (
+                    <p className="mt-1.5 font-sora text-[11.5px] text-re">{uploadEditError}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
@@ -707,6 +858,95 @@ export function EvidencesLibraryClient({ evidences }: Props) {
         </div>
       )}
 
+      {/* Modal de vista previa de archivo */}
+      {previewEvidence && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadein">
+          <div className="bg-ltcard w-full max-w-4xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-fraunces text-[16px] font-semibold text-ltt truncate">{previewEvidence.title}</h2>
+                <p className="font-sora text-[11.5px] text-lttm mt-0.5 truncate">
+                  {previewEvidence.storage_path?.split('/').pop()}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {previewUrl && (
+                  <a
+                    href={previewUrl}
+                    download
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-ltb bg-ltbg font-sora text-[12px] text-lttm hover:bg-ltcard2 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Descargar
+                  </a>
+                )}
+                <button onClick={() => { setPreviewEvidence(null); setPreviewUrl(null); }} className="text-lttm hover:text-ltt transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden min-h-0">
+              {isLoadingPreview ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-6 h-6 animate-spin text-lttm" />
+                </div>
+              ) : !previewUrl ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-3">
+                  <FileText className="w-10 h-10 text-lttm opacity-40" />
+                  <p className="font-sora text-[13px] text-lttm">No se pudo generar la URL de previsualización.</p>
+                </div>
+              ) : (() => {
+                const ext = previewEvidence.storage_path?.split('.').pop()?.toLowerCase() ?? '';
+                const type = getPreviewType(
+                  ext === 'pdf' ? 'application/pdf'
+                  : ['png','jpg','jpeg','webp','gif'].includes(ext) ? `image/${ext}`
+                  : 'application/octet-stream'
+                );
+
+                if (type === 'pdf') {
+                  return (
+                    <iframe
+                      src={previewUrl}
+                      className="w-full h-full min-h-[560px]"
+                      title={previewEvidence.title}
+                    />
+                  );
+                }
+
+                if (type === 'image') {
+                  return (
+                    <div className="flex items-center justify-center p-6 bg-ltbg h-full min-h-[400px]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewUrl}
+                        alt={previewEvidence.title}
+                        className="max-w-full max-h-[560px] rounded-lg object-contain shadow-lg"
+                      />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col items-center justify-center h-64 gap-4">
+                    <FileText className="w-12 h-12 text-lttm opacity-40" />
+                    <p className="font-sora text-[13px] text-lttm">Vista previa no disponible para este tipo de archivo.</p>
+                    <a
+                      href={previewUrl}
+                      download
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-[9px] bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[13px] font-medium shadow-[0_2px_12px_rgba(0,173,239,0.22)]"
+                    >
+                      <Download className="w-4 h-4" />
+                      Descargar archivo
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal nueva evidencia organizacional */}
       {isOrgModalOpen && (
         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
@@ -781,6 +1021,56 @@ export function EvidencesLibraryClient({ evidences }: Props) {
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     placeholder="https://..."
                   />
+                </div>
+
+                {/* Archivo adjunto */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    Archivo adjunto
+                    <span className="ml-1.5 normal-case text-lttm">(opcional · PDF, imagen, Word, Excel — máx. 20 MB)</span>
+                  </label>
+                  <input
+                    ref={orgFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.xlsx,.pptx,.txt,.csv"
+                    onChange={handleOrgFileChange}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => orgFileInputRef.current?.click()}
+                      disabled={isUploadingOrg}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-ltb bg-ltbg font-sora text-[12px] text-lttm hover:bg-ltcard2 hover:text-ltt disabled:opacity-50 transition-colors"
+                    >
+                      {isUploadingOrg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                      {isUploadingOrg ? 'Subiendo…' : 'Adjuntar archivo'}
+                    </button>
+                    {pendingOrgFile && (
+                      <div className="flex items-center gap-2 rounded-[8px] border border-orb bg-ordim px-3 py-2">
+                        <FileText className="w-3.5 h-3.5 text-or shrink-0" />
+                        <span className="font-sora text-[11.5px] text-ltt truncate max-w-[200px]">{pendingOrgFile.name}</span>
+                        <span className="font-plex text-[10px] text-lttm">{formatFileSize(pendingOrgFile.size)}</span>
+                        <span className="font-plex text-[9px] text-or uppercase">Se sube al guardar</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingOrgFile(null);
+                            if (orgFileInputRef.current) {
+                              (orgFileInputRef.current as unknown as { _pendingFile?: File })._pendingFile = undefined;
+                              orgFileInputRef.current.value = '';
+                            }
+                          }}
+                          className="text-re hover:opacity-80"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {uploadOrgError && (
+                    <p className="mt-1.5 font-sora text-[11.5px] text-re">{uploadOrgError}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
