@@ -12,6 +12,7 @@ import {
 } from '@/lib/fmea/treatment-plan';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
+import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
   aiSystemId: string;
@@ -692,4 +693,37 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     success: true,
     summaryPath: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`,
   };
+}
+
+export async function updateLinkedTaskStatusAction(
+  taskId: string,
+  status: TaskStatus,
+  aiSystemId: string,
+  evaluationId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado' };
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+  if (!profile) return { error: 'Perfil no encontrado' };
+
+  const { error } = await fluxion
+    .from('tasks')
+    .update({ status, ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }) })
+    .eq('id', taskId)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/plan`);
+  revalidatePath('/tareas');
+  revalidatePath('/kanban');
+  return { ok: true };
 }

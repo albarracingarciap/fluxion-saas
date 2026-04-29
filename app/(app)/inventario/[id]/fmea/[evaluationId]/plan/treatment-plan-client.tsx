@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, Save, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, ListTodo, Loader2, Save, ShieldAlert } from 'lucide-react';
 
 import { calculateFmeaZone, getZoneClasses, getZoneLabel } from '@/lib/fmea/domain';
 import type {
@@ -11,12 +11,15 @@ import type {
   TreatmentPlanActionView,
   TreatmentPlanData,
 } from '@/lib/fmea/treatment-plan';
+import type { TaskStatus } from '@/lib/tasks/types';
+import { TASK_STATUS_LABELS } from '@/lib/tasks/types';
 
 import {
   saveTreatmentActionDecision,
   saveTreatmentPlanBatchDraft,
   saveTreatmentPlanDraft,
   submitTreatmentPlanForApproval,
+  updateLinkedTaskStatusAction,
 } from './actions';
 
 const OPTION_META: Record<
@@ -170,6 +173,55 @@ function getDaysFromToday(dateValue: string | null) {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const TASK_STATUS_CHIP: Record<TaskStatus, string> = {
+  todo:        'bg-ltbg border-ltb text-lttm',
+  in_progress: 'bg-cyan-dim border-cyan-border text-brand-cyan',
+  blocked:     'bg-red-dim border-reb text-re',
+  in_review:   'bg-ordim border-orb text-or',
+  done:        'bg-grdim border-grb text-gr',
+  cancelled:   'bg-ltbg border-ltb text-lttm',
+};
+
+const TASK_STATUS_OPTIONS: TaskStatus[] = ['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled'];
+
+function TaskStatusChip({
+  taskId,
+  status,
+  isUpdating,
+  onChange,
+}: {
+  taskId: string;
+  status: TaskStatus;
+  isUpdating: boolean;
+  onChange: (taskId: string, status: TaskStatus) => void;
+}) {
+  return (
+    <span
+      className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[0.5px] ${TASK_STATUS_CHIP[status]}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {isUpdating ? (
+        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+      ) : (
+        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+      )}
+      <select
+        value={status}
+        onChange={(e) => onChange(taskId, e.target.value as TaskStatus)}
+        disabled={isUpdating}
+        className="bg-transparent border-0 outline-none font-plex text-[10px] uppercase tracking-[0.5px] cursor-pointer appearance-none pr-2 disabled:cursor-not-allowed"
+        style={{ color: 'inherit' }}
+      >
+        {TASK_STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s} style={{ color: '#0d1b2e', backgroundColor: '#fff', textTransform: 'none', letterSpacing: 'normal' }}>
+            {TASK_STATUS_LABELS[s]}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
 export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -192,6 +244,17 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [controlResolutionByAction, setControlResolutionByAction] = useState<
     Record<string, 'linked' | 'created' | null>
   >({});
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>(() => {
+    const map: Record<string, TaskStatus> = {};
+    for (const action of data.actions) {
+      if (action.task_id && action.task_status) {
+        map[action.task_id] = action.task_status as TaskStatus;
+      }
+    }
+    return map;
+  });
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [, startTaskTransition] = useTransition();
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const readOnly = data.read_only || data.plan.status !== 'draft';
@@ -360,6 +423,24 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasPendingLocalChanges, readOnly]);
+
+  function handleTaskStatusChange(taskId: string, newStatus: TaskStatus) {
+    const previous = taskStatuses[taskId];
+    setTaskStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
+    setUpdatingTaskId(taskId);
+    startTaskTransition(async () => {
+      const res = await updateLinkedTaskStatusAction(
+        taskId,
+        newStatus,
+        data.system.id,
+        data.evaluation.id,
+      );
+      if ('error' in res) {
+        setTaskStatuses((prev) => ({ ...prev, [taskId]: previous ?? 'todo' }));
+      }
+      setUpdatingTaskId(null);
+    });
+  }
 
   function patchAction(actionId: string, updater: (action: EditableTreatmentAction) => EditableTreatmentAction) {
     setActions((current) => current.map((action) => (action.id === actionId ? updater(action) : action)));
@@ -584,7 +665,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
       </div>
 
       <div className="mb-5 rounded-[12px] border border-ltb bg-[#070c14] text-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
-        <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr_1fr_auto] divide-y xl:divide-y-0 xl:divide-x divide-[#18324a]">
+        <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr_1fr_1fr_auto] divide-y xl:divide-y-0 xl:divide-x divide-[#18324a]">
           <div className="px-5 py-4 flex items-center gap-3">
             <span
               className={`w-2.5 h-2.5 rounded-full ${projectedZoneMeta.dot} ${
@@ -614,6 +695,28 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             <div className="font-sora text-[14px] text-white">
               {definedCount} / {actions.length}
             </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1 flex items-center gap-1.5">
+              <ListTodo className="w-3 h-3" />
+              Tareas completadas
+            </div>
+            {data.tasks_total > 0 ? (
+              <>
+                <div className="font-sora text-[14px] text-white mb-1.5">
+                  {data.tasks_done} / {data.tasks_total}
+                </div>
+                <div className="w-full h-[4px] bg-[#18324a] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#00adef] to-[#2a9d55] rounded-full transition-all"
+                    style={{ width: `${Math.round((data.tasks_done / data.tasks_total) * 100)}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="font-sora text-[13px] text-[#3d5a82]">Sin tareas aún</div>
+            )}
           </div>
 
           <div className="px-5 py-4 flex items-center justify-end">
@@ -795,6 +898,15 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
                         {getOptionLabel(action.option)}
                       </span>
 
+                      {action.task_id && action.option !== 'aceptar' && (
+                        <TaskStatusChip
+                          taskId={action.task_id}
+                          status={(taskStatuses[action.task_id] ?? action.task_status ?? 'todo') as TaskStatus}
+                          isUpdating={updatingTaskId === action.task_id}
+                          onChange={handleTaskStatusChange}
+                        />
+                      )}
+
                       <ChevronRight
                         className={`w-4 h-4 text-lttm transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                       />
@@ -802,6 +914,37 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
                     {isExpanded && (
                       <div className="border-t border-ltb bg-ltbg p-4 space-y-4">
+                        {action.task_id && action.option !== 'aceptar' && (
+                          <div className="rounded-[10px] border border-cyan-border bg-cyan-dim flex items-center justify-between gap-4 px-4 py-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <ListTodo className="w-4 h-4 text-brand-cyan shrink-0" />
+                              <div className="min-w-0">
+                                <span className="font-plex text-[10px] uppercase tracking-[1px] text-brand-cyan block mb-0.5">
+                                  Tarea vinculada
+                                </span>
+                                <span className="font-sora text-[12px] text-ltt2">
+                                  Estado sincronizado automáticamente con la acción de tratamiento
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <TaskStatusChip
+                                taskId={action.task_id}
+                                status={(taskStatuses[action.task_id] ?? action.task_status ?? 'todo') as TaskStatus}
+                                isUpdating={updatingTaskId === action.task_id}
+                                onChange={handleTaskStatusChange}
+                              />
+                              <Link
+                                href="/tareas"
+                                className="font-plex text-[10px] uppercase tracking-[1px] text-brand-cyan hover:underline whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Ver en Tareas →
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="rounded-[10px] border border-ltb bg-ltcard px-4 py-3">
                           <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-2">
                             Contexto del modo

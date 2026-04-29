@@ -74,6 +74,7 @@ export type TreatmentPlanActionRecord = {
   acceptance_approved_by: string | null;
   acceptance_approved_at: string | null;
   review_due_date: string | null;
+  task_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -133,6 +134,7 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   requires_second_review: boolean;
   control_template_id: string | null;
   control_refs: TreatmentPlanControlSuggestion[];
+  task_status: string | null;
 };
 
 export type TreatmentPlanData = {
@@ -143,6 +145,8 @@ export type TreatmentPlanData = {
   members: TreatmentPlanMember[];
   approver_name: string | null;
   read_only: boolean;
+  tasks_total: number;
+  tasks_done: number;
 };
 
 export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
@@ -327,6 +331,7 @@ export async function buildTreatmentPlanData(params: {
 
   let currentPlan = plan;
   let actions: TreatmentPlanActionRecord[] = [];
+  const taskStatusByTaskId = new Map<string, string>();
 
   if (!system || !evaluation) return null;
 
@@ -393,6 +398,7 @@ export async function buildTreatmentPlanData(params: {
       acceptance_approved_by: null,
       acceptance_approved_at: null,
       review_due_date: null,
+      task_id: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -420,6 +426,7 @@ export async function buildTreatmentPlanData(params: {
         acceptance_approved_by,
         acceptance_approved_at,
         review_due_date,
+        task_id,
         created_at,
         updated_at
       `)
@@ -427,7 +434,24 @@ export async function buildTreatmentPlanData(params: {
       .order('s_actual_at_creation', { ascending: false })
       .order('created_at', { ascending: true });
 
-    actions = (actionRows ?? []) as TreatmentPlanActionRecord[];
+    const rawActions = (actionRows ?? []) as Array<Record<string, unknown>>;
+    actions = rawActions.map((row) => ({
+      ...row,
+      task_id: (row.task_id as string | null) ?? null,
+    })) as unknown as TreatmentPlanActionRecord[];
+
+    // Cargar task_status para las acciones con tarea vinculada
+    const taskIds = rawActions.map((r) => r.task_id as string).filter(Boolean);
+    if (taskIds.length > 0) {
+      const { data: taskRows } = await fluxion
+        .from('tasks')
+        .select('id, status')
+        .in('id', taskIds);
+      for (const t of taskRows ?? []) {
+        const row = t as { id: string; status: string };
+        taskStatusByTaskId.set(row.id, row.status);
+      }
+    }
   }
 
   const fmeaItemIds = actions.map((row) => row.fmea_item_id);
@@ -626,6 +650,7 @@ export async function buildTreatmentPlanData(params: {
         requires_second_review: item.requires_second_review,
         control_template_id: controlTemplateId,
         control_refs: refsByFailureMode.get(item.failure_mode_id) ?? [],
+        task_status: action.task_id ? (taskStatusByTaskId.get(action.task_id) ?? null) : null,
       };
     })
     .filter((action): action is TreatmentPlanActionView => action !== null)
@@ -642,6 +667,9 @@ export async function buildTreatmentPlanData(params: {
       return left.failure_mode_name.localeCompare(right.failure_mode_name, 'es');
     });
 
+  const tasksWithStatus = actionViews.filter((a) => a.task_id !== null && a.option !== 'aceptar');
+  const tasksDone = tasksWithStatus.filter((a) => a.task_status === 'done').length;
+
   return {
     system,
     evaluation,
@@ -650,6 +678,8 @@ export async function buildTreatmentPlanData(params: {
     members: memberOptions,
     approver_name: currentPlan.approver_id ? memberNames.get(currentPlan.approver_id) ?? 'Usuario' : null,
     read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(currentPlan.status) || !plan,
+    tasks_total: tasksWithStatus.length,
+    tasks_done: tasksDone,
   } satisfies TreatmentPlanData;
 }
 
