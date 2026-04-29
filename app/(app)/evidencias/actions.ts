@@ -417,3 +417,149 @@ export async function setEvidenceStoragePath(evidenceId: string, storagePath: st
   revalidatePath('/evidencias');
   return { success: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bulk actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type BulkReviewAction = 'request_review' | 'approve' | 'reject' | 'reopen';
+
+const BULK_REVIEW_TRANSITIONS: Record<BulkReviewAction, { from: string[]; to: string }> = {
+  request_review: { from: ['draft', 'rejected'], to: 'pending_review' },
+  approve:        { from: ['pending_review'],    to: 'valid' },
+  reject:         { from: ['pending_review'],    to: 'rejected' },
+  reopen:         { from: ['rejected'],          to: 'draft' },
+};
+
+export async function bulkReviewEvidences(
+  evidenceIds: string[],
+  action: BulkReviewAction,
+): Promise<{ updated: number; skipped: number; error?: string }> {
+  if (evidenceIds.length === 0) return { updated: 0, skipped: 0 };
+
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return { updated: 0, skipped: 0, error: ctx.error };
+  const { profile, fluxion } = ctx;
+
+  const transition = BULK_REVIEW_TRANSITIONS[action];
+
+  // Fetch current statuses to filter only valid transitions
+  const { data: rows, error: fetchErr } = await fluxion
+    .from('system_evidences')
+    .select('id, status')
+    .in('id', evidenceIds)
+    .eq('organization_id', profile.organization_id);
+
+  if (fetchErr) return { updated: 0, skipped: 0, error: fetchErr.message };
+
+  const eligible = (rows ?? []).filter((r) => transition.from.includes(r.status)).map((r) => r.id);
+  const skipped = evidenceIds.length - eligible.length;
+
+  if (eligible.length === 0) return { updated: 0, skipped };
+
+  const now = new Date().toISOString();
+  const updates: Record<string, unknown> = {
+    status: transition.to,
+    updated_at: now,
+  };
+  if (action === 'approve' || action === 'reject') {
+    updates.reviewed_at = now;
+  }
+  if (action === 'reopen') {
+    updates.reviewed_by = null;
+    updates.reviewed_at = null;
+    updates.validation_notes = null;
+  }
+
+  const { error: updateErr } = await fluxion
+    .from('system_evidences')
+    .update(updates)
+    .in('id', eligible)
+    .eq('organization_id', profile.organization_id);
+
+  if (updateErr) return { updated: 0, skipped, error: updateErr.message };
+
+  revalidatePath('/evidencias');
+  return { updated: eligible.length, skipped };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function bulkLinkToObligation(
+  evidenceIds: string[],
+  obligationId: string,
+): Promise<{ linked: number; error?: string }> {
+  if (evidenceIds.length === 0 || !obligationId) return { linked: 0 };
+
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return { linked: 0, error: ctx.error };
+  const { fluxion } = ctx;
+
+  const rows = evidenceIds.map((eid) => ({
+    evidence_id: eid,
+    obligation_id: obligationId,
+  }));
+
+  const { error } = await fluxion
+    .from('system_obligation_evidences')
+    .upsert(rows, { onConflict: 'evidence_id,obligation_id', ignoreDuplicates: true });
+
+  if (error) return { linked: 0, error: error.message };
+
+  revalidatePath('/evidencias');
+  return { linked: evidenceIds.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ObligationOption = {
+  id: string;
+  obligation_code: string;
+  title: string;
+  system_id: string;
+  system_name: string;
+};
+
+export async function dismissExpiryAlert(alertId: string): Promise<{ error?: string }> {
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return { error: ctx.error };
+  const { user, fluxion } = ctx;
+
+  const { error } = await fluxion
+    .from('evidence_expiry_alerts')
+    .update({ dismissed: true, dismissed_by: user.id, dismissed_at: new Date().toISOString() })
+    .eq('id', alertId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/evidencias');
+  return {};
+}
+
+export async function getOrganizationObligations(): Promise<ObligationOption[]> {
+  const ctx = await getAuthContext();
+  if ('error' in ctx) return [];
+  const { profile, fluxion } = ctx;
+
+  const { data } = await fluxion
+    .from('system_obligations')
+    .select('id, obligation_code, title, ai_system_id, ai_systems(name)')
+    .eq('organization_id', profile.organization_id)
+    .order('obligation_code', { ascending: true });
+
+  return ((data ?? []) as Array<{
+    id: string;
+    obligation_code: string;
+    title: string;
+    ai_system_id: string;
+    ai_systems: { name: string } | Array<{ name: string }> | null;
+  }>).map((row) => {
+    const sys = Array.isArray(row.ai_systems) ? row.ai_systems[0] : row.ai_systems;
+    return {
+      id: row.id,
+      obligation_code: row.obligation_code,
+      title: row.title,
+      system_id: row.ai_system_id,
+      system_name: sys?.name ?? '—',
+    };
+  });
+}
