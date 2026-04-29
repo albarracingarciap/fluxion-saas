@@ -695,6 +695,167 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
   };
 }
 
+async function requireActionOwnership(params: {
+  actionId: string;
+  aiSystemId: string;
+  evaluationId: string;
+}) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: 'No autenticado.' } as const;
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('user_id', user.id)
+    .single();
+  if (!membership) return { error: 'Perfil no encontrado.' } as const;
+
+  const { data: action } = await fluxion
+    .from('treatment_actions')
+    .select('id, plan_id, evidence_id, organization_id')
+    .eq('id', params.actionId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+  if (!action) return { error: 'Acción no encontrada.' } as const;
+
+  return { supabase, fluxion, user, membership, action } as const;
+}
+
+export async function uploadEvidenceForActionAction(
+  formData: FormData
+): Promise<{ success: true; evidenceId: string } | { error: string }> {
+  const file = formData.get('file') as File | null;
+  const title = ((formData.get('title') as string | null) ?? '').trim();
+  const actionId = (formData.get('actionId') as string | null) ?? '';
+  const aiSystemId = (formData.get('aiSystemId') as string | null) ?? '';
+  const evaluationId = (formData.get('evaluationId') as string | null) ?? '';
+
+  if (!file || file.size === 0) return { error: 'Selecciona un archivo.' };
+  if (!title) return { error: 'El título de la evidencia es obligatorio.' };
+  if (file.size > 20 * 1024 * 1024) return { error: 'El archivo no puede superar los 20 MB.' };
+
+  const ctx = await requireActionOwnership({ actionId, aiSystemId, evaluationId });
+  if ('error' in ctx) return { error: ctx.error as string };
+
+  const { supabase, fluxion, user, membership, action } = ctx;
+  const evidenceId = crypto.randomUUID();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `${membership.organization_id}/${evidenceId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('evidence-files')
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) return { error: `Error al subir el archivo: ${uploadError.message}` };
+
+  const { error: insertError } = await fluxion
+    .from('evidences')
+    .insert({
+      id: evidenceId,
+      organization_id: membership.organization_id,
+      title,
+      url: '',
+      storage_path: storagePath,
+      uploaded_by: user.id,
+      applies_to_systems: [aiSystemId],
+    });
+
+  if (insertError) {
+    await supabase.storage.from('evidence-files').remove([storagePath]);
+    return { error: `Error al registrar la evidencia: ${insertError.message}` };
+  }
+
+  const { error: linkError } = await fluxion
+    .from('treatment_actions')
+    .update({ evidence_id: evidenceId })
+    .eq('id', action.id);
+
+  if (linkError) return { error: `Error al vincular la evidencia: ${linkError.message}` };
+
+  revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/plan`);
+  return { success: true, evidenceId };
+}
+
+export async function linkUrlEvidenceToActionAction(input: {
+  actionId: string;
+  aiSystemId: string;
+  evaluationId: string;
+  title: string;
+  externalUrl: string;
+}): Promise<{ success: true; evidenceId: string } | { error: string }> {
+  if (!input.title.trim()) return { error: 'El título es obligatorio.' };
+  if (!input.externalUrl.trim()) return { error: 'La URL es obligatoria.' };
+
+  const ctx = await requireActionOwnership({
+    actionId: input.actionId,
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+  if ('error' in ctx) return { error: ctx.error as string };
+
+  const { fluxion, user, membership, action } = ctx;
+  const evidenceId = crypto.randomUUID();
+
+  const { error: insertError } = await fluxion
+    .from('evidences')
+    .insert({
+      id: evidenceId,
+      organization_id: membership.organization_id,
+      title: input.title.trim(),
+      url: input.externalUrl.trim(),
+      external_url: input.externalUrl.trim(),
+      uploaded_by: user.id,
+      applies_to_systems: [input.aiSystemId],
+    });
+
+  if (insertError) return { error: `Error al registrar la evidencia: ${insertError.message}` };
+
+  const { error: linkError } = await fluxion
+    .from('treatment_actions')
+    .update({ evidence_id: evidenceId })
+    .eq('id', action.id);
+
+  if (linkError) return { error: `Error al vincular la evidencia: ${linkError.message}` };
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  return { success: true, evidenceId };
+}
+
+export async function unlinkEvidenceFromActionAction(input: {
+  actionId: string;
+  aiSystemId: string;
+  evaluationId: string;
+}): Promise<{ success: true } | { error: string }> {
+  const ctx = await requireActionOwnership(input);
+  if ('error' in ctx) return { error: ctx.error as string };
+
+  const { fluxion, action } = ctx;
+  const { error } = await fluxion
+    .from('treatment_actions')
+    .update({ evidence_id: null })
+    .eq('id', action.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  return { success: true };
+}
+
+export async function getEvidenceSignedUrlAction(
+  storagePath: string,
+): Promise<{ url: string } | { error: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.storage
+    .from('evidence-files')
+    .createSignedUrl(storagePath, 3600);
+
+  if (error || !data?.signedUrl) return { error: 'No se pudo generar la URL de descarga.' };
+  return { url: data.signedUrl };
+}
+
 export async function approveTreatmentPlanAction(input: {
   aiSystemId: string;
   evaluationId: string;

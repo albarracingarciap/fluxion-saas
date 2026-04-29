@@ -135,6 +135,11 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   control_template_id: string | null;
   control_refs: TreatmentPlanControlSuggestion[];
   task_status: string | null;
+  evidence_title: string | null;
+  evidence_storage_path: string | null;
+  evidence_external_url: string | null;
+  evidence_url: string | null;
+  evidence_verification_status: 'pending' | 'validated' | 'rejected' | null;
 };
 
 export type TreatmentPlanData = {
@@ -617,6 +622,33 @@ export async function buildTreatmentPlanData(params: {
     role: member.role,
   }));
 
+  // Evidence data for actions with evidence_id
+  const evidenceIds = Array.from(new Set(
+    actions.filter((a) => a.evidence_id).map((a) => a.evidence_id as string)
+  ));
+  const evidenceDataMap = new Map<string, {
+    title: string;
+    storage_path: string | null;
+    external_url: string | null;
+    url: string | null;
+    verification_status: 'pending' | 'validated' | 'rejected' | null;
+  }>();
+  if (evidenceIds.length > 0) {
+    const { data: evRows } = await fluxion
+      .from('evidences')
+      .select('id, title, storage_path, external_url, url, verification_status')
+      .in('id', evidenceIds);
+    for (const ev of (evRows ?? []) as Array<Record<string, unknown>>) {
+      evidenceDataMap.set(ev.id as string, {
+        title: ev.title as string,
+        storage_path: (ev.storage_path as string | null) ?? null,
+        external_url: (ev.external_url as string | null) ?? null,
+        url: (ev.url as string | null) ?? null,
+        verification_status: (ev.verification_status as 'pending' | 'validated' | 'rejected' | null) ?? null,
+      });
+    }
+  }
+
   const actionViews: TreatmentPlanActionView[] = actions
     .map((action) => {
       const item = fmeaItemMap.get(action.fmea_item_id);
@@ -653,6 +685,11 @@ export async function buildTreatmentPlanData(params: {
         control_template_id: controlTemplateId,
         control_refs: refsByFailureMode.get(item.failure_mode_id) ?? [],
         task_status: action.task_id ? (taskStatusByTaskId.get(action.task_id) ?? null) : null,
+        evidence_title: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.title ?? null) : null,
+        evidence_storage_path: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.storage_path ?? null) : null,
+        evidence_external_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.external_url ?? null) : null,
+        evidence_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.url ?? null) : null,
+        evidence_verification_status: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.verification_status ?? null) : null,
       };
     })
     .filter((action): action is TreatmentPlanActionView => action !== null)
