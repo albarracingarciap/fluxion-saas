@@ -349,10 +349,24 @@ export async function buildTechnicalDossierData(params: {
     }
   })
 
+  // Deduplicar por obligation_code (o title si no hay código), priorizando la fila con código
+  const seenObligations = new Map<string, ObligationCoverageRow>()
+  for (const row of obligationsRows) {
+    const key = row.obligation_code ?? row.title
+    const existing = seenObligations.get(key)
+    if (!existing || (!existing.obligation_code && row.obligation_code)) {
+      seenObligations.set(key, {
+        ...row,
+        evidences_count: Math.max(row.evidences_count, existing?.evidences_count ?? 0),
+      })
+    }
+  }
+  const dedupedObligations = Array.from(seenObligations.values())
+
   const obligationsCoverage = {
-    total: obligationsRows.length,
-    withEvidence: obligationsRows.filter((o) => o.evidences_count > 0).length,
-    rows: obligationsRows,
+    total: dedupedObligations.length,
+    withEvidence: dedupedObligations.filter((o) => o.evidences_count > 0).length,
+    rows: dedupedObligations,
   }
 
   // ─── Planes de tratamiento del sistema ────────────────────────────────────
