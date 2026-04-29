@@ -136,6 +136,10 @@ const config = {
         "shimmer": {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" }
+        },
+        "slide-in-right": {
+          from: { transform: "translateX(100%)", opacity: "0" },
+          to: { transform: "translateX(0)", opacity: "1" }
         }
       },
       animation: {
@@ -143,7 +147,8 @@ const config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fadein": "fadein 0.35s ease forwards",
         "pulse-custom": "pulse-custom 2s infinite ease-in-out",
-        "shimmer": "shimmer 2s infinite linear"
+        "shimmer": "shimmer 2s infinite linear",
+        "slide-in-right": "slide-in-right 0.25s ease-out forwards"
       },
     },
   },

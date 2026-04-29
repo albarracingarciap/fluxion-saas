@@ -61,6 +61,14 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
     return { error: 'La URL no es válida.' };
   }
 
+  // Snapshot del estado actual antes de modificar
+  const { data: current } = await fluxion
+    .from('system_evidences')
+    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes')
+    .eq('id', input.evidenceId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
   const { error } = await fluxion
     .from('system_evidences')
     .update({
@@ -80,6 +88,23 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
     .eq('organization_id', profile.organization_id);
 
   if (error) return { error: error.message };
+
+  if (current) {
+    await fluxion.from('system_evidence_versions').insert({
+      evidence_id: input.evidenceId,
+      changed_by: user.id,
+      change_type: 'edit',
+      title: current.title,
+      description: current.description,
+      evidence_type: current.evidence_type,
+      status: current.status,
+      external_url: current.external_url,
+      version: current.version,
+      issued_at: current.issued_at,
+      expires_at: current.expires_at,
+      validation_notes: current.validation_notes,
+    });
+  }
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -227,7 +252,7 @@ export async function reviewSystemEvidence(
 
   const { data: evidence } = await fluxion
     .from('system_evidences')
-    .select('title, status')
+    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes')
     .eq('id', evidenceId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -262,6 +287,28 @@ export async function reviewSystemEvidence(
     .eq('organization_id', profile.organization_id);
 
   if (error) return { error: error.message };
+
+  const CHANGE_TYPE_MAP: Record<ReviewAction, string> = {
+    request_review: 'review_requested',
+    approve: 'approved',
+    reject: 'rejected',
+    reopen: 'reopened',
+  };
+
+  await fluxion.from('system_evidence_versions').insert({
+    evidence_id: evidenceId,
+    changed_by: user.id,
+    change_type: CHANGE_TYPE_MAP[action],
+    title: evidence.title,
+    description: evidence.description,
+    evidence_type: evidence.evidence_type,
+    status: evidence.status,
+    external_url: evidence.external_url,
+    version: evidence.version,
+    issued_at: evidence.issued_at,
+    expires_at: evidence.expires_at,
+    validation_notes: evidence.validation_notes,
+  });
 
   const { type, title } = REVIEW_EVENT_LABELS[action];
 
