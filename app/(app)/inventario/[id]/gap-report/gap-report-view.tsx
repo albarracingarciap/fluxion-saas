@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, FileWarning, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ExternalLink, FileWarning, ShieldAlert, Target } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -203,17 +203,43 @@ export function GapReportView({
                     <div className="text-[13px] font-sora text-[#56739b]">No hay evidencias registradas para este sistema.</div>
                   ) : (
                     <div className="space-y-2">
-                      {report.evidences.slice(0, 8).map((evidence) => (
-                        <div key={evidence.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e3ecfa] bg-[#fbfdff] px-4 py-3">
-                          <div className="min-w-0">
-                            <div className="font-sora text-[13px] font-medium text-[#14233c] truncate">{evidence.title}</div>
-                            <div className="text-[12px] font-sora text-[#56739b]">{evidence.evidence_type}</div>
+                      {report.evidences.slice(0, 8).map((evidence) => {
+                        const evStatusColors: Record<string, string> = {
+                          valid: 'bg-[#f0fdf4] border-[#bbf7d0] text-[#15803d]',
+                          pending_review: 'bg-[#fffbeb] border-[#fde68a] text-[#b45309]',
+                          draft: 'bg-[#f8fafc] border-[#e2e8f0] text-[#64748b]',
+                          expired: 'bg-[#fef2f2] border-[#fecaca] text-[#b91c1c]',
+                        }
+                        const evStatusLabel: Record<string, string> = {
+                          valid: 'Válida', pending_review: 'Revisión', draft: 'Borrador', expired: 'Caducada',
+                        }
+                        return (
+                          <div key={evidence.id} className="flex items-start justify-between gap-3 rounded-[12px] border border-[#e3ecfa] bg-[#fbfdff] px-4 py-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="font-sora text-[13px] font-medium text-[#14233c] truncate">{evidence.title}</span>
+                                {evidence.external_url && (
+                                  <a href={evidence.external_url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[#00adef] hover:text-[#0090d0]">
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-plex text-[10px] text-[#7d97b8] uppercase tracking-[0.5px]">{evidence.evidence_type}</span>
+                                {evidence.expires_at && (
+                                  <span className="font-plex text-[10px] text-[#a0b3cb]">Caduca {formatGapReportDate(evidence.expires_at)}</span>
+                                )}
+                                {Array.isArray(evidence.tags) && evidence.tags.slice(0, 3).map((tag) => (
+                                  <span key={tag} className="font-plex text-[9.5px] px-1.5 py-0.5 bg-[#eef5ff] border border-[#d7e6fb] text-[#56739b] rounded-[4px]">{tag}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-plex border ${evStatusColors[evidence.status] ?? 'bg-[#f1f5f9] border-[#e2e8f0] text-[#64748b]'}`}>
+                              {evStatusLabel[evidence.status] ?? evidence.status}
+                            </span>
                           </div>
-                          <div className="text-[12px] font-sora text-[#56739b] shrink-0">
-                            Caduca: {formatGapReportDate(evidence.expires_at)}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -250,6 +276,70 @@ export function GapReportView({
                 )}
               </div>
             </section>
+
+            {/* ── Planes de tratamiento ────────────────────────────────────── */}
+            {report.treatmentPlans.length > 0 && (
+              <section className="border border-[#dfeafb] rounded-[16px] overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-[#dfeafb] bg-[#f8fbff] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#00adef]" />
+                    <h2 className="font-sora text-[16px] font-semibold text-[#14233c]">Planes de tratamiento</h2>
+                  </div>
+                  <span className="font-sora text-[12px] text-[#56739b]">{report.treatmentPlans.length} planes</span>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {report.treatmentPlans.map((plan) => {
+                    const planStatusColors: Record<string, { bg: string; text: string; border: string }> = {
+                      draft:     { bg: 'bg-[#f8fafc]',  text: 'text-[#64748b]',  border: 'border-[#e2e8f0]' },
+                      active:    { bg: 'bg-[#eff6ff]',  text: 'text-[#1d4ed8]',  border: 'border-[#bfdbfe]' },
+                      completed: { bg: 'bg-[#f0fdf4]',  text: 'text-[#15803d]',  border: 'border-[#bbf7d0]' },
+                      cancelled: { bg: 'bg-[#fef2f2]',  text: 'text-[#b91c1c]',  border: 'border-[#fecaca]' },
+                    }
+                    const planStatusLabel: Record<string, string> = {
+                      draft: 'Borrador', active: 'Activo', completed: 'Completado', cancelled: 'Cancelado',
+                    }
+                    const sc = planStatusColors[plan.status] ?? planStatusColors.draft
+                    const pct = plan.actions_total > 0 ? Math.round((plan.actions_completed / plan.actions_total) * 100) : 0
+                    return (
+                      <div key={plan.id} className="border border-[#dfeafb] rounded-[12px] p-4 bg-white">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="font-plex text-[11px] font-semibold text-[#14233c]">{plan.code}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-plex border ${sc.bg} ${sc.text} ${sc.border}`}>
+                            {planStatusLabel[plan.status] ?? plan.status}
+                          </span>
+                        </div>
+                        {(plan.zone_at_creation || plan.zone_target) && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-sora text-[#56739b] mb-3">
+                            {plan.zone_at_creation && <span className="bg-[#fff6f5] border border-[#f1d6d2] text-[#df3e2f] px-2 py-0.5 rounded-[5px]">{plan.zone_at_creation}</span>}
+                            {plan.zone_at_creation && plan.zone_target && <span className="text-[#a0b3cb]">→</span>}
+                            {plan.zone_target && <span className="bg-[#f0fdf4] border border-[#bbf7d0] text-[#15803d] px-2 py-0.5 rounded-[5px]">{plan.zone_target}</span>}
+                          </div>
+                        )}
+                        {plan.actions_total > 0 && (
+                          <div className="mb-3">
+                            <div className="flex justify-between font-plex text-[10px] text-[#7d97b8] mb-1">
+                              <span>Progreso acciones</span>
+                              <span>{plan.actions_completed}/{plan.actions_total} ({pct}%)</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-[#e8f0fb] overflow-hidden">
+                              <div className="h-full bg-[#00adef] rounded-full transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-3 font-plex text-[10px] text-[#7d97b8]">
+                          {plan.deadline && (
+                            <span>Fecha límite: <span className="text-[#14233c]">{formatGapReportDate(plan.deadline)}</span></span>
+                          )}
+                          {plan.review_cadence && (
+                            <span>Revisión: <span className="text-[#14233c]">{plan.review_cadence}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
           </div>
 
           <div className="px-8 py-4 border-t border-[#dfeafb] bg-[#f8fbff] text-[11px] font-sora text-[#6a86aa] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
