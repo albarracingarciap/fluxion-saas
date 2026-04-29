@@ -5,7 +5,7 @@ import { X, Plus, Loader2 } from 'lucide-react'
 import { createTaskAction } from '@/app/(app)/tareas/actions'
 import type { TaskPriority } from '@/lib/tasks/types'
 
-export type Member = { id: string; full_name: string; email: string }
+export type Member = { id: string; full_name: string; email?: string }
 export type System = { id: string; name: string }
 
 type Props = {
@@ -162,7 +162,7 @@ export function CreateTaskModal({ members, systems, onClose, onCreated }: Props)
                   <option value="">Sin asignar</option>
                   {members.map(m => (
                     <option key={m.id} value={m.id}>
-                      {m.full_name || m.email}
+                      {m.full_name || m.email || m.id.slice(0, 8)}
                     </option>
                   ))}
                 </select>

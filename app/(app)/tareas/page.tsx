@@ -18,9 +18,10 @@ export default async function TareasPage() {
     computeTaskSummary(fluxion, orgId),
     fluxion
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name')
       .eq('organization_id', orgId)
-      .eq('is_active', true),
+      .neq('is_active', false)
+      .order('full_name'),
     fluxion
       .from('ai_systems')
       .select('id, name')
@@ -28,7 +29,7 @@ export default async function TareasPage() {
       .order('name'),
   ])
 
-  const members = (membersRes.data ?? []) as { id: string; full_name: string; email: string }[]
+  const members = (membersRes.data ?? []) as { id: string; full_name: string; email?: string }[]
   const systems = (systemsRes.data ?? []) as { id: string; name: string }[]
 
   return <TasksView tasks={tasks} summary={summary} members={members} systems={systems} />
