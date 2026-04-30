@@ -13,7 +13,7 @@ export default async function KanbanPage() {
   const fluxion = createFluxionClient()
   const orgId = membership.organization_id
 
-  const [tasks, membersRes, systemsRes] = await Promise.all([
+  const [tasks, membersRes, systemsRes, currentProfileRes] = await Promise.all([
     fetchTasks(fluxion, orgId),
     fluxion
       .from('profiles')
@@ -26,10 +26,16 @@ export default async function KanbanPage() {
       .select('id, name')
       .eq('organization_id', orgId)
       .order('name'),
+    fluxion
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single(),
   ])
 
   const members = (membersRes.data ?? []) as { id: string; full_name: string; email?: string }[]
   const systems = (systemsRes.data ?? []) as { id: string; name: string }[]
+  const currentProfileId = currentProfileRes.data?.id ?? null
 
-  return <KanbanView tasks={tasks} members={members} systems={systems} />
+  return <KanbanView tasks={tasks} members={members} systems={systems} currentProfileId={currentProfileId} />
 }

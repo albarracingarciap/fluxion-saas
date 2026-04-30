@@ -13,7 +13,7 @@ export default async function TareasPage() {
   const fluxion = createFluxionClient()
   const orgId = membership.organization_id
 
-  const [tasks, summary, membersRes, systemsRes] = await Promise.all([
+  const [tasks, summary, membersRes, systemsRes, currentProfileRes] = await Promise.all([
     fetchTasks(fluxion, orgId),
     computeTaskSummary(fluxion, orgId),
     fluxion
@@ -27,10 +27,16 @@ export default async function TareasPage() {
       .select('id, name')
       .eq('organization_id', orgId)
       .order('name'),
+    fluxion
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single(),
   ])
 
   const members = (membersRes.data ?? []) as { id: string; full_name: string; email?: string }[]
   const systems = (systemsRes.data ?? []) as { id: string; name: string }[]
+  const currentProfileId = currentProfileRes.data?.id ?? null
 
-  return <TasksView tasks={tasks} summary={summary} members={members} systems={systems} />
+  return <TasksView tasks={tasks} summary={summary} members={members} systems={systems} currentProfileId={currentProfileId} />
 }

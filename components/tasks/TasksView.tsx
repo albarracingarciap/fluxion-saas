@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock } from 'lucide-react'
+import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock, User } from 'lucide-react'
 import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
 import {
   TASK_STATUS_LABELS,
@@ -10,6 +10,7 @@ import {
 } from '@/lib/tasks/types'
 import { updateTaskStatusAction, deleteTaskAction } from '@/app/(app)/tareas/actions'
 import { CreateTaskModal, type Member, type System } from './CreateTaskModal'
+import { TaskDetailPanel } from './TaskDetailPanel'
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ type RowProps = {
   task: TaskRow
   onStatusChange: (taskId: string, status: TaskStatus) => void
   onDelete: (taskId: string) => void
+  onOpenDetail: (task: TaskRow) => void
   deleting: string | null
 }
 
@@ -80,11 +82,14 @@ const STATUS_OPTIONS: TaskStatus[] = ['todo', 'in_progress', 'blocked', 'in_revi
 const selectCls =
   'bg-transparent border-0 outline-none font-plex text-[10px] uppercase tracking-[0.5px] cursor-pointer appearance-none w-full pr-3'
 
-function TaskRow({ task, onStatusChange, onDelete, deleting }: RowProps) {
+function TaskListRow({ task, onStatusChange, onDelete, onOpenDetail, deleting }: RowProps) {
   const overdue = isOverdue(task.due_date, task.status)
 
   return (
-    <div className="grid grid-cols-[2.5fr_1fr_1fr_0.9fr_1.1fr_0.8fr_80px] gap-3 items-center px-5 py-3 hover:bg-ltbg transition-colors group border-b border-ltb last:border-0">
+    <div
+      onClick={() => onOpenDetail(task)}
+      className="grid grid-cols-[2.5fr_1fr_1fr_0.9fr_1.1fr_0.8fr_80px] gap-3 items-center px-5 py-3 hover:bg-ltbg transition-colors group border-b border-ltb last:border-0 cursor-pointer"
+    >
       {/* Title */}
       <div className="min-w-0">
         <p className="font-sora text-[13px] text-ltt font-medium truncate">{task.title}</p>
@@ -118,7 +123,7 @@ function TaskRow({ task, onStatusChange, onDelete, deleting }: RowProps) {
       </div>
 
       {/* Estado (editable) */}
-      <div>
+      <div onClick={e => e.stopPropagation()}>
         <div className={`relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${STATUS_STYLES[task.status]}`}>
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[task.status]}`} />
           <select
@@ -144,7 +149,7 @@ function TaskRow({ task, onStatusChange, onDelete, deleting }: RowProps) {
       </div>
 
       {/* Acciones */}
-      <div className="flex items-center justify-end gap-1">
+      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
         {task.source_type === 'manual' && (
           <button
             onClick={() => onDelete(task.id)}
@@ -181,7 +186,7 @@ type SummaryCard = {
 
 function KpiCard({ label, value, icon, accent, bar }: SummaryCard) {
   return (
-    <div className={`relative bg-ltcard border border-ltb rounded-[12px] overflow-hidden`}>
+    <div className="relative bg-ltcard border border-ltb rounded-[12px] overflow-hidden">
       <div className={`absolute top-0 left-0 right-0 h-[3px] ${bar}`} />
       <div className="p-4 px-5">
         <div className="flex items-center justify-between mb-2">
@@ -199,7 +204,7 @@ function KpiCard({ label, value, icon, accent, bar }: SummaryCard) {
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
 const filterSelectCls =
-  'bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[12px] text-ltt font-sora outline-none appearance-none pr-7 cursor-pointer transition-all focus:border-brand-cyan text-[12px] h-[36px]'
+  'bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[12px] text-ltt font-sora outline-none appearance-none pr-7 cursor-pointer transition-all focus:border-brand-cyan h-[36px]'
 
 // ─── Main view ────────────────────────────────────────────────────────────────
 
@@ -208,17 +213,23 @@ type Props = {
   summary: TaskSummary
   members: Member[]
   systems: System[]
+  currentProfileId: string | null
 }
 
-export function TasksView({ tasks: initialTasks, summary, members, systems }: Props) {
+export function TasksView({ tasks: initialTasks, summary, members, systems, currentProfileId }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | ''>('')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
   const [sourceFilter, setSourceFilter] = useState<TaskSourceType | ''>('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [myTasksOnly, setMyTasksOnly] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+
+  const effectiveAssigneeFilter = myTasksOnly ? (currentProfileId ?? '') : assigneeFilter
 
   const filtered = useMemo(() => {
     return tasks.filter(t => {
@@ -226,12 +237,14 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
       if (statusFilter && t.status !== statusFilter) return false
       if (priorityFilter && t.priority !== priorityFilter) return false
       if (sourceFilter && t.source_type !== sourceFilter) return false
+      if (effectiveAssigneeFilter && t.assignee_id !== effectiveAssigneeFilter) return false
       return true
     })
-  }, [tasks, search, statusFilter, priorityFilter, sourceFilter])
+  }, [tasks, search, statusFilter, priorityFilter, sourceFilter, effectiveAssigneeFilter])
 
   function handleStatusChange(taskId: string, newStatus: TaskStatus) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
+    if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, status: newStatus } : null)
     startTransition(async () => {
       const res = await updateTaskStatusAction(taskId, newStatus)
       if ('error' in res) {
@@ -246,9 +259,20 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
       const res = await deleteTaskAction(taskId)
       if ('ok' in res) {
         setTasks(prev => prev.filter(t => t.id !== taskId))
+        if (selectedTask?.id === taskId) setSelectedTask(null)
       }
       setDeleting(null)
     })
+  }
+
+  function handleTaskUpdated(updated: TaskRow) {
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t))
+    setSelectedTask(updated)
+  }
+
+  function handleTaskDeleted(taskId: string) {
+    setTasks(prev => prev.filter(t => t.id !== taskId))
+    setSelectedTask(null)
   }
 
   const openCount = tasks.filter(t => !['done', 'cancelled'].includes(t.status)).length
@@ -327,11 +351,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
 
             {/* Status */}
             <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value as TaskStatus | '')}
-                className={filterSelectCls}
-              >
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '')} className={filterSelectCls}>
                 <option value="">Todos los estados</option>
                 {(['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled'] as TaskStatus[]).map(s => (
                   <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
@@ -342,11 +362,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
 
             {/* Priority */}
             <div className="relative">
-              <select
-                value={priorityFilter}
-                onChange={e => setPriorityFilter(e.target.value as TaskPriority | '')}
-                className={filterSelectCls}
-              >
+              <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value as TaskPriority | '')} className={filterSelectCls}>
                 <option value="">Todas las prioridades</option>
                 {(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map(p => (
                   <option key={p} value={p}>{TASK_PRIORITY_LABELS[p]}</option>
@@ -357,18 +373,45 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
 
             {/* Source */}
             <div className="relative">
-              <select
-                value={sourceFilter}
-                onChange={e => setSourceFilter(e.target.value as TaskSourceType | '')}
-                className={filterSelectCls}
-              >
+              <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as TaskSourceType | '')} className={filterSelectCls}>
                 <option value="">Todos los orígenes</option>
-                {(['manual', 'treatment_action', 'gap', 'evaluation'] as TaskSourceType[]).map(s => (
+                {(['manual', 'treatment_action', 'gap', 'evaluation', 'fmea_item'] as TaskSourceType[]).map(s => (
                   <option key={s} value={s}>{TASK_SOURCE_LABELS[s]}</option>
                 ))}
               </select>
               <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
             </div>
+
+            {/* Assignee */}
+            <div className="relative">
+              <select
+                value={myTasksOnly ? '' : assigneeFilter}
+                onChange={e => { setAssigneeFilter(e.target.value); setMyTasksOnly(false) }}
+                disabled={myTasksOnly}
+                className={filterSelectCls + (myTasksOnly ? ' opacity-40 cursor-not-allowed' : '')}
+              >
+                <option value="">Todos los asignados</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.full_name || m.email || m.id.slice(0, 8)}</option>
+                ))}
+              </select>
+              <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+
+            {/* Mis tareas toggle */}
+            {currentProfileId && (
+              <button
+                onClick={() => { setMyTasksOnly(v => !v); setAssigneeFilter('') }}
+                className={`flex items-center gap-1.5 px-3 h-[36px] rounded-lg border font-sora text-[12px] transition-all ${
+                  myTasksOnly
+                    ? 'bg-cyan-dim text-brand-cyan border-cyan-border'
+                    : 'bg-ltbg text-lttm border-ltb hover:text-ltt hover:border-brand-cyan'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                Mis tareas
+              </button>
+            )}
 
             <span className="font-plex text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-cyan-dim text-brand-cyan border border-cyan-border ml-auto">
               {filtered.length} TAREA{filtered.length !== 1 ? 'S' : ''}
@@ -403,11 +446,12 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
           ) : (
             <div>
               {filtered.map(task => (
-                <TaskRow
+                <TaskListRow
                   key={task.id}
                   task={task}
                   onStatusChange={handleStatusChange}
                   onDelete={handleDelete}
+                  onOpenDetail={setSelectedTask}
                   deleting={deleting}
                 />
               ))}
@@ -421,9 +465,18 @@ export function TasksView({ tasks: initialTasks, summary, members, systems }: Pr
           members={members}
           systems={systems}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
-            // page will revalidate via server action
-          }}
+          onCreated={() => {}}
+        />
+      )}
+
+      {selectedTask && (
+        <TaskDetailPanel
+          task={selectedTask}
+          members={members}
+          systems={systems}
+          onClose={() => setSelectedTask(null)}
+          onUpdated={handleTaskUpdated}
+          onDeleted={handleTaskDeleted}
         />
       )}
     </>

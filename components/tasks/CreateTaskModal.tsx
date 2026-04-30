@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, Plus, Loader2 } from 'lucide-react'
+import { X, Plus, Loader2, XCircle } from 'lucide-react'
 import { createTaskAction } from '@/app/(app)/tareas/actions'
 import type { TaskPriority } from '@/lib/tasks/types'
 
@@ -42,8 +42,16 @@ export function CreateTaskModal({ members, systems, onClose, onCreated }: Props)
   const [systemId, setSystemId] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function addTag(value: string) {
+    const t = value.trim().toLowerCase()
+    if (t && !tags.includes(t)) setTags(prev => [...prev, t])
+    setTagInput('')
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -57,6 +65,7 @@ export function CreateTaskModal({ members, systems, onClose, onCreated }: Props)
         systemId: systemId || null,
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
+        tags,
       })
       if ('error' in result) {
         setError(result.error)
@@ -177,6 +186,35 @@ export function CreateTaskModal({ members, systems, onClose, onCreated }: Props)
                 onChange={e => setDueDate(e.target.value)}
                 className={inputCls}
                 min={today}
+              />
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className={labelCls}>Etiquetas</label>
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+              {tags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 font-plex text-[9px] uppercase tracking-[0.5px] px-2 py-0.5 bg-cyan-dim text-brand-cyan border border-cyan-border rounded-full">
+                  {tag}
+                  <button type="button" onClick={() => setTags(prev => prev.filter(t => t !== tag))} className="hover:text-re transition-colors ml-0.5">
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault()
+                    addTag(tagInput)
+                  }
+                }}
+                onBlur={() => { if (tagInput) addTag(tagInput) }}
+                placeholder="Escribe y pulsa Enter..."
+                className="bg-ltbg border border-dashed border-ltb rounded-full px-2.5 py-0.5 font-plex text-[10px] text-ltt outline-none focus:border-brand-cyan min-w-[140px]"
               />
             </div>
           </div>

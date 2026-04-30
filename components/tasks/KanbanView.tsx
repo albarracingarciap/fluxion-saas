@@ -6,6 +6,7 @@ import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import { TASK_STATUS_LABELS, KANBAN_COLUMNS, TASK_PRIORITY_LABELS } from '@/lib/tasks/types'
 import { updateTaskStatusAction } from '@/app/(app)/tareas/actions'
 import { CreateTaskModal, type Member, type System } from './CreateTaskModal'
+import { TaskDetailPanel } from './TaskDetailPanel'
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -31,22 +32,26 @@ function isOverdue(dateStr: string | null, status: TaskStatus): boolean {
 
 type CardProps = {
   task: TaskRow
+  color: string
   onDragStart: (e: React.DragEvent, taskId: string) => void
+  onOpenDetail: (task: TaskRow) => void
 }
 
-function TaskCard({ task, onDragStart }: CardProps) {
+function TaskCard({ task, color, onDragStart, onOpenDetail }: CardProps) {
   const overdue = isOverdue(task.due_date, task.status)
 
   return (
     <div
       draggable
       onDragStart={e => onDragStart(e, task.id)}
-      className="bg-ltcard border border-ltb rounded-[10px] p-3.5 cursor-grab active:cursor-grabbing shadow-[0_1px_4px_rgba(0,74,173,0.06)] hover:shadow-[0_4px_12px_rgba(0,74,173,0.1)] hover:border-cyan-border transition-all select-none"
+      onClick={() => onOpenDetail(task)}
+      className="bg-ltcard rounded-[10px] border p-3.5 cursor-grab active:cursor-grabbing shadow-[0_1px_4px_rgba(0,74,173,0.06)] hover:shadow-[0_4px_12px_rgba(0,74,173,0.1)] transition-all select-none"
+      style={{ borderColor: color }}
     >
       {/* Title */}
       <p className="font-sora text-[12.5px] font-medium text-ltt leading-snug mb-2">{task.title}</p>
 
-      {/* Priority + Source tags */}
+      {/* Priority + tags */}
       <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full border font-plex text-[9px] uppercase tracking-[0.4px] ${PRIORITY_STYLES[task.priority]}`}>
           {TASK_PRIORITY_LABELS[task.priority]}
@@ -95,18 +100,12 @@ type ColumnProps = {
   isDragOver: boolean
   onDragOver: (e: React.DragEvent) => void
   onDragLeave: () => void
+  onOpenDetail: (task: TaskRow) => void
 }
 
 function KanbanColumn({
-  status,
-  label,
-  color,
-  tasks,
-  onDragStart,
-  onDrop,
-  isDragOver,
-  onDragOver,
-  onDragLeave,
+  status, label, color, tasks,
+  onDragStart, onDrop, isDragOver, onDragOver, onDragLeave, onOpenDetail,
 }: ColumnProps) {
   return (
     <div
@@ -122,10 +121,7 @@ function KanbanColumn({
       {/* Column header */}
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-ltb">
         <div className="flex items-center gap-2">
-          <span
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: color }}
-          />
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
           <span className="font-plex text-[11px] uppercase tracking-[0.6px] text-ltt2 font-semibold">
             {label}
           </span>
@@ -138,7 +134,13 @@ function KanbanColumn({
       {/* Cards */}
       <div className={`flex flex-col gap-2.5 p-3 flex-1 min-h-[120px] ${isDragOver ? 'opacity-80' : ''}`}>
         {tasks.map(task => (
-          <TaskCard key={task.id} task={task} onDragStart={onDragStart} />
+          <TaskCard
+            key={task.id}
+            task={task}
+            color={color}
+            onDragStart={onDragStart}
+            onOpenDetail={onOpenDetail}
+          />
         ))}
         {tasks.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
@@ -150,7 +152,7 @@ function KanbanColumn({
   )
 }
 
-// ─── Search + filter bar ──────────────────────────────────────────────────────
+// ─── Filter bar ───────────────────────────────────────────────────────────────
 
 const filterSelectCls =
   'bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[12px] text-ltt font-sora outline-none appearance-none pr-7 cursor-pointer transition-all focus:border-brand-cyan h-[36px]'
@@ -161,17 +163,23 @@ type Props = {
   tasks: TaskRow[]
   members: Member[]
   systems: System[]
+  currentProfileId: string | null
 }
 
-export function KanbanView({ tasks: initialTasks, members, systems }: Props) {
+export function KanbanView({ tasks: initialTasks, members, systems, currentProfileId }: Props) {
   const [tasks, setTasks] = useState(initialTasks)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [myTasksOnly, setMyTasksOnly] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null)
   const [moving, setMoving] = useState<string | null>(null)
   const draggingId = useRef<string | null>(null)
   const [, startTransition] = useTransition()
+
+  const effectiveAssigneeFilter = myTasksOnly ? (currentProfileId ?? '') : assigneeFilter
 
   function handleDragStart(e: React.DragEvent, taskId: string) {
     draggingId.current = taskId
@@ -212,9 +220,20 @@ export function KanbanView({ tasks: initialTasks, members, systems }: Props) {
     })
   }
 
+  function handleTaskUpdated(updated: TaskRow) {
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t))
+    setSelectedTask(updated)
+  }
+
+  function handleTaskDeleted(taskId: string) {
+    setTasks(prev => prev.filter(t => t.id !== taskId))
+    setSelectedTask(null)
+  }
+
   const filteredTasks = tasks.filter(t => {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
     if (priorityFilter && t.priority !== priorityFilter) return false
+    if (effectiveAssigneeFilter && t.assignee_id !== effectiveAssigneeFilter) return false
     return true
   })
 
@@ -283,6 +302,35 @@ export function KanbanView({ tasks: initialTasks, members, systems }: Props) {
             <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
           </div>
 
+          <div className="relative">
+            <select
+              value={myTasksOnly ? '' : assigneeFilter}
+              onChange={e => { setAssigneeFilter(e.target.value); setMyTasksOnly(false) }}
+              disabled={myTasksOnly}
+              className={filterSelectCls + (myTasksOnly ? ' opacity-40 cursor-not-allowed' : '')}
+            >
+              <option value="">Todos los asignados</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.full_name || m.email || m.id.slice(0, 8)}</option>
+              ))}
+            </select>
+            <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-lttm pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+          </div>
+
+          {currentProfileId && (
+            <button
+              onClick={() => { setMyTasksOnly(v => !v); setAssigneeFilter('') }}
+              className={`flex items-center gap-1.5 px-3 h-[36px] rounded-lg border font-sora text-[12px] transition-all ${
+                myTasksOnly
+                  ? 'bg-cyan-dim text-brand-cyan border-cyan-border'
+                  : 'bg-ltbg text-lttm border-ltb hover:text-ltt hover:border-brand-cyan'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              Mis tareas
+            </button>
+          )}
+
           <div className="flex items-center gap-2 ml-auto">
             {KANBAN_COLUMNS.map(col => (
               <div key={col.status} className="flex items-center gap-1.5">
@@ -307,6 +355,7 @@ export function KanbanView({ tasks: initialTasks, members, systems }: Props) {
               isDragOver={dragOver === col.status}
               onDragOver={e => handleDragOver(e, col.status)}
               onDragLeave={handleDragLeave}
+              onOpenDetail={setSelectedTask}
             />
           ))}
         </div>
@@ -318,6 +367,17 @@ export function KanbanView({ tasks: initialTasks, members, systems }: Props) {
           systems={systems}
           onClose={() => setShowCreate(false)}
           onCreated={() => {}}
+        />
+      )}
+
+      {selectedTask && (
+        <TaskDetailPanel
+          task={selectedTask}
+          members={members}
+          systems={systems}
+          onClose={() => setSelectedTask(null)}
+          onUpdated={handleTaskUpdated}
+          onDeleted={handleTaskDeleted}
         />
       )}
     </>
