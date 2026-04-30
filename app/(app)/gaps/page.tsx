@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ClipboardList,
   FileWarning,
+  History,
   Info,
   ShieldAlert,
 } from 'lucide-react'
@@ -26,6 +27,8 @@ import { SaveGapAnalysisSnapshotButton } from './save-gap-analysis-snapshot-butt
 import { CreateGapTaskButton } from './create-gap-task-button'
 import { CreateGapGroupTasksButton } from './create-gap-group-tasks-button'
 import { GapFocusScroller } from './gap-focus-scroller'
+import { ExportCsvButton } from './export-csv-button'
+import { BulkSelectionQueue } from './bulk-selection-queue'
 
 const LAYER_LABELS = {
   normativo: 'Normativo',
@@ -312,6 +315,14 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             >
               Volver al dashboard
             </Link>
+            <Link
+              href="/gaps/snapshots"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium bg-white hover:bg-ltbg transition-colors"
+            >
+              <History size={15} />
+              Ver snapshots
+            </Link>
+            <ExportCsvButton gaps={filteredGaps} />
             <SaveGapAnalysisSnapshotButton />
             <GapAnalysisPrintButton />
             <Link
@@ -431,7 +442,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             </h2>
             <div className="relative group">
               <Info size={13} className="text-lttm cursor-help" />
-              <div className="absolute left-0 bottom-full mb-2 z-10 hidden group-hover:block w-[280px] rounded-[10px] border border-ltb bg-ltcard shadow-[0_4px_20px_rgba(0,0,0,0.12)] p-3 pointer-events-none">
+              <div className="absolute left-0 top-full mt-2 z-[60] hidden group-hover:block w-[280px] rounded-[10px] border border-ltb bg-ltcard shadow-[0_4px_20px_rgba(0,0,0,0.12)] p-3 pointer-events-none">
                 <p className="font-plex text-[9.5px] uppercase tracking-[0.7px] text-lttm mb-2">Cómo se calcula</p>
                 <div className="space-y-1.5 font-sora text-[11px] text-ltt2">
                   <div className="flex items-start gap-2">
@@ -720,50 +731,19 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
               Cola unificada de gaps
             </h2>
           </div>
-          <div className="p-5 space-y-6">
-            <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
-              <p className="font-sora text-[12px] text-ltt2">
-                Mostrando <span className="font-semibold text-ltt">{paginatedGaps.length}</span> de{' '}
-                <span className="font-semibold text-ltt">{filteredGaps.length}</span> gaps con el filtro actual.
-              </p>
-            </div>
-            <SeveritySection severity="critico" items={critical} members={data.members} taskStatusMap={taskStatusMap} />
-            <SeveritySection severity="alto" items={high} members={data.members} taskStatusMap={taskStatusMap} />
-            <SeveritySection severity="medio" items={medium} members={data.members} taskStatusMap={taskStatusMap} />
-            {filteredGaps.length > PAGE_SIZE ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <p className="font-sora text-[12px] text-lttm">
-                  Página <span className="font-semibold text-ltt">{safePage}</span> de{' '}
-                  <span className="font-semibold text-ltt">{totalPages}</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={buildGapPageHref(currentParams, safePage - 1)}
-                    className={`px-3 py-2 rounded-[8px] border font-sora text-[12px] transition-colors ${
-                      safePage <= 1
-                        ? 'pointer-events-none bg-ltcard text-lttm border-ltb opacity-60'
-                        : 'bg-ltbg text-ltt border-ltb hover:border-cyan-border'
-                    }`}
-                  >
-                    Anterior
-                  </Link>
-                  <div className="px-3 py-2 rounded-[8px] border border-ltb bg-ltcard font-plex text-[11px] uppercase tracking-[0.7px] text-lttm">
-                    {safePage} / {totalPages}
-                  </div>
-                  <Link
-                    href={buildGapPageHref(currentParams, safePage + 1)}
-                    className={`px-3 py-2 rounded-[8px] border font-sora text-[12px] transition-colors ${
-                      safePage >= totalPages
-                        ? 'pointer-events-none bg-ltcard text-lttm border-ltb opacity-60'
-                        : 'bg-ltbg text-ltt border-ltb hover:border-cyan-border'
-                    }`}
-                  >
-                    Siguiente
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <BulkSelectionQueue
+            paginatedGaps={paginatedGaps}
+            filteredCount={filteredGaps.length}
+            totalPages={totalPages}
+            currentPage={safePage}
+            members={data.members}
+            taskStatusMap={taskStatusMap}
+            paginationHrefs={{
+              prev: buildGapPageHref(currentParams, safePage - 1),
+              next: buildGapPageHref(currentParams, safePage + 1),
+              current: buildGapPageHref(currentParams, safePage),
+            }}
+          />
         </section>
       )}
 
@@ -1055,239 +1035,6 @@ function KpiCard({
         </div>
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">
           <Icon size={17} className={valueClass} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function SeveritySection({
-  severity,
-  items,
-  members,
-  taskStatusMap,
-}: {
-  severity: GapSeverity
-  items: UnifiedGapRecord[]
-  members: GapAssignableMember[]
-  taskStatusMap: Record<string, TaskGapStatus | null>
-}) {
-  const meta = SEVERITY_META[severity]
-  const layerBreakdown = (['normativo', 'fmea', 'control', 'caducidad'] as GapLayer[])
-    .map((layer) => ({
-      layer,
-      count: items.filter((item) => item.layer === layer).length,
-    }))
-    .filter((entry) => entry.count > 0)
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-3 mb-3">
-        <span className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm font-semibold">
-          {meta.section}
-        </span>
-        <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${meta.badge}`}>
-          {items.length} gaps
-        </span>
-        {layerBreakdown.map((entry) => (
-          <span
-            key={`${severity}-${entry.layer}`}
-            className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${LAYER_META[entry.layer].pill}`}
-          >
-            {LAYER_LABELS[entry.layer]} {entry.count}
-          </span>
-        ))}
-      </div>
-
-      {items.length === 0 ? (
-        <div className="rounded-[10px] border border-dashed border-ltb bg-ltbg px-4 py-4">
-          <p className="font-sora text-[12px] text-ltt2">No hay gaps de severidad {meta.label.toLowerCase()} en este momento.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((gap) => (
-            <GapCard
-              key={gap.key}
-              gap={gap}
-              members={members}
-              taskStatus={taskStatusMap[gap.id] ?? null}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function getGapSecondaryHref(gap: UnifiedGapRecord) {
-  if (gap.layer === 'control' && gap.evaluation_id) {
-    return `/inventario/${gap.system_id}/fmea/${gap.evaluation_id}/evaluar`
-  }
-
-  return `/inventario/${gap.system_id}`
-}
-
-function getGapSecondaryLabel(gap: UnifiedGapRecord) {
-  if (gap.layer === 'control') return 'Ver evaluación'
-  return 'Ver sistema'
-}
-
-function GapCard({
-  gap,
-  members,
-  taskStatus,
-}: {
-  gap: UnifiedGapRecord
-  members: GapAssignableMember[]
-  taskStatus: TaskGapStatus | null
-}) {
-  return (
-    <div
-      data-gap-id={gap.id}
-      className="rounded-[12px] border border-ltb bg-ltcard hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all"
-    >
-      <div className="flex items-stretch gap-0">
-        <div className={`w-1 shrink-0 rounded-l-[12px] ${LAYER_META[gap.layer].bar}`} />
-        <div className="flex-1 px-4 py-4 min-w-0">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border shrink-0 ${LAYER_META[gap.layer].pill}`}>
-                  {LAYER_LABELS[gap.layer]}
-                </span>
-                <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${SEVERITY_META[gap.severity].badge}`}>
-                  {SEVERITY_META[gap.severity].label}
-                </span>
-                <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-ltb bg-ltbg text-lttm">
-                  {gap.system_code}
-                </span>
-              </div>
-              <p className="font-sora text-[14px] font-semibold text-ltt leading-[1.35]">{gap.title}</p>
-              <p className="font-sora text-[12px] text-ltt2 mt-2">{gap.context_label}</p>
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mt-2 break-words">
-                {gap.meta}
-              </p>
-            </div>
-            <div className="shrink-0 flex flex-col items-end gap-2">
-              <span
-                className={`font-plex text-[10px] uppercase tracking-[0.7px] ${
-                  gap.overdue ? 'text-re' : gap.severity === 'alto' ? 'text-or' : 'text-lttm'
-                }`}
-              >
-                {gap.overdue
-                  ? 'Vencido'
-                  : gap.due_date
-                    ? typeof gap.days_until_due === 'number'
-                      ? `${gap.days_until_due} días`
-                      : 'Con plazo'
-                    : 'Sin plazo'}
-              </span>
-              <span
-                className={`font-sora text-[11px] font-medium px-3 py-1.5 rounded-[7px] border ${
-                  gap.action_label.includes('Asignar') || gap.action_label.includes('Renovar')
-                    ? 'bg-gradient-to-r from-brand-cyan to-brand-blue text-white border-transparent'
-                    : 'bg-ltcard2 text-ltt2 border-ltb'
-                }`}
-              >
-                {gap.action_label}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid gap-2 md:grid-cols-3 mt-4">
-            <div className="rounded-[10px] border border-ltb bg-ltbg px-3 py-2">
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Sistema</p>
-              <p className="font-sora text-[12px] font-medium text-ltt mt-1">{gap.system_name}</p>
-            </div>
-            <div className="rounded-[10px] border border-ltb bg-ltbg px-3 py-2">
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Responsable</p>
-              <p className="font-sora text-[12px] font-medium text-ltt mt-1">
-                {gap.owner_name ?? 'Sin owner'}
-              </p>
-            </div>
-            <div className="rounded-[10px] border border-ltb bg-ltbg px-3 py-2">
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Plazo</p>
-              <p className="font-sora text-[12px] font-medium text-ltt mt-1">
-                {gap.due_date
-                  ? gap.overdue
-                    ? `Vencido (${gap.due_date})`
-                    : `${gap.due_date}${typeof gap.days_until_due === 'number' ? ` · ${gap.days_until_due} días` : ''}`
-                  : 'Sin fecha objetivo'}
-              </p>
-            </div>
-          </div>
-
-          {gap.layer === 'normativo' && gap.causal_amplifiers && gap.causal_amplifiers.length > 0 && (
-            <div className="mt-3 rounded-[10px] border border-orb bg-ordim px-3 py-2.5">
-              <p className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-or mb-2">
-                ⚠ {gap.causal_amplifiers.length} modo{gap.causal_amplifiers.length > 1 ? 's' : ''} activo{gap.causal_amplifiers.length > 1 ? 's' : ''} amplifica{gap.causal_amplifiers.length > 1 ? 'n' : ''} este incumplimiento
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {gap.causal_amplifiers.map((amp) => (
-                  <span
-                    key={amp.failure_mode_id}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] font-plex text-[10px] border ${
-                      (amp.s_actual ?? 0) >= 9
-                        ? 'bg-red-dim border-reb text-re'
-                        : 'bg-ltcard border-ltb text-ltt2'
-                    }`}
-                    title={amp.failure_mode_name}
-                  >
-                    {amp.failure_mode_code}
-                    {amp.s_actual !== null && (
-                      <span className="opacity-70">· S={amp.s_actual}</span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-ltb">
-            <p className="font-sora text-[12px] text-lttm">
-              Origen: <span className="text-ltt font-medium">{gap.source_ref}</span>
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <GapAssignmentPanel
-                mode="single"
-                members={members}
-                layer={gap.layer}
-                id={gap.id}
-                systemId={gap.system_id}
-                currentOwnerId={gap.owner_id}
-                currentDueDate={gap.due_date}
-              />
-              {gap.layer !== 'fmea' && (
-                <CreateGapTaskButton
-                  gap={{
-                    id:           gap.id,
-                    key:          gap.key,
-                    layer:        gap.layer,
-                    systemId:     gap.system_id,
-                    title:        gap.title,
-                    contextLabel: gap.context_label,
-                    ownerId:      gap.owner_id,
-                    dueDate:      gap.due_date,
-                    severity:     gap.severity,
-                  }}
-                  initialTaskStatus={taskStatus}
-                />
-              )}
-              <Link
-                href={getGapSecondaryHref(gap)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltbg text-ltt2 font-sora text-[11px] hover:border-cyan-border hover:text-brand-cyan transition-colors"
-              >
-                {getGapSecondaryLabel(gap)}
-              </Link>
-              <Link
-                href={gap.detail_url}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-transparent bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[11px] hover:-translate-y-px transition-all"
-              >
-                {gap.action_label}
-                <ArrowRight size={13} />
-              </Link>
-            </div>
-          </div>
         </div>
       </div>
     </div>
