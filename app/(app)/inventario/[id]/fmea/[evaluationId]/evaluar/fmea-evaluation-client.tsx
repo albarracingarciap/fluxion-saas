@@ -7,15 +7,18 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BarChart2,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
   Clock,
   ExternalLink,
+  FileText,
   Loader2,
   Save,
   UserPlus,
+  X,
 } from 'lucide-react';
 
 import type { FmeaEvaluationData, FmeaEvaluationItemRecord, FmeaItemHistoryEntry } from '@/lib/fmea/data';
@@ -32,7 +35,7 @@ import {
 } from '@/lib/fmea/domain';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
-import { delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
+import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
 
 const DIMENSION_META: Record<string, { label: string; badge: string }> = {
   tecnica: { label: 'Técnica', badge: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
@@ -108,6 +111,99 @@ const TASK_STATUS_PILL: Record<string, string> = {
   done:        'bg-grdim border-grb text-gr',
   cancelled:   'bg-ltcard2 border-ltb text-lttm',
 };
+
+function FmeaODHeatmap({ items }: { items: EditableItemState[] }) {
+  const evaluated = items.filter(
+    (item) => item.status === 'evaluated' && item.o_value !== null && item.d_real_value !== null
+  );
+
+  if (evaluated.length === 0) {
+    return (
+      <div className="font-sora text-[12.5px] text-lttm text-center py-4">
+        El mapa de calor estará disponible cuando haya modos evaluados con O y D real.
+      </div>
+    );
+  }
+
+  // cell[o][d] = list of s_actual values (o,d: 1-5 index 0-4)
+  const cells: (number[] | null)[][] = Array.from({ length: 5 }, () => Array(5).fill(null));
+  for (const item of evaluated) {
+    const oIdx = (item.o_value as number) - 1;
+    const dIdx = (item.d_real_value as number) - 1;
+    if (oIdx < 0 || oIdx > 4 || dIdx < 0 || dIdx > 4) continue;
+    if (cells[oIdx][dIdx] === null) cells[oIdx][dIdx] = [];
+    (cells[oIdx][dIdx] as number[]).push(item.s_actual ?? item.s_default_frozen);
+  }
+
+  function cellBg(bucket: number[] | null): string {
+    if (!bucket || bucket.length === 0) return 'bg-ltbg';
+    const max = Math.max(...bucket);
+    if (max === 9) return 'bg-[rgba(217,45,32,0.85)] text-white';
+    if (max === 8) return 'bg-[rgba(217,45,32,0.55)] text-white';
+    if (max >= 6) return 'bg-[rgba(245,158,11,0.55)] text-white';
+    if (max >= 4) return 'bg-[rgba(245,158,11,0.25)]';
+    return 'bg-[rgba(34,197,94,0.25)]';
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-2 mb-2">
+        <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">D_real →</div>
+        <div className="grid grid-cols-5 gap-1 flex-1">
+          {[1, 2, 3, 4, 5].map((d) => (
+            <div key={d} className="text-center font-plex text-[10px] text-lttm">{d}</div>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex flex-col gap-1 justify-around">
+          {[1, 2, 3, 4, 5].map((o) => (
+            <div key={o} className="font-plex text-[10px] text-lttm w-5 text-right">{o}</div>
+          ))}
+        </div>
+        <div className="flex-1">
+          <div className="space-y-1">
+            {[0, 1, 2, 3, 4].map((oIdx) => (
+              <div key={oIdx} className="grid grid-cols-5 gap-1">
+                {[0, 1, 2, 3, 4].map((dIdx) => {
+                  const bucket = cells[oIdx][dIdx];
+                  const count = bucket?.length ?? 0;
+                  return (
+                    <div
+                      key={dIdx}
+                      title={count > 0 ? `O=${oIdx + 1}, D=${dIdx + 1}: ${count} modo${count > 1 ? 's' : ''}` : undefined}
+                      className={`aspect-square rounded-[5px] border border-ltb flex items-center justify-center font-plex text-[11px] font-medium transition-colors ${cellBg(bucket)}`}
+                    >
+                      {count > 0 ? count : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="font-plex text-[10px] text-lttm flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+          O ↑
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-3 flex-wrap">
+        <div className="font-plex text-[9.5px] text-lttm">{evaluated.length} modos evaluados</div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[3px] bg-[rgba(34,197,94,0.25)] border border-ltb" />
+          <span className="font-plex text-[9.5px] text-lttm">Bajo</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.55)] border border-ltb" />
+          <span className="font-plex text-[9.5px] text-lttm">Medio</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.85)] border border-ltb" />
+          <span className="font-plex text-[9.5px] text-lttm">Crítico</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const HISTORY_EVENT_META: Record<FmeaItemHistoryEntry['event_type'], { label: string; dot: string }> = {
   evaluated:               { label: 'Confirmado',          dot: 'bg-gr' },
@@ -499,6 +595,9 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   const [isSavingDraft, startSavingDraft] = useTransition();
   const [isSubmittingReview, startSubmittingReview] = useTransition();
   const [isResolvingSecondReview, startResolvingSecondReview] = useTransition();
+  const [isBulkActing, startBulkActing] = useTransition();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [secondReviewDrafts, setSecondReviewDrafts] = useState<Record<string, string>>(() =>
@@ -514,6 +613,62 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   } | null>(null);
 
   const isReadOnly = data.evaluation.state === 'approved' || data.evaluation.state === 'superseded';
+
+  function toggleSelection(itemId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds((prev) => {
+      if (ids.every((id) => prev.has(id))) return new Set();
+      return new Set(ids);
+    });
+  }
+
+  function handleBulkSkip() {
+    const ids = Array.from(selectedIds);
+    startBulkActing(async () => {
+      const result = await bulkSkipFmeaItemsAction({
+        aiSystemId: data.system.id,
+        evaluationId: data.evaluation.id,
+        itemIds: ids,
+      });
+      if (result?.error) { setGlobalError(result.error); return; }
+      setItems((current) =>
+        current.map((item) =>
+          ids.includes(item.id)
+            ? { ...item, status: 'skipped', o_value: null, d_real_value: null, s_actual: null, manualSActual: null }
+            : item
+        )
+      );
+      setSelectedIds(new Set());
+    });
+  }
+
+  function handleBulkReset() {
+    const ids = Array.from(selectedIds);
+    startBulkActing(async () => {
+      const result = await bulkResetFmeaItemsAction({
+        aiSystemId: data.system.id,
+        evaluationId: data.evaluation.id,
+        itemIds: ids,
+      });
+      if (result?.error) { setGlobalError(result.error); return; }
+      setItems((current) =>
+        current.map((item) =>
+          ids.includes(item.id)
+            ? { ...item, status: 'pending', o_value: null, d_real_value: null, s_actual: null, manualSActual: null, requires_second_review: false, second_review_status: 'not_required' }
+            : item
+        )
+      );
+      setSelectedIds(new Set());
+    });
+  }
 
   function handleTaskCreated(itemId: string, taskId: string) {
     setItems((current) =>
@@ -1070,6 +1225,15 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href={`/inventario/${data.system.id}/fmea/${data.evaluation.id}/exportar`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltb2 hover:text-ltt transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Exportar PDF
+          </Link>
           {data.evaluation.version > 1 && (
             <Link
               href={`/inventario/${data.system.id}/fmea/${data.evaluation.id}/comparar`}
@@ -1173,6 +1337,30 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         </div>
       </div>
 
+      {/* ── Heatmap O×D ──────────────────────────────────────────────────────── */}
+      <div className="mb-5 rounded-[12px] border border-ltb bg-ltcard overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowHeatmap((v) => !v)}
+          className="w-full px-5 py-3 flex items-center gap-2 hover:bg-ltcard2 transition-colors text-left"
+        >
+          <BarChart2 className="w-4 h-4 text-lttm shrink-0" />
+          <span className="font-plex text-[11px] uppercase tracking-[1px] text-lttm flex-1">
+            Mapa de calor O × D_real
+          </span>
+          {showHeatmap ? (
+            <ChevronDown className="w-4 h-4 text-lttm" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-lttm" />
+          )}
+        </button>
+        {showHeatmap && (
+          <div className="px-5 pb-5 border-t border-ltb pt-4">
+            <FmeaODHeatmap items={items} />
+          </div>
+        )}
+      </div>
+
       {globalError && (
         <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1246,15 +1434,29 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
             </div>
 
             <div className="px-5 py-4 border-b border-ltb bg-ltcard flex flex-wrap items-center justify-between gap-3">
-              <div className="font-sora text-[13px] text-ltt2">
-                Mostrando <span className="font-semibold text-ltt">{pageStart}-{pageEnd}</span> de{' '}
-                <span className="font-semibold text-ltt">{visibleItems.length}</span> modos
-                {activeFilter !== 'all' && (
-                  <span className="text-lttm"> con el filtro actual</span>
+              <div className="flex items-center gap-3">
+                {!isReadOnly && (
+                  <input
+                    type="checkbox"
+                    title="Seleccionar todos los visibles"
+                    checked={paginatedItems.length > 0 && paginatedItems.every((item) => selectedIds.has(item.id))}
+                    onChange={() => toggleSelectAll(paginatedItems.map((item) => item.id))}
+                    className="w-4 h-4 rounded border-ltb accent-brand-cyan cursor-pointer"
+                  />
                 )}
-                {searchTerm.trim().length > 0 && (
-                  <span className="text-lttm"> y la búsqueda aplicada</span>
-                )}
+                <div className="font-sora text-[13px] text-ltt2">
+                  Mostrando <span className="font-semibold text-ltt">{pageStart}-{pageEnd}</span> de{' '}
+                  <span className="font-semibold text-ltt">{visibleItems.length}</span> modos
+                  {activeFilter !== 'all' && (
+                    <span className="text-lttm"> con el filtro actual</span>
+                  )}
+                  {searchTerm.trim().length > 0 && (
+                    <span className="text-lttm"> y la búsqueda aplicada</span>
+                  )}
+                  {selectedIds.size > 0 && (
+                    <span className="text-brand-cyan font-medium"> · {selectedIds.size} seleccionados</span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1356,19 +1558,36 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                 itemRefs.current[item.id] = node;
                               }}
                               className={`rounded-[10px] border transition-colors ${
-                                isExpanded
-                                  ? 'border-cyan-border bg-[#e6f5fd]'
-                                  : item.status === 'evaluated'
-                                    ? 'border-grb bg-[#f3fbf5] hover:bg-[#eef8f1]'
-                                    : item.status === 'skipped'
-                                      ? 'border-[#d9cef8] bg-[#f7f3ff] hover:bg-[#f2edff]'
-                                      : 'border-ltb bg-ltbg hover:bg-ltcard2'
+                                selectedIds.has(item.id)
+                                  ? 'border-cyan-border bg-cyan-dim'
+                                  : isExpanded
+                                    ? 'border-cyan-border bg-[#e6f5fd]'
+                                    : item.status === 'evaluated'
+                                      ? 'border-grb bg-[#f3fbf5] hover:bg-[#eef8f1]'
+                                      : item.status === 'skipped'
+                                        ? 'border-[#d9cef8] bg-[#f7f3ff] hover:bg-[#f2edff]'
+                                        : 'border-ltb bg-ltbg hover:bg-ltcard2'
                               }`}
                             >
+                              <div className="flex items-stretch">
+                                {!isReadOnly && (
+                                  <div
+                                    className="pl-3 flex items-center"
+                                    onClick={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIds.has(item.id)}
+                                      onChange={() => toggleSelection(item.id)}
+                                      className="w-4 h-4 rounded border-ltb accent-brand-cyan cursor-pointer"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
+                                )}
                               <button
                                 type="button"
                                 onClick={() => setExpandedItemId((current) => (current === item.id ? null : item.id))}
-                                className="w-full px-4 py-3 text-left"
+                                className="flex-1 px-4 py-3 text-left"
                               >
                                 <div className="flex flex-wrap items-center gap-3">
                                   <span className={`w-2.5 h-2.5 rounded-full ${item.status === 'pending' && item.s_default_frozen >= 9 ? 'bg-re animate-pulse' : statusMeta.dot}`} />
@@ -1394,6 +1613,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                   )}
                                 </div>
                               </button>
+                              </div>
 
                               {isExpanded && (
                                 <div className="px-4 pb-4">
@@ -1915,6 +2135,42 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 Confirmar y propagar riesgo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk action toolbar ───────────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-fadein">
+          <div className="flex items-center gap-3 bg-[#0e1c2e] border border-[#1e3a54] text-white rounded-[14px] shadow-2xl px-5 py-3">
+            <span className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8]">
+              {selectedIds.size} seleccionado{selectedIds.size > 1 ? 's' : ''}
+            </span>
+            <div className="w-px h-5 bg-[#1e3a54]" />
+            <button
+              type="button"
+              disabled={isBulkActing}
+              onClick={handleBulkSkip}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[8px] border border-[#1e3a54] bg-[#152438] text-[#94b0c8] font-sora text-[12px] font-medium hover:border-[#d9cef8] hover:text-[#d9cef8] transition-colors disabled:opacity-60"
+            >
+              {isBulkActing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Posponer seleccionados
+            </button>
+            <button
+              type="button"
+              disabled={isBulkActing}
+              onClick={handleBulkReset}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[8px] border border-[#1e3a54] bg-[#152438] text-[#94b0c8] font-sora text-[12px] font-medium hover:border-cyan-border hover:text-brand-cyan transition-colors disabled:opacity-60"
+            >
+              Restablecer a pendiente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="p-1.5 rounded-[7px] hover:bg-[#1e3a54] transition-colors text-[#94b0c8] hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

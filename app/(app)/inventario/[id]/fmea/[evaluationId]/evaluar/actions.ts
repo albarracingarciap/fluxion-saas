@@ -753,6 +753,150 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
   };
 }
 
+export async function bulkSkipFmeaItemsAction(input: {
+  aiSystemId: string;
+  evaluationId: string;
+  itemIds: string[];
+}) {
+  if (input.itemIds.length === 0) return { error: 'No hay ítems seleccionados.' };
+
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  const skippedAt = new Date().toISOString();
+
+  const { data: currentItems } = await fluxion
+    .from('fmea_items')
+    .select('id, o_value, d_real_value, s_actual, status, second_review_status')
+    .eq('evaluation_id', input.evaluationId)
+    .in('id', input.itemIds);
+
+  const { error: updateError } = await fluxion
+    .from('fmea_items')
+    .update({
+      status: 'skipped',
+      o_value: null,
+      d_real_value: null,
+      s_actual: null,
+      narrative_justification: null,
+      requires_second_review: false,
+      second_review_status: 'not_required',
+      second_reviewed_by: null,
+      second_reviewed_at: null,
+      second_review_notes: null,
+      skipped_at: skippedAt,
+    })
+    .eq('evaluation_id', input.evaluationId)
+    .in('id', input.itemIds);
+
+  if (updateError) return { error: updateError.message };
+
+  const historyRows = (currentItems ?? []).map((item) => ({
+    item_id: item.id,
+    evaluation_id: input.evaluationId,
+    organization_id: membership.organization_id,
+    actor_user_id: user.id,
+    actor_name: membership.full_name ?? null,
+    event_type: 'skipped' as const,
+    prev_o: item.o_value ?? null,
+    new_o: null,
+    prev_d: item.d_real_value ?? null,
+    new_d: null,
+    prev_s_actual: item.s_actual ?? null,
+    new_s_actual: null,
+    prev_status: item.status,
+    new_status: 'skipped',
+    prev_second_review_status: item.second_review_status ?? null,
+    new_second_review_status: 'not_required',
+    notes: null,
+  }));
+
+  if (historyRows.length > 0) {
+    await fluxion.from('fmea_item_history').insert(historyRows);
+  }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+
+  return { success: true, count: input.itemIds.length };
+}
+
+export async function bulkResetFmeaItemsAction(input: {
+  aiSystemId: string;
+  evaluationId: string;
+  itemIds: string[];
+}) {
+  if (input.itemIds.length === 0) return { error: 'No hay ítems seleccionados.' };
+
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  });
+
+  if ('error' in context) return { error: context.error };
+
+  const { fluxion, user, membership } = context;
+
+  const { data: currentItems } = await fluxion
+    .from('fmea_items')
+    .select('id, o_value, d_real_value, s_actual, status, second_review_status')
+    .eq('evaluation_id', input.evaluationId)
+    .in('id', input.itemIds);
+
+  const { error: updateError } = await fluxion
+    .from('fmea_items')
+    .update({
+      status: 'pending',
+      o_value: null,
+      d_real_value: null,
+      s_actual: null,
+      narrative_justification: null,
+      requires_second_review: false,
+      second_review_status: 'not_required',
+      second_reviewed_by: null,
+      second_reviewed_at: null,
+      second_review_notes: null,
+      skipped_at: null,
+    })
+    .eq('evaluation_id', input.evaluationId)
+    .in('id', input.itemIds);
+
+  if (updateError) return { error: updateError.message };
+
+  const historyRows = (currentItems ?? []).map((item) => ({
+    item_id: item.id,
+    evaluation_id: input.evaluationId,
+    organization_id: membership.organization_id,
+    actor_user_id: user.id,
+    actor_name: membership.full_name ?? null,
+    event_type: 'skipped' as const,
+    prev_o: item.o_value ?? null,
+    new_o: null,
+    prev_d: item.d_real_value ?? null,
+    new_d: null,
+    prev_s_actual: item.s_actual ?? null,
+    new_s_actual: null,
+    prev_status: item.status,
+    new_status: 'pending',
+    prev_second_review_status: item.second_review_status ?? null,
+    new_second_review_status: 'not_required',
+    notes: 'Restablecido a pendiente (acción masiva)',
+  }));
+
+  if (historyRows.length > 0) {
+    await fluxion.from('fmea_item_history').insert(historyRows);
+  }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
+
+  return { success: true, count: input.itemIds.length };
+}
+
 export async function recomputeFmeaZone(input: {
   aiActLevel: string | null;
   items: FmeaEditableItem[];
