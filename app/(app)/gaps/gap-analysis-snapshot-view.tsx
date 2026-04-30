@@ -45,7 +45,7 @@ export function GapAnalysisSnapshotView({
             className="inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border border-[#d7e6fb] bg-white text-[12px] font-sora text-[#56739b] hover:bg-[#f8fbff] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a análisis de gaps
+            {backHref === '/gaps/snapshots' ? 'Volver al historial' : 'Volver a análisis de gaps'}
           </Link>
           {actions}
         </div>

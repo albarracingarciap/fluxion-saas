@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 
 import { GapAnalysisPrintButton } from '../../gap-analysis-print-button'
 import { GapAnalysisSnapshotView } from '../../gap-analysis-snapshot-view'
+import { ExportCsvButton } from '../../export-csv-button'
 
 type GapAnalysisSnapshotPageProps = {
   params: { snapshotId: string }
@@ -43,13 +44,24 @@ export default async function GapAnalysisSnapshotPage({
 
   if (snapshotError || !snapshot) notFound()
 
+  const data = snapshot.payload as GapsDataResult
+
   return (
     <GapAnalysisSnapshotView
       title={snapshot.title}
-      data={snapshot.payload as GapsDataResult}
+      data={data}
       createdAt={snapshot.created_at}
       titleSuffix="snapshot"
-      actions={<GapAnalysisPrintButton />}
+      actions={
+        <div className="flex items-center gap-2 print:hidden">
+          <ExportCsvButton
+            gaps={data.gaps}
+            fileName={`gaps_snapshot_${(snapshot.id as string).slice(0, 8)}.csv`}
+          />
+          <GapAnalysisPrintButton />
+        </div>
+      }
+      backHref="/gaps/snapshots"
     />
   )
 }

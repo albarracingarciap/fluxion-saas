@@ -65,6 +65,71 @@ export async function saveGapAnalysisSnapshot() {
   }
 }
 
+export async function bulkUpdateGapAssignmentAction(input: {
+  gaps: Array<{ layer: GapLayer; id: string; systemId: string }>
+  ownerId: string | null
+  dueDate: string | null
+}): Promise<{ ok: true; updated: number } | { error: string }> {
+  const { fluxion, membership } = await assertGapWriteContext()
+
+  const assignable = input.gaps.filter((g) => canAssignLayer(g.layer))
+  if (assignable.length === 0) {
+    return { error: 'No hay gaps asignables en la selección.' }
+  }
+
+  const byLayer: Partial<Record<GapLayer, string[]>> = {}
+  for (const g of assignable) {
+    const list = byLayer[g.layer] ?? []
+    list.push(g.id)
+    byLayer[g.layer] = list
+  }
+
+  let updated = 0
+  for (const [layer, ids] of Object.entries(byLayer) as [GapLayer, string[]][]) {
+    const result = await applyGapAssignmentUpdate({
+      fluxion,
+      organizationId: membership.organization_id,
+      layer,
+      ids,
+      ownerId: input.ownerId,
+      dueDate: input.dueDate,
+    })
+    if ('error' in result) return { error: result.error ?? 'Error al actualizar gaps' }
+    updated += ids.length
+  }
+
+  const uniqueSystems = Array.from(new Set(assignable.map((g) => g.systemId)))
+  revalidatePath('/gaps')
+  for (const systemId of uniqueSystems) {
+    revalidatePath(`/inventario/${systemId}`)
+  }
+
+  return { ok: true, updated }
+}
+
+export async function deleteGapAnalysisSnapshotAction(
+  snapshotId: string
+): Promise<{ ok: true } | { error: string }> {
+  const fluxion = createFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  const { error } = await fluxion
+    .from('system_report_snapshots')
+    .delete()
+    .eq('id', snapshotId)
+    .eq('organization_id', membership.organization_id)
+    .eq('report_type', 'gap_analysis')
+    .is('ai_system_id', null)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/gaps/snapshots')
+  return { ok: true }
+}
+
 function canAssignLayer(layer: GapLayer) {
   return layer === 'normativo' || layer === 'control' || layer === 'caducidad'
 }
