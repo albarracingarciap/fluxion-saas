@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, ShieldCheck, MinusCircle, Loader2 } from 'lucide-react'
 import type { UnifiedGapRecord } from '@/lib/gaps/data'
 import { bulkSetGapDispositionAction } from './actions'
+import { GapPortal } from './gap-portal'
 
 type Props = {
   selectedGaps: UnifiedGapRecord[]
@@ -48,6 +49,7 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
 
   if (done) {
     return (
+      <GapPortal>
       <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]">
         <div className="relative w-full max-w-[440px] bg-ltcard border border-ltb rounded-[16px] shadow-[0_20px_60px_rgba(0,74,173,0.18)]">
           <div className="p-6 text-center">
@@ -70,10 +72,12 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
           </div>
         </div>
       </div>
+      </GapPortal>
     )
   }
 
   return (
+    <GapPortal>
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]">
       <div className="relative w-full max-w-[480px] bg-ltcard border border-ltb rounded-[16px] shadow-[0_20px_60px_rgba(0,74,173,0.18)]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ltb">
@@ -192,5 +196,6 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
         </div>
       </div>
     </div>
+    </GapPortal>
   )
 }

@@ -5,6 +5,7 @@ import { X, ShieldCheck, MinusCircle } from 'lucide-react'
 import type { UnifiedGapRecord } from '@/lib/gaps/data'
 import { setGapDispositionAction } from './actions'
 import { LAYER_LABELS } from './gap-ui-constants'
+import { GapPortal } from './gap-portal'
 
 type Props = {
   gap: UnifiedGapRecord
@@ -43,6 +44,7 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
   }
 
   return (
+    <GapPortal>
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]">
       <div className="relative w-full max-w-[480px] bg-ltcard border border-ltb rounded-[16px] shadow-[0_20px_60px_rgba(0,74,173,0.18)]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ltb">
@@ -155,5 +157,6 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
         </div>
       </div>
     </div>
+    </GapPortal>
   )
 }
