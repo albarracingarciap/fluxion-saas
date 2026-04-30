@@ -182,8 +182,8 @@ export function TaskDetailPanel({ task, members, systems, onClose, onUpdated, on
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-ltb bg-ltcard2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`shrink-0 font-plex text-[9px] uppercase tracking-[0.5px] px-2 py-0.5 rounded-full border ${STATUS_STYLES[task.status]}`}>
-              {TASK_STATUS_LABELS[task.status]}
+            <span className={`shrink-0 font-plex text-[9px] uppercase tracking-[0.5px] px-2 py-0.5 rounded-full border ${STATUS_STYLES[status]}`}>
+              {TASK_STATUS_LABELS[status]}
             </span>
             <span className="font-plex text-[9px] uppercase tracking-[0.5px] text-lttm bg-ltbg border border-ltb px-2 py-0.5 rounded-full shrink-0">
               {TASK_SOURCE_LABELS[task.source_type]}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Loader2, Calendar, User, Layers } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import { TASK_STATUS_LABELS, KANBAN_COLUMNS, TASK_PRIORITY_LABELS } from '@/lib/tasks/types'
@@ -168,6 +169,7 @@ type Props = {
 }
 
 export function KanbanView({ tasks: initialTasks, members, systems, currentProfileId }: Props) {
+  const router = useRouter()
   const [tasks, setTasks] = useState(initialTasks)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
@@ -367,7 +369,7 @@ export function KanbanView({ tasks: initialTasks, members, systems, currentProfi
           members={members}
           systems={systems}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {}}
+          onCreated={() => router.refresh()}
         />
       )}
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock, User } from 'lucide-react'
 import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
 import {
@@ -217,6 +218,7 @@ type Props = {
 }
 
 export function TasksView({ tasks: initialTasks, summary, members, systems, currentProfileId }: Props) {
+  const router = useRouter()
   const [tasks, setTasks] = useState(initialTasks)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | ''>('')
@@ -465,7 +467,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
           members={members}
           systems={systems}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {}}
+          onCreated={() => router.refresh()}
         />
       )}
 
