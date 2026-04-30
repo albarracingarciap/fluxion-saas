@@ -1070,6 +1070,15 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          {data.evaluation.version > 1 && (
+            <Link
+              href={`/inventario/${data.system.id}/fmea/${data.evaluation.id}/comparar`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltb2 hover:text-ltt transition-colors"
+            >
+              <ArrowRight className="w-4 h-4" />
+              Comparar versiones
+            </Link>
+          )}
           {!isReadOnly && (
             <>
               <button

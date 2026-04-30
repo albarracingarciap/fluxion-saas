@@ -609,3 +609,261 @@ export async function buildFmeaEvaluationData(params: {
     members,
   };
 }
+
+// ─── Comparativa entre versiones ─────────────────────────────────────────────
+
+export type FmeaModeComparisonRow = {
+  failure_mode_id: string;
+  failure_mode_code: string;
+  failure_mode_name: string;
+  dimension_id: string;
+  dimension_name: string;
+  dimension_order: number;
+  curr_s_actual: number | null;
+  curr_status: 'pending' | 'evaluated' | 'skipped';
+  prev_s_actual: number | null;
+  prev_status: 'pending' | 'evaluated' | 'skipped' | null;
+  delta: number | null;
+  is_new: boolean;
+  is_removed: boolean;
+};
+
+export type FmeaDimensionComparisonRow = {
+  dimension_id: string;
+  dimension_name: string;
+  dimension_order: number;
+  curr_avg_s: number | null;
+  curr_max_s: number | null;
+  prev_avg_s: number | null;
+  prev_max_s: number | null;
+  avg_delta: number | null;
+  improved: number;
+  deteriorated: number;
+  unchanged: number;
+  new_modes: number;
+};
+
+export type FmeaVersionComparisonData = {
+  system: FmeaSystemRecord;
+  currentEvaluation: FmeaEvaluationRecord;
+  previousEvaluation: FmeaEvaluationRecord;
+  modes: FmeaModeComparisonRow[];
+  dimensions: FmeaDimensionComparisonRow[];
+  summary: {
+    improved: number;
+    deteriorated: number;
+    unchanged: number;
+    new_modes: number;
+    removed_modes: number;
+    curr_zone: string | null;
+    prev_zone: string | null;
+  };
+};
+
+export async function buildFmeaVersionComparison(params: {
+  organizationId: string;
+  aiSystemId: string;
+  evaluationId: string;
+}): Promise<FmeaVersionComparisonData | null> {
+  const { organizationId, aiSystemId, evaluationId } = params;
+  const fluxion = createFluxionClient();
+  const compliance = createComplianceClient();
+
+  const { data: currentEval } = await fluxion
+    .from('fmea_evaluations')
+    .select('id, organization_id, system_id, state, evaluator_id, approver_id, approved_at, next_review_at, version, cached_zone, created_at, updated_at')
+    .eq('organization_id', organizationId)
+    .eq('system_id', aiSystemId)
+    .eq('id', evaluationId)
+    .maybeSingle<FmeaEvaluationRecord>();
+
+  const { data: system } = await fluxion
+    .from('ai_systems')
+    .select('id, name, internal_id, domain, status, aiact_risk_level, aiact_risk_reason, description, intended_use')
+    .eq('organization_id', organizationId)
+    .eq('id', aiSystemId)
+    .maybeSingle<FmeaSystemRecord>();
+
+  if (!currentEval || !system) return null;
+
+  const { data: prevEval } = await fluxion
+    .from('fmea_evaluations')
+    .select('id, organization_id, system_id, state, evaluator_id, approver_id, approved_at, next_review_at, version, cached_zone, created_at, updated_at')
+    .eq('organization_id', organizationId)
+    .eq('system_id', aiSystemId)
+    .lt('version', currentEval.version)
+    .in('state', ['superseded', 'approved'])
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle<FmeaEvaluationRecord>();
+
+  if (!prevEval) return null;
+
+  const [{ data: currItems }, { data: prevItems }] = await Promise.all([
+    fluxion
+      .from('fmea_items')
+      .select('id, failure_mode_id, s_actual, status, o_value, d_real_value')
+      .eq('evaluation_id', currentEval.id),
+    fluxion
+      .from('fmea_items')
+      .select('id, failure_mode_id, s_actual, status, o_value, d_real_value')
+      .eq('evaluation_id', prevEval.id),
+  ]);
+
+  const allFailureModeIds = Array.from(
+    new Set([
+      ...(currItems ?? []).map((i) => i.failure_mode_id),
+      ...(prevItems ?? []).map((i) => i.failure_mode_id),
+    ])
+  );
+
+  if (allFailureModeIds.length === 0) return null;
+
+  const { data: failureModes } = await compliance
+    .from('failure_modes')
+    .select('id, code, name, dimension_id, risk_dimensions(name, display_order)')
+    .in('id', allFailureModeIds);
+
+  const modeMap = new Map(
+    (failureModes ?? []).map((mode) => [
+      mode.id,
+      {
+        code: mode.code as string,
+        name: mode.name as string,
+        dimension_id: mode.dimension_id as string,
+        dimension_name: (
+          Array.isArray(mode.risk_dimensions)
+            ? mode.risk_dimensions[0]?.name
+            : (mode.risk_dimensions as { name: string } | null)?.name
+        ) ?? (mode.dimension_id as string),
+        dimension_order: (
+          Array.isArray(mode.risk_dimensions)
+            ? mode.risk_dimensions[0]?.display_order
+            : (mode.risk_dimensions as { display_order: number } | null)?.display_order
+        ) ?? 99,
+      },
+    ])
+  );
+
+  const currByMode = new Map((currItems ?? []).map((i) => [i.failure_mode_id, i]));
+  const prevByMode = new Map((prevItems ?? []).map((i) => [i.failure_mode_id, i]));
+
+  const modes: FmeaModeComparisonRow[] = [];
+
+  for (const fmId of allFailureModeIds) {
+    const catalog = modeMap.get(fmId);
+    if (!catalog) continue;
+
+    const curr = currByMode.get(fmId) ?? null;
+    const prev = prevByMode.get(fmId) ?? null;
+    const is_new = curr !== null && prev === null;
+    const is_removed = curr === null && prev !== null;
+
+    const curr_s = curr?.s_actual ?? null;
+    const prev_s = prev?.s_actual ?? null;
+    const delta =
+      curr_s !== null && prev_s !== null ? curr_s - prev_s : null;
+
+    modes.push({
+      failure_mode_id: fmId,
+      failure_mode_code: catalog.code,
+      failure_mode_name: catalog.name,
+      dimension_id: catalog.dimension_id,
+      dimension_name: catalog.dimension_name,
+      dimension_order: catalog.dimension_order,
+      curr_s_actual: curr_s,
+      curr_status: (curr?.status ?? 'pending') as 'pending' | 'evaluated' | 'skipped',
+      prev_s_actual: prev_s,
+      prev_status: prev ? (prev.status as 'pending' | 'evaluated' | 'skipped') : null,
+      delta,
+      is_new,
+      is_removed,
+    });
+  }
+
+  modes.sort((a, b) => {
+    if (a.dimension_order !== b.dimension_order) return a.dimension_order - b.dimension_order;
+    return a.failure_mode_code.localeCompare(b.failure_mode_code, 'es');
+  });
+
+  const dimensionMap = new Map<string, FmeaDimensionComparisonRow>();
+
+  for (const mode of modes) {
+    if (!dimensionMap.has(mode.dimension_id)) {
+      dimensionMap.set(mode.dimension_id, {
+        dimension_id: mode.dimension_id,
+        dimension_name: mode.dimension_name,
+        dimension_order: mode.dimension_order,
+        curr_avg_s: null,
+        curr_max_s: null,
+        prev_avg_s: null,
+        prev_max_s: null,
+        avg_delta: null,
+        improved: 0,
+        deteriorated: 0,
+        unchanged: 0,
+        new_modes: 0,
+      });
+    }
+
+    const dim = dimensionMap.get(mode.dimension_id)!;
+
+    if (mode.is_new) {
+      dim.new_modes++;
+    } else if (mode.delta !== null) {
+      if (mode.delta < 0) dim.improved++;
+      else if (mode.delta > 0) dim.deteriorated++;
+      else dim.unchanged++;
+    }
+  }
+
+  for (const [dimId, dim] of Array.from(dimensionMap.entries())) {
+    const currEvaluated = modes.filter(
+      (m) => m.dimension_id === dimId && m.curr_s_actual !== null
+    );
+    const prevEvaluated = modes.filter(
+      (m) => m.dimension_id === dimId && m.prev_s_actual !== null
+    );
+
+    dim.curr_avg_s =
+      currEvaluated.length > 0
+        ? Math.round((currEvaluated.reduce((s, m) => s + m.curr_s_actual!, 0) / currEvaluated.length) * 10) / 10
+        : null;
+    dim.curr_max_s =
+      currEvaluated.length > 0 ? Math.max(...currEvaluated.map((m) => m.curr_s_actual!)) : null;
+    dim.prev_avg_s =
+      prevEvaluated.length > 0
+        ? Math.round((prevEvaluated.reduce((s, m) => s + m.prev_s_actual!, 0) / prevEvaluated.length) * 10) / 10
+        : null;
+    dim.prev_max_s =
+      prevEvaluated.length > 0 ? Math.max(...prevEvaluated.map((m) => m.prev_s_actual!)) : null;
+
+    dim.avg_delta =
+      dim.curr_avg_s !== null && dim.prev_avg_s !== null
+        ? Math.round((dim.curr_avg_s - dim.prev_avg_s) * 10) / 10
+        : null;
+  }
+
+  const dimensions = Array.from(dimensionMap.values()).sort(
+    (a, b) => a.dimension_order - b.dimension_order
+  );
+
+  const summary = {
+    improved: modes.filter((m) => m.delta !== null && m.delta < 0).length,
+    deteriorated: modes.filter((m) => m.delta !== null && m.delta > 0).length,
+    unchanged: modes.filter((m) => m.delta === 0).length,
+    new_modes: modes.filter((m) => m.is_new).length,
+    removed_modes: modes.filter((m) => m.is_removed).length,
+    curr_zone: currentEval.cached_zone,
+    prev_zone: prevEval.cached_zone,
+  };
+
+  return {
+    system,
+    currentEvaluation: currentEval,
+    previousEvaluation: prevEval,
+    modes,
+    dimensions,
+    summary,
+  };
+}
