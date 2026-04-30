@@ -6,8 +6,10 @@ import {
   CalendarClock,
   ClipboardList,
   FileWarning,
+  Info,
   ShieldAlert,
 } from 'lucide-react'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { getAppAuthState } from '@/lib/auth/app-state'
 import {
   buildGapsData,
@@ -163,7 +165,13 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
     redirect('/onboarding')
   }
 
-  const data = await buildGapsData(membership.organization_id)
+  const fluxion = createFluxionClient()
+  const [data, currentProfileRes] = await Promise.all([
+    buildGapsData(membership.organization_id),
+    fluxion.from('profiles').select('id').eq('user_id', user.id).single(),
+  ])
+  const currentProfileId = currentProfileRes.data?.id ?? null
+
   const currentParams = new URLSearchParams()
 
   const severityFilter = getSingleSearchParam(searchParams?.severity) as GapSeverity | null
@@ -179,6 +187,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
   const requestedPage = Number.parseInt(getSingleSearchParam(searchParams?.page) ?? '1', 10)
   const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const focusId = getSingleSearchParam(searchParams?.focus)
+  const mineOnly = getSingleSearchParam(searchParams?.mine) === 'true'
 
   if (severityFilter) currentParams.set('severity', severityFilter)
   if (layerFilter) currentParams.set('layer', layerFilter)
@@ -187,6 +196,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
   if (unassignedOnly) currentParams.set('unassigned', 'true')
   if (noDueDateOnly) currentParams.set('no_due_date', 'true')
   if (dueSoonOnly) currentParams.set('due_soon', 'true')
+  if (mineOnly) currentParams.set('mine', 'true')
   if (viewMode !== 'hybrid') currentParams.set('view', viewMode)
   if (currentPage > 1) currentParams.set('page', String(currentPage))
 
@@ -203,6 +213,10 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
       (!gap.overdue && typeof gap.days_until_due === 'number' && gap.days_until_due <= 7)
   ).length
 
+  const myGapsCount = currentProfileId
+    ? data.gaps.filter((gap) => gap.owner_id === currentProfileId).length
+    : 0
+
   const filteredGaps = data.gaps.filter((gap) => {
     if (severityFilter && gap.severity !== severityFilter) return false
     if (layerFilter && gap.layer !== layerFilter) return false
@@ -210,6 +224,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
     if (overdueOnly && !gap.overdue) return false
     if (unassignedOnly && gap.owner_id) return false
     if (noDueDateOnly && gap.due_date) return false
+    if (mineOnly && gap.owner_id !== currentProfileId) return false
     if (
       dueSoonOnly &&
       (gap.overdue || typeof gap.days_until_due !== 'number' || gap.days_until_due > 7)
@@ -410,10 +425,31 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
         </section>
 
         <section className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
-          <div className="px-5 py-4 border-b border-ltb bg-ltcard2">
+          <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center gap-2">
             <h2 className="font-plex text-[11px] uppercase tracking-[0.9px] text-ltt2">
               Exposición por sistema
             </h2>
+            <div className="relative group">
+              <Info size={13} className="text-lttm cursor-help" />
+              <div className="absolute left-0 bottom-full mb-2 z-10 hidden group-hover:block w-[280px] rounded-[10px] border border-ltb bg-ltcard shadow-[0_4px_20px_rgba(0,0,0,0.12)] p-3 pointer-events-none">
+                <p className="font-plex text-[9.5px] uppercase tracking-[0.7px] text-lttm mb-2">Cómo se calcula</p>
+                <div className="space-y-1.5 font-sora text-[11px] text-ltt2">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 font-plex text-[9px] uppercase tracking-[0.5px] px-1.5 py-0.5 rounded bg-red-dim text-re border border-reb">Correctiva</span>
+                    <span>Gaps normativos críticos ×15 (máx 45) + altos ×8 (máx 24) + controles pendientes ×3 (máx 15)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 font-plex text-[9px] uppercase tracking-[0.5px] px-1.5 py-0.5 rounded bg-ordim text-or border border-orb">FMEA</span>
+                    <span>Modos S=9 ×15 + S=8 ×8 + S=7 ×4 (máx 60)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 font-plex text-[9px] uppercase tracking-[0.5px] px-1.5 py-0.5 rounded bg-[#f4f0fb] text-[#6b3bbf] border border-[#c2a8e8]">Preventiva</span>
+                    <span>Evidencias expiradas ×5 + ≤14d ×5 + 15-30d ×2 (máx 15)</span>
+                  </div>
+                  <p className="text-lttm mt-1 pt-1 border-t border-ltb">Suma de las tres presiones, cap a 100.</p>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="p-5 flex flex-col gap-4">
             <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">
@@ -521,11 +557,19 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                 !unassignedOnly &&
                 !noDueDateOnly &&
                 !dueSoonOnly &&
+                !mineOnly &&
                 !layerFilter &&
                 !systemFilter
               }
               label={`Todos (${data.summary.total})`}
             />
+            {currentProfileId && (
+              <FilterChip
+                href={buildGapFilterHref(currentParams, 'mine', 'true', { toggle: true })}
+                active={mineOnly}
+                label={`Mis gaps (${myGapsCount})`}
+              />
+            )}
             <FilterChip
               href={buildGapFilterHref(currentParams, 'severity', 'critico', { toggle: true })}
               active={severityFilter === 'critico'}
