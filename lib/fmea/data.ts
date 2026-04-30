@@ -5,6 +5,25 @@ import { createClient } from '@/lib/supabase/server';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 
+export type FmeaItemHistoryEntry = {
+  id: string;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  event_type: 'evaluated' | 'skipped' | 'second_review_approved' | 'second_review_rejected';
+  prev_o: number | null;
+  new_o: number | null;
+  prev_d: number | null;
+  new_d: number | null;
+  prev_s_actual: number | null;
+  new_s_actual: number | null;
+  prev_status: string | null;
+  new_status: string | null;
+  prev_second_review_status: string | null;
+  new_second_review_status: string | null;
+  notes: string | null;
+  changed_at: string;
+};
+
 export type FmeaEvaluationItemRecord = {
   id: string;
   evaluation_id: string;
@@ -50,6 +69,7 @@ export type FmeaEvaluationItemRecord = {
   linked_task_status: string | null;
   linked_task_assignee_name: string | null;
   linked_task_due_date: string | null;
+  history: FmeaItemHistoryEntry[];
 };
 
 export type FmeaEvaluationRecord = {
@@ -334,7 +354,7 @@ export async function buildFmeaEvaluationData(params: {
   const seedStrategy: 'prioritized' | 'all_activated' =
     prioritizedCount > 0 ? 'prioritized' : 'all_activated';
 
-  const [{ data: linkedTasks }, { data: orgMembers }] = await Promise.all([
+  const [{ data: linkedTasks }, { data: orgMembers }, { data: historyRows }] = await Promise.all([
     itemIds.length > 0
       ? fluxion
           .from('tasks')
@@ -348,7 +368,39 @@ export async function buildFmeaEvaluationData(params: {
       .select('user_id, full_name, role')
       .eq('organization_id', organizationId)
       .order('full_name', { ascending: true, nullsFirst: false }),
+    itemIds.length > 0
+      ? fluxion
+          .from('fmea_item_history')
+          .select('id, item_id, actor_user_id, actor_name, event_type, prev_o, new_o, prev_d, new_d, prev_s_actual, new_s_actual, prev_status, new_status, prev_second_review_status, new_second_review_status, notes, changed_at')
+          .eq('evaluation_id', evaluationId)
+          .order('changed_at', { ascending: false })
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
   ]);
+
+  const historyByItemId = new Map<string, FmeaItemHistoryEntry[]>();
+  for (const row of (historyRows ?? []) as Array<Record<string, unknown>>) {
+    const itemId = row.item_id as string;
+    const bucket = historyByItemId.get(itemId) ?? [];
+    bucket.push({
+      id: row.id as string,
+      actor_user_id: row.actor_user_id as string | null,
+      actor_name: row.actor_name as string | null,
+      event_type: row.event_type as FmeaItemHistoryEntry['event_type'],
+      prev_o: row.prev_o as number | null,
+      new_o: row.new_o as number | null,
+      prev_d: row.prev_d as number | null,
+      new_d: row.new_d as number | null,
+      prev_s_actual: row.prev_s_actual as number | null,
+      new_s_actual: row.new_s_actual as number | null,
+      prev_status: row.prev_status as string | null,
+      new_status: row.new_status as string | null,
+      prev_second_review_status: row.prev_second_review_status as string | null,
+      new_second_review_status: row.new_second_review_status as string | null,
+      notes: row.notes as string | null,
+      changed_at: row.changed_at as string,
+    });
+    historyByItemId.set(itemId, bucket);
+  }
 
   const tasksByItemId = new Map(
     (linkedTasks ?? []).map((task) => [
@@ -533,6 +585,7 @@ export async function buildFmeaEvaluationData(params: {
         linked_task_status: tasksByItemId.get(item.id)?.status ?? null,
         linked_task_assignee_name: tasksByItemId.get(item.id)?.assignee_name ?? null,
         linked_task_due_date: tasksByItemId.get(item.id)?.due_date ?? null,
+        history: historyByItemId.get(item.id) ?? [],
       };
     })
     .filter((item): item is FmeaEvaluationItemRecord => item !== null)

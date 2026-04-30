@@ -11,13 +11,14 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  Clock,
   ExternalLink,
   Loader2,
   Save,
   UserPlus,
 } from 'lucide-react';
 
-import type { FmeaEvaluationData, FmeaEvaluationItemRecord } from '@/lib/fmea/data';
+import type { FmeaEvaluationData, FmeaEvaluationItemRecord, FmeaItemHistoryEntry } from '@/lib/fmea/data';
 import type { TaskPriority } from '@/lib/tasks/types';
 import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '@/lib/tasks/types';
 import {
@@ -107,6 +108,94 @@ const TASK_STATUS_PILL: Record<string, string> = {
   done:        'bg-grdim border-grb text-gr',
   cancelled:   'bg-ltcard2 border-ltb text-lttm',
 };
+
+const HISTORY_EVENT_META: Record<FmeaItemHistoryEntry['event_type'], { label: string; dot: string }> = {
+  evaluated:               { label: 'Confirmado',          dot: 'bg-gr' },
+  skipped:                 { label: 'Pospuesto',           dot: 'bg-[#7c5cff]' },
+  second_review_approved:  { label: '2ª revisión aprobada', dot: 'bg-gr' },
+  second_review_rejected:  { label: '2ª revisión rechazada', dot: 'bg-re' },
+};
+
+function formatHistoryDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+function ItemHistoryTimeline({ history }: { history: FmeaItemHistoryEntry[] }) {
+  if (history.length === 0) {
+    return (
+      <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed">
+        Aún no hay cambios registrados para este modo de fallo.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {history.map((entry) => {
+        const meta = HISTORY_EVENT_META[entry.event_type];
+        const hasValueDelta =
+          entry.prev_o !== entry.new_o ||
+          entry.prev_d !== entry.new_d ||
+          entry.prev_s_actual !== entry.new_s_actual;
+
+        return (
+          <div key={entry.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+              <span className="w-px flex-1 bg-ltb mt-1" />
+            </div>
+            <div className="pb-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-sora text-[12.5px] font-medium text-ltt">{meta.label}</span>
+                <span className="font-plex text-[10.5px] text-lttm">
+                  {entry.actor_name ?? 'Usuario'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <Clock className="w-3 h-3 text-lttm shrink-0" />
+                <span className="font-plex text-[10.5px] text-lttm">{formatHistoryDate(entry.changed_at)}</span>
+              </div>
+              {hasValueDelta && (
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {entry.prev_o !== entry.new_o && entry.new_o !== null && (
+                    <span className="inline-flex items-center gap-1 font-plex text-[10.5px] text-ltt2 bg-ltbg border border-ltb px-2 py-0.5 rounded-[6px]">
+                      O: <span className="text-lttm line-through">{entry.prev_o ?? '—'}</span>
+                      <span className="text-ltt font-medium">→ {entry.new_o}</span>
+                    </span>
+                  )}
+                  {entry.prev_d !== entry.new_d && entry.new_d !== null && (
+                    <span className="inline-flex items-center gap-1 font-plex text-[10.5px] text-ltt2 bg-ltbg border border-ltb px-2 py-0.5 rounded-[6px]">
+                      D: <span className="text-lttm line-through">{entry.prev_d ?? '—'}</span>
+                      <span className="text-ltt font-medium">→ {entry.new_d}</span>
+                    </span>
+                  )}
+                  {entry.prev_s_actual !== entry.new_s_actual && entry.new_s_actual !== null && (
+                    <span className="inline-flex items-center gap-1 font-plex text-[10.5px] text-ltt2 bg-ltbg border border-ltb px-2 py-0.5 rounded-[6px]">
+                      S: <span className="text-lttm line-through">{entry.prev_s_actual ?? '—'}</span>
+                      <span className="text-ltt font-medium">→ {entry.new_s_actual}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {entry.notes && (
+                <div className="mt-1.5 font-sora text-[12px] text-ltt2 leading-relaxed line-clamp-3">
+                  {entry.notes}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 type DelegateTaskSectionProps = {
   item: EditableItemState;
@@ -1735,6 +1824,14 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-2 flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
+                    Historial de cambios
+                  </div>
+                  <ItemHistoryTimeline history={selectedItem.history} />
                 </div>
               </>
             )}

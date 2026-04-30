@@ -112,7 +112,7 @@ async function requireEditableEvaluation(params: { aiSystemId: string; evaluatio
 
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, full_name')
     .eq('user_id', user.id)
     .single();
 
@@ -151,7 +151,7 @@ export async function saveFmeaItem(input: SaveFmeaItemInput) {
 
   const { data: item, error: itemError } = await fluxion
     .from('fmea_items')
-    .select('id, failure_mode_id, s_default_frozen')
+    .select('id, failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, status, second_review_status')
     .eq('evaluation_id', input.evaluationId)
     .eq('id', input.itemId)
     .maybeSingle();
@@ -258,6 +258,26 @@ export async function saveFmeaItem(input: SaveFmeaItemInput) {
       },
     },
   ]);
+
+  await fluxion.from('fmea_item_history').insert({
+    item_id: input.itemId,
+    evaluation_id: input.evaluationId,
+    organization_id: membership.organization_id,
+    actor_user_id: user.id,
+    actor_name: membership.full_name ?? null,
+    event_type: input.status === 'skipped' ? 'skipped' : 'evaluated',
+    prev_o: item.o_value ?? null,
+    new_o: input.status === 'evaluated' ? (normalizedOValue ?? null) : null,
+    prev_d: item.d_real_value ?? null,
+    new_d: input.status === 'evaluated' ? (normalizedDRealValue ?? null) : null,
+    prev_s_actual: item.s_actual ?? null,
+    new_s_actual: input.status === 'evaluated' ? (input.sActual ?? null) : null,
+    prev_status: item.status,
+    new_status: input.status,
+    prev_second_review_status: item.second_review_status ?? null,
+    new_second_review_status: input.status === 'evaluated' && requiresSecond ? 'pending' : 'not_required',
+    notes: input.justification?.trim() || null,
+  });
 
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
   revalidatePath(`/inventario/${input.aiSystemId}`);
@@ -827,7 +847,7 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 
   const { data: item, error: itemError } = await fluxion
     .from('fmea_items')
-    .select('id, failure_mode_id, status, requires_second_review')
+    .select('id, failure_mode_id, status, requires_second_review, second_review_status')
     .eq('evaluation_id', input.evaluationId)
     .eq('id', input.itemId)
     .maybeSingle();
@@ -888,6 +908,18 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
       },
     },
   ]);
+
+  await fluxion.from('fmea_item_history').insert({
+    item_id: input.itemId,
+    evaluation_id: input.evaluationId,
+    organization_id: membership.organization_id,
+    actor_user_id: user.id,
+    actor_name: membership.full_name ?? null,
+    event_type: input.decision === 'approved' ? 'second_review_approved' : 'second_review_rejected',
+    prev_second_review_status: item.second_review_status ?? null,
+    new_second_review_status: input.decision,
+    notes: notes,
+  });
 
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
   revalidatePath(`/inventario/${input.aiSystemId}`);
