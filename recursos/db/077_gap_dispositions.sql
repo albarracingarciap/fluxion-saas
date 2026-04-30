@@ -39,32 +39,38 @@ CREATE POLICY "gap_dispositions_select" ON fluxion.gap_dispositions
     )
   );
 
--- admin / editor / dpo / technical pueden crear
+-- Roles operativos pueden crear dispositions
 CREATE POLICY "gap_dispositions_insert" ON fluxion.gap_dispositions
   FOR INSERT WITH CHECK (
     organization_id IN (
       SELECT organization_id FROM fluxion.profiles
        WHERE user_id = auth.uid()
-         AND role IN ('admin', 'editor', 'dpo', 'technical')
+         AND role IN (
+           'org_admin', 'sgai_manager', 'caio', 'dpo',
+           'system_owner', 'risk_analyst', 'compliance_analyst'
+         )
     )
   );
 
--- admin / editor / dpo / technical pueden actualizar
+-- Roles operativos pueden actualizar dispositions
 CREATE POLICY "gap_dispositions_update" ON fluxion.gap_dispositions
   FOR UPDATE USING (
     organization_id IN (
       SELECT organization_id FROM fluxion.profiles
        WHERE user_id = auth.uid()
-         AND role IN ('admin', 'editor', 'dpo', 'technical')
+         AND role IN (
+           'org_admin', 'sgai_manager', 'caio', 'dpo',
+           'system_owner', 'risk_analyst', 'compliance_analyst'
+         )
     )
   );
 
--- Solo admin / editor pueden eliminar (revertir)
+-- Solo roles de gobernanza pueden eliminar (revertir)
 CREATE POLICY "gap_dispositions_delete" ON fluxion.gap_dispositions
   FOR DELETE USING (
     organization_id IN (
       SELECT organization_id FROM fluxion.profiles
        WHERE user_id = auth.uid()
-         AND role IN ('admin', 'editor')
+         AND role IN ('org_admin', 'sgai_manager', 'caio')
     )
   );
