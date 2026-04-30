@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, BarChart3, CheckCircle2, ChevronRight, ClipboardCheck, ExternalLink, FileUp, Link2, Link2Off, ListTodo, Loader2, Save, ShieldAlert, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react';
 
-import { calculateFmeaZone, getZoneClasses, getZoneLabel } from '@/lib/fmea/domain';
+import { getZoneClasses, getZoneLabel } from '@/lib/fmea/domain';
 import type {
   TreatmentActionStatus,
   TreatmentOption,
@@ -13,7 +13,24 @@ import type {
   TreatmentPlanData,
 } from '@/lib/fmea/treatment-plan';
 import type { TaskStatus } from '@/lib/tasks/types';
-import { TASK_STATUS_LABELS } from '@/lib/tasks/types';
+import {
+  buildInitialActions,
+  getComparableActionSignature,
+  getDaysFromToday,
+  getOptionLabel,
+  getProjectedSeverity,
+  getProjectedZone,
+  getSeverityMeta,
+  type EditableTreatmentAction,
+} from '@/lib/fmea/treatment-plan-utils';
+import {
+  ACTION_STATUS_META,
+  APPROVAL_LEVEL_META,
+  DIMENSION_META,
+  OPTION_META,
+  PLAN_STATUS_META,
+} from './treatment-plan-ui-constants';
+import { TaskStatusChip } from './task-status-chip';
 
 import {
   approveTreatmentPlanAction,
@@ -28,87 +45,6 @@ import {
   uploadEvidenceForActionAction,
   updateLinkedTaskStatusAction,
 } from './actions';
-
-const OPTION_META: Record<
-  TreatmentOption,
-  {
-    label: string;
-    active: string;
-    description: string;
-  }
-> = {
-  mitigar: {
-    label: 'Mitigar',
-    active: 'bg-cyan-dim border-cyan-border text-brand-cyan',
-    description: 'Implementa un control y reduce la severidad objetivo del riesgo.',
-  },
-  aceptar: {
-    label: 'Aceptar',
-    active: 'bg-ordim border-orb text-or',
-    description: 'Asume formalmente el riesgo con justificación y revisión periódica.',
-  },
-  transferir: {
-    label: 'Transferir',
-    active: 'bg-[#f1ebff] border-[#d2c1ff] text-[#7c5cff]',
-    description: 'Traslada el riesgo a un tercero mediante contrato, SLA o instrumento equivalente.',
-  },
-  evitar: {
-    label: 'Evitar',
-    active: 'bg-red-dim border-reb text-re',
-    description: 'Elimina o rediseña el sistema para evitar la materialización del riesgo.',
-  },
-  diferir: {
-    label: 'Diferir',
-    active: 'bg-ltcard2 border-ltb text-ltt2',
-    description: 'Pospone la actuación con calendario, hitos y justificación documentada.',
-  },
-};
-
-const PLAN_STATUS_META: Record<string, { label: string; pill: string }> = {
-  draft: { label: 'Borrador', pill: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
-  in_review: { label: 'En aprobación', pill: 'bg-ordim border-orb text-or' },
-  approved: { label: 'Aprobado', pill: 'bg-grdim border-grb text-gr' },
-  in_progress: { label: 'En ejecución', pill: 'bg-[#f1ebff] border-[#d2c1ff] text-[#7c5cff]' },
-  closed: { label: 'Cerrado', pill: 'bg-grdim border-grb text-gr' },
-  superseded: { label: 'Sustituido', pill: 'bg-ltcard2 border-ltb text-lttm' },
-};
-
-const APPROVAL_LEVEL_META: Record<string, { label: string; narrative: string }> = {
-  level_1: {
-    label: 'Nivel 1',
-    narrative: 'Aprobación del responsable del SGAI',
-  },
-  level_2: {
-    label: 'Nivel 2',
-    narrative: 'Aprobación SGAI + dirección de riesgos',
-  },
-  level_3: {
-    label: 'Nivel 3',
-    narrative: 'Aprobación de alta dirección / comité',
-  },
-};
-
-const DIMENSION_META: Record<string, string> = {
-  tecnica: 'Técnica',
-  seguridad: 'Seguridad',
-  etica: 'Ética',
-  gobernanza: 'Gobernanza',
-  roi: 'ROI',
-  legal_b: 'Legal tipo B',
-};
-
-const ACTION_STATUS_META: Record<TreatmentActionStatus, { label: string; color: string; bar: string }> = {
-  pending:          { label: 'Pendiente',       color: 'text-lttm',       bar: 'bg-ltb' },
-  in_progress:      { label: 'En progreso',     color: 'text-brand-cyan', bar: 'bg-brand-cyan' },
-  evidence_pending: { label: 'Evidencia pdte.', color: 'text-or',         bar: 'bg-or' },
-  completed:        { label: 'Completada',      color: 'text-gr',         bar: 'bg-gr' },
-  accepted:         { label: 'Aceptada',        color: 'text-gr',         bar: 'bg-gr' },
-  cancelled:        { label: 'Cancelada',       color: 'text-lttm',       bar: 'bg-ltb' },
-};
-
-type EditableTreatmentAction = TreatmentPlanActionView & {
-  control_template_id: string | null;
-};
 
 function PlanProgressPanel({
   actions,
@@ -258,134 +194,6 @@ function PlanProgressPanel({
         </div>
       )}
     </div>
-  );
-}
-
-function getSeverityMeta(value: number) {
-  if (value >= 9) {
-    return {
-      label: 'Zona I',
-      pill: 'bg-red-dim border-reb text-re',
-      circle: 'border-reb bg-[#fff1ef] text-re',
-    };
-  }
-
-  if (value >= 8) {
-    return {
-      label: 'Zona II',
-      pill: 'bg-ordim border-orb text-or',
-      circle: 'border-orb bg-[#fff8ec] text-or',
-    };
-  }
-
-  return {
-    label: 'Zona III / IV',
-    pill: 'bg-cyan-dim border-cyan-border text-brand-cyan',
-    circle: 'border-cyan-border bg-[#edf8fe] text-brand-cyan',
-  };
-}
-
-function getOptionLabel(option: TreatmentOption | null) {
-  return option ? OPTION_META[option].label : 'Pendiente';
-}
-
-function getProjectedSeverity(action: EditableTreatmentAction) {
-  if (action.option === 'mitigar' && typeof action.s_residual_target === 'number') {
-    return action.s_residual_target;
-  }
-
-  return action.s_actual_at_creation;
-}
-
-function getProjectedZone(actions: EditableTreatmentAction[], aiActLevel: string | null | undefined) {
-  return calculateFmeaZone(
-    actions.map((action) => ({
-      id: action.id,
-      dimension_id: action.dimension_id,
-      s_default_frozen: action.s_default_frozen,
-      o_value: null,
-      d_real_value: null,
-      s_actual: getProjectedSeverity(action),
-      status: 'evaluated' as const,
-    })),
-    aiActLevel
-  );
-}
-
-function buildInitialActions(actions: TreatmentPlanActionView[]): EditableTreatmentAction[] {
-  return actions.map((action) => ({
-    ...action,
-    control_template_id: action.control_template_id,
-  }));
-}
-
-function getComparableActionSignature(action: EditableTreatmentAction) {
-  return JSON.stringify({
-    id: action.id,
-    option: action.option,
-    control_template_id: action.control_template_id,
-    control_id: action.control_id,
-    s_residual_target: action.s_residual_target,
-    justification: action.justification ?? '',
-    owner_id: action.owner_id,
-    due_date: action.due_date,
-    review_due_date: action.review_due_date,
-  });
-}
-
-function getDaysFromToday(dateValue: string | null) {
-  if (!dateValue) return null;
-  const today = new Date();
-  const target = new Date(`${dateValue}T00:00:00`);
-  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-const TASK_STATUS_CHIP: Record<TaskStatus, string> = {
-  todo:        'bg-ltbg border-ltb text-lttm',
-  in_progress: 'bg-cyan-dim border-cyan-border text-brand-cyan',
-  blocked:     'bg-red-dim border-reb text-re',
-  in_review:   'bg-ordim border-orb text-or',
-  done:        'bg-grdim border-grb text-gr',
-  cancelled:   'bg-ltbg border-ltb text-lttm',
-};
-
-const TASK_STATUS_OPTIONS: TaskStatus[] = ['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled'];
-
-function TaskStatusChip({
-  taskId,
-  status,
-  isUpdating,
-  onChange,
-}: {
-  taskId: string;
-  status: TaskStatus;
-  isUpdating: boolean;
-  onChange: (taskId: string, status: TaskStatus) => void;
-}) {
-  return (
-    <span
-      className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[0.5px] ${TASK_STATUS_CHIP[status]}`}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {isUpdating ? (
-        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-      ) : (
-        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
-      )}
-      <select
-        value={status}
-        onChange={(e) => onChange(taskId, e.target.value as TaskStatus)}
-        disabled={isUpdating}
-        className="bg-transparent border-0 outline-none font-plex text-[10px] uppercase tracking-[0.5px] cursor-pointer appearance-none pr-2 disabled:cursor-not-allowed"
-        style={{ color: 'inherit' }}
-      >
-        {TASK_STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s} style={{ color: '#0d1b2e', backgroundColor: '#fff', textTransform: 'none', letterSpacing: 'normal' }}>
-            {TASK_STATUS_LABELS[s]}
-          </option>
-        ))}
-      </select>
-    </span>
   );
 }
 
