@@ -2,11 +2,18 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
-import { X, Save, Trash2, Loader2, ExternalLink, XCircle, Plus, CheckCircle2 } from 'lucide-react'
+import { X, Save, Trash2, Loader2, ExternalLink, XCircle, Plus, CheckCircle2, LayoutGrid } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_SOURCE_LABELS } from '@/lib/tasks/types'
-import { updateTaskAction, deleteTaskAction } from '@/app/(app)/tareas/actions'
+import { updateTaskAction, deleteTaskAction, getTaskGapLinksAction } from '@/app/(app)/tareas/actions'
 import type { Member, System } from './CreateTaskModal'
+
+const GAP_LAYER_LABELS: Record<string, string> = {
+  normativo: 'Normativo',
+  fmea:      'FMEA',
+  control:   'Control',
+  caducidad: 'Caducidad',
+}
 
 const STATUS_STYLES: Record<TaskStatus, string> = {
   todo:        'bg-ltbg text-lttm border-ltb',
@@ -43,8 +50,11 @@ function getSourceHref(task: TaskRow): string | null {
   if ((task.source_type === 'treatment_action' || task.source_type === 'fmea_item') && task.system_id) {
     return `/inventario/${task.system_id}/fmea`
   }
-  if (task.source_type === 'gap') {
-    return task.system_id ? `/inventario/${task.system_id}` : '/gaps'
+  if (task.source_type === 'gap' && task.source_id) {
+    return `/gaps?focus=${task.source_id}`
+  }
+  if (task.source_type === 'gap_group') {
+    return '/gaps'
   }
   return null
 }
@@ -91,11 +101,23 @@ export function TaskDetailPanel({ task, members, systems, onClose, onUpdated, on
   const [saved, setSaved] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [gapLinks, setGapLinks] = useState<Array<{ gap_key: string; group_key: string | null; gap_layer: string; gap_source_id: string | null }>>([])
+  const [loadingLinks, setLoadingLinks] = useState(false)
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setShow(true))
     return () => cancelAnimationFrame(raf)
   }, [])
+
+  // Cargar vínculos de gaps para tareas-paraguas
+  useEffect(() => {
+    if (task.source_type !== 'gap_group') return
+    setLoadingLinks(true)
+    getTaskGapLinksAction(task.id).then((links) => {
+      setGapLinks(links)
+      setLoadingLinks(false)
+    })
+  }, [task.id, task.source_type])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -330,6 +352,48 @@ export function TaskDetailPanel({ task, members, systems, onClose, onUpdated, on
                 {TASK_SOURCE_LABELS[task.source_type]}
                 {task.system_name ? ` · ${task.system_name}` : ''}
               </Link>
+            </div>
+          )}
+
+          {/* Gaps cubiertos (solo para tareas-paraguas) */}
+          {task.source_type === 'gap_group' && (
+            <div>
+              <FieldLabel>
+                Gaps cubiertos
+                {gapLinks.length > 0 && (
+                  <span className="ml-1.5 font-plex text-[9px] normal-case tracking-normal text-lttm">({gapLinks.length})</span>
+                )}
+              </FieldLabel>
+              {loadingLinks ? (
+                <div className="flex items-center gap-2 font-sora text-[12px] text-lttm">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Cargando gaps…
+                </div>
+              ) : gapLinks.length === 0 ? (
+                <p className="font-sora text-[12px] text-lttm italic">Sin vínculos registrados</p>
+              ) : (
+                <div className="flex flex-col gap-1.5 mt-1">
+                  {gapLinks.map((link) => (
+                    <div key={link.gap_key} className="flex items-center justify-between gap-2 rounded-[8px] border border-ltb bg-ltbg px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-plex text-[10px] uppercase tracking-[0.5px] text-lttm truncate">
+                          {GAP_LAYER_LABELS[link.gap_layer] ?? link.gap_layer}
+                        </p>
+                        <p className="font-sora text-[11px] text-ltt2 mt-0.5 truncate">{link.gap_key}</p>
+                      </div>
+                      {link.gap_source_id && (
+                        <Link
+                          href={`/gaps?focus=${link.gap_source_id}`}
+                          className="shrink-0 inline-flex items-center gap-1 font-sora text-[10px] text-brand-cyan hover:underline"
+                        >
+                          <LayoutGrid className="w-3 h-3" />
+                          Ver
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

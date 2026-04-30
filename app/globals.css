@@ -103,4 +103,15 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Fraunces', serif;
   }
+
+  /* Highlight temporal al hacer focus en un gap desde una tarea */
+  @keyframes gap-focus-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 173, 239, 0); }
+    30%       { box-shadow: 0 0 0 4px rgba(0, 173, 239, 0.35); }
+    70%       { box-shadow: 0 0 0 2px rgba(0, 173, 239, 0.2); }
+  }
+  .gap-focus-highlight {
+    animation: gap-focus-pulse 2.5s ease-out forwards;
+    border-color: var(--cyan-border) !important;
+  }
 }

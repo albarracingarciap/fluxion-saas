@@ -17,9 +17,13 @@ import {
   type GapSeverity,
   type UnifiedGapRecord,
 } from '@/lib/gaps/data'
+import { getTasksByGapIds, type TaskGapStatus } from '@/lib/tasks/queries'
 import { GapAssignmentPanel } from './gap-assignment-panel'
 import { GapAnalysisPrintButton } from './gap-analysis-print-button'
 import { SaveGapAnalysisSnapshotButton } from './save-gap-analysis-snapshot-button'
+import { CreateGapTaskButton } from './create-gap-task-button'
+import { CreateGapGroupTasksButton } from './create-gap-group-tasks-button'
+import { GapFocusScroller } from './gap-focus-scroller'
 
 const LAYER_LABELS = {
   normativo: 'Normativo',
@@ -174,6 +178,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
     requestedView === 'groups' || requestedView === 'detail' ? requestedView : 'hybrid'
   const requestedPage = Number.parseInt(getSingleSearchParam(searchParams?.page) ?? '1', 10)
   const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
+  const focusId = getSingleSearchParam(searchParams?.focus)
 
   if (severityFilter) currentParams.set('severity', severityFilter)
   if (layerFilter) currentParams.set('layer', layerFilter)
@@ -262,6 +267,15 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
       gap.days_until_due > 14 &&
       gap.days_until_due <= 30
   )
+
+  // Obtener estado de tareas para todos los gaps visibles (cola + caducidades)
+  const allVisibleGapIds = Array.from(
+    new Set([
+      ...data.gaps.map((g) => g.id),
+      ...data.caducities.map((g) => g.id),
+    ])
+  )
+  const taskStatusMap = await getTasksByGapIds(allVisibleGapIds, membership.organization_id)
 
   return (
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
@@ -642,7 +656,12 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             ) : (
               <div className="space-y-3">
                 {filteredGroups.slice(0, 12).map((group) => (
-                  <GapGroupCard key={group.group_id} group={group} members={data.members} />
+                  <GapGroupCard
+                    key={group.group_id}
+                    group={group}
+                    members={data.members}
+                    taskStatusMap={taskStatusMap}
+                  />
                 ))}
               </div>
             )}
@@ -664,9 +683,9 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                 <span className="font-semibold text-ltt">{filteredGaps.length}</span> gaps con el filtro actual.
               </p>
             </div>
-            <SeveritySection severity="critico" items={critical} members={data.members} />
-            <SeveritySection severity="alto" items={high} members={data.members} />
-            <SeveritySection severity="medio" items={medium} members={data.members} />
+            <SeveritySection severity="critico" items={critical} members={data.members} taskStatusMap={taskStatusMap} />
+            <SeveritySection severity="alto" items={high} members={data.members} taskStatusMap={taskStatusMap} />
+            <SeveritySection severity="medio" items={medium} members={data.members} taskStatusMap={taskStatusMap} />
             {filteredGaps.length > PAGE_SIZE ? (
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <p className="font-sora text-[12px] text-lttm">
@@ -755,14 +774,15 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
 
               <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
                 <p className="font-sora text-[12px] text-ltt2">
-                  Mostrando <span className="font-semibold text-ltt">{Math.min(data.caducities.length, 10)}</span> evidencias dentro de la ventana operativa de 30 días, ordenadas por urgencia temporal.
+                  Mostrando <span className="font-semibold text-ltt">{data.caducities.length}</span> evidencias dentro de la ventana operativa de 30 días, ordenadas por urgencia temporal.
                 </p>
               </div>
 
               <div className="space-y-3">
-              {data.caducities.slice(0, 10).map((gap) => (
+              {data.caducities.map((gap) => (
                 <div
                   key={gap.key}
+                  data-gap-id={gap.id}
                   className="block rounded-[12px] border border-ltb bg-ltbg px-4 py-4 hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -820,6 +840,20 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-ltb">
+                    <CreateGapTaskButton
+                      gap={{
+                        id:           gap.id,
+                        key:          gap.key,
+                        layer:        gap.layer,
+                        systemId:     gap.system_id,
+                        title:        gap.title,
+                        contextLabel: gap.context_label,
+                        ownerId:      gap.owner_id,
+                        dueDate:      gap.due_date,
+                        severity:     gap.severity,
+                      }}
+                      initialTaskStatus={taskStatusMap[gap.id] ?? null}
+                    />
                     <Link
                       href={`/inventario/${gap.system_id}`}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard text-ltt2 font-sora text-[11px] hover:border-cyan-border hover:text-brand-cyan transition-colors"
@@ -841,6 +875,8 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
           )}
         </div>
       </section>
+
+      <GapFocusScroller focusId={focusId} />
     </div>
   )
 }
@@ -985,10 +1021,12 @@ function SeveritySection({
   severity,
   items,
   members,
+  taskStatusMap,
 }: {
   severity: GapSeverity
   items: UnifiedGapRecord[]
   members: GapAssignableMember[]
+  taskStatusMap: Record<string, TaskGapStatus | null>
 }) {
   const meta = SEVERITY_META[severity]
   const layerBreakdown = (['normativo', 'fmea', 'control', 'caducidad'] as GapLayer[])
@@ -1024,7 +1062,12 @@ function SeveritySection({
       ) : (
         <div className="space-y-3">
           {items.map((gap) => (
-            <GapCard key={gap.key} gap={gap} members={members} />
+            <GapCard
+              key={gap.key}
+              gap={gap}
+              members={members}
+              taskStatus={taskStatusMap[gap.id] ?? null}
+            />
           ))}
         </div>
       )}
@@ -1048,12 +1091,17 @@ function getGapSecondaryLabel(gap: UnifiedGapRecord) {
 function GapCard({
   gap,
   members,
+  taskStatus,
 }: {
   gap: UnifiedGapRecord
   members: GapAssignableMember[]
+  taskStatus: TaskGapStatus | null
 }) {
   return (
-    <div className="rounded-[12px] border border-ltb bg-ltcard hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all">
+    <div
+      data-gap-id={gap.id}
+      className="rounded-[12px] border border-ltb bg-ltcard hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all"
+    >
       <div className="flex items-stretch gap-0">
         <div className={`w-1 shrink-0 rounded-l-[12px] ${LAYER_META[gap.layer].bar}`} />
         <div className="flex-1 px-4 py-4 min-w-0">
@@ -1165,6 +1213,22 @@ function GapCard({
                 currentOwnerId={gap.owner_id}
                 currentDueDate={gap.due_date}
               />
+              {gap.layer !== 'fmea' && (
+                <CreateGapTaskButton
+                  gap={{
+                    id:           gap.id,
+                    key:          gap.key,
+                    layer:        gap.layer,
+                    systemId:     gap.system_id,
+                    title:        gap.title,
+                    contextLabel: gap.context_label,
+                    ownerId:      gap.owner_id,
+                    dueDate:      gap.due_date,
+                    severity:     gap.severity,
+                  }}
+                  initialTaskStatus={taskStatus}
+                />
+              )}
               <Link
                 href={getGapSecondaryHref(gap)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltbg text-ltt2 font-sora text-[11px] hover:border-cyan-border hover:text-brand-cyan transition-colors"
@@ -1189,9 +1253,11 @@ function GapCard({
 function GapGroupCard({
   group,
   members,
+  taskStatusMap,
 }: {
   group: GapGroupRecord
   members: GapAssignableMember[]
+  taskStatusMap: Record<string, TaskGapStatus | null>
 }) {
   const sampleChildren = group.children.slice(0, 3)
   const isAssignableLayer = group.layer === 'normativo' || group.layer === 'control' || group.layer === 'caducidad'
@@ -1203,6 +1269,18 @@ function GapGroupCard({
     group.children.length > 0 && group.children.every((child) => child.due_date === group.children[0]?.due_date)
       ? (group.children[0]?.due_date ?? null)
       : null
+
+  // Estado de tarea de grupo: buscar si algún child está cubierto por una tarea-paraguas de este grupo
+  const initialGroupTaskStatus =
+    group.children
+      .map((child) => taskStatusMap[child.id])
+      .find((s): s is TaskGapStatus => s?.kind === 'group' && s?.groupKey === group.group_id) ?? null
+
+  // Mapa de estados por gap individual para el botón de grupo
+  const initialGapTaskStatuses: Record<string, TaskGapStatus | null> = {}
+  for (const child of group.children) {
+    initialGapTaskStatuses[child.id] = taskStatusMap[child.id] ?? null
+  }
 
   return (
     <div className="rounded-[12px] border border-ltb bg-ltcard hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all">
@@ -1261,6 +1339,14 @@ function GapGroupCard({
                 currentDueDate={currentDueDate}
               />
             ) : null}
+            {group.layer !== 'fmea' && (
+              <CreateGapGroupTasksButton
+                group={group}
+                members={members}
+                initialGroupTaskStatus={initialGroupTaskStatus}
+                initialGapTaskStatuses={initialGapTaskStatuses}
+              />
+            )}
             {group.system_ids[0] ? (
               <Link
                 href={`/inventario/${group.system_ids[0]}`}

@@ -118,17 +118,36 @@ export async function deleteTaskAction(taskId: string): Promise<{ ok: true } | {
   return { ok: true }
 }
 
-// Crea una tarea vinculada a un gap específico
+// Crea una tarea vinculada a un gap individual (idempotente por source_id)
 export async function createGapTaskAction(params: {
   gapId: string
+  gapKey: string
+  gapLayer: string
   systemId: string
   title: string
   description?: string
   assigneeId?: string
   dueDate?: string
   priority?: 'low' | 'medium' | 'high' | 'critical'
-}): Promise<{ id: string } | { error: string }> {
-  return createTaskAction({
+}): Promise<{ taskId: string; created: boolean } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  // Idempotencia: si ya existe una tarea activa para este gap, devolverla
+  const { data: existing } = await fluxion
+    .from('tasks')
+    .select('id, status')
+    .eq('source_type', 'gap')
+    .eq('source_id', params.gapId)
+    .eq('organization_id', ctx.organizationId)
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
+  if (existing) return { taskId: existing.id, created: false }
+
+  const result = await createTaskAction({
     systemId:    params.systemId,
     title:       params.title,
     description: params.description,
@@ -137,8 +156,117 @@ export async function createGapTaskAction(params: {
     sourceId:    params.gapId,
     assigneeId:  params.assigneeId,
     dueDate:     params.dueDate,
-    tags:        ['gap'],
+    tags:        ['gap', params.gapLayer],
   })
+
+  if ('error' in result) return result
+
+  revalidatePath('/gaps')
+  return { taskId: result.id, created: true }
+}
+
+// Crea una tarea-paraguas para un grupo de gaps (idempotente por group_key)
+export async function createGapGroupTaskAction(params: {
+  groupId: string
+  groupTitle: string
+  groupLayer: string
+  gaps: Array<{
+    id: string
+    key: string
+    layer: string
+    systemId: string
+  }>
+  severityMax: 'critico' | 'alto' | 'medio'
+  assigneeId?: string
+  dueDate?: string
+}): Promise<{ taskId: string; created: boolean } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  // Idempotencia: si ya existe task_gap_links con este group_key, buscar la tarea activa
+  const { data: existingLinks } = await fluxion
+    .from('task_gap_links')
+    .select('task_id')
+    .eq('group_key', params.groupId)
+    .limit(1)
+
+  if (existingLinks && existingLinks.length > 0) {
+    const existingTaskId = existingLinks[0].task_id
+    const { data: existingTask } = await fluxion
+      .from('tasks')
+      .select('id, status')
+      .eq('id', existingTaskId)
+      .neq('status', 'cancelled')
+      .maybeSingle()
+
+    if (existingTask) return { taskId: existingTask.id, created: false }
+  }
+
+  const priorityMap = { critico: 'critical', alto: 'high', medio: 'medium' } as const
+  const priority = priorityMap[params.severityMax]
+
+  // Determinar system_id: usar si todos los gaps son del mismo sistema
+  const uniqueSystems = Array.from(new Set(params.gaps.map((g) => g.systemId)))
+  const systemId = uniqueSystems.length === 1 ? uniqueSystems[0] : null
+
+  // Determinar assigneeId del perfil (la action necesita profile.id)
+  let resolvedAssigneeId: string | undefined = params.assigneeId
+
+  const description = [
+    `Tarea-paraguas que cubre ${params.gaps.length} gaps de capa ${params.groupLayer}.`,
+    '',
+    'Gaps incluidos:',
+    ...params.gaps.map((g) => `- ${g.key} (${g.layer})`),
+  ].join('\n')
+
+  const result = await createTaskAction({
+    systemId,
+    title:       params.groupTitle,
+    description,
+    priority,
+    sourceType:  'gap_group',
+    sourceId:    null,
+    assigneeId:  resolvedAssigneeId,
+    dueDate:     params.dueDate,
+    tags:        ['gap-group', params.groupLayer],
+  })
+
+  if ('error' in result) return result
+
+  // Insertar vínculos gap ↔ tarea
+  const taskId = result.id
+  const links = params.gaps.map((g) => ({
+    task_id:       taskId,
+    gap_key:       g.key,
+    group_key:     params.groupId,
+    gap_layer:     g.layer,
+    gap_source_id: g.id,
+  }))
+
+  const { error: linksError } = await fluxion.from('task_gap_links').insert(links)
+  if (linksError) {
+    // Si fallan los vínculos, eliminar la tarea para no dejarla huérfana
+    await fluxion.from('tasks').delete().eq('id', taskId)
+    return { error: `Error al crear vínculos: ${linksError.message}` }
+  }
+
+  revalidatePath('/gaps')
+  revalidatePath('/tareas')
+  return { taskId, created: true }
+}
+
+// Server action que devuelve los vínculos de una tarea gap_group (para TaskDetailPanel)
+export async function getTaskGapLinksAction(
+  taskId: string
+): Promise<Array<{ gap_key: string; group_key: string | null; gap_layer: string; gap_source_id: string | null }>> {
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('task_gap_links')
+    .select('gap_key, group_key, gap_layer, gap_source_id')
+    .eq('task_id', taskId)
+  return data ?? []
 }
 
 // Crea una tarea vinculada a una evaluación
