@@ -1,13 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowRight, ShieldOff } from 'lucide-react'
 
 import type { UnifiedGapRecord, GapAssignableMember } from '@/lib/gaps/data'
 import type { TaskGapStatus } from '@/lib/tasks/queries'
 
 import { GapAssignmentPanel } from './gap-assignment-panel'
 import { CreateGapTaskButton } from './create-gap-task-button'
+import { GapDispositionModal } from './gap-disposition-modal'
 import { LAYER_META, LAYER_LABELS, SEVERITY_META } from './gap-ui-constants'
 
 function getGapSecondaryHref(gap: UnifiedGapRecord) {
@@ -31,9 +34,22 @@ type GapCardProps = {
 }
 
 export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: GapCardProps) {
+  const router = useRouter()
   const selectable = onToggleSelect !== undefined && gap.layer !== 'fmea'
+  const [showDispose, setShowDispose] = useState(false)
 
   return (
+    <>
+    {showDispose && (
+      <GapDispositionModal
+        gap={gap}
+        onClose={() => setShowDispose(false)}
+        onSuccess={() => {
+          setShowDispose(false)
+          router.refresh()
+        }}
+      />
+    )}
     <div
       data-gap-id={gap.id}
       className={`rounded-[12px] border bg-ltcard hover:border-cyan-border hover:shadow-[0_4px_16px_rgba(0,74,173,0.08)] transition-all ${selected ? 'border-brand-cyan bg-cyan-dim2' : 'border-ltb'}`}
@@ -185,6 +201,15 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
               >
                 {getGapSecondaryLabel(gap)}
               </Link>
+              <button
+                type="button"
+                onClick={() => setShowDispose(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltbg text-lttm font-sora text-[11px] hover:border-ltbl hover:text-ltt transition-colors"
+                title="Marcar como aceptado o no aplicable"
+              >
+                <ShieldOff size={12} />
+                Excluir
+              </button>
               <Link
                 href={gap.detail_url}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-transparent bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[11px] hover:-translate-y-px transition-all"
@@ -197,5 +222,6 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
         </div>
       </div>
     </div>
+    </>
   )
 }

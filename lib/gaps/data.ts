@@ -122,11 +122,41 @@ type GapOrganizationMemberRow = {
   full_name: string | null
 }
 
+type GapDispositionRow = {
+  id: string
+  gap_key: string
+  gap_layer: string
+  gap_source_id: string
+  disposition: 'accepted' | 'not_applicable'
+  rationale: string
+  decided_by: string | null
+  decided_at: string
+  expires_at: string | null
+}
+
 export type GapAssignableMember = {
   id: string
   full_name: string
   role: string
 }
+
+export type GapDispositionType = 'accepted' | 'not_applicable'
+
+export type GapDispositionRecord = {
+  id: string
+  gap_key: string
+  gap_layer: GapLayer
+  gap_source_id: string
+  disposition: GapDispositionType
+  rationale: string
+  decided_by: string | null
+  decided_by_name: string | null
+  decided_at: string
+  expires_at: string | null
+  expired: boolean
+}
+
+export type ExcludedGapRecord = UnifiedGapRecord & { disposition: GapDispositionRecord }
 
 export type GapCausalAmplifier = {
   failure_mode_id: string;
@@ -202,6 +232,7 @@ export type GapGroupRecord = {
 
 export type GapsDataResult = {
   gaps: UnifiedGapRecord[]
+  excluded: ExcludedGapRecord[]
   groups: GapGroupRecord[]
   members: GapAssignableMember[]
   grouping: GapGroupingMeta
@@ -213,6 +244,7 @@ export type GapsDataResult = {
     by_layer: Record<GapLayer, number>
     systems_affected: number
     total_systems: number
+    excluded_count: number
   }
   exposure: GapExposureSystem[]
   caducities: UnifiedGapRecord[]
@@ -284,6 +316,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     evaluationsResult,
     plansResult,
     membersResult,
+    dispositionsResult,
   ] = await Promise.all([
     fluxion
       .from('ai_systems')
@@ -311,6 +344,10 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       .from('profiles')
       .select('user_id, role, full_name')
       .eq('organization_id', organizationId),
+    fluxion
+      .from('gap_dispositions')
+      .select('id, gap_key, gap_layer, gap_source_id, disposition, rationale, decided_by, decided_at, expires_at')
+      .eq('organization_id', organizationId),
   ])
 
   if (systemsResult.error) {
@@ -326,6 +363,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const evaluations = (evaluationsResult.data ?? []) as GapEvaluationRow[]
   const plans = (plansResult.data ?? []) as GapPlanRow[]
   const members = (membersResult.data ?? []) as GapOrganizationMemberRow[]
+  const dispositions = (dispositionsResult.data ?? []) as GapDispositionRow[]
 
   const latestEvaluationBySystem = new Map<string, GapEvaluationRow>()
   for (const row of [...evaluations]
@@ -396,6 +434,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
         ...evidences.map((row) => row.owner_user_id),
         ...treatmentActions.map((row) => row.owner_id),
         ...controls.map((row) => row.owner_id),
+        ...dispositions.map((row) => row.decided_by),
       ].filter((value): value is string => typeof value === 'string' && value.length > 0)
     )
   )
@@ -713,6 +752,27 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     })
   }
 
+  const activeDispositionMap = new Map<string, GapDispositionRecord>()
+  for (const row of dispositions) {
+    const expired = row.expires_at ? new Date(row.expires_at) <= now : false
+    if (!expired) {
+      const profile = profileMap.get(row.decided_by ?? '')
+      activeDispositionMap.set(row.gap_key, {
+        id: row.id,
+        gap_key: row.gap_key,
+        gap_layer: row.gap_layer as GapLayer,
+        gap_source_id: row.gap_source_id,
+        disposition: row.disposition,
+        rationale: row.rationale,
+        decided_by: row.decided_by,
+        decided_by_name: profile?.full_name?.trim() ?? null,
+        decided_at: row.decided_at,
+        expires_at: row.expires_at,
+        expired: false,
+      })
+    }
+  }
+
   const orderedGaps = [...gaps].sort((a, b) => {
     if (getSeverityRank(b.severity) !== getSeverityRank(a.severity)) {
       return getSeverityRank(b.severity) - getSeverityRank(a.severity)
@@ -731,19 +791,24 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
 
     return b.created_at.localeCompare(a.created_at)
   })
-  const groups = buildGapGroups(orderedGaps)
+  const activeGaps = orderedGaps.filter((gap) => !activeDispositionMap.has(gap.key))
+  const excludedGaps: ExcludedGapRecord[] = orderedGaps
+    .filter((gap) => activeDispositionMap.has(gap.key))
+    .map((gap) => ({ ...gap, disposition: activeDispositionMap.get(gap.key)! }))
 
-  const systemsAffected = new Set(orderedGaps.map((gap) => gap.system_id)).size
+  const groups = buildGapGroups(activeGaps)
+
+  const systemsAffected = new Set(activeGaps.map((gap) => gap.system_id)).size
   const byLayer: Record<GapLayer, number> = {
-    normativo: orderedGaps.filter((gap) => gap.layer === 'normativo').length,
-    fmea: orderedGaps.filter((gap) => gap.layer === 'fmea').length,
-    control: orderedGaps.filter((gap) => gap.layer === 'control').length,
-    caducidad: orderedGaps.filter((gap) => gap.layer === 'caducidad').length,
+    normativo: activeGaps.filter((gap) => gap.layer === 'normativo').length,
+    fmea: activeGaps.filter((gap) => gap.layer === 'fmea').length,
+    control: activeGaps.filter((gap) => gap.layer === 'control').length,
+    caducidad: activeGaps.filter((gap) => gap.layer === 'caducidad').length,
   }
 
   const exposure = systems
     .map<GapExposureSystem>((system) => {
-      const systemGaps = orderedGaps.filter((gap) => gap.system_id === system.id)
+      const systemGaps = activeGaps.filter((gap) => gap.system_id === system.id)
       const normativeCritical = systemGaps.filter(
         (gap) => gap.layer === 'normativo' && gap.severity === 'critico'
       ).length
@@ -817,7 +882,8 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   }))
 
   return {
-    gaps: orderedGaps,
+    gaps: activeGaps,
+    excluded: excludedGaps,
     groups,
     members: members.map((member) => ({
       id: member.user_id,
@@ -830,16 +896,17 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       generated_at: now.toISOString(),
     },
     summary: {
-      total: orderedGaps.length,
-      critico: orderedGaps.filter((gap) => gap.severity === 'critico').length,
-      alto: orderedGaps.filter((gap) => gap.severity === 'alto').length,
-      medio: orderedGaps.filter((gap) => gap.severity === 'medio').length,
+      total: activeGaps.length,
+      critico: activeGaps.filter((gap) => gap.severity === 'critico').length,
+      alto: activeGaps.filter((gap) => gap.severity === 'alto').length,
+      medio: activeGaps.filter((gap) => gap.severity === 'medio').length,
       by_layer: byLayer,
       systems_affected: systemsAffected,
       total_systems: systems.length,
+      excluded_count: excludedGaps.length,
     },
     exposure,
-    caducities: orderedGaps
+    caducities: activeGaps
       .filter((gap) => gap.layer === 'caducidad')
       .sort((a, b) => (a.days_until_due ?? 999) - (b.days_until_due ?? 999)),
     systems_with_gaps: systemsWithGaps,

@@ -11,9 +11,10 @@ import { GapCard } from './gap-card'
 import { BulkActionBar } from './bulk-action-bar'
 import { BulkAssignModal } from './bulk-assign-modal'
 import { BulkCreateTasksModal } from './bulk-create-tasks-modal'
+import { BulkDispositionModal } from './bulk-disposition-modal'
 import { SEVERITY_META, LAYER_META, LAYER_LABELS } from './gap-ui-constants'
 
-type Modal = 'assign' | 'create-tasks' | null
+type Modal = 'assign' | 'create-tasks' | 'dispose' | null
 
 type Props = {
   paginatedGaps: UnifiedGapRecord[]
@@ -139,6 +140,7 @@ export function BulkSelectionQueue({
           onClear={() => setSelectedKeys(new Set())}
           onAssign={() => setModal('assign')}
           onCreateTasks={() => setModal('create-tasks')}
+          onDispose={() => setModal('dispose')}
         />
       )}
 
@@ -156,6 +158,13 @@ export function BulkSelectionQueue({
           selectedGaps={selectedGaps}
           members={members}
           taskStatusMap={taskStatusMap}
+          onClose={() => setModal(null)}
+          onSuccess={handleSuccess}
+        />
+      )}
+      {modal === 'dispose' && (
+        <BulkDispositionModal
+          selectedGaps={selectedGaps}
           onClose={() => setModal(null)}
           onSuccess={handleSuccess}
         />

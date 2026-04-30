@@ -1,6 +1,6 @@
 'use client'
 
-import { X, UserCheck, ClipboardList, Download } from 'lucide-react'
+import { X, UserCheck, ClipboardList, Download, ShieldOff } from 'lucide-react'
 import type { UnifiedGapRecord, GapAssignableMember, GapLayer } from '@/lib/gaps/data'
 import { downloadGapsCsv } from '@/lib/gaps/csv'
 import { LAYER_LABELS } from './gap-ui-constants'
@@ -11,11 +11,12 @@ type Props = {
   onClear: () => void
   onAssign: () => void
   onCreateTasks: () => void
+  onDispose: () => void
 }
 
 const ASSIGNABLE_LAYERS: GapLayer[] = ['normativo', 'control', 'caducidad']
 
-export function BulkActionBar({ selectedGaps, members, onClear, onAssign, onCreateTasks }: Props) {
+export function BulkActionBar({ selectedGaps, members, onClear, onAssign, onCreateTasks, onDispose }: Props) {
   if (selectedGaps.length === 0) return null
 
   const layerCounts = selectedGaps.reduce<Partial<Record<GapLayer, number>>>((acc, gap) => {
@@ -79,6 +80,19 @@ export function BulkActionBar({ selectedGaps, members, onClear, onAssign, onCrea
         <ClipboardList size={12} />
         Crear tareas
         {taskableCount > 0 && <span className="font-plex text-[9px] uppercase tracking-[0.4px] px-1 py-0.5 rounded bg-ltbg border border-ltb">{taskableCount}</span>}
+      </button>
+
+      <button
+        type="button"
+        onClick={onDispose}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb text-ltt2 font-sora text-[12px] hover:border-ltbl hover:text-ltt transition-colors"
+        title="Marcar los gaps seleccionados como aceptados o no aplicables"
+      >
+        <ShieldOff size={12} />
+        Excluir
+        <span className="font-plex text-[9px] uppercase tracking-[0.4px] px-1 py-0.5 rounded bg-ltbg border border-ltb">
+          {selectedGaps.length}
+        </span>
       </button>
 
       <button

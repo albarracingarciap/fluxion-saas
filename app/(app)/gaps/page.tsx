@@ -9,6 +9,7 @@ import {
   History,
   Info,
   ShieldAlert,
+  ShieldOff,
 } from 'lucide-react'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { getAppAuthState } from '@/lib/auth/app-state'
@@ -321,6 +322,18 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             >
               <History size={15} />
               Ver snapshots
+            </Link>
+            <Link
+              href="/gaps/excluded"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium bg-white hover:bg-ltbg transition-colors"
+            >
+              <ShieldOff size={15} />
+              Excluidos
+              {data.summary.excluded_count > 0 && (
+                <span className="font-plex text-[10px] uppercase tracking-[0.4px] px-1.5 py-0.5 rounded-full bg-ltbg border border-ltb text-lttm">
+                  {data.summary.excluded_count}
+                </span>
+              )}
             </Link>
             <ExportCsvButton gaps={filteredGaps} />
             <SaveGapAnalysisSnapshotButton />

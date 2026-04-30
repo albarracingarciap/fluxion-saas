@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
-import { buildGapsData, type GapLayer } from '@/lib/gaps/data'
+import { buildGapsData, type GapLayer, type GapDispositionType } from '@/lib/gaps/data'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 type GapAssignmentInput = {
@@ -224,6 +224,144 @@ export async function updateGapAssignment(input: GapAssignmentInput) {
   revalidatePath(`/inventario/${input.systemId}`)
 
   return { success: true }
+}
+
+export async function setGapDispositionAction(input: {
+  gapKey: string
+  gapLayer: GapLayer
+  gapSourceId: string
+  disposition: GapDispositionType
+  rationale: string
+  expiresAt: string | null
+}): Promise<{ ok: true } | { error: string }> {
+  const fluxion = createFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  const profileRes = await fluxion
+    .from('profiles')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('organization_id', membership.organization_id)
+    .single()
+
+  const profileId = profileRes.data?.id ?? null
+
+  const { error } = await fluxion.from('gap_dispositions').upsert(
+    {
+      organization_id: membership.organization_id,
+      gap_key: input.gapKey,
+      gap_layer: input.gapLayer,
+      gap_source_id: input.gapSourceId,
+      disposition: input.disposition,
+      rationale: input.rationale,
+      decided_by: profileId,
+      decided_at: new Date().toISOString(),
+      expires_at: input.expiresAt ? `${input.expiresAt}T23:59:59Z` : null,
+    },
+    { onConflict: 'organization_id,gap_key' }
+  )
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/gaps')
+  revalidatePath('/gaps/excluded')
+  return { ok: true }
+}
+
+export async function revertGapDispositionAction(
+  dispositionId: string
+): Promise<{ ok: true } | { error: string }> {
+  const fluxion = createFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  const { error } = await fluxion
+    .from('gap_dispositions')
+    .delete()
+    .eq('id', dispositionId)
+    .eq('organization_id', membership.organization_id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/gaps')
+  revalidatePath('/gaps/excluded')
+  return { ok: true }
+}
+
+export async function bulkSetGapDispositionAction(input: {
+  gaps: Array<{ gapKey: string; gapLayer: GapLayer; gapSourceId: string }>
+  disposition: GapDispositionType
+  rationale: string
+  expiresAt: string | null
+}): Promise<{ ok: true; count: number } | { error: string }> {
+  const fluxion = createFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  if (input.gaps.length === 0) return { error: 'No hay gaps para excluir.' }
+
+  const profileRes = await fluxion
+    .from('profiles')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('organization_id', membership.organization_id)
+    .single()
+
+  const profileId = profileRes.data?.id ?? null
+  const now = new Date().toISOString()
+  const expiresAt = input.expiresAt ? `${input.expiresAt}T23:59:59Z` : null
+
+  const { error } = await fluxion.from('gap_dispositions').upsert(
+    input.gaps.map((g) => ({
+      organization_id: membership.organization_id,
+      gap_key: g.gapKey,
+      gap_layer: g.gapLayer,
+      gap_source_id: g.gapSourceId,
+      disposition: input.disposition,
+      rationale: input.rationale,
+      decided_by: profileId,
+      decided_at: now,
+      expires_at: expiresAt,
+    })),
+    { onConflict: 'organization_id,gap_key' }
+  )
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/gaps')
+  revalidatePath('/gaps/excluded')
+  return { ok: true, count: input.gaps.length }
+}
+
+export async function bulkRevertGapDispositionsAction(
+  gapKeys: string[]
+): Promise<{ ok: true; count: number } | { error: string }> {
+  const fluxion = createFluxionClient()
+  const { user, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  if (gapKeys.length === 0) return { error: 'No hay gaps para reactivar.' }
+
+  const { error } = await fluxion
+    .from('gap_dispositions')
+    .delete()
+    .eq('organization_id', membership.organization_id)
+    .in('gap_key', gapKeys)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/gaps')
+  revalidatePath('/gaps/excluded')
+  return { ok: true, count: gapKeys.length }
 }
 
 export async function updateGapGroupAssignment(input: GapGroupAssignmentInput) {
