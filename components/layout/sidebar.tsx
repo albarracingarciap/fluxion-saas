@@ -39,13 +39,7 @@ const NAV: NavSection[] = [
   {
     group: "Evaluación",
     items: [
-      {
-        label: "Evaluaciones", icon: <FileCheck size={15} />,
-        children: [
-          { label: "Dashboard", href: "/evaluaciones" },
-          { label: "Evaluación sistema", href: "/inventario", activeOn: ["/fmea"] },
-        ],
-      },
+      { label: "Evaluaciones", href: "/evaluaciones", icon: <FileCheck size={15} /> },
     ],
   },
   {

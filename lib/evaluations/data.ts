@@ -70,6 +70,7 @@ type PipelineRow = {
   planDeadline: string | null
   planDeadlineOverdue: boolean
   linkedTasksCount: number
+  lastActivityAt: string | null
   currentStage: string
   actionHref: string
   actionLabel: string
@@ -352,6 +353,12 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
         planDeadline,
         planDeadlineOverdue,
         linkedTasksCount: linkedTasksBySystem.get(system.id) ?? 0,
+        lastActivityAt: (() => {
+          const a = latestEvaluation?.updated_at ?? null
+          const b = latestPlan?.updated_at ?? null
+          if (a && b) return a > b ? a : b
+          return a ?? b
+        })(),
         currentStage,
         actionHref: action.href,
         actionLabel: action.label,

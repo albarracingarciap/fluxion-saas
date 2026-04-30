@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Clock,
   FileCheck,
+  PlayCircle,
   ShieldAlert,
   Siren,
 } from 'lucide-react'
@@ -56,7 +57,7 @@ export default async function EvaluacionesPage() {
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
       <EvaluationsHero />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard
           label="FMEA activas"
           value={String(dashboard.kpis.fmeaDraft + dashboard.kpis.fmeaInReview)}
@@ -86,13 +87,22 @@ export default async function EvaluacionesPage() {
           Icon={Clock}
         />
         <KpiCard
+          label="Sin iniciar"
+          value={String(dashboard.kpis.pendingStart)}
+          detail="Sistemas priorizados sin FMEA activa"
+          accent="orange"
+          Icon={PlayCircle}
+        />
+        <KpiCard
           label="Escalados Zona I"
           value={String(dashboard.kpis.zoneI)}
-          detail={`${dashboard.kpis.pendingStart} sistemas sin iniciar · ${dashboard.kpis.linkedTasksActive} tareas FMEA activas`}
+          detail={`${dashboard.kpis.linkedTasksActive} tareas FMEA activas`}
           accent="red"
           Icon={Siren}
         />
       </section>
+
+      <ZoneDistributionWidget pipeline={dashboard.pipeline} />
 
       <section className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
         <PipelineCard pipeline={dashboard.pipeline} />
@@ -145,7 +155,7 @@ function KpiCard({
   label: string
   value: string
   detail: string
-  accent: 'cyan' | 'amber' | 'blue' | 'red' | 'green'
+  accent: 'cyan' | 'amber' | 'blue' | 'red' | 'green' | 'orange'
   Icon: React.ComponentType<{ size?: number | string; className?: string }>
 }) {
   const accentClass =
@@ -153,22 +163,26 @@ function KpiCard({
       ? 'border-t-[#f87171] bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.10),transparent_28%)]'
       : accent === 'amber'
         ? 'border-t-[#f59e0b] bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_28%)]'
-        : accent === 'blue'
-          ? 'border-t-[#3b82f6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
-          : accent === 'green'
-            ? 'border-t-[#22c55e] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
-            : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
+        : accent === 'orange'
+          ? 'border-t-[#f97316] bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.10),transparent_28%)]'
+          : accent === 'blue'
+            ? 'border-t-[#3b82f6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
+            : accent === 'green'
+              ? 'border-t-[#22c55e] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
+              : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
 
   const valueClass =
     accent === 'red'
       ? 'text-[#ef4444]'
       : accent === 'amber'
         ? 'text-[#d97706]'
-        : accent === 'blue'
-          ? 'text-[#2563eb]'
-          : accent === 'green'
-            ? 'text-[#16a34a]'
-            : 'text-brand-cyan'
+        : accent === 'orange'
+          ? 'text-[#ea580c]'
+          : accent === 'blue'
+            ? 'text-[#2563eb]'
+            : accent === 'green'
+              ? 'text-[#16a34a]'
+              : 'text-brand-cyan'
 
   return (
     <div
@@ -185,6 +199,50 @@ function KpiCard({
         </div>
       </div>
     </div>
+  )
+}
+
+function ZoneDistributionWidget({ pipeline }: { pipeline: EvaluationsDashboardData['pipeline'] }) {
+  const withZone = pipeline.filter((r) => r.fmeaZone !== null)
+  if (withZone.length === 0) return null
+
+  const counts = {
+    zona_i: withZone.filter((r) => r.fmeaZone === 'zona_i').length,
+    zona_ii: withZone.filter((r) => r.fmeaZone === 'zona_ii').length,
+    zona_iii: withZone.filter((r) => r.fmeaZone === 'zona_iii').length,
+    zona_iv: withZone.filter((r) => r.fmeaZone === 'zona_iv').length,
+  }
+
+  const zones = [
+    { key: 'zona_i', label: 'Zona I', count: counts.zona_i, color: 'text-[#ef4444]', bg: 'bg-[#fff1f2]', border: 'border-[#fecdd3]', bar: 'bg-[#ef4444]' },
+    { key: 'zona_ii', label: 'Zona II', count: counts.zona_ii, color: 'text-[#d97706]', bg: 'bg-[#fff7ed]', border: 'border-[#fed7aa]', bar: 'bg-[#f59e0b]' },
+    { key: 'zona_iii', label: 'Zona III', count: counts.zona_iii, color: 'text-brand-cyan', bg: 'bg-cyan-dim', border: 'border-cyan-border', bar: 'bg-brand-cyan' },
+    { key: 'zona_iv', label: 'Zona IV', count: counts.zona_iv, color: 'text-[#16a34a]', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]', bar: 'bg-[#22c55e]' },
+  ]
+
+  return (
+    <section className="bg-ltcard border border-ltb rounded-[14px] p-5 shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+      <div className="flex items-center justify-between mb-4">
+        <p className="font-plex text-[11px] uppercase tracking-[0.9px] text-ltt2">Distribución por zona FMEA</p>
+        <span className="font-plex text-[10px] text-lttm">{withZone.length} sistema{withZone.length !== 1 ? 's' : ''} evaluado{withZone.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {zones.map((z) => (
+          <div key={z.key} className={`rounded-[10px] border ${z.border} ${z.bg} px-4 py-3 flex flex-col gap-2`}>
+            <div className="flex items-center justify-between">
+              <span className={`font-plex text-[10px] uppercase tracking-[0.8px] ${z.color}`}>{z.label}</span>
+              <span className={`font-fraunces text-[22px] leading-none ${z.color}`}>{z.count}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-ltb overflow-hidden">
+              <div
+                className={`h-full rounded-full ${z.bar} transition-all`}
+                style={{ width: withZone.length > 0 ? `${(z.count / withZone.length) * 100}%` : '0%' }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -277,7 +335,7 @@ function PipelineCard({ pipeline }: { pipeline: EvaluationsDashboardData['pipeli
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 mt-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 mt-4">
                 <MiniMetric label="FMEA" value={row.fmeaState ? (row.fmeaVersion ? `v${row.fmeaVersion} · ${row.fmeaState}` : row.fmeaState) : 'Sin iniciar'} />
                 <MiniMetric label="Pendientes" value={`${row.fmeaPendingCount} · ${row.fmeaSkippedCount} pospuestos`} />
                 <MiniMetric label="2ª revisión" value={String(row.secondReviewPendingCount)} />
@@ -286,6 +344,7 @@ function PipelineCard({ pipeline }: { pipeline: EvaluationsDashboardData['pipeli
                   planStatus={row.planStatus}
                   overdue={row.planDeadlineOverdue}
                 />
+                <LastActivityMetric ts={row.lastActivityAt} />
               </div>
             </Link>
           ))}
@@ -408,6 +467,18 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
       <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">{label}</p>
       <p className="font-sora text-[12px] text-ltt mt-1">{value}</p>
+    </div>
+  )
+}
+
+function LastActivityMetric({ ts }: { ts: string | null }) {
+  const formatted = ts
+    ? new Date(ts).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—'
+  return (
+    <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
+      <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">Última actividad</p>
+      <p className="font-sora text-[12px] text-ltt mt-1">{formatted}</p>
     </div>
   )
 }
