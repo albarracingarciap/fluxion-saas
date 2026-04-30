@@ -114,6 +114,7 @@ function KanbanColumn({
           ? 'bg-cyan-dim border-cyan-border shadow-[0_0_0_2px_var(--cyan-border)]'
           : 'bg-ltcard2 border-ltb'
       }`}
+      style={!isDragOver ? { borderTopColor: color, borderTopWidth: '3px' } : undefined}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={e => onDrop(e, status)}
