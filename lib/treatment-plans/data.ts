@@ -39,6 +39,8 @@ export type TreatmentPlanListRow = {
   // Evaluación
   evaluation_id: string
   evaluation_version: number | null
+  // Owner dominante (calculado desde treatment_actions)
+  dominant_owner_id: string | null
   // Derivados
   progress_pct: number
   is_overdue: boolean
@@ -121,6 +123,9 @@ export async function fetchTreatmentPlans(
 
   const { data } = await query
 
+  const planIds = ((data ?? []) as Array<{ id: string }>).map((p) => p.id)
+  const dominantOwners = await fetchDominantOwners(fluxion, organizationId, planIds)
+
   const todayISO = new Date().toISOString().split('T')[0]!
 
   const rows = ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
@@ -161,6 +166,7 @@ export async function fetchTreatmentPlans(
       system_aiact_risk_level: system?.aiact_risk_level ?? null,
       evaluation_id: row.evaluation_id as string,
       evaluation_version: evaluation?.version ?? null,
+      dominant_owner_id: dominantOwners.get(row.id as string) ?? null,
       progress_pct: computeProgressPct(actionsTotal, actionsCompleted),
       is_overdue: !isTerminal && deadline !== null && days !== null && days < 0,
       days_to_deadline: days,
@@ -254,4 +260,47 @@ export async function computeTreatmentPlansSummary(
     byStatus,
     byZone,
   }
+}
+
+async function fetchDominantOwners(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
+  organizationId: string,
+  planIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  if (planIds.length === 0) return result
+
+  const { data } = await fluxion
+    .from('treatment_actions')
+    .select('plan_id, owner_id')
+    .eq('organization_id', organizationId)
+    .in('plan_id', planIds)
+    .not('owner_id', 'is', null)
+
+  const rows = (data ?? []) as Array<{ plan_id: string; owner_id: string }>
+  const counts = new Map<string, Map<string, number>>()
+
+  for (const row of rows) {
+    let perPlan = counts.get(row.plan_id)
+    if (!perPlan) {
+      perPlan = new Map()
+      counts.set(row.plan_id, perPlan)
+    }
+    perPlan.set(row.owner_id, (perPlan.get(row.owner_id) ?? 0) + 1)
+  }
+
+  counts.forEach((perPlan, planId) => {
+    let bestOwner: string | null = null
+    let bestCount = -1
+    perPlan.forEach((count, ownerId) => {
+      if (count > bestCount || (count === bestCount && bestOwner !== null && ownerId < bestOwner)) {
+        bestOwner = ownerId
+        bestCount = count
+      }
+    })
+    if (bestOwner) result.set(planId, bestOwner)
+  })
+
+  return result
 }
