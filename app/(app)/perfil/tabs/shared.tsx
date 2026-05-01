@@ -1,5 +1,7 @@
 // ─── Tipos compartidos ───────────────────────────────────────────────────────
 
+import type { NotificationPrefs } from '@/lib/notifications/preferences'
+
 export type ProfileFormData = {
   first_name: string
   last_name: string
@@ -8,7 +10,8 @@ export type ProfileFormData = {
   department: string
   role: string
   timezone: string
-  notifications_email: boolean
+  notifications_email: boolean   // legacy — gestionado desde /ajustes
+  notification_prefs: NotificationPrefs
 }
 
 // ─── Estilos compartidos de inputs ───────────────────────────────────────────

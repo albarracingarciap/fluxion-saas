@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 
 import type { ProfileFormData } from './tabs/shared'
+import { getDefaultNotificationPrefs, type NotificationPrefs } from '@/lib/notifications/preferences'
 import { InformacionPersonalTab } from './tabs/informacion-personal'
 import { CuentaTab } from './tabs/cuenta'
 import { SeguridadTab } from './tabs/seguridad'
@@ -59,11 +60,13 @@ export default function PerfilPage() {
     role:                 '',
     timezone:             'Europe/Madrid',
     notifications_email:  true,
+    notification_prefs:   getDefaultNotificationPrefs(),
   })
 
   useEffect(() => {
     if (profile) {
       const prefs = (profile.preferences ?? {}) as Record<string, unknown>
+      const storedNotifPrefs = (prefs.notification_prefs as NotificationPrefs | undefined) ?? null
       setFormData({
         first_name:           profile.first_name ?? '',
         last_name:            profile.last_name ?? '',
@@ -73,6 +76,7 @@ export default function PerfilPage() {
         role:                 role ?? '',
         timezone:             typeof prefs.timezone === 'string' ? prefs.timezone : 'Europe/Madrid',
         notifications_email:  typeof prefs.notifications_email === 'boolean' ? prefs.notifications_email : true,
+        notification_prefs:   storedNotifPrefs ?? getDefaultNotificationPrefs(),
       })
     }
   }, [profile, role])
@@ -95,6 +99,7 @@ export default function PerfilPage() {
           department:          formData.department,
           timezone:            formData.timezone,
           notifications_email: formData.notifications_email,
+          notification_prefs:  formData.notification_prefs,
         },
       })
 
