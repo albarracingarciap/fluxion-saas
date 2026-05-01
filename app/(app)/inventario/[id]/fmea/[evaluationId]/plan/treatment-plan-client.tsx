@@ -26,6 +26,7 @@ import { PlanResidualPanel } from './plan-residual-panel';
 import { BulkActionBar } from './bulk-action-bar';
 import { BulkAssignActionsModal } from './bulk-assign-actions-modal';
 import { BulkSetDueDateModal } from './bulk-set-duedate-modal';
+import { BulkChangeOptionModal } from './bulk-change-option-modal';
 
 import {
   saveTreatmentActionDecision,
@@ -560,6 +561,17 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           selectedCount={selectedActionIds.size}
           actionIds={Array.from(selectedActionIds)}
           planDeadline={data.plan.deadline}
+          aiSystemId={data.system.id}
+          evaluationId={data.evaluation.id}
+          onClose={() => setBulkModal(null)}
+          onSuccess={() => { setBulkModal(null); clearSelection(); }}
+        />
+      )}
+
+      {bulkModal === 'option' && (
+        <BulkChangeOptionModal
+          selectedCount={selectedActionIds.size}
+          actionIds={Array.from(selectedActionIds)}
           aiSystemId={data.system.id}
           evaluationId={data.evaluation.id}
           onClose={() => setBulkModal(null)}
