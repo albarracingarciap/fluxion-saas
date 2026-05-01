@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, Save, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, ShieldAlert } from 'lucide-react';
 
 import { getZoneClasses } from '@/lib/fmea/domain';
 import type {
@@ -24,6 +23,8 @@ import { PlanProgressPanel } from './plan-progress-panel';
 import { ApprovalReviewPanel } from './approval-review-panel';
 import { PlanStatsBar } from './plan-stats-bar';
 import { ActionsGroupSection } from './actions-group-section';
+import { PlanHeader } from './plan-header';
+import { PlanWarningBanners } from './plan-warning-banners';
 
 import {
   saveTreatmentActionDecision,
@@ -404,76 +405,24 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
   return (
     <div className="max-w-[1500px] mx-auto w-full animate-fadein pb-10">
-      {data.plan.code === 'PREVIEW-DRAFT' && (
-        <div className="mb-6 rounded-[12px] border border-cyan-border bg-cyan-dim px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-ltcard border border-cyan-border flex items-center justify-center text-brand-cyan">
-              <ShieldAlert size={20} />
-            </div>
-            <div>
-              <div className="font-sora text-[15px] font-semibold text-ltt">Borrador de Previsualización</div>
-              <p className="font-sora text-[13px] text-ltt2">
-                Esta es una vista previa de cómo quedará tu plan. Finaliza la evaluación para poder editar y enviar el plan real.
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/inventario/${data.system.id}/fmea/${data.evaluation.id}/evaluar`}
-            className="px-4 py-2 rounded-[8px] border border-cyan-border text-brand-cyan font-sora text-[12.5px] font-medium hover:bg-white transition-colors"
-          >
-            Volver a evaluar
-          </Link>
-        </div>
-      )}
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[12px] font-plex text-lttm uppercase tracking-wider mb-3">
-            <Link
-              href={`/inventario/${data.system.id}/fmea/${data.evaluation.id}/evaluar`}
-              className="flex items-center gap-1.5 hover:text-brand-cyan transition-colors"
-            >
-              <ArrowLeft size={14} className="text-lttm" />
-              <span>Volver a evaluación</span>
-            </Link>
-            <span>/</span>
-            <span className="text-ltt">Plan de tratamiento</span>
-          </div>
-          <h1 className="font-fraunces text-[32px] leading-none font-semibold text-ltt mb-2">
-            {data.system.name}
-          </h1>
-          <div className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">
-            {data.plan.code} · Evaluación FMEA v{data.evaluation.version} ·{' '}
-            {data.system.internal_id ?? data.system.id.slice(0, 8)}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          {!readOnly && (
-            <>
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={isSavingDraft || !hasPendingLocalChanges}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-ltt font-sora text-[12.5px] font-medium hover:border-cyan-border hover:text-brand-cyan transition-colors disabled:opacity-60"
-              >
-                {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Guardar borrador
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitPlan}
-                disabled={isSubmittingPlan || submitBlocked}
-                title={submitTitle}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] disabled:opacity-60"
-              >
-                {isSubmittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-                {isExecutiveApproval ? 'Enviar a alta dirección' : 'Enviar a aprobación'}
-              </button>
-            </>
-          )}
-          <span className="font-sora text-[12px] text-lttm">{draftSyncLabel}</span>
-        </div>
-      </div>
+      <PlanHeader
+        systemName={data.system.name}
+        systemId={data.system.id}
+        systemInternalId={data.system.internal_id}
+        evaluationId={data.evaluation.id}
+        evaluationVersion={data.evaluation.version}
+        planCode={data.plan.code}
+        readOnly={readOnly}
+        isSavingDraft={isSavingDraft}
+        isSubmittingPlan={isSubmittingPlan}
+        hasPendingLocalChanges={hasPendingLocalChanges}
+        submitBlocked={submitBlocked}
+        submitTitle={submitTitle}
+        isExecutiveApproval={isExecutiveApproval}
+        draftSyncLabel={draftSyncLabel}
+        onSaveDraft={handleSaveDraft}
+        onSubmitPlan={handleSubmitPlan}
+      />
 
       <PlanStatsBar
         plan={data.plan}
@@ -496,32 +445,14 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         />
       )}
 
-      {globalError && (
-        <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{globalError}</span>
-        </div>
-      )}
-
-      {!readOnly && isExecutiveApproval && (
-        <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            Zona I requiere aprobación de alta dirección. Define todas las acciones del plan y envíalo con referencia de acta o comité para su trazabilidad formal.
-          </span>
-        </div>
-      )}
-
-      {!readOnly && submitBlocked && (
-        <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-orb bg-ordim px-4 py-3 text-or font-sora text-[13px]">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            {pendingCount > 0
-              ? `Quedan ${pendingCount} acciones sin definir antes de poder enviar el plan a aprobación.`
-              : `Hay ${incompleteActionCount} acciones con datos incompletos o inconsistentes que debes revisar antes del envío.`}
-          </span>
-        </div>
-      )}
+      <PlanWarningBanners
+        globalError={globalError}
+        readOnly={readOnly}
+        isExecutiveApproval={isExecutiveApproval}
+        submitBlocked={submitBlocked}
+        pendingCount={pendingCount}
+        incompleteActionCount={incompleteActionCount}
+      />
 
       {data.plan.status === 'in_review' && <ApprovalReviewPanel data={data} />}
 
