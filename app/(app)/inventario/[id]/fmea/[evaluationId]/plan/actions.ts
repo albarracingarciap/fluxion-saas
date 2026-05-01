@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import { captureSnapshot } from '@/lib/fmea/treatment-plan-snapshots';
 import {
   calculateProjectedZoneForTreatmentActions,
   getEvidenceDescriptionForOption,
@@ -658,6 +659,19 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     return { error: updateError.message };
   }
 
+  await captureSnapshot({
+    fluxion,
+    planId: plan.id,
+    organizationId: membership.organization_id,
+    trigger: 'submitted_for_review',
+    actorUserId: user.id,
+    metadata: {
+      approval_level: plan.approval_level,
+      approver_id: approverId,
+      approval_minutes_ref: plan.approval_level === 'level_3' ? normalizedMinutesRef : null,
+    },
+  });
+
   await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: input.aiSystemId,
@@ -905,6 +919,18 @@ export async function approveTreatmentPlanAction(input: {
 
   if (error) return { error: error.message };
 
+  await captureSnapshot({
+    fluxion,
+    planId: plan.id,
+    organizationId: membership.organization_id,
+    trigger: 'approved',
+    actorUserId: user.id,
+    metadata: {
+      approval_level: plan.approval_level,
+      committee_notes: input.committeeNotes?.trim() || null,
+    },
+  });
+
   await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: input.aiSystemId,
@@ -973,6 +999,18 @@ export async function rejectTreatmentPlanAction(input: {
     .eq('id', plan.id);
 
   if (error) return { error: error.message };
+
+  await captureSnapshot({
+    fluxion,
+    planId: plan.id,
+    organizationId: membership.organization_id,
+    trigger: 'rejected',
+    actorUserId: user.id,
+    metadata: {
+      rejection_reason: input.rejectionReason.trim(),
+      approval_level: plan.approval_level,
+    },
+  });
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
