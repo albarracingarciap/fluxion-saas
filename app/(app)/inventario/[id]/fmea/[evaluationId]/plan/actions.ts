@@ -11,6 +11,7 @@ import {
   getEvidenceDescriptionForOption,
   getApproverRolePriority,
   type TreatmentOption,
+  type ReviewDecision,
 } from '@/lib/fmea/treatment-plan';
 import {
   BULK_TERMINAL_STATUSES,
@@ -1613,4 +1614,21 @@ export async function bulkChangeTreatmentActionsOptionAction(
 
   revalidatePlanPaths(input.aiSystemId, input.evaluationId)
   return { ok: true, updated: applicable.length, skipped }
+}
+
+// ─── Paso 7.5: stub — se implementa en el siguiente paso ────────────────────
+
+type ReviewAcceptanceInput = {
+  aiSystemId: string;
+  evaluationId: string;
+  actionId: string;
+  decision: ReviewDecision;
+  newReviewDueDate: string | null;
+  justification: string;
+};
+
+export async function reviewAcceptanceAction(
+  _input: ReviewAcceptanceInput,
+): Promise<{ ok: true } | { error: string }> {
+  return { error: 'No implementado aún — complétame en Paso 7.5.' };
 }

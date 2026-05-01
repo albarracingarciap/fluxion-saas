@@ -29,7 +29,8 @@ import { BulkAssignActionsModal } from './bulk-assign-actions-modal';
 import { BulkSetDueDateModal } from './bulk-set-duedate-modal';
 import { BulkChangeOptionModal } from './bulk-change-option-modal';
 import { exportTreatmentActionsCsv } from '@/lib/treatment-plans/csv';
-import { PlanHistoryTab } from './plan-history-tab';
+import { PlanHistoryTab } from './plan-history-tab'
+import { ReviewAcceptanceModal } from './review-acceptance-modal';
 
 import {
   saveTreatmentActionDecision,
@@ -799,6 +800,22 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           onSuccess={() => { setBulkModal(null); clearSelection(); }}
         />
       )}
+
+      {reviewingActionId && (() => {
+        const reviewingAction = actions.find((a) => a.id === reviewingActionId)
+        if (!reviewingAction) return null
+        const previousReviews = (data.action_reviews ?? []).filter((r) => r.action_id === reviewingActionId)
+        return (
+          <ReviewAcceptanceModal
+            action={reviewingAction}
+            previousReviews={previousReviews}
+            aiSystemId={data.system.id}
+            evaluationId={data.evaluation.id}
+            onClose={() => setReviewingActionId(null)}
+            onSuccess={() => setReviewingActionId(null)}
+          />
+        )
+      })()}
 
       {pendingResidual && (
         <RecordResidualModal
