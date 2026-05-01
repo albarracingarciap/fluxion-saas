@@ -13,6 +13,22 @@ export type TreatmentPlanStatus =
 
 export type TreatmentOption = 'mitigar' | 'aceptar' | 'transferir' | 'evitar' | 'diferir';
 
+export type SlaStat = 'overdue' | 'due_soon' | 'at_risk' | 'ok';
+
+const SLA_TERMINAL_STATUSES = new Set(['completed', 'accepted', 'cancelled']);
+
+export function calculateSlaStatus(dueDate: string | null, status: string): SlaStat | null {
+  if (!dueDate || SLA_TERMINAL_STATUSES.has(status)) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${dueDate}T00:00:00`);
+  const daysRemaining = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysRemaining < 0) return 'overdue';
+  if (daysRemaining <= 7) return 'due_soon';
+  if (daysRemaining <= 30) return 'at_risk';
+  return 'ok';
+}
+
 export type TreatmentActionStatus =
   | 'pending'
   | 'in_progress'
@@ -140,6 +156,7 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   evidence_external_url: string | null;
   evidence_url: string | null;
   evidence_verification_status: 'pending' | 'validated' | 'rejected' | null;
+  sla_status: SlaStat | null;
 };
 
 export type TreatmentPlanData = {
@@ -153,6 +170,8 @@ export type TreatmentPlanData = {
   tasks_total: number;
   tasks_done: number;
   is_approver: boolean;
+  overdue_count: number;
+  due_soon_count: number;
 };
 
 export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
@@ -690,6 +709,7 @@ export async function buildTreatmentPlanData(params: {
         evidence_external_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.external_url ?? null) : null,
         evidence_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.url ?? null) : null,
         evidence_verification_status: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.verification_status ?? null) : null,
+        sla_status: calculateSlaStatus(action.due_date, action.status),
       };
     })
     .filter((action): action is TreatmentPlanActionView => action !== null)
@@ -708,6 +728,8 @@ export async function buildTreatmentPlanData(params: {
 
   const tasksWithStatus = actionViews.filter((a) => a.task_id !== null && a.option !== 'aceptar');
   const tasksDone = tasksWithStatus.filter((a) => a.task_status === 'done').length;
+  const overdueCount = actionViews.filter((a) => a.sla_status === 'overdue').length;
+  const dueSoonCount = actionViews.filter((a) => a.sla_status === 'due_soon').length;
 
   return {
     system,
@@ -720,6 +742,8 @@ export async function buildTreatmentPlanData(params: {
     tasks_total: tasksWithStatus.length,
     tasks_done: tasksDone,
     is_approver: !!(params.currentUserId && currentPlan.approver_id && params.currentUserId === currentPlan.approver_id),
+    overdue_count: overdueCount,
+    due_soon_count: dueSoonCount,
   } satisfies TreatmentPlanData;
 }
 
