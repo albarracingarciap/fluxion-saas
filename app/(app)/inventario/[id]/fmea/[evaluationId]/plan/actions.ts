@@ -10,6 +10,14 @@ import {
   getApproverRolePriority,
   type TreatmentOption,
 } from '@/lib/fmea/treatment-plan';
+import {
+  BULK_TERMINAL_STATUSES,
+  type BulkActionResult,
+  type BulkAssignOwnerInput,
+  type BulkSetDueDateInput,
+  type BulkChangeOptionInput,
+  type BulkSkippedItem,
+} from '@/lib/treatment-plans/bulk-types';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 import type { TaskStatus } from '@/lib/tasks/types';
@@ -254,7 +262,7 @@ export async function saveTreatmentPlanDraft(input: SaveTreatmentPlanDraftInput)
     evaluationId: input.evaluationId,
   });
 
-  if ('error' in context) return { error: context.error };
+  if ('error' in context) return { error: context.error as string };
 
   const { fluxion, user, membership, plan } = context;
 
@@ -304,7 +312,7 @@ export async function saveTreatmentPlanBatchDraft(input: SaveTreatmentPlanBatchD
     evaluationId: input.evaluationId,
   });
 
-  if ('error' in context) return { error: context.error };
+  if ('error' in context) return { error: context.error as string };
 
   const { fluxion, membership, plan } = context;
 
@@ -386,7 +394,7 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
     evaluationId: input.evaluationId,
   });
 
-  if ('error' in context) return { error: context.error };
+  if ('error' in context) return { error: context.error as string };
 
   const { fluxion, user, membership, plan } = context;
 
@@ -555,7 +563,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     evaluationId: input.evaluationId,
   });
 
-  if ('error' in context) return { error: context.error };
+  if ('error' in context) return { error: context.error as string };
 
   const { fluxion, user, membership, plan } = context;
 
@@ -1020,4 +1028,321 @@ export async function updateLinkedTaskStatusAction(
   revalidatePath('/tareas');
   revalidatePath('/kanban');
   return { ok: true };
+}
+
+// ============================================================================
+// BULK ACTIONS — operaciones masivas sobre treatment_actions
+// ============================================================================
+
+type BulkActionRecord = {
+  id: string
+  plan_id: string
+  status: string
+  s_actual_at_creation: number
+  due_date: string | null
+}
+
+async function loadBulkCandidates(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: any
+  planId: string
+  actionIds: string[]
+}): Promise<{ valid: BulkActionRecord[]; skipped: BulkSkippedItem[] }> {
+  const { fluxion, planId, actionIds } = params
+
+  const { data } = await fluxion
+    .from('treatment_actions')
+    .select('id, plan_id, status, s_actual_at_creation, due_date')
+    .eq('plan_id', planId)
+    .in('id', actionIds)
+
+  const found = (data ?? []) as BulkActionRecord[]
+  const foundIds = new Set(found.map((row) => row.id))
+
+  const skipped: BulkSkippedItem[] = []
+  for (const id of actionIds) {
+    if (!foundIds.has(id)) {
+      skipped.push({ actionId: id, reason: 'No pertenece al plan o no existe.' })
+    }
+  }
+
+  const valid: BulkActionRecord[] = []
+  for (const row of found) {
+    if (BULK_TERMINAL_STATUSES.includes(row.status as (typeof BULK_TERMINAL_STATUSES)[number])) {
+      skipped.push({
+        actionId: row.id,
+        reason: 'La acción ya está cerrada (completada, aceptada o cancelada).',
+      })
+      continue
+    }
+    valid.push(row)
+  }
+
+  return { valid, skipped }
+}
+
+function revalidatePlanPaths(aiSystemId: string, evaluationId: string) {
+  revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/plan`)
+  revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/evaluar`)
+  revalidatePath('/planes')
+}
+
+export async function bulkAssignTreatmentActionsOwnerAction(
+  input: BulkAssignOwnerInput
+): Promise<BulkActionResult> {
+  if (!input.actionIds || input.actionIds.length === 0) {
+    return { error: 'No hay acciones seleccionadas.' }
+  }
+  if (!input.ownerId) {
+    return { error: 'Debes elegir un responsable.' }
+  }
+
+  const context = await requireEditableTreatmentPlan({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error as string }
+
+  const { fluxion, membership, plan, user } = context
+
+  const { data: ownerProfile } = await fluxion
+    .from('profiles')
+    .select('id')
+    .eq('organization_id', membership.organization_id)
+    .eq('id', input.ownerId)
+    .maybeSingle()
+
+  if (!ownerProfile) {
+    return { error: 'El responsable elegido no pertenece a la organización.' }
+  }
+
+  const { valid, skipped } = await loadBulkCandidates({
+    fluxion,
+    planId: plan.id,
+    actionIds: input.actionIds,
+  })
+
+  if (valid.length === 0) {
+    return { ok: true, updated: 0, skipped }
+  }
+
+  const { error: updateError } = await fluxion
+    .from('treatment_actions')
+    .update({ owner_id: input.ownerId })
+    .eq('plan_id', plan.id)
+    .in('id', valid.map((row) => row.id))
+
+  if (updateError) return { error: updateError.message }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'treatment_actions_bulk_owner',
+      event_title: 'Reasignación masiva de responsable',
+      event_summary: `Se reasignaron ${valid.length} acciones del plan ${plan.code}.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        treatment_plan_id: plan.id,
+        owner_id: input.ownerId,
+        action_ids: valid.map((row) => row.id),
+        skipped_count: skipped.length,
+      },
+    },
+  ])
+
+  revalidatePlanPaths(input.aiSystemId, input.evaluationId)
+  return { ok: true, updated: valid.length, skipped }
+}
+
+export async function bulkSetTreatmentActionsDueDateAction(
+  input: BulkSetDueDateInput
+): Promise<BulkActionResult> {
+  if (!input.actionIds || input.actionIds.length === 0) {
+    return { error: 'No hay acciones seleccionadas.' }
+  }
+  if (!input.dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate)) {
+    return { error: 'Indica una fecha objetivo válida (YYYY-MM-DD).' }
+  }
+
+  const context = await requireEditableTreatmentPlan({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error as string }
+
+  const { fluxion, membership, plan, user } = context
+
+  const { data: planDates } = await fluxion
+    .from('treatment_plans')
+    .select('deadline')
+    .eq('id', plan.id)
+    .maybeSingle()
+
+  const planDeadline = (planDates?.deadline as string | null) ?? null
+  if (planDeadline && input.dueDate > planDeadline) {
+    return {
+      error: `La fecha objetivo no puede superar la fecha límite global del plan (${planDeadline}).`,
+    }
+  }
+
+  const { valid, skipped } = await loadBulkCandidates({
+    fluxion,
+    planId: plan.id,
+    actionIds: input.actionIds,
+  })
+
+  if (valid.length === 0) {
+    return { ok: true, updated: 0, skipped }
+  }
+
+  const { error: updateError } = await fluxion
+    .from('treatment_actions')
+    .update({ due_date: input.dueDate })
+    .eq('plan_id', plan.id)
+    .in('id', valid.map((row) => row.id))
+
+  if (updateError) return { error: updateError.message }
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'treatment_actions_bulk_duedate',
+      event_title: 'Cambio masivo de fecha objetivo',
+      event_summary: `Se actualizó la fecha de ${valid.length} acciones del plan ${plan.code}.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        treatment_plan_id: plan.id,
+        due_date: input.dueDate,
+        action_ids: valid.map((row) => row.id),
+        skipped_count: skipped.length,
+      },
+    },
+  ])
+
+  revalidatePlanPaths(input.aiSystemId, input.evaluationId)
+  return { ok: true, updated: valid.length, skipped }
+}
+
+export async function bulkChangeTreatmentActionsOptionAction(
+  input: BulkChangeOptionInput
+): Promise<BulkActionResult> {
+  if (!input.actionIds || input.actionIds.length === 0) {
+    return { error: 'No hay acciones seleccionadas.' }
+  }
+
+  if ((input.option as string) === 'mitigar') {
+    return { error: 'La mitigación requiere control específico por acción y no admite cambio masivo.' }
+  }
+
+  const justificationLength = input.justification?.trim().length ?? 0
+
+  if (input.option === 'aceptar') {
+    if (justificationLength < 100) {
+      return { error: 'La aceptación requiere una justificación común de al menos 100 caracteres.' }
+    }
+    if (!input.reviewDueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.reviewDueDate)) {
+      return { error: 'La aceptación requiere una fecha de revisión válida.' }
+    }
+  } else if (justificationLength < 50) {
+    return { error: 'Necesitas una justificación común de al menos 50 caracteres.' }
+  }
+
+  const context = await requireEditableTreatmentPlan({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error as string }
+
+  const { fluxion, membership, plan, user } = context
+
+  const { valid, skipped } = await loadBulkCandidates({
+    fluxion,
+    planId: plan.id,
+    actionIds: input.actionIds,
+  })
+
+  // Filtros adicionales por opción
+  const todayMs = new Date().setHours(0, 0, 0, 0)
+  const applicable: BulkActionRecord[] = []
+
+  for (const row of valid) {
+    if (input.option === 'aceptar' && row.s_actual_at_creation === 9) {
+      skipped.push({ actionId: row.id, reason: 'S_actual = 9 no admite aceptación.' })
+      continue
+    }
+
+    if (input.option === 'diferir' && row.due_date) {
+      const diffDays = Math.ceil(
+        (new Date(`${row.due_date}T00:00:00`).getTime() - todayMs) / (1000 * 60 * 60 * 24)
+      )
+      if (diffDays > 90 && justificationLength < 100) {
+        skipped.push({
+          actionId: row.id,
+          reason: `Diferimiento >90 días requiere justificación reforzada (≥100 caracteres).`,
+        })
+        continue
+      }
+    }
+
+    applicable.push(row)
+  }
+
+  if (applicable.length === 0) {
+    return { ok: true, updated: 0, skipped }
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    option: input.option,
+    status: 'pending',
+    justification: input.justification.trim(),
+    evidence_description: getEvidenceDescriptionForOption(input.option),
+    s_residual_target: null,
+    control_id: null,
+    review_due_date: input.option === 'aceptar' ? input.reviewDueDate : null,
+  }
+
+  const { error: updateError } = await fluxion
+    .from('treatment_actions')
+    .update(updatePayload)
+    .eq('plan_id', plan.id)
+    .in('id', applicable.map((row) => row.id))
+
+  if (updateError) return { error: updateError.message }
+
+  // Recalcular accepted_risk_count en el plan
+  const { count: acceptedCount } = await fluxion
+    .from('treatment_actions')
+    .select('id', { count: 'exact', head: true })
+    .eq('plan_id', plan.id)
+    .eq('option', 'aceptar')
+
+  await fluxion
+    .from('treatment_plans')
+    .update({ accepted_risk_count: acceptedCount ?? 0 })
+    .eq('id', plan.id)
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: membership.organization_id,
+      event_type: 'treatment_actions_bulk_option',
+      event_title: 'Cambio masivo de opción de tratamiento',
+      event_summary: `Se cambió la opción a "${input.option}" en ${applicable.length} acciones del plan ${plan.code}.`,
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        treatment_plan_id: plan.id,
+        option: input.option,
+        action_ids: applicable.map((row) => row.id),
+        skipped_count: skipped.length,
+      },
+    },
+  ])
+
+  revalidatePlanPaths(input.aiSystemId, input.evaluationId)
+  return { ok: true, updated: applicable.length, skipped }
 }
