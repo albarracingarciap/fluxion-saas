@@ -67,6 +67,9 @@ export type TreatmentPlansSummary = {
   avgProgressPct: number
   byStatus: Record<TreatmentPlanStatus, number>
   byZone: Record<FmeaZone, number>
+  overdueActionsCount: number
+  slippageRate: number | null
+  medianDaysToClose: number | null
 }
 
 function diffDays(deadline: string | null, todayISO: string): number | null {
@@ -205,12 +208,25 @@ export async function computeTreatmentPlansSummary(
   fluxion: SupabaseClient<any, any, any>,
   organizationId: string
 ): Promise<TreatmentPlansSummary> {
-  const { data } = await fluxion
-    .from('treatment_plans')
-    .select('status, zone_at_creation, deadline, actions_total, actions_completed')
-    .eq('organization_id', organizationId)
+  const todayISO = new Date().toISOString().split('T')[0]!
 
-  const rows = (data ?? []) as Array<{
+  const [{ data: planData }, { data: actionData }, { data: closedPlanData }] = await Promise.all([
+    fluxion
+      .from('treatment_plans')
+      .select('status, zone_at_creation, deadline, actions_total, actions_completed')
+      .eq('organization_id', organizationId),
+    fluxion
+      .from('treatment_actions')
+      .select('status, option, due_date, s_residual_achieved, s_residual_target')
+      .eq('organization_id', organizationId),
+    fluxion
+      .from('treatment_plans')
+      .select('created_at, updated_at')
+      .eq('organization_id', organizationId)
+      .eq('status', 'closed'),
+  ])
+
+  const rows = (planData ?? []) as Array<{
     status: TreatmentPlanStatus
     zone_at_creation: FmeaZone
     deadline: string | null
@@ -218,7 +234,13 @@ export async function computeTreatmentPlansSummary(
     actions_completed: number | null
   }>
 
-  const todayISO = new Date().toISOString().split('T')[0]!
+  const actions = (actionData ?? []) as Array<{
+    status: string
+    option: string
+    due_date: string | null
+    s_residual_achieved: number | null
+    s_residual_target: number | null
+  }>
 
   const byStatus: Record<TreatmentPlanStatus, number> = {
     draft: 0, in_review: 0, approved: 0, in_progress: 0, closed: 0, superseded: 0,
@@ -250,6 +272,38 @@ export async function computeTreatmentPlansSummary(
     if (row.status === 'closed') closed++
   }
 
+  // Overdue actions across all plans
+  const TERMINAL_ACTION_STATUSES = ['completed', 'accepted', 'cancelled']
+  const overdueActionsCount = actions.filter(
+    (a) => a.due_date && a.due_date < todayISO && !TERMINAL_ACTION_STATUSES.includes(a.status)
+  ).length
+
+  // Slippage rate — completed mitigar actions
+  const completedMitigar = actions.filter((a) => a.option === 'mitigar' && a.status === 'completed')
+  const slippageCount = completedMitigar.filter(
+    (a) => a.s_residual_achieved === null || (a.s_residual_target !== null && a.s_residual_achieved > a.s_residual_target)
+  ).length
+  const slippageRate = completedMitigar.length > 0
+    ? Math.round((slippageCount / completedMitigar.length) * 100)
+    : null
+
+  // Median days to close (updated_at − created_at for closed plans)
+  const closedPlans = (closedPlanData ?? []) as Array<{ created_at: string; updated_at: string }>
+  let medianDaysToClose: number | null = null
+  if (closedPlans.length > 0) {
+    const days = closedPlans
+      .map((p) => {
+        const a = new Date(p.created_at).getTime()
+        const b = new Date(p.updated_at).getTime()
+        return Math.max(0, Math.round((b - a) / 86_400_000))
+      })
+      .sort((a, b) => a - b)
+    const mid = Math.floor(days.length / 2)
+    medianDaysToClose = days.length % 2 === 0
+      ? Math.round(((days[mid - 1] ?? 0) + (days[mid] ?? 0)) / 2)
+      : (days[mid] ?? 0)
+  }
+
   return {
     total,
     active,
@@ -259,6 +313,9 @@ export async function computeTreatmentPlansSummary(
     avgProgressPct: progressCount > 0 ? Math.round(progressSum / progressCount) : 0,
     byStatus,
     byZone,
+    overdueActionsCount,
+    slippageRate,
+    medianDaysToClose,
   }
 }
 

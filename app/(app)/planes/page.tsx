@@ -86,18 +86,39 @@ export default async function PlanesPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <section className="bg-dk9 border border-dkb rounded-[14px] px-5 py-4 flex flex-wrap items-center gap-4 text-dkt mb-5">
-        <IntelItem label="Activos" value={summary.active} />
-        <IntelSeparator />
-        <IntelItem tone="or" label="En aprobación" value={summary.inReview} />
-        <IntelSeparator />
-        <IntelItem tone="re" label="Vencidos" value={summary.overdue} />
-        <IntelSeparator />
-        <IntelItem tone="cy" label="Progreso medio" value={`${summary.avgProgressPct}%`} />
-        <IntelSeparator />
-        <IntelItem label="Cerrados" value={summary.closed} />
-        <IntelSeparator />
-        <IntelItem label="Total" value={summary.total} />
+      <section className="bg-dk9 border border-dkb rounded-[14px] px-5 py-4 mb-5 space-y-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <IntelItem label="Activos" value={summary.active} />
+          <IntelSeparator />
+          <IntelItem tone="or" label="En aprobación" value={summary.inReview} />
+          <IntelSeparator />
+          <IntelItem tone="re" label="Planes vencidos" value={summary.overdue} />
+          <IntelSeparator />
+          <IntelItem tone="cy" label="Progreso medio" value={`${summary.avgProgressPct}%`} />
+          <IntelSeparator />
+          <IntelItem label="Cerrados" value={summary.closed} />
+          <IntelSeparator />
+          <IntelItem label="Total" value={summary.total} />
+        </div>
+        <div className="h-px bg-dkb" />
+        <div className="flex flex-wrap items-center gap-4">
+          <IntelItem
+            tone={summary.overdueActionsCount > 0 ? 're' : undefined}
+            label="Acciones vencidas"
+            value={summary.overdueActionsCount}
+          />
+          <IntelSeparator />
+          <IntelItem
+            tone={summary.slippageRate !== null && summary.slippageRate > 0 ? 'or' : undefined}
+            label="Tasa slippage"
+            value={summary.slippageRate !== null ? `${summary.slippageRate}%` : '—'}
+          />
+          <IntelSeparator />
+          <IntelItem
+            label="Mediana cierre"
+            value={summary.medianDaysToClose !== null ? `${summary.medianDaysToClose} d` : '—'}
+          />
+        </div>
       </section>
 
       {plans.length === 0 ? (
