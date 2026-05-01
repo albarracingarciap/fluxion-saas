@@ -1,7 +1,9 @@
-import { ShieldCheck, Mail, Calendar, Building2 } from 'lucide-react'
-import { SectionHeader, ComingSoonNotice } from './shared'
+import { ShieldCheck, Mail, Calendar, Building2, Phone, AtSign } from 'lucide-react'
+import { FieldLabel, SectionHeader, inputCls, type ProfileFormData } from './shared'
 
 type Props = {
+  formData: ProfileFormData
+  setFormData: (data: ProfileFormData) => void
   userEmail: string | null | undefined
   memberSince: string | null | undefined
   organizationName: string | null | undefined
@@ -12,17 +14,28 @@ function formatDate(iso?: string | null) {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-export function CuentaTab({ userEmail, memberSince, organizationName }: Props) {
+export function CuentaTab({
+  formData,
+  setFormData,
+  userEmail,
+  memberSince,
+  organizationName,
+}: Props) {
   return (
     <div>
       <SectionHeader
         icon={<ShieldCheck size={16} className="text-ltt2" />}
         title="Cuenta"
-        description="Información de identidad corporativa y acceso a la plataforma."
+        description="Identidad corporativa, datos de contacto y acceso a la plataforma."
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-        <InfoCard icon={<Mail size={13} />} label="Email">
+      {/* ── Datos de cuenta (read-only) ─────────────────────────────────── */}
+      <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm font-semibold mb-3">
+        Identidad corporativa
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-7">
+        <InfoCard icon={<Mail size={13} />} label="Email primario">
           {userEmail ?? '—'}
         </InfoCard>
         <InfoCard icon={<Calendar size={13} />} label="Miembro desde">
@@ -33,10 +46,50 @@ export function CuentaTab({ userEmail, memberSince, organizationName }: Props) {
         </InfoCard>
       </div>
 
-      <ComingSoonNotice>
-        El cambio de email y la solicitud de eliminación de cuenta estarán disponibles
-        en una próxima actualización.
-      </ComingSoonNotice>
+      {/* ── Contacto editable ───────────────────────────────────────────── */}
+      <div className="pt-5 border-t border-ltb">
+        <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm font-semibold mb-4">
+          Contacto
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+          <div>
+            <FieldLabel>
+              <Phone size={11} className="text-lttm" />
+              Teléfono
+            </FieldLabel>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className={inputCls}
+              placeholder="+34 600 000 000"
+              autoComplete="tel"
+            />
+            <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+              Móvil corporativo o número de contacto. Se usa para escalados de incidentes.
+            </p>
+          </div>
+
+          <div>
+            <FieldLabel>
+              <AtSign size={11} className="text-lttm" />
+              Email alternativo
+            </FieldLabel>
+            <input
+              type="email"
+              value={formData.secondary_email}
+              onChange={(e) => setFormData({ ...formData, secondary_email: e.target.value })}
+              className={inputCls}
+              placeholder="otro@correo.com"
+              autoComplete="email"
+            />
+            <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+              Opcional. Si lo defines, las notificaciones por email irán también a esta dirección.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -3,15 +3,32 @@
 import type { NotificationPrefs } from '@/lib/notifications/preferences'
 
 export type ProfileFormData = {
+  // Identidad
   first_name: string
   last_name: string
   avatar_url: string
   job_title: string
   department: string
   role: string
+  // Contacto y estructura
+  phone: string
+  secondary_email: string
+  manager_id: string | null
+  bio: string
+  pronouns: string
+  // Preferencias regionales
   timezone: string
+  date_format: string
+  week_starts_on: number   // 0 = domingo, 1 = lunes
+  // Notificaciones
   notifications_email: boolean   // legacy — gestionado desde /ajustes
   notification_prefs: NotificationPrefs
+}
+
+export type ManagerOption = {
+  id: string
+  full_name: string
+  job_title: string | null
 }
 
 // ─── Estilos compartidos de inputs ───────────────────────────────────────────
