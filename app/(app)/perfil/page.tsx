@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/authStore'
+import { createFluxionClient } from '@/lib/supabase/client'
 import { updateProfile } from './actions'
 import {
   Save, Loader2, AlertCircle, CheckCircle2, ChevronRight,
   User, ShieldCheck, Lock, SlidersHorizontal, Bell, Palette, UserCircle,
 } from 'lucide-react'
 
-import type { ProfileFormData } from './tabs/shared'
+import type { ProfileFormData, ManagerOption } from './tabs/shared'
 import { getDefaultNotificationPrefs, type NotificationPrefs } from '@/lib/notifications/preferences'
 import { InformacionPersonalTab } from './tabs/informacion-personal'
 import { CuentaTab } from './tabs/cuenta'
@@ -34,7 +35,7 @@ const TABS: Array<{
   editable: boolean
 }> = [
   { key: 'informacion-personal', label: 'Información personal', icon: <User size={14} />, editable: true },
-  { key: 'cuenta',               label: 'Cuenta',               icon: <ShieldCheck size={14} />, editable: false },
+  { key: 'cuenta',               label: 'Cuenta',               icon: <ShieldCheck size={14} />, editable: true },
   { key: 'seguridad',            label: 'Seguridad',            icon: <Lock size={14} />, editable: false },
   { key: 'preferencias',         label: 'Preferencias',         icon: <SlidersHorizontal size={14} />, editable: true },
   { key: 'notificaciones',       label: 'Notificaciones',       icon: <Bell size={14} />, editable: true },
@@ -51,6 +52,8 @@ export default function PerfilPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [managers, setManagers] = useState<ManagerOption[]>([])
+
   const [formData, setFormData] = useState<ProfileFormData>({
     first_name:           '',
     last_name:            '',
@@ -58,7 +61,14 @@ export default function PerfilPage() {
     job_title:            '',
     department:           '',
     role:                 '',
+    phone:                '',
+    secondary_email:      '',
+    manager_id:           null,
+    bio:                  '',
+    pronouns:             '',
     timezone:             'Europe/Madrid',
+    date_format:          'DD/MM/YYYY',
+    week_starts_on:       1,
     notifications_email:  true,
     notification_prefs:   getDefaultNotificationPrefs(),
   })
@@ -71,15 +81,44 @@ export default function PerfilPage() {
         first_name:           profile.first_name ?? '',
         last_name:            profile.last_name ?? '',
         avatar_url:           profile.avatar_url ?? '',
-        job_title:            typeof prefs.job_title === 'string' ? prefs.job_title : '',
-        department:           typeof prefs.department === 'string' ? prefs.department : '',
+        job_title:            profile.job_title ?? (typeof prefs.job_title === 'string' ? prefs.job_title : ''),
+        department:           profile.department ?? (typeof prefs.department === 'string' ? prefs.department : ''),
         role:                 role ?? '',
+        phone:                profile.phone ?? '',
+        secondary_email:      profile.secondary_email ?? '',
+        manager_id:           profile.manager_id ?? null,
+        bio:                  profile.bio ?? '',
+        pronouns:             profile.pronouns ?? '',
         timezone:             typeof prefs.timezone === 'string' ? prefs.timezone : 'Europe/Madrid',
+        date_format:          typeof prefs.date_format === 'string' ? prefs.date_format : 'DD/MM/YYYY',
+        week_starts_on:       typeof prefs.week_starts_on === 'number' ? prefs.week_starts_on : 1,
         notifications_email:  typeof prefs.notifications_email === 'boolean' ? prefs.notifications_email : true,
         notification_prefs:   storedNotifPrefs ?? getDefaultNotificationPrefs(),
       })
     }
   }, [profile, role])
+
+  // Cargar miembros de la org para selector de manager
+  useEffect(() => {
+    if (!profile?.organization_id || !profile?.id) return
+    void (async () => {
+      const fluxion = createFluxionClient()
+      const { data } = await fluxion
+        .from('profiles')
+        .select('id, full_name, job_title, is_active')
+        .eq('organization_id', profile.organization_id)
+        .neq('id', profile.id)
+        .order('full_name')
+      const rows = (data ?? []) as Array<{
+        id: string; full_name: string; job_title: string | null; is_active: boolean
+      }>
+      setManagers(
+        rows
+          .filter((r) => r.is_active !== false)
+          .map((r) => ({ id: r.id, full_name: r.full_name, job_title: r.job_title }))
+      )
+    })()
+  }, [profile?.organization_id, profile?.id])
 
   async function handleSave() {
     if (!user) return
@@ -90,14 +129,21 @@ export default function PerfilPage() {
 
     try {
       const result = await updateProfile({
-        first_name: formData.first_name,
-        last_name:  formData.last_name,
-        avatar_url: formData.avatar_url,
-        role:       formData.role,
+        first_name:      formData.first_name,
+        last_name:       formData.last_name,
+        avatar_url:      formData.avatar_url,
+        role:            formData.role,
+        phone:           formData.phone,
+        secondary_email: formData.secondary_email,
+        manager_id:      formData.manager_id,
+        bio:             formData.bio,
+        pronouns:        formData.pronouns,
         preferences: {
           job_title:           formData.job_title,
           department:          formData.department,
           timezone:            formData.timezone,
+          date_format:         formData.date_format,
+          week_starts_on:      formData.week_starts_on,
           notifications_email: formData.notifications_email,
           notification_prefs:  formData.notification_prefs,
         },
@@ -200,11 +246,14 @@ export default function PerfilPage() {
               setFormData={setFormData}
               userEmail={user.email}
               currentRole={role}
+              managers={managers}
             />
           )}
 
           {activeTab === 'cuenta' && (
             <CuentaTab
+              formData={formData}
+              setFormData={setFormData}
               userEmail={user.email}
               memberSince={profile.created_at}
               organizationName={organization?.name}
