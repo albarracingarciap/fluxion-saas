@@ -1616,7 +1616,13 @@ export async function bulkChangeTreatmentActionsOptionAction(
   return { ok: true, updated: applicable.length, skipped }
 }
 
-// ─── Paso 7.5: stub — se implementa en el siguiente paso ────────────────────
+// ─── Paso 7.5: revisión periódica de aceptación/diferimiento ────────────────
+
+const DECISION_TO_OPTION: Partial<Record<ReviewDecision, TreatmentOption>> = {
+  changed_to_mitigate: 'mitigar',
+  changed_to_transfer: 'transferir',
+  changed_to_avoid: 'evitar',
+};
 
 type ReviewAcceptanceInput = {
   aiSystemId: string;
@@ -1628,7 +1634,119 @@ type ReviewAcceptanceInput = {
 };
 
 export async function reviewAcceptanceAction(
-  _input: ReviewAcceptanceInput,
+  input: ReviewAcceptanceInput,
 ): Promise<{ ok: true } | { error: string }> {
-  return { error: 'No implementado aún — complétame en Paso 7.5.' };
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: 'No autenticado.' };
+
+  const { data: membership, error: membershipError } = await fluxion
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('user_id', user.id)
+    .single();
+  if (membershipError || !membership) return { error: 'Organización no encontrada.' };
+
+  // Fetch action + plan in one query to validate ownership and get current state
+  const { data: action, error: actionError } = await fluxion
+    .from('treatment_actions')
+    .select(`
+      id, plan_id, organization_id, option, status,
+      review_due_date, last_reviewed_at, review_count,
+      s_actual_at_creation, s_residual_target,
+      treatment_plans!inner(id, evaluation_id, system_id, organization_id, code)
+    `)
+    .eq('id', input.actionId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  if (actionError || !action) return { error: 'Acción no encontrada.' };
+
+  const plan = action.treatment_plans as {
+    id: string; evaluation_id: string; system_id: string;
+    organization_id: string; code: string;
+  };
+
+  if (plan.system_id !== input.aiSystemId) return { error: 'Sistema no coincide.' };
+  if (plan.evaluation_id !== input.evaluationId) return { error: 'Evaluación no coincide.' };
+  if (!['aceptar', 'diferir'].includes(action.option ?? '')) {
+    return { error: 'Solo se pueden revisar acciones con opción Aceptar o Diferir.' };
+  }
+
+  // Determine new option (null = no change) and new review_due_date
+  const newOption = DECISION_TO_OPTION[input.decision] ?? null;
+  const newReviewDueDate =
+    input.decision === 'reaffirmed'
+      ? (input.newReviewDueDate ?? null)
+      : null;
+
+  // 1) Insert review record
+  const { error: insertError } = await fluxion
+    .from('treatment_action_reviews')
+    .insert({
+      action_id: action.id,
+      plan_id: plan.id,
+      organization_id: membership.organization_id,
+      reviewed_by: user.id,
+      decision: input.decision,
+      new_review_due_date: newReviewDueDate,
+      justification: input.justification,
+    });
+
+  if (insertError) {
+    console.error('[reviewAcceptanceAction] Error insertando revisión:', insertError.message);
+    return { error: 'No se pudo registrar la revisión. Intenta de nuevo.' };
+  }
+
+  // 2) Update treatment_action
+  const updatePayload: Record<string, unknown> = {
+    last_reviewed_at: new Date().toISOString(),
+    review_count: (action.review_count ?? 0) + 1,
+    review_due_date: newReviewDueDate,
+  };
+  if (newOption) {
+    updatePayload.option = newOption;
+  }
+
+  const { error: updateError } = await fluxion
+    .from('treatment_actions')
+    .update(updatePayload)
+    .eq('id', action.id);
+
+  if (updateError) {
+    console.error('[reviewAcceptanceAction] Error actualizando acción:', updateError.message);
+    return { error: 'Revisión registrada pero no se pudo actualizar la acción.' };
+  }
+
+  // 3) Fire-and-forget: audit event
+  void recordTreatmentActionEvent({
+    fluxion,
+    actorUserId: user.id,
+    event: {
+      planId: plan.id,
+      actionId: action.id,
+      organizationId: membership.organization_id,
+      eventType: 'periodic_review',
+      beforeState: {
+        option: action.option,
+        review_due_date: action.review_due_date,
+        review_count: action.review_count,
+        last_reviewed_at: action.last_reviewed_at,
+      },
+      afterState: {
+        option: newOption ?? action.option,
+        review_due_date: newReviewDueDate,
+        review_count: (action.review_count ?? 0) + 1,
+        decision: input.decision,
+      },
+      justification: input.justification,
+    },
+  });
+
+  // 4) TODO Paso 7.8: si decision === 'escalated', insertar notificación al aprobador
+
+  revalidatePlanPaths(input.aiSystemId, input.evaluationId);
+  return { ok: true };
 }

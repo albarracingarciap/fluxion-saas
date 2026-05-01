@@ -9,7 +9,8 @@ export type TreatmentActionEventType =
   | 'residual_achieved_recorded'
   | 'slippage_accepted'
   | 'task_status_changed'
-  | 'closed';
+  | 'closed'
+  | 'periodic_review';
 
 export type TreatmentActionEventInput = {
   planId: string;
