@@ -27,6 +27,7 @@ import { BulkActionBar } from './bulk-action-bar';
 import { BulkAssignActionsModal } from './bulk-assign-actions-modal';
 import { BulkSetDueDateModal } from './bulk-set-duedate-modal';
 import { BulkChangeOptionModal } from './bulk-change-option-modal';
+import { exportTreatmentActionsCsv } from '@/lib/treatment-plans/csv';
 
 import {
   saveTreatmentActionDecision,
@@ -541,7 +542,15 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         onAssign={() => setBulkModal('assign')}
         onSetDueDate={() => setBulkModal('duedate')}
         onChangeOption={() => setBulkModal('option')}
-        onExportCsv={() => setBulkModal(null)}
+        onExportCsv={() =>
+          exportTreatmentActionsCsv(
+            actions,
+            data.members,
+            selectedActionIds,
+            data.plan.code,
+            taskStatuses
+          )
+        }
       />
 
       {bulkModal === 'assign' && (
