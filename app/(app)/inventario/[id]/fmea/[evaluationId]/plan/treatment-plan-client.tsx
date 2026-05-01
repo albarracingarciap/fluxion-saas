@@ -73,6 +73,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [, startTaskTransition] = useTransition();
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedActionIds, setSelectedActionIds] = useState<Set<string>>(() => new Set());
+  type ActionFilter = 'overdue' | 'due_soon' | 'slippage' | null;
+  const [activeFilter, setActiveFilter] = useState<ActionFilter>(null);
   type BulkModal = 'assign' | 'duedate' | 'option' | null;
   const [bulkModal, setBulkModal] = useState<BulkModal>(null);
   const [pendingResidual, setPendingResidual] = useState<{
@@ -193,6 +195,40 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
     return groups.filter((group) => group.items.length > 0);
   }, [actions]);
+
+  const filteredGroupedActions = useMemo(() => {
+    if (!activeFilter) return groupedActions;
+    return groupedActions
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((action) => {
+          if (activeFilter === 'overdue') return action.sla_status === 'overdue';
+          if (activeFilter === 'due_soon') return action.sla_status === 'due_soon';
+          if (activeFilter === 'slippage') {
+            return (
+              action.option === 'mitigar' &&
+              action.status === 'completed' &&
+              (action.s_residual_achieved === null ||
+                (action.s_residual_target !== null && action.s_residual_achieved > action.s_residual_target))
+            );
+          }
+          return true;
+        }),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [groupedActions, activeFilter]);
+
+  const slippageCount = useMemo(
+    () =>
+      actions.filter(
+        (a) =>
+          a.option === 'mitigar' &&
+          a.status === 'completed' &&
+          (a.s_residual_achieved === null ||
+            (a.s_residual_target !== null && a.s_residual_achieved > a.s_residual_target))
+      ).length,
+    [actions]
+  );
 
   useEffect(() => {
     const requestedActionId = searchParams.get('action');
@@ -559,6 +595,68 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         onNotesChange={setPlanNotes}
       />
 
+      {/* Filter chips */}
+      {actions.length > 0 && (efficacyKpis.overdueCount > 0 || efficacyKpis.dueSoonCount > 0 || slippageCount > 0) && (
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Filtrar:</span>
+
+          {efficacyKpis.overdueCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter((f) => f === 'overdue' ? null : 'overdue')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[0.7px] transition-colors ${
+                activeFilter === 'overdue'
+                  ? 'border-reb bg-red-dim text-re'
+                  : 'border-ltb bg-ltcard2 text-lttm hover:border-reb hover:text-re'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+              Vencidas ({efficacyKpis.overdueCount})
+            </button>
+          )}
+
+          {efficacyKpis.dueSoonCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter((f) => f === 'due_soon' ? null : 'due_soon')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[0.7px] transition-colors ${
+                activeFilter === 'due_soon'
+                  ? 'border-orb bg-ordim text-or'
+                  : 'border-ltb bg-ltcard2 text-lttm hover:border-orb hover:text-or'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+              Vencen pronto ({efficacyKpis.dueSoonCount})
+            </button>
+          )}
+
+          {slippageCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter((f) => f === 'slippage' ? null : 'slippage')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border font-plex text-[10px] uppercase tracking-[0.7px] transition-colors ${
+                activeFilter === 'slippage'
+                  ? 'border-orb bg-ordim text-or'
+                  : 'border-ltb bg-ltcard2 text-lttm hover:border-orb hover:text-or'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+              Slippage ({slippageCount})
+            </button>
+          )}
+
+          {activeFilter && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter(null)}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-[7px] border border-ltb bg-ltbg text-lttm hover:text-ltt font-plex text-[10px] uppercase tracking-[0.7px] transition-colors"
+            >
+              Todos
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-5">
         {actions.length === 0 && (
           <div className="rounded-[12px] border border-ltb bg-ltcard p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
@@ -572,7 +670,13 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           </div>
         )}
 
-        {groupedActions.map((group) => (
+        {activeFilter && filteredGroupedActions.length === 0 && (
+          <div className="rounded-[12px] border border-ltb bg-ltcard px-6 py-5 text-center">
+            <p className="font-sora text-[13px] text-lttm">No hay acciones que coincidan con el filtro activo.</p>
+          </div>
+        )}
+
+        {filteredGroupedActions.map((group) => (
           <ActionsGroupSection
             key={group.id}
             group={group}
