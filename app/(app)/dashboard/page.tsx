@@ -787,6 +787,15 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
               Requiere atención
             </span>
           )}
+          {summary.pendingReviewsCount > 0 && (
+            <Link
+              href="/planes/revisiones-pendientes"
+              className="inline-flex items-center gap-1 font-sora text-[11.5px] text-or hover:opacity-80 transition-opacity"
+            >
+              <RefreshCw size={11} />
+              {summary.pendingReviewsCount} revisiones
+            </Link>
+          )}
           <Link
             href="/planes"
             className="inline-flex items-center gap-1 font-sora text-[11.5px] text-lttm hover:text-brand-cyan transition-colors"

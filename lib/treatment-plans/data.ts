@@ -4,7 +4,10 @@ import type { FmeaZone } from '@/lib/fmea/domain'
 import type {
   TreatmentApprovalLevel,
   TreatmentPlanStatus,
+  TreatmentOption,
+  ReviewStatus,
 } from '@/lib/fmea/treatment-plan'
+import { getReviewStatus } from '@/lib/fmea/treatment-plan'
 
 export type DeadlineBucket = 'overdue' | 'next_30d' | 'next_90d' | 'no_deadline'
 
@@ -417,4 +420,138 @@ async function fetchPendingReviewsCountByPlan(
   }
 
   return result
+}
+
+export type PendingReviewAction = {
+  action_id: string
+  fmea_item_id: string
+  option: TreatmentOption
+  review_due_date: string
+  review_count: number
+  last_reviewed_at: string | null
+  owner_id: string | null
+  justification: string | null
+  s_actual_at_creation: number
+  // Failure mode
+  failure_mode_id: string
+  failure_mode_name: string
+  failure_mode_code: string
+  // Plan
+  plan_id: string
+  plan_code: string
+  plan_status: TreatmentPlanStatus
+  // System + evaluation
+  system_id: string
+  system_name: string
+  system_internal_id: string | null
+  evaluation_id: string
+  // Computed
+  review_status: Exclude<ReviewStatus, 'not_required'>
+  days_until_review: number
+}
+
+export async function fetchPendingReviewActions(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  compliance: SupabaseClient<any, any, any>,
+  organizationId: string
+): Promise<PendingReviewAction[]> {
+  const window30 = new Date()
+  window30.setDate(window30.getDate() + 30)
+  const windowISO = window30.toISOString().split('T')[0]!
+
+  // 1) Fetch actions with plan + system info
+  const { data: actionRows } = await fluxion
+    .from('treatment_actions')
+    .select(`
+      id,
+      fmea_item_id,
+      option,
+      review_due_date,
+      review_count,
+      last_reviewed_at,
+      owner_id,
+      justification,
+      s_actual_at_creation,
+      treatment_plans!inner(
+        id, code, status, evaluation_id,
+        ai_systems!inner(id, name, internal_id)
+      )
+    `)
+    .eq('organization_id', organizationId)
+    .in('option', ['aceptar', 'diferir'])
+    .not('review_due_date', 'is', null)
+    .lte('review_due_date', windowISO)
+    .not('status', 'in', '(cancelled,completed)')
+    .order('review_due_date', { ascending: true })
+
+  const actionRowsTyped = (actionRows ?? []) as Array<Record<string, unknown>>
+  if (actionRowsTyped.length === 0) return []
+
+  // 2) Fetch fmea_items to get failure_mode_ids
+  const fmeaItemIds = actionRowsTyped.map((r) => r.fmea_item_id as string).filter(Boolean)
+  const { data: fmeaItemRows } = await fluxion
+    .from('fmea_items')
+    .select('id, failure_mode_id')
+    .in('id', fmeaItemIds)
+
+  const fmeaItemToFailureMode = new Map(
+    ((fmeaItemRows ?? []) as Array<{ id: string; failure_mode_id: string }>)
+      .map((item) => [item.id, item.failure_mode_id])
+  )
+
+  // 3) Fetch failure mode names from compliance schema
+  const failureModeIds = Array.from(new Set(fmeaItemToFailureMode.values())).filter(Boolean)
+  const { data: fmRows } = failureModeIds.length > 0
+    ? await compliance.from('failure_modes').select('id, code, name').in('id', failureModeIds)
+    : { data: [] }
+
+  const fmMap = new Map(
+    ((fmRows ?? []) as Array<{ id: string; code: string; name: string }>)
+      .map((fm) => [fm.id, fm])
+  )
+
+  // 4) Assemble
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return actionRowsTyped.map((row) => {
+    const plan = row.treatment_plans as Record<string, unknown>
+    const system = (plan?.ai_systems as Record<string, unknown>) ?? {}
+    const fmeaItemId = row.fmea_item_id as string
+    const failureModeId = fmeaItemToFailureMode.get(fmeaItemId) ?? ''
+    const fm = fmMap.get(failureModeId)
+    const reviewDueDate = row.review_due_date as string
+    const dueDate = new Date(`${reviewDueDate}T00:00:00`)
+    const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+    return {
+      action_id: row.id as string,
+      fmea_item_id: fmeaItemId,
+      option: row.option as TreatmentOption,
+      review_due_date: reviewDueDate,
+      review_count: (row.review_count as number) ?? 0,
+      last_reviewed_at: (row.last_reviewed_at as string | null) ?? null,
+      owner_id: (row.owner_id as string | null) ?? null,
+      justification: (row.justification as string | null) ?? null,
+      s_actual_at_creation: (row.s_actual_at_creation as number) ?? 0,
+      failure_mode_id: failureModeId,
+      failure_mode_name: fm?.name ?? '—',
+      failure_mode_code: fm?.code ?? '—',
+      plan_id: plan?.id as string,
+      plan_code: plan?.code as string,
+      plan_status: plan?.status as TreatmentPlanStatus,
+      system_id: system?.id as string,
+      system_name: (system?.name as string) ?? '—',
+      system_internal_id: (system?.internal_id as string | null) ?? null,
+      evaluation_id: plan?.evaluation_id as string,
+      review_status: getReviewStatus({
+        option: row.option as TreatmentOption,
+        status: 'in_progress',
+        review_due_date: reviewDueDate,
+      }) as Exclude<ReviewStatus, 'not_required'>,
+      days_until_review: daysUntil,
+    } satisfies PendingReviewAction
+  })
 }
