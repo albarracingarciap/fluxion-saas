@@ -338,20 +338,25 @@ export function PlansViewClient({ plans, systems, members }: Props) {
         <>
           <div className="rounded-[12px] border border-ltb bg-ltcard overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <table className="w-full">
-              <thead className="bg-ltcard2 border-b border-ltb">
+              <thead className="sticky top-0 z-10 bg-ltcard2 border-b border-ltb">
                 <tr className="text-left">
-                  <Th className="w-[26%]">Sistema</Th>
-                  <Th className="w-[12%]">Plan</Th>
-                  <Th className="w-[12%]">Estado</Th>
-                  <Th className="w-[10%]">Zona</Th>
-                  <Th className="w-[10%]">Aprobación</Th>
+                  <Th className="w-[24%]">Sistema</Th>
+                  <Th className="w-[11%]">Plan</Th>
+                  <Th className="w-[11%]">Estado</Th>
+                  <Th className="w-[12%]">Zona / modos</Th>
+                  <Th className="w-[12%]">Owner / Aprobación</Th>
                   <Th className="w-[14%]">Progreso</Th>
                   <Th className="w-[16%]">Fecha límite</Th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((plan) => (
-                  <PlanRow key={plan.id} plan={plan} approverName={plan.approver_id ? memberById.get(plan.approver_id) ?? null : null} />
+                  <PlanRow
+                    key={plan.id}
+                    plan={plan}
+                    approverName={plan.approver_id ? memberById.get(plan.approver_id) ?? null : null}
+                    dominantOwnerName={plan.dominant_owner_id ? memberById.get(plan.dominant_owner_id) ?? null : null}
+                  />
                 ))}
               </tbody>
             </table>
@@ -394,10 +399,21 @@ export function PlansViewClient({ plans, systems, members }: Props) {
   )
 }
 
-function PlanRow({ plan, approverName }: { plan: TreatmentPlanListRow; approverName: string | null }) {
+function PlanRow({
+  plan,
+  approverName,
+  dominantOwnerName,
+}: {
+  plan: TreatmentPlanListRow
+  approverName: string | null
+  dominantOwnerName: string | null
+}) {
   const zoneMeta = getZoneClasses(plan.zone_at_creation)
   const statusMeta = STATUS_META[plan.status]
   const href = `/inventario/${plan.system_id}/fmea/${plan.evaluation_id}/plan`
+  const aiActLabel = plan.system_aiact_risk_level
+    ? plan.system_aiact_risk_level.replaceAll('_', ' ')
+    : null
 
   return (
     <tr className="border-b border-ltb last:border-b-0 hover:bg-ltbg transition-colors">
@@ -410,6 +426,13 @@ function PlanRow({ plan, approverName }: { plan: TreatmentPlanListRow; approverN
             {plan.system_internal_id ?? plan.system_id.slice(0, 8)}
             {plan.evaluation_version != null ? ` · FMEA v${plan.evaluation_version}` : ''}
           </div>
+          {aiActLabel && (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] border border-ltb bg-ltbg font-plex text-[9.5px] uppercase tracking-[1px] text-lttm">
+                AI Act · {aiActLabel}
+              </span>
+            </div>
+          )}
         </Link>
       </td>
       <td className="px-4 py-3 align-top">
@@ -430,16 +453,29 @@ function PlanRow({ plan, approverName }: { plan: TreatmentPlanListRow; approverN
         >
           {getZoneLabel(plan.zone_at_creation)}
         </span>
-      </td>
-      <td className="px-4 py-3 align-top">
-        <div className="font-sora text-[12.5px] text-ltt">
-          {APPROVAL_LEVEL_LABEL[plan.approval_level]}
-        </div>
-        {approverName && (
-          <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mt-0.5">
-            {approverName}
+        {(plan.modes_count_zone_i > 0 || plan.modes_count_zone_ii > 0) && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {plan.modes_count_zone_i > 0 && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] border border-reb bg-red-dim font-plex text-[9.5px] uppercase tracking-[1px] text-re">
+                Z1: {plan.modes_count_zone_i}
+              </span>
+            )}
+            {plan.modes_count_zone_ii > 0 && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] border border-orb bg-ordim font-plex text-[9.5px] uppercase tracking-[1px] text-or">
+                Z2: {plan.modes_count_zone_ii}
+              </span>
+            )}
           </div>
         )}
+      </td>
+      <td className="px-4 py-3 align-top">
+        <div className="font-sora text-[12.5px] text-ltt leading-snug">
+          {dominantOwnerName ?? <span className="text-lttm">Sin owner asignado</span>}
+        </div>
+        <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mt-0.5">
+          {APPROVAL_LEVEL_LABEL[plan.approval_level]}
+          {approverName ? ` · ${approverName}` : ''}
+        </div>
       </td>
       <td className="px-4 py-3 align-top">
         <div className="flex items-center gap-2">
