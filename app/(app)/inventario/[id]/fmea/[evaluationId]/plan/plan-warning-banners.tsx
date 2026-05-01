@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Clock } from 'lucide-react'
 
 type Props = {
   globalError: string | null
@@ -9,6 +9,8 @@ type Props = {
   submitBlocked: boolean
   pendingCount: number
   incompleteActionCount: number
+  overdueCount: number
+  planStatus: string
 }
 
 export function PlanWarningBanners({
@@ -18,13 +20,27 @@ export function PlanWarningBanners({
   submitBlocked,
   pendingCount,
   incompleteActionCount,
+  overdueCount,
+  planStatus,
 }: Props) {
+  const showOverdueBanner =
+    overdueCount > 0 && ['approved', 'in_progress'].includes(planStatus)
+
   return (
     <>
       {globalError && (
         <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{globalError}</span>
+        </div>
+      )}
+
+      {showOverdueBanner && (
+        <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
+          <Clock className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>{overdueCount} {overdueCount === 1 ? 'acción vencida requiere' : 'acciones vencidas requieren'}</strong> atención inmediata — la fecha objetivo ya ha pasado sin que se hayan completado.
+          </span>
         </div>
       )}
 

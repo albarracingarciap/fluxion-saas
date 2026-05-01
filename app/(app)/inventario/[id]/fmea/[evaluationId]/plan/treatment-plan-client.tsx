@@ -123,6 +123,47 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
       }).length,
     [actions, data.plan.deadline]
   );
+  const efficacyKpis = useMemo(() => {
+    const TERMINAL = new Set(['completed', 'accepted', 'cancelled']);
+    const activeActions = actions.filter((a) => !TERMINAL.has(a.status));
+    const overdueCount = activeActions.filter((a) => a.sla_status === 'overdue').length;
+    const dueSoonCount = activeActions.filter((a) => a.sla_status === 'due_soon').length;
+    const overduePercent = activeActions.length > 0
+      ? Math.round((overdueCount / activeActions.length) * 100)
+      : null;
+
+    const completedMitigar = actions.filter(
+      (a) => a.option === 'mitigar' && a.status === 'completed'
+    );
+    const slippageCount = completedMitigar.filter(
+      (a) => a.s_residual_achieved === null ||
+        (a.s_residual_target !== null && a.s_residual_achieved > a.s_residual_target)
+    ).length;
+    const slippageRate = completedMitigar.length > 0
+      ? Math.round((slippageCount / completedMitigar.length) * 100)
+      : null;
+
+    const completedWithDates = actions.filter(
+      (a) => a.status === 'completed' && a.completed_at && a.created_at
+    );
+    const daysToCloseValues = completedWithDates.map((a) =>
+      Math.max(0, Math.ceil(
+        (new Date(a.completed_at!).getTime() - new Date(a.created_at).getTime()) /
+        (1000 * 60 * 60 * 24)
+      ))
+    );
+    let medianDaysToClose: number | null = null;
+    if (daysToCloseValues.length > 0) {
+      const sorted = [...daysToCloseValues].sort((x, y) => x - y);
+      const mid = Math.floor(sorted.length / 2);
+      medianDaysToClose = sorted.length % 2 === 0
+        ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+        : sorted[mid];
+    }
+
+    return { overdueCount, dueSoonCount, overduePercent, slippageRate, medianDaysToClose };
+  }, [actions]);
+
   const submitBlocked = pendingCount > 0 || incompleteActionCount > 0;
   const submitTitle =
     pendingCount > 0
@@ -479,6 +520,11 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         tasksTotal={data.tasks_total}
         tasksDone={data.tasks_done}
         approverName={data.approver_name}
+        overdueCount={efficacyKpis.overdueCount}
+        dueSoonCount={efficacyKpis.dueSoonCount}
+        overduePercent={efficacyKpis.overduePercent}
+        slippageRate={efficacyKpis.slippageRate}
+        medianDaysToClose={efficacyKpis.medianDaysToClose}
       />
 
       {data.plan.code !== 'PREVIEW-DRAFT' && (
@@ -498,6 +544,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         submitBlocked={submitBlocked}
         pendingCount={pendingCount}
         incompleteActionCount={incompleteActionCount}
+        overdueCount={efficacyKpis.overdueCount}
+        planStatus={data.plan.status}
       />
 
       {data.plan.status === 'in_review' && <ApprovalReviewPanel data={data} />}
