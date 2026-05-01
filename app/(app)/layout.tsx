@@ -1,6 +1,7 @@
 import { Sidebar, type SidebarOrgState } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { IntelBanner } from "@/components/layout/intel-banner"
+import { OverdueReviewsBanner } from "@/components/layout/overdue-reviews-banner"
 import { AssistantPanel } from "@/components/assistant/AssistantPanel"
 import { getAppAuthState } from "@/lib/auth/app-state"
 import { createFluxionClient } from "@/lib/supabase/fluxion"
@@ -52,17 +53,39 @@ export default async function AppLayout({
     logo_url: (organization as { logo_url?: string | null } | null)?.logo_url ?? null,
   }
 
+  let overdueReviewsCount = 0
+  let upcomingReviewsCount = 0
+
   if (membership?.organization_id) {
     const fluxion = createFluxionClient()
-    const { count } = await fluxion
-      .from('ai_systems')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', membership.organization_id)
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const window30 = new Date()
+    window30.setDate(window30.getDate() + 30)
+    const windowISO = window30.toISOString().slice(0, 10)
+
+    const [systemsRes, reviewsRes] = await Promise.all([
+      fluxion
+        .from('ai_systems')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', membership.organization_id),
+      fluxion
+        .from('treatment_actions')
+        .select('review_due_date')
+        .eq('organization_id', membership.organization_id)
+        .in('option', ['aceptar', 'diferir'])
+        .not('review_due_date', 'is', null)
+        .lte('review_due_date', windowISO)
+        .not('status', 'in', '(cancelled,completed)'),
+    ])
 
     sidebarOrgState = {
       ...sidebarOrgState,
-      hasSystems: (count ?? 0) > 0,
+      hasSystems: (systemsRes.count ?? 0) > 0,
     }
+
+    const reviewRows = (reviewsRes.data ?? []) as Array<{ review_due_date: string }>
+    overdueReviewsCount = reviewRows.filter((r) => r.review_due_date <= todayISO).length
+    upcomingReviewsCount = reviewRows.length - overdueReviewsCount
   }
 
   return (
@@ -75,6 +98,10 @@ export default async function AppLayout({
         {/* Zona Oscura - Topbar & Banner */}
         <div className="print:hidden">
           <Topbar />
+          <OverdueReviewsBanner
+            overdueCount={overdueReviewsCount}
+            upcomingCount={upcomingReviewsCount}
+          />
           <IntelBanner />
         </div>
         {/* Zona Clara - Contenido Principal con layout de grilla o flex */}
