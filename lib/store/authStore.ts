@@ -21,6 +21,31 @@ export interface Organization {
   logo_url: string | null
   active_modules: string[]
   settings?: Record<string, unknown>
+  // Legal fields (migration 081)
+  legal_name?: string | null
+  tax_id?: string | null
+  vat_number?: string | null
+  lei_code?: string | null
+  website?: string | null
+  description?: string | null
+  registered_address?: {
+    street?: string | null
+    city?: string | null
+    postal_code?: string | null
+    country?: string | null
+  } | null
+  // Governance fields (migration 082)
+  parent_org_id?: string | null
+  dpo_name?: string | null
+  dpo_email?: string | null
+  dpo_phone?: string | null
+  external_auditor_name?: string | null
+  external_auditor_contact?: string | null
+  external_auditor_cert?: string | null
+  // Retention fields (migration 083)
+  evidence_retention_months?: number | null
+  audit_log_retention_months?: number | null
+  personal_data_retention_months?: number | null
 }
 
 interface AuthState {
