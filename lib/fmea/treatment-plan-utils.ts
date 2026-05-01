@@ -5,6 +5,12 @@ export type EditableTreatmentAction = TreatmentPlanActionView & {
   control_template_id: string | null
 }
 
+const BULK_TERMINAL_STATUSES = new Set(['completed', 'accepted', 'cancelled'])
+
+export function isActionSelectableForBulk(action: EditableTreatmentAction): boolean {
+  return !BULK_TERMINAL_STATUSES.has(action.status)
+}
+
 const OPTION_LABELS: Record<TreatmentOption, string> = {
   mitigar: 'Mitigar',
   aceptar: 'Aceptar',

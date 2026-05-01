@@ -66,6 +66,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [, startTaskTransition] = useTransition();
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedActionIds, setSelectedActionIds] = useState<Set<string>>(() => new Set());
 
   const readOnly = data.read_only || data.plan.status !== 'draft';
   const isExecutiveApproval = data.plan.approval_level === 'level_3';
@@ -249,6 +250,32 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
       }
       setUpdatingTaskId(null);
     });
+  }
+
+  function toggleActionSelection(actionId: string) {
+    setSelectedActionIds((current) => {
+      const next = new Set(current);
+      if (next.has(actionId)) next.delete(actionId);
+      else next.add(actionId);
+      return next;
+    });
+  }
+
+  function toggleGroupSelection(groupActionIds: string[]) {
+    setSelectedActionIds((current) => {
+      const next = new Set(current);
+      const allSelected = groupActionIds.length > 0 && groupActionIds.every((id) => next.has(id));
+      if (allSelected) {
+        groupActionIds.forEach((id) => next.delete(id));
+      } else {
+        groupActionIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedActionIds(new Set());
   }
 
   function patchAction(actionId: string, updater: (action: EditableTreatmentAction) => EditableTreatmentAction) {
@@ -495,6 +522,9 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             onSelectOption={handleSelectOption}
             onSaveAction={handleSaveAction}
             onTaskStatusChange={handleTaskStatusChange}
+            selectedActionIds={selectedActionIds}
+            onToggleSelection={toggleActionSelection}
+            onToggleGroupSelection={toggleGroupSelection}
           />
         ))}
       </div>

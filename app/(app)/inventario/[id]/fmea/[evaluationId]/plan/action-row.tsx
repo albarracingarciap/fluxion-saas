@@ -11,8 +11,11 @@ type Props = {
   isExpanded: boolean
   taskStatuses: Record<string, TaskStatus>
   updatingTaskId: string | null
+  selectable: boolean
+  isSelected: boolean
   onToggle: () => void
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void
+  onToggleSelect: () => void
 }
 
 export function ActionRow({
@@ -20,17 +23,40 @@ export function ActionRow({
   isExpanded,
   taskStatuses,
   updatingTaskId,
+  selectable,
+  isSelected,
   onToggle,
   onTaskStatusChange,
+  onToggleSelect,
 }: Props) {
   const severityMeta = getSeverityMeta(action.s_actual_at_creation)
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
-      className="w-full px-4 py-3.5 bg-ltcard hover:bg-ltbg transition-colors flex items-center gap-4 text-left"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+      className={`w-full px-4 py-3.5 bg-ltcard hover:bg-ltbg transition-colors flex items-center gap-4 text-left cursor-pointer ${
+        isSelected ? 'bg-cyan-dim/40' : ''
+      }`}
     >
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={onToggleSelect}
+          aria-label="Seleccionar acción"
+          className="w-4 h-4 accent-brand-cyan cursor-pointer shrink-0"
+        />
+      )}
+
       <div className={`w-11 h-11 rounded-[10px] border flex items-center justify-center font-fraunces text-[20px] ${severityMeta.circle}`}>
         {action.s_actual_at_creation}
       </div>
@@ -70,6 +96,6 @@ export function ActionRow({
       <ChevronRight
         className={`w-4 h-4 text-lttm transition-transform ${isExpanded ? 'rotate-90' : ''}`}
       />
-    </button>
+    </div>
   )
 }
