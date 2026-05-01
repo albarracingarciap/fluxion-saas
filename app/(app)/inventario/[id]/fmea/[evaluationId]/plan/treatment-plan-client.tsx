@@ -23,6 +23,7 @@ import { ActionsGroupSection } from './actions-group-section';
 import { PlanHeader } from './plan-header';
 import { PlanWarningBanners } from './plan-warning-banners';
 import { PlanResidualPanel } from './plan-residual-panel';
+import { BulkActionBar } from './bulk-action-bar';
 
 import {
   saveTreatmentActionDecision,
@@ -67,6 +68,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [, startTaskTransition] = useTransition();
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedActionIds, setSelectedActionIds] = useState<Set<string>>(() => new Set());
+  type BulkModal = 'assign' | 'duedate' | 'option' | null;
+  const [bulkModal, setBulkModal] = useState<BulkModal>(null);
 
   const readOnly = data.read_only || data.plan.status !== 'draft';
   const isExecutiveApproval = data.plan.approval_level === 'level_3';
@@ -528,6 +531,15 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           />
         ))}
       </div>
+
+      <BulkActionBar
+        selectedCount={selectedActionIds.size}
+        onClearSelection={clearSelection}
+        onAssign={() => setBulkModal('assign')}
+        onSetDueDate={() => setBulkModal('duedate')}
+        onChangeOption={() => setBulkModal('option')}
+        onExportCsv={() => setBulkModal(null)}
+      />
 
     </div>
   );
