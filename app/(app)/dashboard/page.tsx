@@ -9,6 +9,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
   FileCheck2,
   FileText,
   GitFork,
@@ -17,11 +18,14 @@ import {
   ShieldCheck,
   Clock,
   FileEdit,
+  TrendingDown,
 } from 'lucide-react'
 import { OnboardingGuide } from './OnboardingGuide'
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildDashboardData } from '@/lib/dashboard/data'
 import { detectActiveCausalChains, type ActiveCausalChain } from '@/lib/causal-graph/chains'
+import { computeTreatmentPlansSummary } from '@/lib/treatment-plans/data'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 const STATUS_LABELS: Record<string, string> = {
   produccion: 'Producción',
@@ -62,7 +66,11 @@ export default async function DashboardPage() {
     redirect('/onboarding')
   }
 
-  const dashboard = await buildDashboardData(membership.organization_id)
+  const fluxion = createFluxionClient()
+  const [dashboard, plansSummary] = await Promise.all([
+    buildDashboardData(membership.organization_id),
+    computeTreatmentPlansSummary(fluxion, membership.organization_id),
+  ])
   const causalChains = dashboard.systems.length > 0
     ? await detectActiveCausalChains(membership.organization_id, { minLength: 3, limit: 5 })
     : []
@@ -119,6 +127,12 @@ export default async function DashboardPage() {
       <section>
         <EvidenceHealthCard kpis={dashboard.kpis} />
       </section>
+
+      {plansSummary.total > 0 && (
+        <section>
+          <TreatmentPlansCard summary={plansSummary} />
+        </section>
+      )}
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <ComplianceOverviewCard dashboard={dashboard} />
@@ -745,6 +759,114 @@ function InlineBadge({
     <span className={`font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border ${toneClass}`}>
       {children}
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Treatment Plans Card
+// ---------------------------------------------------------------------------
+
+import type { TreatmentPlansSummary } from '@/lib/treatment-plans/data'
+
+function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
+  const hasUrgency = summary.overdueActionsCount > 0 || (summary.slippageRate !== null && summary.slippageRate > 0)
+
+  return (
+    <div className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
+      <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={14} className="text-lttm" />
+          <h2 className="font-plex text-[11px] uppercase tracking-[0.9px] text-ltt2">
+            Planes de tratamiento
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasUrgency && (
+            <span className="font-plex text-[10px] uppercase tracking-[0.6px] px-2 py-1 rounded-full bg-red-dim text-re border border-reb">
+              Requiere atención
+            </span>
+          )}
+          <Link
+            href="/planes"
+            className="inline-flex items-center gap-1 font-sora text-[11.5px] text-lttm hover:text-brand-cyan transition-colors"
+          >
+            Ver todos
+            <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
+            <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Activos</p>
+            <p className="font-fraunces text-[28px] text-ltt mt-1">{summary.active}</p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {summary.inReview > 0 ? `${summary.inReview} en aprobación` : 'en ejecución o aprobados'}
+            </p>
+          </div>
+
+          <div className={`rounded-[12px] border px-4 py-3 ${summary.overdueActionsCount > 0 ? 'border-reb bg-red-dim' : 'border-ltb bg-ltbg'}`}>
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle size={11} className={summary.overdueActionsCount > 0 ? 'text-re' : 'text-lttm'} />
+              <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${summary.overdueActionsCount > 0 ? 'text-re' : 'text-lttm'}`}>
+                Acciones vencidas
+              </p>
+            </div>
+            <p className={`font-fraunces text-[28px] mt-1 ${summary.overdueActionsCount > 0 ? 'text-re' : 'text-ltt'}`}>
+              {summary.overdueActionsCount}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {summary.overdueActionsCount > 0 ? 'requieren atención inmediata' : 'ninguna vencida'}
+            </p>
+          </div>
+
+          <div className={`rounded-[12px] border px-4 py-3 ${summary.slippageRate !== null && summary.slippageRate > 0 ? 'border-orb bg-ordim' : 'border-ltb bg-ltbg'}`}>
+            <div className="flex items-center gap-1.5">
+              <TrendingDown size={11} className={summary.slippageRate !== null && summary.slippageRate > 0 ? 'text-or' : 'text-lttm'} />
+              <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${summary.slippageRate !== null && summary.slippageRate > 0 ? 'text-or' : 'text-lttm'}`}>
+                Tasa slippage
+              </p>
+            </div>
+            <p className={`font-fraunces text-[28px] mt-1 ${summary.slippageRate !== null && summary.slippageRate > 0 ? 'text-or' : 'text-ltt'}`}>
+              {summary.slippageRate !== null ? `${summary.slippageRate}%` : '—'}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {summary.slippageRate !== null ? 'de mitigaciones completadas' : 'sin datos de eficacia aún'}
+            </p>
+          </div>
+
+          <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <Clock size={11} className="text-lttm" />
+              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Mediana cierre</p>
+            </div>
+            <p className="font-fraunces text-[28px] text-ltt mt-1">
+              {summary.medianDaysToClose !== null ? `${summary.medianDaysToClose}d` : '—'}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {summary.medianDaysToClose !== null ? 'días de creación a cierre' : `${summary.closed} planes cerrados`}
+            </p>
+          </div>
+        </div>
+
+        {/* Progress bar avg */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3 mb-1.5">
+            <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">
+              Progreso medio de planes activos
+            </p>
+            <p className="font-plex text-[10px] text-lttm">{summary.avgProgressPct}%</p>
+          </div>
+          <div className="h-2 rounded-full bg-[#e7eef8] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue transition-all"
+              style={{ width: `${Math.max(4, summary.avgProgressPct)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
