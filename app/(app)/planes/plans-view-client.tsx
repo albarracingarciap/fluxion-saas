@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo, useState, useTransition, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileDown, Search, X } from 'lucide-react'
 
 import { getZoneClasses, getZoneLabel, type FmeaZone } from '@/lib/fmea/domain'
 import type { TreatmentPlanStatus, TreatmentApprovalLevel } from '@/lib/fmea/treatment-plan'
 import type { TreatmentPlanListRow, DeadlineBucket } from '@/lib/treatment-plans/data'
+import { exportTreatmentPlansCsv } from '@/lib/treatment-plans/csv'
 
 const PAGE_SIZE = 30
 
@@ -258,6 +259,19 @@ export function PlansViewClient({ plans, systems, members }: Props) {
               <option key={k} value={k}>{SORT_LABEL[k]}</option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => exportTreatmentPlansCsv(filtered, memberById)}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-ltb bg-ltcard font-sora text-[12.5px] text-lttm hover:border-ltbl hover:text-ltt transition-colors disabled:opacity-40"
+          >
+            <FileDown size={13} />
+            Exportar CSV
+            {filtered.length !== plans.length && (
+              <span className="ml-1 text-[11px] text-lttm2">({filtered.length})</span>
+            )}
+          </button>
 
           {hasFilters && (
             <button
