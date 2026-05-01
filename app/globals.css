@@ -115,3 +115,51 @@
     border-color: var(--cyan-border) !important;
   }
 }
+
+/* ── Plan de tratamiento: estilos de impresión ── */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Stats bar oscura → fondo blanco legible */
+  .plan-stats-bar {
+    background: #ffffff !important;
+    border: 1px solid #c8d8e8 !important;
+    color: #1a2a3a !important;
+    box-shadow: none !important;
+  }
+  .plan-stats-bar * {
+    color: #1a2a3a !important;
+    border-color: #c8d8e8 !important;
+  }
+
+  /* Tarjetas de acción — fondo neutro */
+  .plan-action-card {
+    background: #fafbfc !important;
+    border: 1px solid #c8d8e8 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  /* Salto de página entre grupos de zona */
+  .plan-zone-group {
+    break-before: auto;
+    break-inside: avoid-column;
+  }
+  .plan-zone-group + .plan-zone-group {
+    break-before: page;
+  }
+
+  /* Quitar gradientes de progress bars */
+  .plan-progress-bar {
+    background: #c8d8e8 !important;
+  }
+
+  /* Ocultar checkboxes de selección bulk */
+  .plan-bulk-checkbox {
+    display: none !important;
+  }
+}
+}

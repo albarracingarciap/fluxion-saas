@@ -39,7 +39,7 @@ export function PlanStatsBar({
   const projectedZoneMeta = getZoneClasses(projectedZone)
 
   return (
-    <div className="mb-5 rounded-[12px] border border-ltb bg-[#070c14] text-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
+    <div className="plan-stats-bar mb-5 rounded-[12px] border border-ltb bg-[#070c14] text-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
       <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr_1fr_1fr_auto] divide-y xl:divide-y-0 xl:divide-x divide-[#18324a]">
         <div className="px-5 py-4 flex items-center gap-3">
           <span

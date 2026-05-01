@@ -22,7 +22,7 @@ export function BulkActionBar({
   if (selectedCount === 0) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-[14px] border border-ltb bg-ltcard shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur-sm">
+    <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-[14px] border border-ltb bg-ltcard shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur-sm">
       <span className="inline-flex items-center px-3 py-1.5 rounded-[8px] border border-cyan-border bg-cyan-dim text-brand-cyan font-plex text-[11px] uppercase tracking-[1px] shrink-0">
         {selectedCount} {selectedCount === 1 ? 'acción' : 'acciones'}
       </span>

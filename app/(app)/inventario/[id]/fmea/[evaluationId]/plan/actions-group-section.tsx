@@ -65,11 +65,11 @@ export function ActionsGroupSection({
   const showSelectAll = !readOnly && selectableIds.length > 0
 
   return (
-    <div className="rounded-[12px] border border-ltb bg-ltcard shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden">
+    <div className="plan-zone-group rounded-[12px] border border-ltb bg-ltcard shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden">
       <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {showSelectAll && (
-            <label className="flex items-center gap-2 cursor-pointer select-none" title="Seleccionar todo el bloque">
+            <label className="plan-bulk-checkbox flex items-center gap-2 cursor-pointer select-none" title="Seleccionar todo el bloque">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -104,7 +104,7 @@ export function ActionsGroupSection({
           return (
             <div
               key={action.id}
-              className={`rounded-[12px] border ${
+              className={`plan-action-card rounded-[12px] border ${
                 isExpanded ? 'border-cyan-border shadow-[0_0_0_2px_rgba(0,173,239,0.08)]' : 'border-ltb'
               } overflow-hidden`}
             >
