@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, ClipboardList, ShieldAlert } from 'lucide-react'
+import { ArrowRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
@@ -66,6 +66,19 @@ export default async function PlanesPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {summary.pendingReviewsCount > 0 && (
+            <Link
+              href="/planes/revisiones-pendientes"
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border font-sora text-[12.5px] font-medium transition-colors ${
+                summary.overdueReviewsCount > 0
+                  ? 'border-orb bg-ordim text-or'
+                  : 'border-orb bg-ordim text-or'
+              }`}
+            >
+              <RefreshCw size={13} />
+              {summary.pendingReviewsCount} {summary.pendingReviewsCount === 1 ? 'revisión pendiente' : 'revisiones pendientes'}
+            </Link>
+          )}
           <Link
             href={includeSuperseded ? '/planes' : '/planes?superseded=1'}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border font-sora text-[12.5px] font-medium transition-colors ${
