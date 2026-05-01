@@ -24,6 +24,8 @@ type UpdateProfileInput = {
     timezone?: string
     date_format?: string
     week_starts_on?: number
+    theme?: 'light' | 'dark' | 'system'
+    table_density?: 'comfortable' | 'compact'
     notifications_email?: boolean
     notification_prefs?: NotificationPrefs
   }

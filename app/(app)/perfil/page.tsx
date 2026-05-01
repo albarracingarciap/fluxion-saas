@@ -39,7 +39,7 @@ const TABS: Array<{
   { key: 'seguridad',            label: 'Seguridad',            icon: <Lock size={14} />, editable: false },
   { key: 'preferencias',         label: 'Preferencias',         icon: <SlidersHorizontal size={14} />, editable: true },
   { key: 'notificaciones',       label: 'Notificaciones',       icon: <Bell size={14} />, editable: true },
-  { key: 'apariencia',           label: 'Apariencia',           icon: <Palette size={14} />, editable: false },
+  { key: 'apariencia',           label: 'Apariencia',           icon: <Palette size={14} />, editable: true },
 ]
 
 // ─── Página ──────────────────────────────────────────────────────────────────
@@ -69,6 +69,8 @@ export default function PerfilPage() {
     timezone:             'Europe/Madrid',
     date_format:          'DD/MM/YYYY',
     week_starts_on:       1,
+    theme:                'light',
+    table_density:        'comfortable',
     notifications_email:  true,
     notification_prefs:   getDefaultNotificationPrefs(),
   })
@@ -92,6 +94,8 @@ export default function PerfilPage() {
         timezone:             typeof prefs.timezone === 'string' ? prefs.timezone : 'Europe/Madrid',
         date_format:          typeof prefs.date_format === 'string' ? prefs.date_format : 'DD/MM/YYYY',
         week_starts_on:       typeof prefs.week_starts_on === 'number' ? prefs.week_starts_on : 1,
+        theme:                (prefs.theme === 'dark' || prefs.theme === 'system') ? prefs.theme : 'light',
+        table_density:        prefs.table_density === 'compact' ? 'compact' : 'comfortable',
         notifications_email:  typeof prefs.notifications_email === 'boolean' ? prefs.notifications_email : true,
         notification_prefs:   storedNotifPrefs ?? getDefaultNotificationPrefs(),
       })
@@ -144,6 +148,8 @@ export default function PerfilPage() {
           timezone:            formData.timezone,
           date_format:         formData.date_format,
           week_starts_on:      formData.week_starts_on,
+          theme:               formData.theme,
+          table_density:       formData.table_density,
           notifications_email: formData.notifications_email,
           notification_prefs:  formData.notification_prefs,
         },
@@ -270,7 +276,9 @@ export default function PerfilPage() {
             <NotificacionesTab formData={formData} setFormData={setFormData} />
           )}
 
-          {activeTab === 'apariencia' && <AparienciaTab />}
+          {activeTab === 'apariencia' && (
+            <AparienciaTab formData={formData} setFormData={setFormData} />
+          )}
 
           {/* Botón de guardar (solo en tabs editables) */}
           {activeTabConfig.editable && (

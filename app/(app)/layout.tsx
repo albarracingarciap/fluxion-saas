@@ -3,6 +3,7 @@ import { Topbar } from "@/components/layout/topbar"
 import { IntelBanner } from "@/components/layout/intel-banner"
 import { OverdueReviewsBanner } from "@/components/layout/overdue-reviews-banner"
 import { AssistantPanel } from "@/components/assistant/AssistantPanel"
+import { ThemeApplier } from "@/components/profile/ThemeApplier"
 import { getAppAuthState } from "@/lib/auth/app-state"
 import { createFluxionClient } from "@/lib/supabase/fluxion"
 
@@ -110,6 +111,7 @@ export default async function AppLayout({
         </main>
       </div>
       <AssistantPanel />
+      <ThemeApplier />
     </div>
   )
 }
