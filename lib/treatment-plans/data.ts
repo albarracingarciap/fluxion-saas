@@ -45,6 +45,8 @@ export type TreatmentPlanListRow = {
   progress_pct: number
   is_overdue: boolean
   days_to_deadline: number | null
+  // Revisiones periódicas pendientes o vencidas
+  pending_reviews_count: number
 }
 
 export type TreatmentPlanFilters = {
@@ -70,6 +72,8 @@ export type TreatmentPlansSummary = {
   overdueActionsCount: number
   slippageRate: number | null
   medianDaysToClose: number | null
+  pendingReviewsCount: number
+  overdueReviewsCount: number
 }
 
 function diffDays(deadline: string | null, todayISO: string): number | null {
@@ -127,7 +131,10 @@ export async function fetchTreatmentPlans(
   const { data } = await query
 
   const planIds = ((data ?? []) as Array<{ id: string }>).map((p) => p.id)
-  const dominantOwners = await fetchDominantOwners(fluxion, organizationId, planIds)
+  const [dominantOwners, pendingReviewsByPlan] = await Promise.all([
+    fetchDominantOwners(fluxion, organizationId, planIds),
+    fetchPendingReviewsCountByPlan(fluxion, organizationId, planIds),
+  ])
 
   const todayISO = new Date().toISOString().split('T')[0]!
 
@@ -173,6 +180,7 @@ export async function fetchTreatmentPlans(
       progress_pct: computeProgressPct(actionsTotal, actionsCompleted),
       is_overdue: !isTerminal && deadline !== null && days !== null && days < 0,
       days_to_deadline: days,
+      pending_reviews_count: pendingReviewsByPlan.get(row.id as string) ?? 0,
     } satisfies TreatmentPlanListRow
   })
 
@@ -210,7 +218,11 @@ export async function computeTreatmentPlansSummary(
 ): Promise<TreatmentPlansSummary> {
   const todayISO = new Date().toISOString().split('T')[0]!
 
-  const [{ data: planData }, { data: actionData }, { data: closedPlanData }] = await Promise.all([
+  const reviewWindow = new Date()
+  reviewWindow.setDate(reviewWindow.getDate() + 30)
+  const reviewWindowISO = reviewWindow.toISOString().split('T')[0]!
+
+  const [{ data: planData }, { data: actionData }, { data: closedPlanData }, { data: reviewData }] = await Promise.all([
     fluxion
       .from('treatment_plans')
       .select('status, zone_at_creation, deadline, actions_total, actions_completed')
@@ -224,6 +236,14 @@ export async function computeTreatmentPlansSummary(
       .select('created_at, updated_at')
       .eq('organization_id', organizationId)
       .eq('status', 'closed'),
+    fluxion
+      .from('treatment_actions')
+      .select('review_due_date')
+      .eq('organization_id', organizationId)
+      .in('option', ['aceptar', 'diferir'])
+      .not('review_due_date', 'is', null)
+      .lte('review_due_date', reviewWindowISO)
+      .not('status', 'in', '(cancelled,completed)'),
   ])
 
   const rows = (planData ?? []) as Array<{
@@ -304,6 +324,10 @@ export async function computeTreatmentPlansSummary(
       : (days[mid] ?? 0)
   }
 
+  const reviewRows = (reviewData ?? []) as Array<{ review_due_date: string }>
+  const pendingReviewsCount = reviewRows.length
+  const overdueReviewsCount = reviewRows.filter((r) => r.review_due_date < todayISO).length
+
   return {
     total,
     active,
@@ -316,6 +340,8 @@ export async function computeTreatmentPlansSummary(
     overdueActionsCount,
     slippageRate,
     medianDaysToClose,
+    pendingReviewsCount,
+    overdueReviewsCount,
   }
 }
 
@@ -358,6 +384,37 @@ async function fetchDominantOwners(
     })
     if (bestOwner) result.set(planId, bestOwner)
   })
+
+  return result
+}
+
+async function fetchPendingReviewsCountByPlan(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>,
+  organizationId: string,
+  planIds: string[]
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  if (planIds.length === 0) return result
+
+  const window = new Date()
+  window.setDate(window.getDate() + 30)
+  const windowISO = window.toISOString().split('T')[0]!
+
+  const { data } = await fluxion
+    .from('treatment_actions')
+    .select('plan_id')
+    .eq('organization_id', organizationId)
+    .in('plan_id', planIds)
+    .in('option', ['aceptar', 'diferir'])
+    .not('review_due_date', 'is', null)
+    .lte('review_due_date', windowISO)
+    .not('status', 'in', '(cancelled,completed)')
+
+  const rows = (data ?? []) as Array<{ plan_id: string }>
+  for (const row of rows) {
+    result.set(row.plan_id, (result.get(row.plan_id) ?? 0) + 1)
+  }
 
   return result
 }

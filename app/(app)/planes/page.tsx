@@ -118,6 +118,12 @@ export default async function PlanesPage({ searchParams }: PageProps) {
             label="Mediana cierre"
             value={summary.medianDaysToClose !== null ? `${summary.medianDaysToClose} d` : '—'}
           />
+          <IntelSeparator />
+          <IntelItem
+            tone={summary.overdueReviewsCount > 0 ? 're' : summary.pendingReviewsCount > 0 ? 'or' : undefined}
+            label="Revisiones pendientes"
+            value={summary.pendingReviewsCount}
+          />
         </div>
       </section>
 

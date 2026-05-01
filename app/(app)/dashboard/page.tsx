@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Clock,
   FileEdit,
+  RefreshCw,
   TrendingDown,
 } from 'lucide-react'
 import { OnboardingGuide } from './OnboardingGuide'
@@ -769,7 +770,7 @@ function InlineBadge({
 import type { TreatmentPlansSummary } from '@/lib/treatment-plans/data'
 
 function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
-  const hasUrgency = summary.overdueActionsCount > 0 || (summary.slippageRate !== null && summary.slippageRate > 0)
+  const hasUrgency = summary.overdueActionsCount > 0 || (summary.slippageRate !== null && summary.slippageRate > 0) || summary.overdueReviewsCount > 0
 
   return (
     <div className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
@@ -797,7 +798,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
       </div>
 
       <div className="p-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Activos</p>
             <p className="font-fraunces text-[28px] text-ltt mt-1">{summary.active}</p>
@@ -846,6 +847,25 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
               {summary.medianDaysToClose !== null ? 'días de creación a cierre' : `${summary.closed} planes cerrados`}
+            </p>
+          </div>
+
+          <div className={`rounded-[12px] border px-4 py-3 ${summary.overdueReviewsCount > 0 ? 'border-orb bg-ordim' : 'border-ltb bg-ltbg'}`}>
+            <div className="flex items-center gap-1.5">
+              <RefreshCw size={11} className={summary.overdueReviewsCount > 0 ? 'text-or' : 'text-lttm'} />
+              <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${summary.overdueReviewsCount > 0 ? 'text-or' : 'text-lttm'}`}>
+                Revisiones
+              </p>
+            </div>
+            <p className={`font-fraunces text-[28px] mt-1 ${summary.overdueReviewsCount > 0 ? 'text-or' : 'text-ltt'}`}>
+              {summary.pendingReviewsCount}
+            </p>
+            <p className="font-sora text-[11px] text-ltt2 mt-0.5">
+              {summary.overdueReviewsCount > 0
+                ? `${summary.overdueReviewsCount} vencidas`
+                : summary.pendingReviewsCount > 0
+                  ? 'próximas a vencer'
+                  : 'sin revisiones pendientes'}
             </p>
           </div>
         </div>
