@@ -24,6 +24,7 @@ import { PlanHeader } from './plan-header';
 import { PlanWarningBanners } from './plan-warning-banners';
 import { PlanResidualPanel } from './plan-residual-panel';
 import { BulkActionBar } from './bulk-action-bar';
+import { RecordResidualModal } from './record-residual-modal';
 import { BulkAssignActionsModal } from './bulk-assign-actions-modal';
 import { BulkSetDueDateModal } from './bulk-set-duedate-modal';
 import { BulkChangeOptionModal } from './bulk-change-option-modal';
@@ -74,6 +75,11 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [selectedActionIds, setSelectedActionIds] = useState<Set<string>>(() => new Set());
   type BulkModal = 'assign' | 'duedate' | 'option' | null;
   const [bulkModal, setBulkModal] = useState<BulkModal>(null);
+  const [pendingResidual, setPendingResidual] = useState<{
+    taskId: string
+    action: EditableTreatmentAction
+    previousStatus: TaskStatus
+  } | null>(null);
 
   const readOnly = data.read_only || data.plan.status !== 'draft';
   const isExecutiveApproval = data.plan.approval_level === 'level_3';
@@ -243,6 +249,15 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
   function handleTaskStatusChange(taskId: string, newStatus: TaskStatus) {
     const previous = taskStatuses[taskId];
+    const linkedAction = actions.find((a) => a.task_id === taskId);
+
+    // Intercept: mitigar action closing → ask for s_residual_achieved first
+    if (newStatus === 'done' && linkedAction?.option === 'mitigar') {
+      setTaskStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
+      setPendingResidual({ taskId, action: linkedAction, previousStatus: previous ?? 'todo' });
+      return;
+    }
+
     setTaskStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
     setUpdatingTaskId(taskId);
     startTaskTransition(async () => {
@@ -585,6 +600,29 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           evaluationId={data.evaluation.id}
           onClose={() => setBulkModal(null)}
           onSuccess={() => { setBulkModal(null); clearSelection(); }}
+        />
+      )}
+
+      {pendingResidual && (
+        <RecordResidualModal
+          action={pendingResidual.action}
+          aiSystemId={data.system.id}
+          evaluationId={data.evaluation.id}
+          onClose={() => {
+            setTaskStatuses((prev) => ({
+              ...prev,
+              [pendingResidual.taskId]: pendingResidual.previousStatus,
+            }));
+            setPendingResidual(null);
+          }}
+          onSuccess={(sResidualAchieved) => {
+            patchAction(pendingResidual.action.id, (a) => ({
+              ...a,
+              s_residual_achieved: sResidualAchieved,
+              status: 'completed',
+            }));
+            setPendingResidual(null);
+          }}
         />
       )}
 
