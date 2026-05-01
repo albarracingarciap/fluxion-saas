@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo, useState, useTransition, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, FileDown, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileDown, RefreshCw, Search, X } from 'lucide-react'
 
 import { getZoneClasses, getZoneLabel, type FmeaZone } from '@/lib/fmea/domain'
 import type { TreatmentPlanStatus, TreatmentApprovalLevel } from '@/lib/fmea/treatment-plan'
@@ -80,6 +80,7 @@ export function PlansViewClient({ plans, systems, members }: Props) {
   const zones = parseMulti(searchParams.get('zone')) as FmeaZone[]
   const approvalLevels = parseMulti(searchParams.get('approval_level')) as TreatmentApprovalLevel[]
   const deadlineBucket = searchParams.get('deadline') as DeadlineBucket | null
+  const pendingReviewsOnly = searchParams.get('reviews') === '1'
   const systemId = searchParams.get('system') ?? ''
   const approverId = searchParams.get('approver') ?? ''
   const q = searchParams.get('q') ?? ''
@@ -169,6 +170,8 @@ export function PlansViewClient({ plans, systems, members }: Props) {
       )
     }
 
+    if (pendingReviewsOnly) rows = rows.filter((r) => r.pending_reviews_count > 0)
+
     const sorted = [...rows].sort((a, b) => {
       switch (sort) {
         case 'deadline_asc':
@@ -190,7 +193,7 @@ export function PlansViewClient({ plans, systems, members }: Props) {
 
     void today
     return sorted
-  }, [plans, statuses, zones, approvalLevels, systemId, approverId, deadlineBucket, q, sort])
+  }, [plans, statuses, zones, approvalLevels, systemId, approverId, deadlineBucket, q, sort, pendingReviewsOnly])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -205,7 +208,8 @@ export function PlansViewClient({ plans, systems, members }: Props) {
     deadlineBucket !== null ||
     systemId !== '' ||
     approverId !== '' ||
-    q.trim() !== ''
+    q.trim() !== '' ||
+    pendingReviewsOnly
 
   return (
     <>
@@ -285,7 +289,7 @@ export function PlansViewClient({ plans, systems, members }: Props) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto_auto] gap-4">
           <FilterGroup label="Estado">
             {STATUS_FILTER_ORDER.map((status) => (
               <FilterChip
@@ -335,6 +339,16 @@ export function PlansViewClient({ plans, systems, members }: Props) {
                 onClick={() => setSingle('deadline', deadlineBucket === bucket ? null : bucket)}
               />
             ))}
+          </FilterGroup>
+
+          <FilterGroup label="Revisiones">
+            <FilterChip
+              label="Con revisiones"
+              active={pendingReviewsOnly}
+              tone="or"
+              icon={<RefreshCw size={10} />}
+              onClick={() => setSingle('reviews', pendingReviewsOnly ? null : '1')}
+            />
           </FilterGroup>
         </div>
       </section>
@@ -490,6 +504,14 @@ function PlanRow({
           {APPROVAL_LEVEL_LABEL[plan.approval_level]}
           {approverName ? ` · ${approverName}` : ''}
         </div>
+        {plan.pending_reviews_count > 0 && (
+          <div className="mt-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] border border-orb bg-ordim font-plex text-[9.5px] uppercase tracking-[1px] text-or">
+              <RefreshCw size={9} />
+              {plan.pending_reviews_count} {plan.pending_reviews_count === 1 ? 'revisión' : 'revisiones'}
+            </span>
+          </div>
+        )}
       </td>
       <td className="px-4 py-3 align-top">
         <div className="flex items-center gap-2">
@@ -557,12 +579,14 @@ function FilterChip({
   active,
   tone,
   customActive,
+  icon,
   onClick,
 }: {
   label: string
   active: boolean
   tone?: 're' | 'or' | 'cy' | 'gr'
   customActive?: string
+  icon?: React.ReactNode
   onClick: () => void
 }) {
   const activeClass =
@@ -579,10 +603,11 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center px-3 py-1.5 rounded-[7px] border font-plex text-[10.5px] uppercase tracking-[1px] transition-colors ${
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border font-plex text-[10.5px] uppercase tracking-[1px] transition-colors ${
         active ? activeClass : 'bg-ltcard border-ltb text-lttm hover:border-cyan-border hover:text-ltt'
       }`}
     >
+      {icon}
       {label}
     </button>
   )
