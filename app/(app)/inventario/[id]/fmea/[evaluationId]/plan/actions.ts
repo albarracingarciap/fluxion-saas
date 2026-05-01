@@ -1030,6 +1030,72 @@ export async function updateLinkedTaskStatusAction(
   return { ok: true };
 }
 
+export async function recordMitigarResidualAction(input: {
+  taskId: string;
+  actionId: string;
+  sResidualAchieved: number | null;
+  aiSystemId: string;
+  evaluationId: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado' };
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+  if (!profile) return { error: 'Perfil no encontrado' };
+
+  const now = new Date().toISOString();
+
+  const { error: taskError } = await fluxion
+    .from('tasks')
+    .update({ status: 'done', completed_at: now })
+    .eq('id', input.taskId)
+    .eq('organization_id', profile.organization_id);
+
+  if (taskError) return { error: taskError.message };
+
+  const { error: actionError } = await fluxion
+    .from('treatment_actions')
+    .update({
+      s_residual_achieved: input.sResidualAchieved,
+      status: 'completed',
+      completed_at: now,
+    })
+    .eq('id', input.actionId)
+    .eq('organization_id', profile.organization_id);
+
+  if (actionError) return { error: actionError.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [
+    {
+      ai_system_id: input.aiSystemId,
+      organization_id: profile.organization_id,
+      event_type: 'treatment_action_completed',
+      event_title: 'Acción de mitigación cerrada',
+      event_summary: input.sResidualAchieved !== null
+        ? `Acción completada con S residual alcanzado = ${input.sResidualAchieved}.`
+        : 'Acción completada sin medición de S residual (slippage registrado).',
+      actor_user_id: user.id,
+      payload: {
+        evaluation_id: input.evaluationId,
+        action_id: input.actionId,
+        s_residual_achieved: input.sResidualAchieved,
+      },
+    },
+  ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  revalidatePath('/tareas');
+  revalidatePath('/kanban');
+  return { ok: true };
+}
+
 // ============================================================================
 // BULK ACTIONS — operaciones masivas sobre treatment_actions
 // ============================================================================
