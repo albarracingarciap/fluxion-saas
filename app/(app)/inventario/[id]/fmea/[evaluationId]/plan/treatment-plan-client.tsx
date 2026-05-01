@@ -543,8 +543,18 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         submitTitle={submitTitle}
         isExecutiveApproval={isExecutiveApproval}
         draftSyncLabel={draftSyncLabel}
+        hasActions={actions.length > 0}
         onSaveDraft={handleSaveDraft}
         onSubmitPlan={handleSubmitPlan}
+        onExportCsv={() =>
+          exportTreatmentActionsCsv(
+            actions,
+            data.members,
+            new Set(actions.map((a) => a.id)),
+            data.plan.code,
+            taskStatuses,
+          )
+        }
       />
 
       <PlanStatsBar

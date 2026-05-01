@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Loader2, Save, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, ChevronRight, FileDown, Loader2, Save, ShieldAlert } from 'lucide-react'
 
 type Props = {
   systemName: string
@@ -18,8 +18,10 @@ type Props = {
   submitTitle: string | undefined
   isExecutiveApproval: boolean
   draftSyncLabel: string
+  hasActions: boolean
   onSaveDraft: () => void
   onSubmitPlan: () => void
+  onExportCsv: () => void
 }
 
 export function PlanHeader({
@@ -37,8 +39,10 @@ export function PlanHeader({
   submitTitle,
   isExecutiveApproval,
   draftSyncLabel,
+  hasActions,
   onSaveDraft,
   onSubmitPlan,
+  onExportCsv,
 }: Props) {
   return (
     <>
@@ -87,6 +91,16 @@ export function PlanHeader({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          {hasActions && (
+            <button
+              type="button"
+              onClick={onExportCsv}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltbl hover:text-ltt transition-colors"
+            >
+              <FileDown className="w-4 h-4" />
+              Exportar CSV
+            </button>
+          )}
           {!readOnly && (
             <>
               <button
