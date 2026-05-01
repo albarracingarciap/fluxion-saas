@@ -29,6 +29,7 @@ import { BulkAssignActionsModal } from './bulk-assign-actions-modal';
 import { BulkSetDueDateModal } from './bulk-set-duedate-modal';
 import { BulkChangeOptionModal } from './bulk-change-option-modal';
 import { exportTreatmentActionsCsv } from '@/lib/treatment-plans/csv';
+import { PlanHistoryTab } from './plan-history-tab';
 
 import {
   saveTreatmentActionDecision,
@@ -77,6 +78,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [activeFilter, setActiveFilter] = useState<ActionFilter>(null);
   type BulkModal = 'assign' | 'duedate' | 'option' | null;
   const [bulkModal, setBulkModal] = useState<BulkModal>(null);
+  type PlanTab = 'acciones' | 'historial';
+  const [activeTab, setActiveTab] = useState<PlanTab>('acciones');
   const [pendingResidual, setPendingResidual] = useState<{
     taskId: string
     action: EditableTreatmentAction
@@ -607,8 +610,33 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         onNotesChange={setPlanNotes}
       />
 
+      {/* Tab switcher */}
+      <div className="print:hidden flex items-center gap-1 mb-4 border-b border-ltb">
+        {(['acciones', 'historial'] as PlanTab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 font-plex text-[11px] uppercase tracking-[0.7px] font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab
+                ? 'border-brand-blue text-brand-blue'
+                : 'border-transparent text-lttm hover:text-ltt'
+            }`}
+          >
+            {tab === 'acciones' ? 'Acciones' : 'Historial de auditoría'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'historial' && (
+        <PlanHistoryTab
+          snapshots={data.plan_snapshots}
+          actionEvents={data.plan_action_events}
+        />
+      )}
+
       {/* Filter chips */}
-      {actions.length > 0 && (efficacyKpis.overdueCount > 0 || efficacyKpis.dueSoonCount > 0 || slippageCount > 0) && (
+      {activeTab === 'acciones' && actions.length > 0 && (efficacyKpis.overdueCount > 0 || efficacyKpis.dueSoonCount > 0 || slippageCount > 0) && (
         <div className="print:hidden flex items-center gap-2 flex-wrap mb-1">
           <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Filtrar:</span>
 
@@ -669,7 +697,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className={`space-y-5 ${activeTab !== 'acciones' ? 'hidden' : ''}`}>
         {actions.length === 0 && (
           <div className="rounded-[12px] border border-ltb bg-ltcard p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <div className="w-14 h-14 rounded-full bg-grdim border border-grb flex items-center justify-center mx-auto mb-5">
