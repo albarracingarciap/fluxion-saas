@@ -25,11 +25,11 @@ import {
 
 import type { OrganizationEvidenceRecord } from '@/lib/evidences/data';
 import {
-  getEvidenceVersions,
   getChangeTypeLabel,
   computeVersionDiff,
   type EvidenceVersionRecord,
 } from '@/lib/evidences/versions';
+import { getEvidenceVersions } from '@/lib/evidences/versions-actions';
 import {
   uploadEvidenceFile,
   getSignedUrl,
