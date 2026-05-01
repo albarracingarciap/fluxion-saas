@@ -49,6 +49,7 @@ const NAV: NavSection[] = [
         label: "Ejecución", icon: <List size={15} />,
         children: [
           { label: "Tareas", href: "/tareas" },
+          { label: "Planes de tratamiento", href: "/planes" },
           { label: "Kanban", href: "/kanban" },
         ],
       },
