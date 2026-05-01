@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, ListTodo, Loader2, Save, ShieldAlert, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, Save, ShieldAlert } from 'lucide-react';
 
-import { getZoneClasses, getZoneLabel } from '@/lib/fmea/domain';
+import { getZoneClasses } from '@/lib/fmea/domain';
 import type {
-  TreatmentActionStatus,
   TreatmentOption,
   TreatmentPlanData,
 } from '@/lib/fmea/treatment-plan';
@@ -20,15 +19,11 @@ import {
   getProjectedZone,
   type EditableTreatmentAction,
 } from '@/lib/fmea/treatment-plan-utils';
-import {
-  ACTION_STATUS_META,
-  APPROVAL_LEVEL_META,
-  PLAN_STATUS_META,
-} from './treatment-plan-ui-constants';
+import { APPROVAL_LEVEL_META } from './treatment-plan-ui-constants';
 import { PlanProgressPanel } from './plan-progress-panel';
 import { ApprovalReviewPanel } from './approval-review-panel';
-import { ActionRow } from './action-row';
-import { ActionDetailPanel } from './action-detail-panel';
+import { PlanStatsBar } from './plan-stats-bar';
+import { ActionsGroupSection } from './actions-group-section';
 
 import {
   saveTreatmentActionDecision,
@@ -480,95 +475,16 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         </div>
       </div>
 
-      <div className="mb-5 rounded-[12px] border border-ltb bg-[#070c14] text-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
-        <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr_1fr_1fr_auto] divide-y xl:divide-y-0 xl:divide-x divide-[#18324a]">
-          <div className="px-5 py-4 flex items-center gap-3">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${projectedZoneMeta.dot} ${
-                projectedZone === 'zona_i' || projectedZone === 'zona_ii' ? 'animate-pulse' : ''
-              }`}
-            />
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8]">
-              Zona proyectada
-            </div>
-            <div className={`font-fraunces text-[22px] ${projectedZoneMeta.text}`}>{getZoneLabel(projectedZone)}</div>
-          </div>
-
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobación</div>
-            <div className="font-sora text-[14px] text-white">
-              {APPROVAL_LEVEL_META[data.plan.approval_level]?.narrative ?? data.plan.approval_level}
-            </div>
-          </div>
-
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Fecha límite</div>
-            <div className="font-sora text-[14px] text-white">{data.plan.deadline}</div>
-          </div>
-
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Acciones definidas</div>
-            <div className="font-sora text-[14px] text-white">
-              {definedCount} / {actions.length}
-            </div>
-          </div>
-
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1 flex items-center gap-1.5">
-              <ListTodo className="w-3 h-3" />
-              Tareas completadas
-            </div>
-            {data.tasks_total > 0 ? (
-              <>
-                <div className="font-sora text-[14px] text-white mb-1.5">
-                  {data.tasks_done} / {data.tasks_total}
-                </div>
-                <div className="w-full h-[4px] bg-[#18324a] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#00adef] to-[#2a9d55] rounded-full transition-all"
-                    style={{ width: `${Math.round((data.tasks_done / data.tasks_total) * 100)}%` }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="font-sora text-[13px] text-[#3d5a82]">Sin tareas aún</div>
-            )}
-          </div>
-
-          <div className="px-5 py-4 flex items-center justify-end">
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-[8px] border font-fraunces text-[14px] ${
-                PLAN_STATUS_META[data.plan.status]?.pill ?? 'bg-ltcard2 border-ltb text-lttm'
-              }`}
-            >
-              {PLAN_STATUS_META[data.plan.status]?.label ?? data.plan.status}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#18324a] border-t border-[#18324a]">
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Zona al crear</div>
-            <div className="font-sora text-[13px] text-white">{getZoneLabel(data.plan.zone_at_creation)}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Suelo AI Act</div>
-            <div className="font-sora text-[13px] text-white">{getZoneLabel(data.plan.ai_act_floor)}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Pendientes</div>
-            <div className="font-sora text-[13px] text-white">{pendingCount}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Cadencia</div>
-            <div className="font-sora text-[13px] text-white">{data.plan.review_cadence ?? 'Pendiente'}</div>
-          </div>
-        </div>
-        <div className="px-5 py-3 border-t border-[#18324a]">
-          <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobador asignado</div>
-          <div className="font-sora text-[13px] text-white">{data.approver_name ?? 'Pendiente de asignar'}</div>
-        </div>
-      </div>
+      <PlanStatsBar
+        plan={data.plan}
+        projectedZone={projectedZone}
+        definedCount={definedCount}
+        actionsTotal={actions.length}
+        pendingCount={pendingCount}
+        tasksTotal={data.tasks_total}
+        tasksDone={data.tasks_done}
+        approverName={data.approver_name}
+      />
 
       {data.plan.code !== 'PREVIEW-DRAFT' && (
         <PlanProgressPanel
@@ -671,58 +587,26 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         )}
 
         {groupedActions.map((group) => (
-          <div key={group.id} className="rounded-[12px] border border-ltb bg-ltcard shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden">
-            <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center justify-between gap-3">
-              <div>
-                <div className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-1">Bloque de tratamiento</div>
-                <div className="font-sora text-[15px] text-ltt">{group.label}</div>
-              </div>
-              <span className="inline-flex items-center px-3 py-1 rounded-[7px] border border-ltb bg-ltcard text-lttm font-plex text-[10px] uppercase tracking-[1px]">
-                {group.items.length} acciones
-              </span>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {group.items.map((action) => {
-                const isExpanded = expandedActionId === action.id;
-                return (
-                  <div
-                    key={action.id}
-                    className={`rounded-[12px] border ${
-                      isExpanded ? 'border-cyan-border shadow-[0_0_0_2px_rgba(0,173,239,0.08)]' : 'border-ltb'
-                    } overflow-hidden`}
-                  >
-                    <ActionRow
-                      action={action}
-                      isExpanded={isExpanded}
-                      taskStatuses={taskStatuses}
-                      updatingTaskId={updatingTaskId}
-                      onToggle={() => setExpandedActionId((c) => (c === action.id ? null : action.id))}
-                      onTaskStatusChange={handleTaskStatusChange}
-                    />
-                    {isExpanded && (
-                      <ActionDetailPanel
-                        action={action}
-                        planDeadline={data.plan.deadline}
-                        members={data.members}
-                        aiSystemId={data.system.id}
-                        evaluationId={data.evaluation.id}
-                        readOnly={readOnly}
-                        isSaving={savingActionId === action.id && isSavingAction}
-                        controlResolution={controlResolutionByAction[action.id] ?? null}
-                        taskStatuses={taskStatuses}
-                        updatingTaskId={updatingTaskId}
-                        onPatch={(updater) => patchAction(action.id, updater)}
-                        onSelectOption={(option) => handleSelectOption(action.id, option)}
-                        onSave={() => handleSaveAction(action)}
-                        onTaskStatusChange={handleTaskStatusChange}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ActionsGroupSection
+            key={group.id}
+            group={group}
+            expandedActionId={expandedActionId}
+            taskStatuses={taskStatuses}
+            updatingTaskId={updatingTaskId}
+            readOnly={readOnly}
+            isSavingAction={isSavingAction}
+            savingActionId={savingActionId}
+            controlResolutionByAction={controlResolutionByAction}
+            members={data.members}
+            planDeadline={data.plan.deadline}
+            aiSystemId={data.system.id}
+            evaluationId={data.evaluation.id}
+            onToggleAction={(actionId) => setExpandedActionId((c) => (c === actionId ? null : actionId))}
+            onPatchAction={patchAction}
+            onSelectOption={handleSelectOption}
+            onSaveAction={handleSaveAction}
+            onTaskStatusChange={handleTaskStatusChange}
+          />
         ))}
       </div>
 
