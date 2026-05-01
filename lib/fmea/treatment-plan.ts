@@ -90,10 +90,59 @@ export type TreatmentPlanActionRecord = {
   acceptance_approved_by: string | null;
   acceptance_approved_at: string | null;
   review_due_date: string | null;
+  last_reviewed_at: string | null;
+  review_count: number;
   task_id: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type ReviewStatus = 'not_required' | 'upcoming' | 'due' | 'overdue_review';
+
+export type ReviewDecision =
+  | 'reaffirmed'
+  | 'changed_to_mitigate'
+  | 'changed_to_transfer'
+  | 'changed_to_avoid'
+  | 'escalated';
+
+export type ActionReview = {
+  id: string;
+  action_id: string;
+  plan_id: string;
+  organization_id: string;
+  reviewed_at: string;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  decision: ReviewDecision;
+  new_review_due_date: string | null;
+  justification: string;
+};
+
+const REVIEW_REQUIRED_OPTIONS = new Set<string>(['aceptar', 'diferir']);
+const REVIEW_TERMINAL_STATUSES = new Set<string>(['cancelled', 'completed']);
+
+export function getReviewStatus(action: {
+  option: TreatmentOption | null;
+  status: string;
+  review_due_date: string | null;
+}): ReviewStatus {
+  if (
+    !action.review_due_date ||
+    !REVIEW_REQUIRED_OPTIONS.has(action.option ?? '') ||
+    REVIEW_TERMINAL_STATUSES.has(action.status)
+  ) return 'not_required';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${action.review_due_date}T00:00:00`);
+  const daysUntil = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysUntil < 0) return 'overdue_review';
+  if (daysUntil === 0) return 'due';
+  if (daysUntil <= 30) return 'upcoming';
+  return 'not_required';
+}
 
 export type TreatmentPlanSystem = {
   id: string;
@@ -157,6 +206,7 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   evidence_url: string | null;
   evidence_verification_status: 'pending' | 'validated' | 'rejected' | null;
   sla_status: SlaStat | null;
+  review_status: ReviewStatus;
 };
 
 export type SnapshotTrigger =
@@ -215,6 +265,9 @@ export type TreatmentPlanData = {
   due_soon_count: number;
   plan_snapshots: PlanSnapshot[];
   plan_action_events: PlanActionEvent[];
+  action_reviews: ActionReview[];
+  pending_reviews_count: number;
+  overdue_reviews_count: number;
 };
 
 export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
@@ -467,6 +520,8 @@ export async function buildTreatmentPlanData(params: {
       acceptance_approved_by: null,
       acceptance_approved_at: null,
       review_due_date: null,
+      last_reviewed_at: null,
+      review_count: 0,
       task_id: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -495,6 +550,8 @@ export async function buildTreatmentPlanData(params: {
         acceptance_approved_by,
         acceptance_approved_at,
         review_due_date,
+        last_reviewed_at,
+        review_count,
         task_id,
         created_at,
         updated_at
@@ -753,6 +810,7 @@ export async function buildTreatmentPlanData(params: {
         evidence_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.url ?? null) : null,
         evidence_verification_status: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.verification_status ?? null) : null,
         sla_status: calculateSlaStatus(action.due_date, action.status),
+        review_status: getReviewStatus(action),
       };
     })
     .filter((action): action is TreatmentPlanActionView => action !== null)
@@ -790,6 +848,43 @@ export async function buildTreatmentPlanData(params: {
   const planSnapshots: PlanSnapshot[] = (snapshotsRaw ?? []) as PlanSnapshot[];
   const planActionEvents: PlanActionEvent[] = (actionEventsRaw ?? []) as PlanActionEvent[];
 
+  // Historial de revisiones del plan
+  const { data: reviewsRaw } = await fluxion
+    .from('treatment_action_reviews')
+    .select(`
+      id, action_id, plan_id, organization_id,
+      reviewed_at, reviewed_by, decision, new_review_due_date, justification,
+      profiles!treatment_action_reviews_reviewed_by_fkey(full_name, display_name)
+    `)
+    .eq('plan_id', currentPlan.id)
+    .order('reviewed_at', { ascending: false });
+
+  const actionReviews: ActionReview[] = (reviewsRaw ?? []).map((r: Record<string, unknown>) => {
+    const profile = r.profiles as { full_name?: string; display_name?: string } | null;
+    const reviewerName = profile
+      ? (profile.display_name || profile.full_name || '').trim() || null
+      : null;
+    return {
+      id: r.id as string,
+      action_id: r.action_id as string,
+      plan_id: r.plan_id as string,
+      organization_id: r.organization_id as string,
+      reviewed_at: r.reviewed_at as string,
+      reviewed_by: (r.reviewed_by as string | null) ?? null,
+      reviewer_name: reviewerName,
+      decision: r.decision as ReviewDecision,
+      new_review_due_date: (r.new_review_due_date as string | null) ?? null,
+      justification: r.justification as string,
+    };
+  });
+
+  const pendingReviewsCount = actionViews.filter(
+    (a) => a.review_status === 'due' || a.review_status === 'upcoming' || a.review_status === 'overdue_review'
+  ).length;
+  const overdueReviewsCount = actionViews.filter(
+    (a) => a.review_status === 'overdue_review'
+  ).length;
+
   return {
     system,
     evaluation,
@@ -805,6 +900,9 @@ export async function buildTreatmentPlanData(params: {
     due_soon_count: dueSoonCount,
     plan_snapshots: planSnapshots,
     plan_action_events: planActionEvents,
+    action_reviews: actionReviews,
+    pending_reviews_count: pendingReviewsCount,
+    overdue_reviews_count: overdueReviewsCount,
   } satisfies TreatmentPlanData;
 }
 
