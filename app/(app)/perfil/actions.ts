@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { revalidatePath } from 'next/cache'
+import type { NotificationPrefs } from '@/lib/notifications/preferences'
 
 export async function updateProfile(data: {
   first_name: string
@@ -14,6 +15,7 @@ export async function updateProfile(data: {
     department?: string
     timezone?: string
     notifications_email?: boolean
+    notification_prefs?: NotificationPrefs
   }
 }) {
   const supabase = createClient()
