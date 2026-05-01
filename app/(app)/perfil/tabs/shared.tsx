@@ -20,6 +20,9 @@ export type ProfileFormData = {
   timezone: string
   date_format: string
   week_starts_on: number   // 0 = domingo, 1 = lunes
+  // Apariencia
+  theme: 'light' | 'dark' | 'system'
+  table_density: 'comfortable' | 'compact'
   // Notificaciones
   notifications_email: boolean   // legacy — gestionado desde /ajustes
   notification_prefs: NotificationPrefs

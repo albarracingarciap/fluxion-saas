@@ -116,6 +116,68 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Tema oscuro: override de variables de la zona clara                          */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  /* Zona clara invertida — el contenido central se oscurece, sidebar y topbar
+     mantienen su palette dk* original. */
+  --ltbg:    #0a1119;
+  --ltcard:  #131f2e;
+  --ltcard2: #1a2840;
+  --ltb:     #1e3050;
+  --ltbl:    #2a4268;
+  --ltt:     #e8f0fe;
+  --ltt2:    #b8d0ee;
+  --lttm:    #7a9cc4;
+
+  /* Cyan/blue dim+border — más visibles sobre fondo oscuro */
+  --cyan-dim:    #00adef25;
+  --cyan-dim2:   #00adef35;
+  --cyan-border: #00adef60;
+  --blue-dim:    #3871c125;
+  --blue-border: #3871c160;
+
+  /* Semánticos — tonos más brillantes para contraste sobre dark */
+  --re: #f87171;  --red:  #f8717118;  --reb: #f8717140;
+  --gr: #4ade80;  --grd:  #4ade8018;  --grb: #4ade8040;
+  --or: #fbbf24;  --ord:  #fbbf2418;  --orb: #fbbf2440;
+  --pu: #c4b5fd;  --pud:  #c4b5fd18;  --pub: #c4b5fd40;
+  --te: #5eead4;  --ted:  #5eead418;  --teb: #5eead440;
+
+  /* Shadcn core mappings (dark) */
+  --background: #0a1119;
+  --foreground: #e8f0fe;
+  --card: #131f2e;
+  --card-foreground: #e8f0fe;
+  --popover: #131f2e;
+  --popover-foreground: #e8f0fe;
+  --primary: #00adef;
+  --primary-foreground: #ffffff;
+  --secondary: #1a2840;
+  --secondary-foreground: #e8f0fe;
+  --muted: #1a2840;
+  --muted-foreground: #7a9cc4;
+  --accent: #1a2840;
+  --accent-foreground: #e8f0fe;
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --border: #1e3050;
+  --input: #1e3050;
+  --ring: #00adef60;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Densidad compacta: padding reducido en tablas                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+[data-density="compact"] table th,
+[data-density="compact"] table td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 /* ── Plan de tratamiento: estilos de impresión ── */
 @media print {
   * {
