@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { captureSnapshot } from '@/lib/fmea/treatment-plan-snapshots';
+import { recordTreatmentActionEvent, recordTreatmentActionEvents } from '@/lib/fmea/treatment-action-events';
 import {
   calculateProjectedZoneForTreatmentActions,
   getEvidenceDescriptionForOption,
@@ -520,6 +521,34 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
   if (updateError) {
     return { error: updateError.message };
   }
+
+  await recordTreatmentActionEvent({
+    fluxion,
+    actorUserId: user.id,
+    event: {
+      planId: plan.id,
+      actionId: input.actionId,
+      organizationId: membership.organization_id,
+      eventType: 'option_selected',
+      beforeState: {
+        option: action.option,
+        owner_id: action.owner_id,
+        due_date: action.due_date,
+        s_residual_target: null,
+        control_id: action.control_id,
+        justification: action.justification,
+      },
+      afterState: {
+        option: input.option,
+        owner_id: input.ownerId,
+        due_date: input.dueDate,
+        s_residual_target: input.sResidualTarget ?? null,
+        control_id: controlId,
+        justification: input.justification?.trim() || null,
+      },
+      justification: input.justification?.trim() || null,
+    },
+  });
 
   const { count: acceptedCount } = await fluxion
     .from('treatment_actions')
@@ -1054,6 +1083,14 @@ export async function updateLinkedTaskStatusAction(
     .single();
   if (!profile) return { error: 'Perfil no encontrado' };
 
+  // Estado previo de la tarea para el audit log
+  const { data: taskBefore } = await fluxion
+    .from('tasks')
+    .select('status, source_type, source_id')
+    .eq('id', taskId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
   const { error } = await fluxion
     .from('tasks')
     .update({ status, ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }) })
@@ -1061,6 +1098,33 @@ export async function updateLinkedTaskStatusAction(
     .eq('organization_id', profile.organization_id);
 
   if (error) return { error: error.message };
+
+  if (taskBefore?.source_type === 'treatment_action' && taskBefore.source_id) {
+    const actionId = taskBefore.source_id;
+    const userId = user.id;
+    const orgId = profile.organization_id;
+    const prevStatus = taskBefore.status;
+    void (async () => {
+      const { data: actionRef } = await fluxion
+        .from('treatment_actions')
+        .select('plan_id')
+        .eq('id', actionId)
+        .maybeSingle();
+      if (!actionRef) return;
+      await recordTreatmentActionEvent({
+        fluxion,
+        actorUserId: userId,
+        event: {
+          planId: actionRef.plan_id,
+          actionId,
+          organizationId: orgId,
+          eventType: 'task_status_changed',
+          beforeState: { task_status: prevStatus },
+          afterState: { task_status: status, task_id: taskId },
+        },
+      });
+    })();
+  }
 
   revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/plan`);
   revalidatePath('/tareas');
@@ -1090,6 +1154,14 @@ export async function recordMitigarResidualAction(input: {
 
   const now = new Date().toISOString();
 
+  // Estado previo de la acción para el audit log
+  const { data: actionBefore } = await fluxion
+    .from('treatment_actions')
+    .select('plan_id, s_residual_achieved, status')
+    .eq('id', input.actionId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
   const { error: taskError } = await fluxion
     .from('tasks')
     .update({ status: 'done', completed_at: now })
@@ -1109,6 +1181,31 @@ export async function recordMitigarResidualAction(input: {
     .eq('organization_id', profile.organization_id);
 
   if (actionError) return { error: actionError.message };
+
+  if (actionBefore) {
+    const eventType = input.sResidualAchieved === null
+      ? 'slippage_accepted'
+      : 'residual_achieved_recorded';
+
+    await recordTreatmentActionEvent({
+      fluxion,
+      actorUserId: user.id,
+      event: {
+        planId: actionBefore.plan_id,
+        actionId: input.actionId,
+        organizationId: profile.organization_id,
+        eventType,
+        beforeState: {
+          s_residual_achieved: actionBefore.s_residual_achieved,
+          status: actionBefore.status,
+        },
+        afterState: {
+          s_residual_achieved: input.sResidualAchieved,
+          status: 'completed',
+        },
+      },
+    });
+  }
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -1230,6 +1327,16 @@ export async function bulkAssignTreatmentActionsOwnerAction(
     return { ok: true, updated: 0, skipped }
   }
 
+  // Estado previo de owner_id para el audit log
+  const { data: ownersBefore } = await fluxion
+    .from('treatment_actions')
+    .select('id, owner_id')
+    .eq('plan_id', plan.id)
+    .in('id', valid.map((row) => row.id))
+  const ownerBeforeMap = new Map<string, string | null>(
+    (ownersBefore ?? []).map((r: { id: string; owner_id: string | null }) => [r.id, r.owner_id])
+  )
+
   const { error: updateError } = await fluxion
     .from('treatment_actions')
     .update({ owner_id: input.ownerId })
@@ -1237,6 +1344,19 @@ export async function bulkAssignTreatmentActionsOwnerAction(
     .in('id', valid.map((row) => row.id))
 
   if (updateError) return { error: updateError.message }
+
+  await recordTreatmentActionEvents({
+    fluxion,
+    actorUserId: user.id,
+    events: valid.map((row) => ({
+      planId: plan.id,
+      actionId: row.id,
+      organizationId: membership.organization_id,
+      eventType: 'owner_changed' as const,
+      beforeState: { owner_id: ownerBeforeMap.get(row.id) ?? null },
+      afterState: { owner_id: input.ownerId },
+    })),
+  })
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -1308,6 +1428,19 @@ export async function bulkSetTreatmentActionsDueDateAction(
     .in('id', valid.map((row) => row.id))
 
   if (updateError) return { error: updateError.message }
+
+  await recordTreatmentActionEvents({
+    fluxion,
+    actorUserId: user.id,
+    events: valid.map((row) => ({
+      planId: plan.id,
+      actionId: row.id,
+      organizationId: membership.organization_id,
+      eventType: 'duedate_changed' as const,
+      beforeState: { due_date: row.due_date },
+      afterState: { due_date: input.dueDate },
+    })),
+  })
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -1399,6 +1532,19 @@ export async function bulkChangeTreatmentActionsOptionAction(
     return { ok: true, updated: 0, skipped }
   }
 
+  // Estado previo de option + justification para el audit log
+  const { data: optionsBefore } = await fluxion
+    .from('treatment_actions')
+    .select('id, option, justification')
+    .eq('plan_id', plan.id)
+    .in('id', applicable.map((row) => row.id))
+  const optionBeforeMap = new Map<string, { option: string | null; justification: string | null }>(
+    (optionsBefore ?? []).map((r: { id: string; option: string | null; justification: string | null }) => [
+      r.id,
+      { option: r.option, justification: r.justification },
+    ])
+  )
+
   const updatePayload: Record<string, unknown> = {
     option: input.option,
     status: 'pending',
@@ -1416,6 +1562,24 @@ export async function bulkChangeTreatmentActionsOptionAction(
     .in('id', applicable.map((row) => row.id))
 
   if (updateError) return { error: updateError.message }
+
+  await recordTreatmentActionEvents({
+    fluxion,
+    actorUserId: user.id,
+    events: applicable.map((row) => ({
+      planId: plan.id,
+      actionId: row.id,
+      organizationId: membership.organization_id,
+      eventType: 'option_selected' as const,
+      beforeState: optionBeforeMap.get(row.id) ?? { option: null, justification: null },
+      afterState: {
+        option: input.option,
+        justification: input.justification.trim(),
+        review_due_date: input.option === 'aceptar' ? input.reviewDueDate : null,
+      },
+      justification: input.justification.trim(),
+    })),
+  })
 
   // Recalcular accepted_risk_count en el plan
   const { count: acceptedCount } = await fluxion
