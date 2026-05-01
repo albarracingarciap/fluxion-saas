@@ -1,6 +1,6 @@
 'use client'
 
-import { ListTodo } from 'lucide-react'
+import { ListTodo, AlertTriangle, Clock, TrendingDown } from 'lucide-react'
 import { getZoneClasses, getZoneLabel, type FmeaZone } from '@/lib/fmea/domain'
 import type { TreatmentPlanRecord } from '@/lib/fmea/treatment-plan'
 import { APPROVAL_LEVEL_META, PLAN_STATUS_META } from './treatment-plan-ui-constants'
@@ -14,6 +14,11 @@ type Props = {
   tasksTotal: number
   tasksDone: number
   approverName: string | null
+  overdueCount: number
+  dueSoonCount: number
+  overduePercent: number | null
+  slippageRate: number | null
+  medianDaysToClose: number | null
 }
 
 export function PlanStatsBar({
@@ -25,6 +30,11 @@ export function PlanStatsBar({
   tasksTotal,
   tasksDone,
   approverName,
+  overdueCount,
+  dueSoonCount,
+  overduePercent,
+  slippageRate,
+  medianDaysToClose,
 }: Props) {
   const projectedZoneMeta = getZoneClasses(projectedZone)
 
@@ -118,6 +128,55 @@ export function PlanStatsBar({
         <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobador asignado</div>
         <div className="font-sora text-[13px] text-white">{approverName ?? 'Pendiente de asignar'}</div>
       </div>
+
+      {/* Efficacy KPIs row — shown only when there's data to display */}
+      {(overdueCount > 0 || dueSoonCount > 0 || slippageRate !== null || medianDaysToClose !== null) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#18324a] border-t border-[#18324a]">
+          <div className="px-5 py-3 flex items-start gap-2">
+            <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${overdueCount > 0 ? 'text-re' : 'text-[#3d5a82]'}`} />
+            <div>
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-0.5">Vencidas</div>
+              <div className={`font-sora text-[13px] ${overdueCount > 0 ? 'text-re' : 'text-[#3d5a82]'}`}>
+                {overdueCount > 0
+                  ? `${overdueCount} acción${overdueCount !== 1 ? 'es' : ''}${overduePercent !== null ? ` (${overduePercent}%)` : ''}`
+                  : 'Ninguna'}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-3 flex items-start gap-2">
+            <Clock className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${dueSoonCount > 0 ? 'text-or' : 'text-[#3d5a82]'}`} />
+            <div>
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-0.5">Vencen pronto</div>
+              <div className={`font-sora text-[13px] ${dueSoonCount > 0 ? 'text-or' : 'text-[#3d5a82]'}`}>
+                {dueSoonCount > 0
+                  ? `${dueSoonCount} acción${dueSoonCount !== 1 ? 'es' : ''} ≤7 días`
+                  : 'Ninguna'}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-3 flex items-start gap-2">
+            <TrendingDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#94b0c8]" />
+            <div>
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-0.5">Tasa slippage</div>
+              <div className={`font-sora text-[13px] ${slippageRate !== null && slippageRate > 0 ? 'text-or' : 'text-[#3d5a82]'}`}>
+                {slippageRate !== null ? `${slippageRate}% de mitigaciones` : 'Sin datos aún'}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-3 flex items-start gap-2">
+            <ListTodo className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#94b0c8]" />
+            <div>
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-0.5">Mediana cierre</div>
+              <div className="font-sora text-[13px] text-white">
+                {medianDaysToClose !== null ? `${medianDaysToClose} días` : 'Sin datos aún'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
