@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { History, GitCommit, Zap, ChevronDown } from 'lucide-react';
+import { History, GitCommit, Zap, ChevronDown, Maximize2 } from 'lucide-react';
 
 import type { PlanSnapshot, PlanActionEvent } from '@/lib/fmea/treatment-plan';
+import { PlanSnapshotModal } from './plan-snapshot-modal';
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -238,6 +239,7 @@ export function PlanHistoryTab({
 }) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [modalSnapshot, setModalSnapshot] = useState<PlanSnapshot | null>(null);
 
   const allEntries = useMemo<HistoryEntry[]>(() => {
     const snaps: HistoryEntry[] = snapshots.map((s) => ({
@@ -428,6 +430,18 @@ export function PlanHistoryTab({
                                     {actor ?? 'Usuario de la organización'}
                                   </div>
                                 </div>
+                                {isSnap && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setModalSnapshot(entry.data as PlanSnapshot);
+                                    }}
+                                    className="p-1 rounded-[6px] text-lttm hover:text-brand-blue hover:bg-[#e8f0fe] transition-colors mt-0.5"
+                                    title="Ver snapshot completo"
+                                  >
+                                    <Maximize2 size={13} />
+                                  </button>
+                                )}
                                 <ChevronDown
                                   size={14}
                                   className={`text-lttm mt-0.5 shrink-0 transition-transform duration-200 ${expanded ? '' : '-rotate-90'}`}
@@ -455,6 +469,16 @@ export function PlanHistoryTab({
           </div>
         )}
       </div>
+
+      {modalSnapshot && (
+        <PlanSnapshotModal
+          snapshot={modalSnapshot}
+          prevSnapshot={
+            snapshots[snapshots.findIndex((s) => s.id === modalSnapshot.id) + 1] ?? null
+          }
+          onClose={() => setModalSnapshot(null)}
+        />
+      )}
     </div>
   );
 }
