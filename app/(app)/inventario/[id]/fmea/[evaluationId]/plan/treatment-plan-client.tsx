@@ -583,16 +583,18 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         />
       )}
 
-      <PlanWarningBanners
-        globalError={globalError}
-        readOnly={readOnly}
-        isExecutiveApproval={isExecutiveApproval}
-        submitBlocked={submitBlocked}
-        pendingCount={pendingCount}
-        incompleteActionCount={incompleteActionCount}
-        overdueCount={efficacyKpis.overdueCount}
-        planStatus={data.plan.status}
-      />
+      <div className="print:hidden">
+        <PlanWarningBanners
+          globalError={globalError}
+          readOnly={readOnly}
+          isExecutiveApproval={isExecutiveApproval}
+          submitBlocked={submitBlocked}
+          pendingCount={pendingCount}
+          incompleteActionCount={incompleteActionCount}
+          overdueCount={efficacyKpis.overdueCount}
+          planStatus={data.plan.status}
+        />
+      </div>
 
       {data.plan.status === 'in_review' && <ApprovalReviewPanel data={data} />}
 
@@ -607,7 +609,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
       {/* Filter chips */}
       {actions.length > 0 && (efficacyKpis.overdueCount > 0 || efficacyKpis.dueSoonCount > 0 || slippageCount > 0) && (
-        <div className="flex items-center gap-2 flex-wrap mb-1">
+        <div className="print:hidden flex items-center gap-2 flex-wrap mb-1">
           <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Filtrar:</span>
 
           {efficacyKpis.overdueCount > 0 && (

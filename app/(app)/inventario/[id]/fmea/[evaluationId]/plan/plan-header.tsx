@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, FileDown, Loader2, Save, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, ChevronRight, FileDown, Loader2, Printer, Save, ShieldAlert } from 'lucide-react'
 
 type Props = {
   systemName: string
@@ -94,15 +94,25 @@ export function PlanHeader({
           {hasActions && (
             <button
               type="button"
+              onClick={() => window.print()}
+              className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltbl hover:text-ltt transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              Imprimir PDF
+            </button>
+          )}
+          {hasActions && (
+            <button
+              type="button"
               onClick={onExportCsv}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltbl hover:text-ltt transition-colors"
+              className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard text-lttm font-sora text-[12.5px] font-medium hover:border-ltbl hover:text-ltt transition-colors"
             >
               <FileDown className="w-4 h-4" />
               Exportar CSV
             </button>
           )}
           {!readOnly && (
-            <>
+            <div className="print:hidden flex items-center gap-3">
               <button
                 type="button"
                 onClick={onSaveDraft}
@@ -122,9 +132,9 @@ export function PlanHeader({
                 {isSubmittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
                 {isExecutiveApproval ? 'Enviar a alta dirección' : 'Enviar a aprobación'}
               </button>
-            </>
+            </div>
           )}
-          <span className="font-sora text-[12px] text-lttm">{draftSyncLabel}</span>
+          <span className="print:hidden font-sora text-[12px] text-lttm">{draftSyncLabel}</span>
         </div>
       </div>
     </>
