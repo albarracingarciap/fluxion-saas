@@ -33,6 +33,7 @@ type Props = {
   selectedActionIds: Set<string>
   onToggleSelection: (actionId: string) => void
   onToggleGroupSelection: (actionIds: string[]) => void
+  onReview?: (actionId: string) => void
 }
 
 export function ActionsGroupSection({
@@ -56,6 +57,7 @@ export function ActionsGroupSection({
   selectedActionIds,
   onToggleSelection,
   onToggleGroupSelection,
+  onReview,
 }: Props) {
   const selectableItems = group.items.filter(isActionSelectableForBulk)
   const selectableIds = selectableItems.map((a) => a.id)
@@ -118,6 +120,7 @@ export function ActionsGroupSection({
                 selectable={!readOnly && isActionSelectableForBulk(action)}
                 isSelected={selectedActionIds.has(action.id)}
                 onToggleSelect={() => onToggleSelection(action.id)}
+                onReview={onReview ? () => onReview(action.id) : undefined}
               />
               {isExpanded && (
                 <ActionDetailPanel
