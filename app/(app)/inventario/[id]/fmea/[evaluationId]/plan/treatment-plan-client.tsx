@@ -80,6 +80,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [bulkModal, setBulkModal] = useState<BulkModal>(null);
   type PlanTab = 'acciones' | 'historial';
   const [activeTab, setActiveTab] = useState<PlanTab>('acciones');
+  const [reviewingActionId, setReviewingActionId] = useState<string | null>(null);
+
   const [pendingResidual, setPendingResidual] = useState<{
     taskId: string
     action: EditableTreatmentAction
@@ -596,6 +598,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           incompleteActionCount={incompleteActionCount}
           overdueCount={efficacyKpis.overdueCount}
           planStatus={data.plan.status}
+          pendingReviewsCount={data.pending_reviews_count}
+          overdueReviewsCount={data.overdue_reviews_count}
         />
       </div>
 
@@ -739,6 +743,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             selectedActionIds={selectedActionIds}
             onToggleSelection={toggleActionSelection}
             onToggleGroupSelection={toggleGroupSelection}
+            onReview={setReviewingActionId}
           />
         ))}
       </div>
