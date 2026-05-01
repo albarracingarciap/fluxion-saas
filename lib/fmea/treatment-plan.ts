@@ -159,6 +159,47 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   sla_status: SlaStat | null;
 };
 
+export type SnapshotTrigger =
+  | 'submitted_for_review'
+  | 'approved'
+  | 'rejected'
+  | 'started'
+  | 'closed'
+  | 'superseded';
+
+export type TreatmentActionEventType =
+  | 'option_selected'
+  | 'owner_changed'
+  | 'duedate_changed'
+  | 'residual_target_changed'
+  | 'residual_achieved_recorded'
+  | 'slippage_accepted'
+  | 'task_status_changed'
+  | 'closed';
+
+export type PlanSnapshot = {
+  id: string;
+  trigger: SnapshotTrigger;
+  actor_name: string | null;
+  actor_user_id: string | null;
+  captured_at: string;
+  plan_state: Record<string, unknown>;
+  actions_state: Record<string, unknown>[];
+  metadata: Record<string, unknown>;
+};
+
+export type PlanActionEvent = {
+  id: string;
+  action_id: string;
+  event_type: TreatmentActionEventType;
+  actor_name: string | null;
+  actor_user_id: string | null;
+  occurred_at: string;
+  before_state: Record<string, unknown>;
+  after_state: Record<string, unknown>;
+  justification: string | null;
+};
+
 export type TreatmentPlanData = {
   system: TreatmentPlanSystem;
   evaluation: TreatmentPlanEvaluation;
@@ -172,6 +213,8 @@ export type TreatmentPlanData = {
   is_approver: boolean;
   overdue_count: number;
   due_soon_count: number;
+  plan_snapshots: PlanSnapshot[];
+  plan_action_events: PlanActionEvent[];
 };
 
 export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
@@ -731,6 +774,22 @@ export async function buildTreatmentPlanData(params: {
   const overdueCount = actionViews.filter((a) => a.sla_status === 'overdue').length;
   const dueSoonCount = actionViews.filter((a) => a.sla_status === 'due_soon').length;
 
+  const [{ data: snapshotsRaw }, { data: actionEventsRaw }] = await Promise.all([
+    fluxion
+      .from('treatment_plan_snapshots')
+      .select('id, trigger, actor_name, actor_user_id, captured_at, plan_state, actions_state, metadata')
+      .eq('plan_id', currentPlan.id)
+      .order('captured_at', { ascending: false }),
+    fluxion
+      .from('treatment_action_events')
+      .select('id, action_id, event_type, actor_name, actor_user_id, occurred_at, before_state, after_state, justification')
+      .eq('plan_id', currentPlan.id)
+      .order('occurred_at', { ascending: false }),
+  ]);
+
+  const planSnapshots: PlanSnapshot[] = (snapshotsRaw ?? []) as PlanSnapshot[];
+  const planActionEvents: PlanActionEvent[] = (actionEventsRaw ?? []) as PlanActionEvent[];
+
   return {
     system,
     evaluation,
@@ -744,6 +803,8 @@ export async function buildTreatmentPlanData(params: {
     is_approver: !!(params.currentUserId && currentPlan.approver_id && params.currentUserId === currentPlan.approver_id),
     overdue_count: overdueCount,
     due_soon_count: dueSoonCount,
+    plan_snapshots: planSnapshots,
+    plan_action_events: planActionEvents,
   } satisfies TreatmentPlanData;
 }
 
