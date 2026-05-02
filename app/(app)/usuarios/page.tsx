@@ -20,6 +20,7 @@ import { MiembrosTab }    from './tabs/miembros';
 import { InvitacionesTab } from './tabs/invitaciones';
 import { RolesTab }       from './tabs/roles';
 import { AuditoriaTab }   from './tabs/auditoria';
+import { MemberDrawer }   from './tabs/member-drawer';
 import { INVITABLE_ROLES, ROLE_LABELS, inputCls, selectCls, SelectArrow, type Member, type Invitation } from './tabs/shared';
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export default function UsersPage() {
     bulk?: Array<{ email: string; token?: string; error?: string }>
   } | null>(null)
   const [copiedToken, setCopiedToken]   = useState<string | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -417,6 +419,7 @@ export default function UsersPage() {
                 onRoleChange={handleRoleChange}
                 onDeactivate={handleDeactivate}
                 onReactivate={handleReactivate}
+                onSelectMember={(id) => setSelectedMemberId(id)}
               />
             )}
 
@@ -438,6 +441,11 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      <MemberDrawer
+        memberId={selectedMemberId}
+        onClose={() => setSelectedMemberId(null)}
+      />
     </div>
   )
 }

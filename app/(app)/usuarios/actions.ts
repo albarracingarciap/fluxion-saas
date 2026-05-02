@@ -92,6 +92,95 @@ export async function getOrganizationMembersAndInvitations() {
   };
 }
 
+export async function getMemberDetail(memberId: string) {
+  const supabase = createClient();
+  const fluxion  = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor) return { error: 'Sin organización.' };
+
+  // Profile
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('id, user_id, full_name, avatar_url, role, created_at, is_active, job_title, phone, bio')
+    .eq('id', memberId)
+    .single();
+
+  if (!profile) return { error: 'Miembro no encontrado.' };
+
+  // Auth info: last sign in + MFA
+  const { data: authData } = await supabase.auth.admin.getUserById(profile.user_id);
+  const lastSignIn  = authData?.user?.last_sign_in_at ?? null;
+  const mfaEnabled  = (authData?.user?.factors ?? []).some(
+    (f: any) => f.status === 'verified',
+  );
+
+  // Systems assigned via profile_systems
+  const { data: systems } = await fluxion
+    .from('profile_systems')
+    .select('is_lead, ai_system_id, ai_systems!inner(id, name, status)')
+    .eq('profile_id', memberId);
+
+  // Committee memberships
+  const { data: committeeMemberships } = await fluxion
+    .from('committee_members')
+    .select('committee_role, committees!inner(id, name, type)')
+    .eq('profile_id', memberId)
+    .eq('is_active', true);
+
+  // Role change history for this member (last 20)
+  const { data: roleHistory } = await fluxion
+    .from('member_role_changes')
+    .select('id, change_type, prev_role, new_role, created_at, actor_id')
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  // Resolve actor names
+  const actorIds = Array.from(new Set((roleHistory ?? []).map((r: any) => r.actor_id)));
+  const { data: actorProfiles } = await fluxion
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', actorIds.length > 0 ? actorIds : ['00000000-0000-0000-0000-000000000000']);
+  const nameMap = new Map((actorProfiles ?? []).map((p: any) => [p.id, p.full_name || 'Usuario']));
+
+  return {
+    success: true,
+    profile: {
+      id:         profile.id,
+      user_id:    profile.user_id,
+      full_name:  profile.full_name,
+      avatar_url: profile.avatar_url,
+      role:       profile.role,
+      created_at: profile.created_at,
+      is_active:  profile.is_active !== false,
+      job_title:  (profile as any).job_title ?? null,
+      phone:      (profile as any).phone ?? null,
+      bio:        (profile as any).bio ?? null,
+    },
+    auth: { lastSignIn, mfaEnabled },
+    systems: (systems ?? []).map((s: any) => ({
+      id:      s.ai_system_id,
+      name:    s.ai_systems.name,
+      status:  s.ai_systems.status,
+      is_lead: s.is_lead,
+    })),
+    committees: (committeeMemberships ?? []).map((cm: any) => ({
+      id:             cm.committees.id,
+      name:           cm.committees.name,
+      type:           cm.committees.type,
+      committee_role: cm.committee_role,
+    })),
+    roleHistory: (roleHistory ?? []).map((r: any) => ({
+      ...r,
+      actor_name: nameMap.get(r.actor_id) ?? 'Usuario',
+    })),
+  };
+}
+
 export async function getRoleChanges() {
   const supabase = createClient();
   const fluxion = createFluxionClient();
