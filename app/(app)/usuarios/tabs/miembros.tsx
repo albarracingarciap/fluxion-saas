@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, Loader2, Trash2, X, Clock, Users } from 'lucide-react';
+import { Search, ChevronDown, Loader2, UserX, UserCheck, X, Clock, Users } from 'lucide-react';
 import {
-  MemberAvatar, RoleBadge, ROLE_LABELS, ROLE_BADGE_CLS, selectCls, SelectArrow, formatDate,
+  MemberAvatar, RoleBadge, ROLE_LABELS, selectCls, SelectArrow, formatDate,
   type Member,
 } from './shared';
 
@@ -11,19 +11,22 @@ const PAGE_SIZE = 20;
 
 interface Props {
   members: Member[]
+  inactiveMembers: Member[]
   currentUserId: string
   isAdmin: boolean
   onRoleChange: (memberId: string, role: string) => Promise<void>
-  onRemove: (memberId: string) => Promise<void>
+  onDeactivate: (memberId: string) => Promise<void>
+  onReactivate: (memberId: string) => Promise<void>
 }
 
-export function MiembrosTab({ members, currentUserId, isAdmin, onRoleChange, onRemove }: Props) {
+export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRoleChange, onDeactivate, onReactivate }: Props) {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -53,51 +56,57 @@ export function MiembrosTab({ members, currentUserId, isAdmin, onRoleChange, onR
     setPendingRole(null)
   }
 
-  async function handleConfirmRemove() {
-    if (!confirmRemoveId) return
-    setRemovingId(confirmRemoveId)
-    await onRemove(confirmRemoveId)
-    setRemovingId(null)
-    setConfirmRemoveId(null)
+  async function handleConfirmDeactivate() {
+    if (!confirmDeactivateId) return
+    setDeactivatingId(confirmDeactivateId)
+    await onDeactivate(confirmDeactivateId)
+    setDeactivatingId(null)
+    setConfirmDeactivateId(null)
   }
 
-  const memberToRemove = members.find(m => m.id === confirmRemoveId)
+  async function handleReactivate(memberId: string) {
+    setReactivatingId(memberId)
+    await onReactivate(memberId)
+    setReactivatingId(null)
+  }
+
+  const memberToDeactivate = members.find(m => m.id === confirmDeactivateId)
 
   return (
     <>
-      {/* Delete confirmation modal */}
-      {confirmRemoveId && (
+      {/* Deactivate confirmation modal */}
+      {confirmDeactivateId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
           <div className="bg-ltcard border border-ltb rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.18)] p-6 w-full max-w-sm">
             <div className="flex items-start justify-between mb-4">
               <div className="w-10 h-10 rounded-[10px] bg-red-dim border border-reb flex items-center justify-center shrink-0">
-                <Trash2 size={18} className="text-re" />
+                <UserX size={18} className="text-re" />
               </div>
               <button
-                onClick={() => setConfirmRemoveId(null)}
+                onClick={() => setConfirmDeactivateId(null)}
                 className="p-1 text-lttm hover:text-ltt transition-colors rounded-md hover:bg-ltbg"
               >
                 <X size={16} />
               </button>
             </div>
-            <h3 className="font-sora text-[14px] font-semibold text-ltt mb-1">¿Eliminar miembro?</h3>
+            <h3 className="font-sora text-[14px] font-semibold text-ltt mb-1">¿Desactivar miembro?</h3>
             <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-5">
-              Se eliminará permanentemente a <span className="font-medium text-ltt">{memberToRemove?.full_name || memberToRemove?.email}</span> de la organización. Esta acción no se puede deshacer.
+              <span className="font-medium text-ltt">{memberToDeactivate?.full_name || memberToDeactivate?.email}</span> perderá el acceso al workspace. Sus datos se conservan y puede reactivarse en cualquier momento.
             </p>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setConfirmRemoveId(null)}
+                onClick={() => setConfirmDeactivateId(null)}
                 className="flex-1 px-4 py-2 border border-ltb rounded-[8px] font-sora text-[13px] text-ltt2 hover:bg-ltbg transition-colors"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleConfirmRemove}
-                disabled={!!removingId}
+                onClick={handleConfirmDeactivate}
+                disabled={!!deactivatingId}
                 className="flex-1 px-4 py-2 bg-re text-white rounded-[8px] font-sora text-[13px] font-medium hover:bg-re/90 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
               >
-                {removingId ? <Loader2 size={13} className="animate-spin" /> : null}
-                Eliminar
+                {deactivatingId ? <Loader2 size={13} className="animate-spin" /> : null}
+                Desactivar
               </button>
             </div>
           </div>
@@ -206,11 +215,11 @@ export function MiembrosTab({ members, currentUserId, isAdmin, onRoleChange, onR
                   <div className="w-7 flex items-center justify-center">
                     {isAdmin && member.user_id !== currentUserId && (
                       <button
-                        onClick={() => setConfirmRemoveId(member.id)}
+                        onClick={() => setConfirmDeactivateId(member.id)}
                         className="p-1.5 text-lttm hover:bg-red-dim hover:text-re rounded-[6px] transition-colors opacity-0 group-hover:opacity-100"
-                        title="Eliminar miembro"
+                        title="Desactivar miembro"
                       >
-                        <Trash2 size={14} />
+                        <UserX size={14} />
                       </button>
                     )}
                   </div>
@@ -242,6 +251,50 @@ export function MiembrosTab({ members, currentUserId, isAdmin, onRoleChange, onR
             >
               Siguiente
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inactive members */}
+      {inactiveMembers.length > 0 && (
+        <div className="mt-6 bg-ltcard rounded-[12px] border border-ltb shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden opacity-80">
+          <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center gap-2">
+            <UserX size={14} className="text-lttm" />
+            <span className="font-plex text-[10.5px] font-semibold text-ltt2 uppercase tracking-[0.8px]">
+              Desactivados ({inactiveMembers.length})
+            </span>
+          </div>
+          <div className="divide-y divide-ltb">
+            {inactiveMembers.map((member) => (
+              <div key={member.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-ltbg/40 transition-colors">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="opacity-50">
+                    <MemberAvatar fullName={member.full_name} avatarUrl={member.avatar_url} size={38} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-sora text-[13px] font-medium text-lttm">
+                      {member.full_name ?? <span className="italic">Sin nombre</span>}
+                    </p>
+                    <p className="font-sora text-[11.5px] text-lttm truncate opacity-70">{member.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <RoleBadge role={member.role} />
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleReactivate(member.id)}
+                      disabled={reactivatingId === member.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-ltb rounded-[7px] font-sora text-[11.5px] text-ltt2 hover:border-gr hover:text-gr transition-colors disabled:opacity-50"
+                    >
+                      {reactivatingId === member.id
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <UserCheck size={12} />}
+                      Reactivar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

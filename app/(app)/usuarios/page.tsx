@@ -9,7 +9,8 @@ import {
   getOrganizationMembersAndInvitations,
   inviteUser,
   updateMemberRole,
-  removeMember,
+  deactivateMember,
+  reactivateMember,
   cancelInvitation,
 } from './actions';
 import { MiembrosTab }    from './tabs/miembros';
@@ -36,8 +37,9 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [pageError, setPageError] = useState<string | null>(null)
 
-  const [members, setMembers]         = useState<Member[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [members, setMembers]               = useState<Member[]>([])
+  const [inactiveMembers, setInactiveMembers] = useState<Member[]>([])
+  const [invitations, setInvitations]       = useState<Invitation[]>([])
   const [currentUserId, setCurrentUserId]   = useState('')
   const [currentUserRole, setCurrentUserRole] = useState('')
 
@@ -56,6 +58,7 @@ export default function UsersPage() {
     const result = await getOrganizationMembersAndInvitations()
     if ('success' in result && result.success) {
       setMembers((result as any).members)
+      setInactiveMembers((result as any).inactiveMembers)
       setInvitations((result as any).invitations)
       setCurrentUserId((result as any).currentUserId)
       setCurrentUserRole((result as any).currentUserRole)
@@ -86,8 +89,13 @@ export default function UsersPage() {
     loadData()
   }
 
-  async function handleRemove(memberId: string) {
-    await removeMember(memberId)
+  async function handleDeactivate(memberId: string) {
+    await deactivateMember(memberId)
+    loadData()
+  }
+
+  async function handleReactivate(memberId: string) {
+    await reactivateMember(memberId)
     loadData()
   }
 
@@ -287,10 +295,12 @@ export default function UsersPage() {
             {activeTab === 'miembros' && (
               <MiembrosTab
                 members={members}
+                inactiveMembers={inactiveMembers}
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
                 onRoleChange={handleRoleChange}
-                onRemove={handleRemove}
+                onDeactivate={handleDeactivate}
+                onReactivate={handleReactivate}
               />
             )}
 
