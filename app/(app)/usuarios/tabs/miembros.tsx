@@ -17,9 +17,10 @@ interface Props {
   onRoleChange: (memberId: string, role: string) => Promise<void>
   onDeactivate: (memberId: string) => Promise<void>
   onReactivate: (memberId: string) => Promise<void>
+  onSelectMember: (memberId: string) => void
 }
 
-export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRoleChange, onDeactivate, onReactivate }: Props) {
+export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRoleChange, onDeactivate, onReactivate, onSelectMember }: Props) {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -165,8 +166,12 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
                 key={member.id}
                 className="flex items-center justify-between px-5 py-3.5 hover:bg-ltbg/60 transition-colors group"
               >
-                {/* Left: avatar + name + email */}
-                <div className="flex items-center gap-3.5 min-w-0">
+                {/* Left: avatar + name + email — clickable to open drawer */}
+                <button
+                  type="button"
+                  onClick={() => onSelectMember(member.id)}
+                  className="flex items-center gap-3.5 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity"
+                >
                   <MemberAvatar fullName={member.full_name} avatarUrl={member.avatar_url} size={38} />
                   <div className="min-w-0">
                     <p className="font-sora text-[13px] font-medium text-ltt flex items-center gap-2 flex-wrap">
@@ -179,8 +184,7 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
                     </p>
                     <p className="font-sora text-[11.5px] text-lttm truncate mt-0.5">{member.email}</p>
                   </div>
-                </div>
-
+                </button>
                 {/* Right: date + role selector/badge + remove */}
                 <div className="flex items-center gap-4 shrink-0">
                   <div className="hidden md:flex items-center gap-1 text-[11px] text-lttm font-sora">
