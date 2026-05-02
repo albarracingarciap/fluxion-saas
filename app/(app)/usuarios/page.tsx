@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import {
-  Users, UserPlus, Mail, Shield, ShieldAlert, Trash2, Key,
-  Loader2, Copy, Check, Clock, X, ChevronDown,
+  Users, UserPlus, Mail, Loader2, Copy, Check, X,
+  ChevronRight, ShieldAlert, AlertCircle, ClipboardList, Shield,
 } from 'lucide-react';
 import {
   getOrganizationMembersAndInvitations,
@@ -13,193 +12,115 @@ import {
   removeMember,
   cancelInvitation,
 } from './actions';
+import { MiembrosTab }    from './tabs/miembros';
+import { InvitacionesTab } from './tabs/invitaciones';
+import { RolesTab }       from './tabs/roles';
+import { AuditoriaTab }   from './tabs/auditoria';
+import { INVITABLE_ROLES, ROLE_LABELS, inputCls, selectCls, SelectArrow, type Member, type Invitation } from './tabs/shared';
 
-type Member = {
-  id: string;
-  user_id: string;
-  role: string;
-  created_at: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  email: string;
-};
+// ─── Tab config ───────────────────────────────────────────────────────────────
 
-type Invitation = {
-  id: string;
-  email: string;
-  role: string;
-  token: string;
-  created_at: string;
-  expires_at: string;
-};
+type TabKey = 'miembros' | 'invitaciones' | 'roles' | 'auditoria'
 
-const ROLE_LABELS: Record<string, string> = {
-  org_admin:          'Administrador',
-  sgai_manager:       'SGAI Manager',
-  caio:               'CAIO',
-  dpo:                'DPO',
-  system_owner:       'System Owner',
-  risk_analyst:       'Analista de Riesgos',
-  compliance_analyst: 'Analista de Cumplimiento',
-  executive:          'Directivo',
-  auditor:            'Auditor',
-  viewer:             'Lector',
-};
+const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
+  { key: 'miembros',     label: 'Miembros',          icon: <Users size={14} /> },
+  { key: 'invitaciones', label: 'Invitaciones',       icon: <Mail size={14} /> },
+  { key: 'roles',        label: 'Roles y permisos',   icon: <Shield size={14} /> },
+  { key: 'auditoria',    label: 'Auditoría',          icon: <ClipboardList size={14} /> },
+]
 
-const ROLE_STYLES: Record<string, string> = {
-  org_admin:          'bg-cyan-50 text-cyan-700 border-cyan-200',
-  sgai_manager:       'bg-blue-50 text-blue-700 border-blue-200',
-  caio:               'bg-purple-50 text-purple-700 border-purple-200',
-  dpo:                'bg-indigo-50 text-indigo-700 border-indigo-200',
-  system_owner:       'bg-teal-50 text-teal-700 border-teal-200',
-  risk_analyst:       'bg-orange-50 text-orange-700 border-orange-200',
-  compliance_analyst: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  executive:          'bg-pink-50 text-pink-700 border-pink-200',
-  auditor:            'bg-red-50 text-red-700 border-red-200',
-  viewer:             'bg-gray-100 text-gray-500 border-gray-200',
-};
-
-const INVITABLE_ROLES = [
-  'viewer', 'auditor', 'executive', 'compliance_analyst',
-  'risk_analyst', 'system_owner', 'dpo', 'caio', 'sgai_manager',
-] as const;
-
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  org_admin:          'Acceso completo. Gestiona miembros, roles, organización y todos los módulos.',
-  sgai_manager:       'Responsable del Sistema de Gestión de IA. Coordina el ciclo de gobernanza.',
-  caio:               'Chief AI Officer. Supervisión estratégica de la cartera de sistemas IA.',
-  dpo:                'Data Protection Officer. Responsable de cumplimiento en protección de datos.',
-  system_owner:       'Propietario de uno o varios sistemas IA. Gestiona su ciclo de vida.',
-  risk_analyst:       'Evalúa y mitiga riesgos de los sistemas IA mediante FMEA y análisis causal.',
-  compliance_analyst: 'Verifica el cumplimiento frente a AI Act, ISO 42001 y normativa aplicable.',
-  executive:          'Directivo con acceso de lectura a KPIs y resúmenes ejecutivos.',
-  auditor:            'Acceso de auditoría de solo lectura a todos los módulos y evidencias.',
-  viewer:             'Acceso de consulta. Puede leer datos e informes pero no modificar registros.',
-};
-
-function MemberAvatar({ fullName, avatarUrl, size = 40 }: { fullName: string | null; avatarUrl: string | null; size?: number }) {
-  const initials = fullName
-    ? fullName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-    : '?';
-  if (avatarUrl) {
-    return (
-      <Image
-        src={avatarUrl}
-        alt={initials}
-        width={size}
-        height={size}
-        className="rounded-full object-cover border border-ltb"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{ width: size, height: size, fontSize: size * 0.35 }}
-      className="rounded-full bg-[var(--cyan-dim2)] border border-[var(--cyan-border)] flex items-center justify-center text-brand-cyan font-sora font-bold shrink-0"
-    >
-      {initials}
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full bg-ltbg border border-ltb rounded-lg px-3 py-2.5 text-[13px] text-ltt font-sora outline-none transition-all focus:border-brand-cyan focus:ring-[3px] focus:ring-brand-cyan/10';
-
-const selectCls =
-  'w-full bg-ltbg border border-ltb rounded-lg px-3 py-2.5 text-[13px] text-ltt font-sora outline-none appearance-none pr-8 cursor-pointer transition-all focus:border-brand-cyan focus:ring-[3px] focus:ring-brand-cyan/10';
-
-function SelectArrow() {
-  return (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-lttm opacity-70">
-      <ChevronDown size={12} />
-    </div>
-  );
-}
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [data, setData] = useState<{
-    members: Member[];
-    invitations: Invitation[];
-    currentUserRole: string;
-    currentUserId: string;
-  }>({ members: [], invitations: [], currentUserRole: '', currentUserId: '' });
+  const [activeTab, setActiveTab] = useState<TabKey>('miembros')
+  const [loading, setLoading] = useState(true)
+  const [pageError, setPageError] = useState<string | null>(null)
 
-  const [isInviting, setIsInviting] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<string>('viewer');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteResult, setInviteResult] = useState<{ token?: string; error?: string } | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [members, setMembers]         = useState<Member[]>([])
+  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [currentUserId, setCurrentUserId]   = useState('')
+  const [currentUserRole, setCurrentUserRole] = useState('')
 
-  useEffect(() => { loadData(); }, []);
+  const [isInviting, setIsInviting]   = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole]   = useState('viewer')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteResult, setInviteResult]   = useState<{ token?: string; error?: string } | null>(null)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
-  const loadData = async () => {
-    setLoading(true);
-    setPageError(null);
-    const result = await getOrganizationMembersAndInvitations();
-    if (result.success) {
-      setData(result as any);
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    setPageError(null)
+    const result = await getOrganizationMembersAndInvitations()
+    if ('success' in result && result.success) {
+      setMembers((result as any).members)
+      setInvitations((result as any).invitations)
+      setCurrentUserId((result as any).currentUserId)
+      setCurrentUserRole((result as any).currentUserRole)
     } else {
-      setPageError((result as any).error);
+      setPageError((result as any).error ?? 'Error al cargar los datos.')
     }
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInviteLoading(true);
-    setInviteResult(null);
-    const res = await inviteUser(inviteEmail, inviteRole);
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    setInviteLoading(true)
+    setInviteResult(null)
+    const res = await inviteUser(inviteEmail, inviteRole)
     if (res.error) {
-      setInviteResult({ error: res.error });
+      setInviteResult({ error: res.error })
     } else {
-      setInviteResult({ token: res.token });
-      setInviteEmail('');
-      loadData();
+      setInviteResult({ token: res.token })
+      setInviteEmail('')
+      setActiveTab('invitaciones')
+      loadData()
     }
-    setInviteLoading(false);
-  };
+    setInviteLoading(false)
+  }
 
-  const handleRoleChange = async (memberId: string, role: string) => {
-    await updateMemberRole(memberId, role);
-    loadData();
-  };
+  async function handleRoleChange(memberId: string, role: string) {
+    await updateMemberRole(memberId, role)
+    loadData()
+  }
 
-  const handleRemove = async (memberId: string) => {
-    setRemovingId(memberId);
-    await removeMember(memberId);
-    setConfirmRemove(null);
-    loadData();
-    setRemovingId(null);
-  };
+  async function handleRemove(memberId: string) {
+    await removeMember(memberId)
+    loadData()
+  }
 
-  const handleCancelInvite = async (id: string) => {
-    await cancelInvitation(id);
-    loadData();
-  };
+  async function handleCancelInvite(id: string) {
+    await cancelInvitation(id)
+    loadData()
+  }
 
-  const copyLink = (token: string) => {
-    const link = `${window.location.origin}/register?invite=${token}`;
-    navigator.clipboard.writeText(link);
-    setCopied(token);
-    setTimeout(() => setCopied(null), 2000);
-  };
+  function copyLink(token: string) {
+    const link = `${window.location.origin}/register?invite=${token}`
+    navigator.clipboard.writeText(link)
+    setCopiedToken(token)
+    setTimeout(() => setCopiedToken(null), 2000)
+  }
 
-  const isAdmin = data.currentUserRole === 'org_admin';
+  const isAdmin = currentUserRole === 'org_admin'
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  // Pending invite count badge
+  const pendingCount = invitations.filter((i) => new Date(i.expires_at) >= new Date()).length
 
   return (
     <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
 
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-[12px] font-plex text-lttm uppercase tracking-wider mb-4">
+        <Users size={13} className="text-lttm" />
+        <span>Configuración</span>
+        <ChevronRight size={11} className="text-lttm" />
+        <span className="text-ltt">Usuarios</span>
+      </div>
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-7">
         <div>
           <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
             Gestión de Usuarios
@@ -210,44 +131,45 @@ export default function UsersPage() {
         </div>
         {isAdmin && !isInviting && (
           <button
-            onClick={() => { setIsInviting(true); setInviteResult(null); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] shadow-[0_2px_12px_rgba(0,173,239,0.18)] shrink-0"
+            onClick={() => { setIsInviting(true); setInviteResult(null) }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[9px] font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] shadow-[0_2px_12px_rgba(0,173,239,0.18)] shrink-0"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus size={15} />
             Invitar miembro
           </button>
         )}
       </div>
 
+      {/* Page error */}
       {pageError && (
-        <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-[13px] font-sora p-4 rounded-lg mb-6">
-          <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2 bg-red-dim border border-reb text-re text-[12px] font-sora p-3.5 rounded-[8px] mb-5">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
           <span>{pageError}</span>
         </div>
       )}
 
-      {/* Invite form */}
+      {/* Invite panel */}
       {isInviting && (
-        <div className="bg-ltcard rounded-[12px] border border-brand-cyan/30 shadow-[0_8px_30px_rgba(0,173,239,0.06)] overflow-hidden mb-6 animate-fadein">
-          <div className="bg-ltcard2 px-6 py-4 border-b border-ltb flex items-center justify-between">
+        <div className="bg-ltcard rounded-[12px] border border-[var(--cyan-border)] shadow-[0_8px_30px_rgba(0,173,239,0.06)] overflow-hidden mb-6 animate-fadein">
+          <div className="bg-ltcard2 px-5 py-4 border-b border-ltb flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-[var(--cyan-dim2)] flex items-center justify-center">
-                <Mail className="w-3.5 h-3.5 text-brand-cyan" />
+              <div className="w-7 h-7 rounded-[8px] bg-cyan-dim flex items-center justify-center">
+                <Mail size={14} className="text-brand-cyan" />
               </div>
               <div>
-                <h3 className="font-sora text-[13.5px] font-semibold text-ltt">Nueva invitación</h3>
-                <p className="font-sora text-[11.5px] text-ltt2">El usuario accederá con el enlace de invitación.</p>
+                <h3 className="font-sora text-[13px] font-semibold text-ltt">Nueva invitación</h3>
+                <p className="font-sora text-[11.5px] text-lttm">El usuario accederá con el enlace de invitación.</p>
               </div>
             </div>
             <button
-              onClick={() => { setIsInviting(false); setInviteResult(null); }}
-              className="p-1 text-lttm hover:text-ltt transition-colors rounded-md hover:bg-ltb"
+              onClick={() => { setIsInviting(false); setInviteResult(null) }}
+              className="p-1 text-lttm hover:text-ltt transition-colors rounded-[6px] hover:bg-ltb"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="p-5">
             <form onSubmit={handleInvite} className="flex flex-col md:flex-row items-end gap-4">
               <div className="flex-1 w-full">
                 <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
@@ -257,18 +179,22 @@ export default function UsersPage() {
                   type="email"
                   required
                   value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
+                  onChange={(e) => setInviteEmail(e.target.value)}
                   className={inputCls}
                   placeholder="colaborador@empresa.com"
                 />
               </div>
-              <div className="w-full md:w-[240px]">
+              <div className="w-full md:w-[230px]">
                 <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
                   Rol
                 </label>
                 <div className="relative">
-                  <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className={selectCls}>
-                    {INVITABLE_ROLES.map(r => (
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className={selectCls}
+                  >
+                    {INVITABLE_ROLES.map((r) => (
                       <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                     ))}
                   </select>
@@ -278,33 +204,33 @@ export default function UsersPage() {
               <button
                 type="submit"
                 disabled={inviteLoading}
-                className="h-[43px] px-6 bg-ltt text-white rounded-lg font-sora text-[13px] font-medium transition-colors hover:bg-ltt/90 flex items-center gap-2 shrink-0 disabled:opacity-60"
+                className="h-[43px] px-6 bg-ltt text-white rounded-[8px] font-sora text-[13px] font-medium transition-colors hover:bg-ltt/90 flex items-center gap-2 shrink-0 disabled:opacity-60 whitespace-nowrap"
               >
-                {inviteLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {inviteLoading && <Loader2 size={13} className="animate-spin" />}
                 Generar enlace
               </button>
             </form>
 
             {inviteResult?.error && (
-              <p className="mt-4 text-re text-[12px] font-sora">{inviteResult.error}</p>
+              <p className="mt-3 text-re text-[12px] font-sora">{inviteResult.error}</p>
             )}
 
             {inviteResult?.token && (
-              <div className="mt-5 p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-green-800 text-[13px] font-sora mb-1 font-medium">Invitación creada correctamente.</p>
-                <p className="text-green-700 text-[12px] font-sora mb-3">
+              <div className="mt-5 p-4 bg-grdim rounded-[9px] border border-grb">
+                <p className="text-gr text-[13px] font-sora font-medium mb-1">Invitación creada.</p>
+                <p className="text-gr text-[12px] font-sora mb-3 opacity-80">
                   Copia el enlace y envíaselo al usuario para que pueda unirse.
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-white border border-green-200 rounded px-3 py-2 text-[11px] text-ltt font-plex truncate">
+                  <code className="flex-1 bg-ltcard border border-grb rounded-[7px] px-3 py-2 text-[11px] text-ltt font-plex truncate">
                     {`${typeof window !== 'undefined' ? window.location.origin : ''}/register?invite=${inviteResult.token}`}
                   </code>
                   <button
                     onClick={() => copyLink(inviteResult.token!)}
-                    className="p-2 bg-white border border-green-200 rounded text-green-700 hover:bg-green-100 transition-colors shrink-0 flex items-center justify-center w-9 h-9"
+                    className="p-2 bg-ltcard border border-grb rounded-[7px] text-gr hover:bg-grdim transition-colors shrink-0 flex items-center justify-center w-9 h-9"
                     title="Copiar enlace"
                   >
-                    {copied === inviteResult.token ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedToken === inviteResult.token ? <Check size={15} /> : <Copy size={15} />}
                   </button>
                 </div>
               </div>
@@ -315,192 +241,76 @@ export default function UsersPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-6 h-6 text-brand-cyan animate-spin" />
+          <Loader2 size={24} className="text-brand-cyan animate-spin" />
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
 
-          {/* Members table */}
-          <div className="bg-ltcard rounded-[12px] border border-ltb shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden">
-            <div className="bg-ltcard2 px-6 py-4 border-b border-ltb flex items-center gap-2">
-              <Users className="w-4 h-4 text-lttm" />
-              <h2 className="font-plex text-xs font-semibold text-ltt2 uppercase tracking-[0.8px]">
-                Miembros activos ({data.members.length})
-              </h2>
-            </div>
-
-            {data.members.length === 0 ? (
-              <div className="px-6 py-10 text-center text-lttm font-sora text-[13px]">No hay miembros.</div>
-            ) : (
-              <div className="divide-y divide-ltb">
-                {data.members.map(member => (
-                  <div key={member.id} className="flex items-center justify-between px-6 py-4 hover:bg-ltbg/60 transition-colors group">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <MemberAvatar fullName={member.full_name} avatarUrl={member.avatar_url} size={40} />
-                      <div className="min-w-0">
-                        <p className="font-sora text-[13.5px] font-medium text-ltt flex items-center gap-2 flex-wrap">
-                          {member.full_name
-                            ? member.full_name
-                            : <span className="text-lttm italic">Sin nombre</span>}
-                          {member.user_id === data.currentUserId && (
-                            <span className="bg-ltb px-1.5 py-0.5 rounded text-[10px] text-lttm font-plex uppercase">Tú</span>
-                          )}
-                        </p>
-                        <p className="font-sora text-[12px] text-lttm mt-0.5 truncate">{member.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 shrink-0">
-                      <div className="hidden md:flex items-center gap-1.5 text-[11.5px] text-lttm font-sora">
-                        <Clock size={11} className="shrink-0" />
-                        <span>Desde {formatDate(member.created_at)}</span>
-                      </div>
-
-                      <div className="w-[190px]">
-                        {isAdmin && member.user_id !== data.currentUserId ? (
-                          <div className="relative">
-                            <select
-                              value={member.role}
-                              onChange={e => handleRoleChange(member.id, e.target.value)}
-                              className="w-full bg-transparent border border-ltb rounded-md py-1.5 px-2.5 text-[12px] font-sora text-ltt2 hover:border-brand-cyan transition-colors outline-none cursor-pointer appearance-none pr-7"
-                            >
-                              {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                                <option key={value} value={value}>{label}</option>
-                              ))}
-                            </select>
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-lttm opacity-70">
-                              <ChevronDown size={11} />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[11px] font-plex uppercase tracking-wider border ${ROLE_STYLES[member.role] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                            {member.role === 'org_admin' && <ShieldAlert size={11} />}
-                            {['caio', 'sgai_manager', 'dpo'].includes(member.role) && <Shield size={11} />}
-                            {ROLE_LABELS[member.role] ?? member.role}
-                          </div>
-                        )}
-                      </div>
-
-                      {isAdmin && member.user_id !== data.currentUserId && (
-                        <div className="w-8 flex items-center justify-center">
-                          {confirmRemove === member.id ? (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => handleRemove(member.id)}
-                                disabled={removingId === member.id}
-                                className="px-2 py-1 bg-re text-white rounded text-[11px] font-sora transition-colors hover:bg-re/90 disabled:opacity-60 flex items-center gap-1"
-                              >
-                                {removingId === member.id ? <Loader2 size={11} className="animate-spin" /> : null}
-                                Confirmar
-                              </button>
-                              <button
-                                onClick={() => setConfirmRemove(null)}
-                                className="px-2 py-1 border border-ltb text-lttm rounded text-[11px] font-sora hover:bg-ltb transition-colors"
-                              >
-                                No
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmRemove(member.id)}
-                              className="p-1.5 text-lttm hover:bg-red-50 hover:text-re rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              title="Eliminar miembro"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
+          {/* Sidebar */}
+          <nav
+            aria-label="Secciones de usuarios"
+            className="bg-ltcard rounded-[12px] border border-ltb shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-2 lg:sticky lg:top-4 lg:self-start"
+          >
+            <ul className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible">
+              {TABS.map((tab) => {
+                const isActive = tab.key === activeTab
+                return (
+                  <li key={tab.key} className="shrink-0 lg:w-full">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[8px] font-sora text-[13px] text-left transition-colors whitespace-nowrap ${
+                        isActive
+                          ? 'bg-cyan-dim text-brand-cyan font-medium'
+                          : 'text-ltt2 hover:bg-ltbg hover:text-ltt'
+                      }`}
+                    >
+                      <span className={isActive ? 'text-brand-cyan' : 'text-lttm'}>
+                        {tab.icon}
+                      </span>
+                      <span className="flex-1">{tab.label}</span>
+                      {tab.key === 'invitaciones' && pendingCount > 0 && (
+                        <span className="bg-cyan-dim text-brand-cyan text-[10px] font-plex font-bold px-1.5 py-0.5 rounded-full">
+                          {pendingCount}
+                        </span>
                       )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+
+          {/* Content */}
+          <div className="min-w-0">
+
+            {activeTab === 'miembros' && (
+              <MiembrosTab
+                members={members}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                onRoleChange={handleRoleChange}
+                onRemove={handleRemove}
+              />
             )}
+
+            {activeTab === 'invitaciones' && (
+              <InvitacionesTab
+                invitations={invitations}
+                isAdmin={isAdmin}
+                onCancel={handleCancelInvite}
+                onCopyLink={copyLink}
+                copiedToken={copiedToken}
+              />
+            )}
+
+            {activeTab === 'roles' && <RolesTab />}
+
+            {activeTab === 'auditoria' && <AuditoriaTab />}
+
           </div>
-
-          {/* Pending invitations */}
-          {(data.invitations.length > 0 || isAdmin) && (
-            <div className="bg-ltcard rounded-[12px] border border-ltb shadow-[0_2px_12px_rgba(0,0,0,0.02)] overflow-hidden">
-              <div className="bg-ltcard2 px-6 py-4 border-b border-ltb flex items-center gap-2">
-                <Key className="w-4 h-4 text-lttm" />
-                <h2 className="font-plex text-xs font-semibold text-ltt2 uppercase tracking-[0.8px]">
-                  Invitaciones pendientes ({data.invitations.length})
-                </h2>
-              </div>
-
-              {data.invitations.length === 0 ? (
-                <div className="px-6 py-8 text-center text-lttm font-sora text-[13px]">
-                  No hay invitaciones pendientes.
-                </div>
-              ) : (
-                <div className="divide-y divide-ltb">
-                  {data.invitations.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between px-6 py-4 group">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-                          <Mail className="w-4 h-4 text-amber-500" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-sora text-[13.5px] font-medium text-ltt">{inv.email}</p>
-                          <div className="flex items-center gap-3 mt-0.5">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[10px] font-plex uppercase tracking-wider border ${ROLE_STYLES[inv.role] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                              {ROLE_LABELS[inv.role] ?? inv.role}
-                            </span>
-                            <span className="text-[11.5px] text-lttm font-sora flex items-center gap-1">
-                              <Clock size={10} />
-                              Expira {formatDate(inv.expires_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => copyLink(inv.token)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 border border-ltb rounded-lg text-[12px] font-sora text-ltt2 hover:border-brand-cyan hover:text-brand-cyan transition-colors"
-                        >
-                          {copied === inv.token ? <Check size={13} /> : <Copy size={13} />}
-                          {copied === inv.token ? 'Copiado' : 'Copiar enlace'}
-                        </button>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleCancelInvite(inv.id)}
-                            className="p-1.5 text-lttm hover:bg-red-50 hover:text-re rounded-md transition-colors"
-                            title="Cancelar invitación"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Role reference */}
-          <div className="bg-ltcard rounded-[12px] border border-ltb overflow-hidden">
-            <div className="bg-ltcard2 px-6 py-4 border-b border-ltb">
-              <h2 className="font-plex text-xs font-semibold text-ltt2 uppercase tracking-[0.8px]">Roles y permisos</h2>
-            </div>
-            <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {Object.entries(ROLE_DESCRIPTIONS).map(([role, desc]) => (
-                <div key={role} className="flex gap-3 p-4 bg-ltbg rounded-lg border border-ltb">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border text-[11px] font-plex font-bold ${ROLE_STYLES[role]}`}>
-                    {role === 'org_admin' ? <ShieldAlert size={14} /> : <Shield size={14} />}
-                  </div>
-                  <div>
-                    <p className="font-sora text-[13px] font-semibold text-ltt mb-1">{ROLE_LABELS[role]}</p>
-                    <p className="font-sora text-[12px] text-ltt2 leading-relaxed">{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
       )}
     </div>
-  );
+  )
 }
