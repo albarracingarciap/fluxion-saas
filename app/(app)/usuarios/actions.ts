@@ -64,7 +64,7 @@ export async function getOrganizationMembersAndInvitations() {
 
   const { data: pendingInvitations, error: invError } = await fluxion
     .from('invitations')
-    .select('id, email, role, token, created_at, expires_at')
+    .select('id, email, role, token, message, created_at, expires_at, last_resent_at, resend_count')
     .eq('organization_id', profile.organization_id)
     .eq('status', 'pending');
 
@@ -136,7 +136,7 @@ export async function getRoleChanges() {
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
-export async function inviteUser(email: string, role: string) {
+export async function inviteUser(email: string, role: string, message?: string) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
 
@@ -152,9 +152,10 @@ export async function inviteUser(email: string, role: string) {
     .from('invitations')
     .insert({
       organization_id: profile.organization_id,
-      email: email.toLowerCase(),
+      email: email.toLowerCase().trim(),
       role,
       invited_by: profile.id,
+      message: message?.trim() || null,
     })
     .select('token')
     .single();
@@ -166,6 +167,91 @@ export async function inviteUser(email: string, role: string) {
 
   revalidatePath('/usuarios');
   return { success: true, token: invite.token };
+}
+
+export async function inviteUserBulk(emails: string[], role: string, message?: string) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const profile = await getActorProfile(fluxion, user.id);
+  if (!profile || profile.role !== 'org_admin') {
+    return { error: 'Solo los administradores pueden enviar invitaciones.' };
+  }
+
+  const results: Array<{ email: string; token?: string; error?: string }> = [];
+
+  for (const rawEmail of emails) {
+    const email = rawEmail.toLowerCase().trim();
+    if (!email) continue;
+
+    const { data: invite, error } = await fluxion
+      .from('invitations')
+      .insert({
+        organization_id: profile.organization_id,
+        email,
+        role,
+        invited_by: profile.id,
+        message: message?.trim() || null,
+      })
+      .select('token')
+      .single();
+
+    if (error) {
+      const msg = error.code === '23505'
+        ? 'Ya existe una invitación pendiente para este correo.'
+        : 'Error al crear la invitación.';
+      results.push({ email, error: msg });
+    } else {
+      results.push({ email, token: invite.token });
+    }
+  }
+
+  revalidatePath('/usuarios');
+  return { success: true, results };
+}
+
+export async function resendInvitation(invitationId: string) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const profile = await getActorProfile(fluxion, user.id);
+  if (!profile || profile.role !== 'org_admin') {
+    return { error: 'Solo los administradores pueden reenviar invitaciones.' };
+  }
+
+  // Fetch current resend_count
+  const { data: current } = await fluxion
+    .from('invitations')
+    .select('resend_count')
+    .eq('id', invitationId)
+    .single();
+
+  // Regenerate token and extend expiry by 7 days
+  const newToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  const { error } = await fluxion
+    .from('invitations')
+    .update({
+      token:          newToken,
+      expires_at:     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status:         'pending',
+      last_resent_at: new Date().toISOString(),
+      resend_count:   (current?.resend_count ?? 0) + 1,
+    })
+    .eq('id', invitationId);
+
+  if (error) return { error: 'Error al reenviar la invitación: ' + error.message };
+
+  revalidatePath('/usuarios');
+  return { success: true, token: newToken };
 }
 
 export async function updateMemberRole(memberId: string, newRole: string) {

@@ -32,8 +32,11 @@ export type Invitation = {
   email: string
   role: string
   token: string
+  message: string | null
   created_at: string
   expires_at: string
+  last_resent_at: string | null
+  resend_count: number
 }
 
 // ─── Role catalog ─────────────────────────────────────────────────────────────
