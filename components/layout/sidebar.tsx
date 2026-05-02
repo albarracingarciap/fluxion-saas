@@ -7,7 +7,8 @@ import { usePathname } from "next/navigation"
 import { useSidebarStore } from "@/lib/store/sidebarStore"
 import {
   LayoutDashboard, ChevronDown, List, FileCheck,
-  Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList
+  Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList,
+  ShieldCheck, CheckSquare, LayoutGrid,
 } from "lucide-react"
 
 type Child = { label: string; href: string; disabled?: boolean; hint?: string; activeOn?: string[]; exact?: boolean }
@@ -40,23 +41,18 @@ const NAV: NavSection[] = [
     group: "Evaluación",
     items: [
       { label: "Evaluaciones", href: "/evaluaciones", icon: <FileCheck size={15} /> },
+      { label: "Planes de tratamiento", href: "/planes", icon: <ShieldCheck size={15} /> },
     ],
   },
   {
-    group: "Ejecución",
+    group: "Seguimiento",
     items: [
-      {
-        label: "Ejecución", icon: <List size={15} />,
-        children: [
-          { label: "Tareas", href: "/tareas" },
-          { label: "Planes de tratamiento", href: "/planes" },
-          { label: "Kanban", href: "/kanban" },
-        ],
-      },
+      { label: "Tareas", href: "/tareas", icon: <CheckSquare size={15} /> },
+      { label: "Kanban", href: "/kanban", icon: <LayoutGrid size={15} /> },
     ],
   },
   {
-    group: "Plantillas",
+    group: "Cumplimiento",
     items: [
       {
         label: "ISO 42001", icon: <ClipboardList size={15} />,
