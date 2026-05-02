@@ -3,11 +3,14 @@
 import { useState, useEffect } from 'react';
 import {
   Users, UserPlus, Mail, Loader2, Copy, Check, X,
-  ChevronRight, ShieldAlert, AlertCircle, ClipboardList, Shield,
+  ChevronRight, AlertCircle, ClipboardList, Shield, ToggleLeft, ToggleRight,
+  MessageSquare,
 } from 'lucide-react';
 import {
   getOrganizationMembersAndInvitations,
   inviteUser,
+  inviteUserBulk,
+  resendInvitation,
   updateMemberRole,
   deactivateMember,
   reactivateMember,
@@ -43,12 +46,20 @@ export default function UsersPage() {
   const [currentUserId, setCurrentUserId]   = useState('')
   const [currentUserRole, setCurrentUserRole] = useState('')
 
-  const [isInviting, setIsInviting]   = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole]   = useState('viewer')
+  const [isInviting, setIsInviting]     = useState(false)
+  const [bulkMode, setBulkMode]         = useState(false)
+  const [inviteEmail, setInviteEmail]   = useState('')
+  const [inviteBulk, setInviteBulk]     = useState('')
+  const [inviteRole, setInviteRole]     = useState('viewer')
+  const [inviteMessage, setInviteMessage] = useState('')
+  const [showMessage, setShowMessage]   = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
-  const [inviteResult, setInviteResult]   = useState<{ token?: string; error?: string } | null>(null)
-  const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [inviteResult, setInviteResult] = useState<{
+    token?: string
+    error?: string
+    bulk?: Array<{ email: string; token?: string; error?: string }>
+  } | null>(null)
+  const [copiedToken, setCopiedToken]   = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -72,16 +83,44 @@ export default function UsersPage() {
     e.preventDefault()
     setInviteLoading(true)
     setInviteResult(null)
-    const res = await inviteUser(inviteEmail, inviteRole)
-    if (res.error) {
-      setInviteResult({ error: res.error })
+
+    if (bulkMode) {
+      const emails = inviteBulk
+        .split(/[\n,;]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.includes('@'))
+      if (emails.length === 0) {
+        setInviteResult({ error: 'No se encontraron emails válidos.' })
+        setInviteLoading(false)
+        return
+      }
+      const res = await inviteUserBulk(emails, inviteRole, inviteMessage)
+      if ('error' in res) {
+        setInviteResult({ error: res.error })
+      } else {
+        setInviteResult({ bulk: res.results })
+        setInviteBulk('')
+        setActiveTab('invitaciones')
+        loadData()
+      }
     } else {
-      setInviteResult({ token: res.token })
-      setInviteEmail('')
-      setActiveTab('invitaciones')
-      loadData()
+      const res = await inviteUser(inviteEmail, inviteRole, inviteMessage)
+      if (res.error) {
+        setInviteResult({ error: res.error })
+      } else {
+        setInviteResult({ token: res.token })
+        setInviteEmail('')
+        setActiveTab('invitaciones')
+        loadData()
+      }
     }
     setInviteLoading(false)
+  }
+
+  async function handleResend(invId: string) {
+    const res = await resendInvitation(invId)
+    loadData()
+    return { token: res.success ? (res as any).token : undefined, error: (res as any).error }
   }
 
   async function handleRoleChange(memberId: string, role: string) {
@@ -159,6 +198,7 @@ export default function UsersPage() {
       {/* Invite panel */}
       {isInviting && (
         <div className="bg-ltcard rounded-[12px] border border-[var(--cyan-border)] shadow-[0_8px_30px_rgba(0,173,239,0.06)] overflow-hidden mb-6 animate-fadein">
+          {/* Panel header */}
           <div className="bg-ltcard2 px-5 py-4 border-b border-ltb flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-[8px] bg-cyan-dim flex items-center justify-center">
@@ -169,65 +209,118 @@ export default function UsersPage() {
                 <p className="font-sora text-[11.5px] text-lttm">El usuario accederá con el enlace de invitación.</p>
               </div>
             </div>
-            <button
-              onClick={() => { setIsInviting(false); setInviteResult(null) }}
-              className="p-1 text-lttm hover:text-ltt transition-colors rounded-[6px] hover:bg-ltb"
-            >
-              <X size={15} />
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Bulk toggle */}
+              <button
+                type="button"
+                onClick={() => { setBulkMode(!bulkMode); setInviteResult(null) }}
+                className="flex items-center gap-1.5 text-[11.5px] font-sora text-lttm hover:text-ltt transition-colors"
+              >
+                {bulkMode ? <ToggleRight size={16} className="text-brand-cyan" /> : <ToggleLeft size={16} />}
+                Invitación múltiple
+              </button>
+              <button
+                onClick={() => { setIsInviting(false); setInviteResult(null); setBulkMode(false); setShowMessage(false) }}
+                className="p-1 text-lttm hover:text-ltt transition-colors rounded-[6px] hover:bg-ltb"
+              >
+                <X size={15} />
+              </button>
+            </div>
           </div>
 
           <div className="p-5">
-            <form onSubmit={handleInvite} className="flex flex-col md:flex-row items-end gap-4">
-              <div className="flex-1 w-full">
-                <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
-                  Correo electrónico <span className="text-re">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className={inputCls}
-                  placeholder="colaborador@empresa.com"
-                />
-              </div>
-              <div className="w-full md:w-[230px]">
-                <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
-                  Rol
-                </label>
-                <div className="relative">
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                    className={selectCls}
-                  >
-                    {INVITABLE_ROLES.map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
-                  <SelectArrow />
+            <form onSubmit={handleInvite} className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row items-end gap-4">
+                {/* Email(s) */}
+                <div className="flex-1 w-full">
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    {bulkMode ? 'Correos electrónicos' : 'Correo electrónico'}
+                    <span className="text-re">*</span>
+                  </label>
+                  {bulkMode ? (
+                    <>
+                      <textarea
+                        required
+                        rows={4}
+                        value={inviteBulk}
+                        onChange={(e) => setInviteBulk(e.target.value)}
+                        className={inputCls + ' resize-none'}
+                        placeholder={'usuario1@empresa.com\nusuario2@empresa.com\nusuario3@empresa.com'}
+                      />
+                      <p className="font-sora text-[11px] text-lttm mt-1">Un email por línea, o separados por coma.</p>
+                    </>
+                  ) : (
+                    <input
+                      type="email"
+                      required
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className={inputCls}
+                      placeholder="colaborador@empresa.com"
+                    />
+                  )}
                 </div>
+
+                {/* Role */}
+                <div className="w-full md:w-[210px]">
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Rol
+                  </label>
+                  <div className="relative">
+                    <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className={selectCls}>
+                      {INVITABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      ))}
+                    </select>
+                    <SelectArrow />
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="h-[43px] px-5 bg-ltt text-white rounded-[8px] font-sora text-[13px] font-medium transition-colors hover:bg-ltt/90 flex items-center gap-2 shrink-0 disabled:opacity-60 whitespace-nowrap"
+                >
+                  {inviteLoading && <Loader2 size={13} className="animate-spin" />}
+                  {bulkMode ? 'Invitar todos' : 'Generar enlace'}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={inviteLoading}
-                className="h-[43px] px-6 bg-ltt text-white rounded-[8px] font-sora text-[13px] font-medium transition-colors hover:bg-ltt/90 flex items-center gap-2 shrink-0 disabled:opacity-60 whitespace-nowrap"
-              >
-                {inviteLoading && <Loader2 size={13} className="animate-spin" />}
-                Generar enlace
-              </button>
+
+              {/* Mensaje opcional */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowMessage(!showMessage)}
+                  className="flex items-center gap-1.5 text-[11.5px] font-sora text-lttm hover:text-ltt transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  {showMessage ? 'Ocultar mensaje' : 'Añadir mensaje personal (opcional)'}
+                </button>
+                {showMessage && (
+                  <textarea
+                    rows={2}
+                    value={inviteMessage}
+                    onChange={(e) => setInviteMessage(e.target.value)}
+                    className={inputCls + ' resize-none mt-2'}
+                    placeholder="Ej. Hola, te invito a unirte al workspace de Fluxion para gestionar el SGAI de nuestra organización."
+                    maxLength={300}
+                  />
+                )}
+              </div>
             </form>
 
+            {/* Error */}
             {inviteResult?.error && (
               <p className="mt-3 text-re text-[12px] font-sora">{inviteResult.error}</p>
             )}
 
+            {/* Single success */}
             {inviteResult?.token && (
-              <div className="mt-5 p-4 bg-grdim rounded-[9px] border border-grb">
+              <div className="mt-4 p-4 bg-grdim rounded-[9px] border border-grb">
                 <p className="text-gr text-[13px] font-sora font-medium mb-1">Invitación creada.</p>
                 <p className="text-gr text-[12px] font-sora mb-3 opacity-80">
-                  Copia el enlace y envíaselo al usuario para que pueda unirse.
+                  Copia el enlace y envíaselo al usuario.
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-ltcard border border-grb rounded-[7px] px-3 py-2 text-[11px] text-ltt font-plex truncate">
@@ -236,11 +329,34 @@ export default function UsersPage() {
                   <button
                     onClick={() => copyLink(inviteResult.token!)}
                     className="p-2 bg-ltcard border border-grb rounded-[7px] text-gr hover:bg-grdim transition-colors shrink-0 flex items-center justify-center w-9 h-9"
-                    title="Copiar enlace"
                   >
                     {copiedToken === inviteResult.token ? <Check size={15} /> : <Copy size={15} />}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Bulk results */}
+            {inviteResult?.bulk && (
+              <div className="mt-4 flex flex-col gap-1.5">
+                {inviteResult.bulk.map((r) => (
+                  <div key={r.email} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-[7px] border text-[12px] font-sora ${
+                    r.error ? 'bg-red-dim border-reb' : 'bg-grdim border-grb'
+                  }`}>
+                    <span className={r.error ? 'text-re' : 'text-gr'}>{r.email}</span>
+                    {r.error ? (
+                      <span className="text-re text-[11px]">{r.error}</span>
+                    ) : (
+                      <button
+                        onClick={() => copyLink(r.token!)}
+                        className="flex items-center gap-1 text-gr hover:opacity-80 transition-opacity shrink-0"
+                      >
+                        {copiedToken === r.token ? <Check size={12} /> : <Copy size={12} />}
+                        <span className="text-[11px]">Copiar enlace</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -309,6 +425,7 @@ export default function UsersPage() {
                 invitations={invitations}
                 isAdmin={isAdmin}
                 onCancel={handleCancelInvite}
+                onResend={handleResend}
                 onCopyLink={copyLink}
                 copiedToken={copiedToken}
               />
