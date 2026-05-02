@@ -11,6 +11,20 @@ export type Member = {
   full_name: string | null
   avatar_url: string | null
   email: string
+  is_active: boolean
+}
+
+export type RoleChange = {
+  id: string
+  change_type: 'role_change' | 'deactivated' | 'reactivated' | 'removed'
+  prev_role: string | null
+  new_role: string | null
+  reason: string | null
+  created_at: string
+  actor_id: string
+  member_id: string
+  actor_name: string
+  member_name: string
 }
 
 export type Invitation = {

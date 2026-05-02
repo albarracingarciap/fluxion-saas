@@ -4,6 +4,34 @@ import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { revalidatePath } from 'next/cache';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function getActorProfile(fluxion: ReturnType<typeof createFluxionClient>, userId: string) {
+  const { data } = await fluxion
+    .from('profiles')
+    .select('id, organization_id, role')
+    .eq('user_id', userId)
+    .single();
+  return data;
+}
+
+async function logRoleChange(
+  fluxion: ReturnType<typeof createFluxionClient>,
+  payload: {
+    organization_id: string
+    actor_id: string
+    member_id: string
+    change_type: 'role_change' | 'deactivated' | 'reactivated' | 'removed'
+    prev_role?: string | null
+    new_role?: string | null
+    reason?: string | null
+  },
+) {
+  await fluxion.from('member_role_changes').insert(payload);
+}
+
+// ─── Read ─────────────────────────────────────────────────────────────────────
+
 export async function getOrganizationMembersAndInvitations() {
   const supabase = createClient();
   const fluxion = createFluxionClient();
@@ -19,21 +47,19 @@ export async function getOrganizationMembersAndInvitations() {
 
   if (profileError || !profile) return { error: 'No se encontró tu organización.' };
 
-  const { data: members, error: membersError } = await fluxion
+  const { data: allMembers, error: membersError } = await fluxion
     .from('profiles')
-    .select('id, role, user_id, full_name, avatar_url, created_at')
+    .select('id, role, user_id, full_name, avatar_url, created_at, is_active')
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: true });
 
   if (membersError) return { error: 'Error al obtener miembros: ' + membersError.message };
 
-  // Get emails from auth.users via admin API
+  // Fetch emails via admin API (capped at 1000; sufficient for current scale)
   const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const emailMap: Record<string, string> = {};
   if (authUsers?.users) {
-    for (const u of authUsers.users) {
-      emailMap[u.id] = u.email ?? '';
-    }
+    for (const u of authUsers.users) emailMap[u.id] = u.email ?? '';
   }
 
   const { data: pendingInvitations, error: invError } = await fluxion
@@ -44,23 +70,71 @@ export async function getOrganizationMembersAndInvitations() {
 
   if (invError) return { error: 'Error al obtener invitaciones: ' + invError.message };
 
+  const mapMember = (m: any) => ({
+    id:         m.id,
+    user_id:    m.user_id,
+    role:       m.role,
+    created_at: m.created_at,
+    full_name:  m.full_name || null,
+    avatar_url: m.avatar_url || null,
+    email:      emailMap[m.user_id] || '',
+    is_active:  m.is_active !== false,
+  });
+
   return {
     success: true,
-    organizationId: profile.organization_id,
-    members: (members ?? []).map((m: any) => ({
-      id: m.id,
-      user_id: m.user_id,
-      role: m.role,
-      created_at: m.created_at,
-      full_name: m.full_name || null,
-      avatar_url: m.avatar_url || null,
-      email: emailMap[m.user_id] || '',
-    })),
-    invitations: pendingInvitations ?? [],
-    currentUserRole: profile.role,
-    currentUserId: user.id,
+    organizationId:   profile.organization_id,
+    members:          (allMembers ?? []).filter((m: any) => m.is_active !== false).map(mapMember),
+    inactiveMembers:  (allMembers ?? []).filter((m: any) => m.is_active === false).map(mapMember),
+    invitations:      pendingInvitations ?? [],
+    currentUserRole:  profile.role,
+    currentUserId:    user.id,
   };
 }
+
+export async function getRoleChanges() {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor) return { error: 'Sin organización.' };
+
+  const { data, error } = await fluxion
+    .from('member_role_changes')
+    .select('id, change_type, prev_role, new_role, reason, created_at, actor_id, member_id')
+    .eq('organization_id', actor.organization_id)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (error) return { error: error.message };
+
+  // Fetch profile names for actors and members
+  const ids = Array.from(new Set([
+    ...(data ?? []).map((r: any) => r.actor_id),
+    ...(data ?? []).map((r: any) => r.member_id),
+  ]));
+
+  const { data: profiles } = await fluxion
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000']);
+
+  const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name || 'Usuario']));
+
+  return {
+    success: true,
+    changes: (data ?? []).map((r: any) => ({
+      ...r,
+      actor_name:  nameMap.get(r.actor_id)  ?? 'Usuario',
+      member_name: nameMap.get(r.member_id) ?? 'Usuario',
+    })),
+  };
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
 
 export async function inviteUser(email: string, role: string) {
   const supabase = createClient();
@@ -69,12 +143,7 @@ export async function inviteUser(email: string, role: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('id, organization_id, role')
-    .eq('user_id', user.id)
-    .single();
-
+  const profile = await getActorProfile(fluxion, user.id);
   if (!profile || profile.role !== 'org_admin') {
     return { error: 'Solo los administradores pueden enviar invitaciones.' };
   }
@@ -106,13 +175,14 @@ export async function updateMemberRole(memberId: string, newRole: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: profile } = await fluxion
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden cambiar roles.' };
+
+  const { data: target } = await fluxion
     .from('profiles')
     .select('role')
-    .eq('user_id', user.id)
+    .eq('id', memberId)
     .single();
-
-  if (!profile || profile.role !== 'org_admin') return { error: 'Solo administradores pueden cambiar roles.' };
 
   const { error } = await fluxion
     .from('profiles')
@@ -120,6 +190,87 @@ export async function updateMemberRole(memberId: string, newRole: string) {
     .eq('id', memberId);
 
   if (error) return { error: 'Error al actualizar el rol: ' + error.message };
+
+  await logRoleChange(fluxion, {
+    organization_id: actor.organization_id,
+    actor_id:    actor.id,
+    member_id:   memberId,
+    change_type: 'role_change',
+    prev_role:   target?.role ?? null,
+    new_role:    newRole,
+  });
+
+  revalidatePath('/usuarios');
+  return { success: true };
+}
+
+export async function deactivateMember(memberId: string) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden desactivar miembros.' };
+
+  const { data: target } = await fluxion
+    .from('profiles')
+    .select('user_id, role')
+    .eq('id', memberId)
+    .single();
+
+  if (target?.user_id === user.id) return { error: 'No puedes desactivarte a ti mismo.' };
+
+  const { error } = await fluxion
+    .from('profiles')
+    .update({ is_active: false })
+    .eq('id', memberId);
+
+  if (error) return { error: 'Error al desactivar el miembro: ' + error.message };
+
+  await logRoleChange(fluxion, {
+    organization_id: actor.organization_id,
+    actor_id:    actor.id,
+    member_id:   memberId,
+    change_type: 'deactivated',
+    prev_role:   target?.role ?? null,
+  });
+
+  revalidatePath('/usuarios');
+  return { success: true };
+}
+
+export async function reactivateMember(memberId: string) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden reactivar miembros.' };
+
+  const { data: target } = await fluxion
+    .from('profiles')
+    .select('role')
+    .eq('id', memberId)
+    .single();
+
+  const { error } = await fluxion
+    .from('profiles')
+    .update({ is_active: true })
+    .eq('id', memberId);
+
+  if (error) return { error: 'Error al reactivar el miembro: ' + error.message };
+
+  await logRoleChange(fluxion, {
+    organization_id: actor.organization_id,
+    actor_id:    actor.id,
+    member_id:   memberId,
+    change_type: 'reactivated',
+    new_role:    target?.role ?? null,
+  });
 
   revalidatePath('/usuarios');
   return { success: true };
@@ -132,22 +283,25 @@ export async function removeMember(memberId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'No autorizado' };
 
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden eliminar miembros.' };
 
-  if (!profile || profile.role !== 'org_admin') return { error: 'Solo administradores pueden eliminar miembros.' };
-
-  // Prevent removing self
   const { data: target } = await fluxion
     .from('profiles')
-    .select('user_id')
+    .select('user_id, role')
     .eq('id', memberId)
     .single();
 
   if (target?.user_id === user.id) return { error: 'No puedes eliminarte a ti mismo.' };
+
+  // Log before delete (FK would cascade otherwise)
+  await logRoleChange(fluxion, {
+    organization_id: actor.organization_id,
+    actor_id:    actor.id,
+    member_id:   memberId,
+    change_type: 'removed',
+    prev_role:   target?.role ?? null,
+  });
 
   const { error } = await fluxion
     .from('profiles')
