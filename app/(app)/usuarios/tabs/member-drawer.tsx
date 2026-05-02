@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Loader2, ShieldCheck, ShieldOff, Calendar, Clock,
   Cpu, Users2, ArrowRight, RefreshCw, UserX, UserCheck,
@@ -75,7 +76,12 @@ export function MemberDrawer({ memberId, onClose }: Props) {
 
   const isOpen = !!memberId
 
-  return (
+  // Use a portal so the drawer renders outside any transform/overflow context
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -86,7 +92,7 @@ export function MemberDrawer({ memberId, onClose }: Props) {
       />
 
       {/* Drawer */}
-      <aside className={`fixed top-0 right-0 z-50 h-full w-full max-w-[420px] bg-ltcard border-l border-ltb shadow-[−8px_0_40px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-out ${
+      <aside className={`fixed top-0 right-0 z-50 h-screen w-full max-w-[420px] bg-ltcard border-l border-ltb shadow-[-8px_0_40px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-out ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       }`}>
 
@@ -278,6 +284,7 @@ export function MemberDrawer({ memberId, onClose }: Props) {
           )}
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   )
 }
