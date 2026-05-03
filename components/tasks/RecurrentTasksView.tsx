@@ -16,12 +16,13 @@ import {
   getRecurrenceRunsAction,
   type TaskRecurrence,
   type RecurrenceRun,
-  type RecurrenceFrequency,
+} from '@/app/(app)/tareas/actions'
+import type { TaskPriority, RecurrenceFrequency } from '@/lib/tasks/types'
+import {
   RECURRENCE_FREQUENCY_LABELS,
   DAY_OF_WEEK_LABELS,
   MONTH_LABELS,
-} from '@/app/(app)/tareas/actions'
-import type { TaskPriority } from '@/lib/tasks/types'
+} from '@/lib/tasks/types'
 import type { Member, System } from './CreateTaskModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

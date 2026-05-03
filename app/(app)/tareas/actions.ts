@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
-import type { CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority } from '@/lib/tasks/types'
+import type { CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority, RecurrenceFrequency } from '@/lib/tasks/types'
 import {
   createNotification,
   notifyTaskWatchers,
@@ -1380,23 +1380,8 @@ export async function deleteChecklistItemAction(
 
 // ─── Tareas recurrentes ───────────────────────────────────────────────────────
 
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually'
-
-export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
-  daily:     'Diaria',
-  weekly:    'Semanal',
-  biweekly:  'Quincenal',
-  monthly:   'Mensual',
-  quarterly: 'Trimestral',
-  annually:  'Anual',
-}
-
-export const DAY_OF_WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-
-export const MONTH_LABELS = [
-  'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
-]
+// RecurrenceFrequency, RECURRENCE_FREQUENCY_LABELS, DAY_OF_WEEK_LABELS y MONTH_LABELS
+// están en lib/tasks/types.ts (no se pueden exportar constantes desde 'use server')
 
 export type TaskRecurrence = {
   id:               string

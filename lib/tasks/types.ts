@@ -112,3 +112,23 @@ export type TaskSummary = {
   overdue: number
   dueToday: number
 }
+
+// ─── Recurrencias ─────────────────────────────────────────────────────────────
+
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually'
+
+export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
+  daily:     'Diaria',
+  weekly:    'Semanal',
+  biweekly:  'Quincenal',
+  monthly:   'Mensual',
+  quarterly: 'Trimestral',
+  annually:  'Anual',
+}
+
+export const DAY_OF_WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+export const MONTH_LABELS = [
+  'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
+]
