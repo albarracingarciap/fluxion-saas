@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock, User } from 'lucide-react'
+import { Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon, CalendarClock, User, Tag, X as XIcon, Calendar } from 'lucide-react'
 import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
 import {
   TASK_STATUS_LABELS,
@@ -226,12 +226,22 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
   const [sourceFilter, setSourceFilter] = useState<TaskSourceType | ''>('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
   const [myTasksOnly, setMyTasksOnly] = useState(false)
+  const [tagFilter, setTagFilter] = useState<string[]>([])
+  const [dueDateFrom, setDueDateFrom] = useState('')
+  const [dueDateTo, setDueDateTo] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
   const effectiveAssigneeFilter = myTasksOnly ? (currentProfileId ?? '') : assigneeFilter
+
+  // Colectar todos los tags únicos presentes en las tareas para el picker
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    tasks.forEach(t => t.tags.forEach(tag => set.add(tag)))
+    return Array.from(set).sort()
+  }, [tasks])
 
   const filtered = useMemo(() => {
     return tasks.filter(t => {
@@ -240,9 +250,12 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
       if (priorityFilter && t.priority !== priorityFilter) return false
       if (sourceFilter && t.source_type !== sourceFilter) return false
       if (effectiveAssigneeFilter && t.assignee_id !== effectiveAssigneeFilter) return false
+      if (tagFilter.length > 0 && !tagFilter.every(tag => t.tags.includes(tag))) return false
+      if (dueDateFrom && (!t.due_date || t.due_date < dueDateFrom)) return false
+      if (dueDateTo   && (!t.due_date || t.due_date > dueDateTo))   return false
       return true
     })
-  }, [tasks, search, statusFilter, priorityFilter, sourceFilter, effectiveAssigneeFilter])
+  }, [tasks, search, statusFilter, priorityFilter, sourceFilter, effectiveAssigneeFilter, tagFilter, dueDateFrom, dueDateTo])
 
   function handleStatusChange(taskId: string, newStatus: TaskStatus) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
@@ -418,6 +431,66 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
             <span className="font-plex text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-cyan-dim text-brand-cyan border border-cyan-border ml-auto">
               {filtered.length} TAREA{filtered.length !== 1 ? 'S' : ''}
             </span>
+          </div>
+
+          {/* Second filter row: tags + date range */}
+          <div className="px-5 py-2.5 border-b border-ltb bg-ltcard2 flex items-center gap-3 flex-wrap">
+              {/* Tag chips */}
+              {allTags.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Tag className="w-3 h-3 text-lttm shrink-0" />
+                  {allTags.map(tag => {
+                    const active = tagFilter.includes(tag)
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setTagFilter(prev =>
+                          active ? prev.filter(t => t !== tag) : [...prev, tag]
+                        )}
+                        className={`font-plex text-[9.5px] uppercase tracking-[0.5px] px-2 py-1 rounded-full border transition-all ${
+                          active
+                            ? 'bg-cyan-dim text-brand-cyan border-cyan-border'
+                            : 'bg-ltbg text-lttm border-ltb hover:border-brand-cyan hover:text-ltt'
+                        }`}
+                      >
+                        {tag}
+                        {active && <XIcon className="inline ml-1 w-2.5 h-2.5" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Date range */}
+              <div className="flex items-center gap-2 ml-auto">
+                <Calendar className="w-3 h-3 text-lttm shrink-0" />
+                <input
+                  type="date"
+                  value={dueDateFrom}
+                  onChange={e => setDueDateFrom(e.target.value)}
+                  className="bg-ltbg border border-ltb rounded-lg px-2 py-1 text-[11px] text-ltt font-sora outline-none focus:border-brand-cyan h-[30px]"
+                  title="Vencimiento desde"
+                />
+                <span className="font-plex text-[10px] text-lttm">—</span>
+                <input
+                  type="date"
+                  value={dueDateTo}
+                  onChange={e => setDueDateTo(e.target.value)}
+                  className="bg-ltbg border border-ltb rounded-lg px-2 py-1 text-[11px] text-ltt font-sora outline-none focus:border-brand-cyan h-[30px]"
+                  title="Vencimiento hasta"
+                />
+                {(dueDateFrom || dueDateTo) && (
+                  <button
+                    type="button"
+                    onClick={() => { setDueDateFrom(''); setDueDateTo('') }}
+                    className="p-1 text-lttm hover:text-ltt transition-colors"
+                    title="Limpiar fechas"
+                  >
+                    <XIcon className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
           </div>
 
           {/* Column headers */}

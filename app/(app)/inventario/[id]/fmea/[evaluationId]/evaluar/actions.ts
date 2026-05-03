@@ -26,6 +26,7 @@ import {
 } from '@/lib/fmea/treatment-plan';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
+import { createFmeaItemTaskAction } from '@/app/(app)/tareas/actions';
 
 type SaveFmeaItemInput = {
   aiSystemId: string;
@@ -920,19 +921,8 @@ export async function delegateFmeaItemAsTaskAction(input: {
 
   if ('error' in context) return { error: context.error };
 
-  const { fluxion, user, membership } = context;
-
-  const { data: existingTask } = await fluxion
-    .from('tasks')
-    .select('id')
-    .eq('source_type', 'fmea_item')
-    .eq('source_id', input.itemId)
-    .maybeSingle();
-
-  if (existingTask) {
-    return { error: 'Ya existe una tarea delegada para este modo de fallo.' };
-  }
-
+  // Verificar que el ítem pertenece a esta evaluación
+  const { fluxion } = context;
   const { data: item } = await fluxion
     .from('fmea_items')
     .select('id')
@@ -944,31 +934,26 @@ export async function delegateFmeaItemAsTaskAction(input: {
     return { error: 'No se encontró el ítem FMEA.' };
   }
 
-  const { data: newTask, error: insertError } = await fluxion
-    .from('tasks')
-    .insert({
-      organization_id: membership.organization_id,
-      system_id: input.aiSystemId,
-      title: input.title.trim(),
-      status: 'todo',
-      priority: input.priority,
-      source_type: 'fmea_item',
-      source_id: input.itemId,
-      assignee_id: input.assigneeId || null,
-      created_by: user.id,
-      due_date: input.dueDate || null,
-    })
-    .select('id')
-    .single();
+  const result = await createFmeaItemTaskAction({
+    itemId:       input.itemId,
+    systemId:     input.aiSystemId,
+    evaluationId: input.evaluationId,
+    title:        input.title,
+    assigneeId:   input.assigneeId,
+    dueDate:      input.dueDate,
+    priority:     input.priority,
+  });
 
-  if (insertError || !newTask) {
-    return { error: insertError?.message ?? 'No se pudo crear la tarea.' };
+  if ('error' in result) return result;
+
+  if (!result.created) {
+    return { error: 'Ya existe una tarea delegada para este modo de fallo.' };
   }
 
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
   revalidatePath(`/tareas`);
 
-  return { success: true, taskId: newTask.id as string };
+  return { success: true, taskId: result.taskId };
 }
 
 export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInput) {

@@ -92,13 +92,16 @@ export type UpdateTaskInput = {
 }
 
 export type TaskFilters = {
-  systemId?: string
-  status?: TaskStatus
-  priority?: TaskPriority
-  sourceType?: TaskSourceType
-  assigneeId?: string
+  systemId?:    string
+  status?:      TaskStatus
+  priority?:    TaskPriority
+  sourceType?:  TaskSourceType
+  assigneeId?:  string
   overdueOnly?: boolean
-  search?: string
+  search?:      string
+  tags?:        string[]
+  dueDateFrom?: string   // ISO date string, inclusive
+  dueDateTo?:   string   // ISO date string, inclusive
 }
 
 export type TaskSummary = {

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
-import type { CreateTaskInput, UpdateTaskInput, TaskStatus } from '@/lib/tasks/types'
+import type { CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import {
   createNotification,
   notifyTaskWatchers,
@@ -428,6 +428,46 @@ export async function createEvaluationTaskAction(params: {
     dueDate:     params.dueDate,
     tags:        ['evaluacion'],
   })
+}
+
+// Crea una tarea vinculada a un ítem FMEA (idempotente: devuelve la existente si ya existe)
+export async function createFmeaItemTaskAction(params: {
+  itemId:       string
+  systemId:     string
+  evaluationId: string
+  title:        string
+  description?: string
+  assigneeId?:  string | null
+  dueDate?:     string | null
+  priority?:    TaskPriority
+}): Promise<{ taskId: string; created: boolean } | { error: string }> {
+  // Verificar si ya existe una tarea para este ítem FMEA
+  const fluxion = createFluxionClient()
+  const { data: existing } = await fluxion
+    .from('tasks')
+    .select('id')
+    .eq('source_type', 'fmea_item')
+    .eq('source_id', params.itemId)
+    .maybeSingle()
+
+  if (existing) {
+    return { taskId: existing.id as string, created: false }
+  }
+
+  const result = await createTaskAction({
+    systemId:    params.systemId,
+    title:       params.title,
+    description: params.description,
+    priority:    params.priority ?? 'high',
+    sourceType:  'fmea_item',
+    sourceId:    params.itemId,
+    assigneeId:  params.assigneeId ?? null,
+    dueDate:     params.dueDate ?? null,
+    tags:        ['fmea'],
+  })
+
+  if ('error' in result) return result
+  return { taskId: result.id, created: true }
 }
 
 // ─── Comentarios ──────────────────────────────────────────────────────────────

@@ -438,11 +438,11 @@ function DelegateTaskSection({ item, aiSystemId, evaluationId, members, readOnly
                     priority,
                     dueDate: dueDate || null,
                   });
-                  if (result?.error) {
-                    setError(result.error);
+                  if ('error' in result) {
+                    setError(result.error ?? 'Error desconocido');
                     return;
                   }
-                  if (result?.taskId) {
+                  if ('taskId' in result && result.taskId) {
                     onTaskCreated(item.id, result.taskId);
                   }
                   setShowForm(false);
