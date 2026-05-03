@@ -1103,13 +1103,15 @@ export async function getTemplatesAction(): Promise<TaskTemplate[]> {
 
   const admin = createAdminFluxionClient()
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from('task_templates')
     .select('id, organization_id, owner_id, scope, name, description, default_priority, default_tags, checklist, is_archived, created_at')
     .or(`scope.eq.system,organization_id.eq.${ctx.organizationId}`)
     .eq('is_archived', false)
-    .order('scope',      { ascending: true })  // system primero
+    .order('scope',      { ascending: false }) // 'system' > 'shared' > 'personal' desc → system primero
     .order('name',       { ascending: true })
+
+  if (error) console.error('[getTemplatesAction]', error.message)
 
   return (data ?? []).map((r: Record<string, unknown>) => ({
     id:               r.id              as string,
