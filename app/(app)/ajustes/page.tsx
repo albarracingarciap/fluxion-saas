@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/authStore'
-import { Settings, ChevronRight, User, Bell, Monitor, ClipboardList, Loader2 } from 'lucide-react'
+import { Settings, ChevronRight, User, Bell, Monitor, ClipboardList, Shield, Key, Webhook, Loader2 } from 'lucide-react'
 import { MiCuentaTab }        from './tabs/mi-cuenta'
 import { NotificacionesTab }  from './tabs/notificaciones'
 import { SesionesTab }        from './tabs/sesiones'
 import { AuditoriaTab }       from './tabs/auditoria'
+import { SeguridadTab }       from './tabs/seguridad'
+import { ApiKeysTab }         from './tabs/api-keys'
+import { WebhooksTab }        from './tabs/webhooks'
 import {
   DEFAULT_ACCOUNT_PREFS, DEFAULT_NOTIF_PREFS,
   type AccountPrefs, type NotificationPrefs,
@@ -14,7 +17,7 @@ import {
 
 // ── Tab config ──────────────────────────────────────────────────────────────────
 
-type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones' | 'auditoria'
+type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones' | 'auditoria' | 'seguridad' | 'api' | 'webhooks'
 
 const PERSONAL_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: 'mi-cuenta',      label: 'Mi cuenta',       icon: <User          size={14} /> },
@@ -23,7 +26,10 @@ const PERSONAL_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }
 ]
 
 const WORKSPACE_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
-  { key: 'auditoria',      label: 'Auditoría',        icon: <ClipboardList size={14} /> },
+  { key: 'auditoria', label: 'Auditoría',           icon: <ClipboardList size={14} /> },
+  { key: 'seguridad', label: 'Seguridad',           icon: <Shield        size={14} /> },
+  { key: 'api',       label: 'API y desarrolladores', icon: <Key         size={14} /> },
+  { key: 'webhooks',  label: 'Webhooks',            icon: <Webhook       size={14} /> },
 ]
 
 // ── Helpers: parse preferences from JSONB ───────────────────────────────────────
@@ -230,6 +236,10 @@ export default function AjustesPage() {
               {activeTab === 'auditoria' && isAdmin && (
                 <AuditoriaTab orgRetentionMonths={orgRetentionMonths} />
               )}
+
+              {activeTab === 'seguridad' && isAdmin && <SeguridadTab />}
+              {activeTab === 'api'       && isAdmin && <ApiKeysTab />}
+              {activeTab === 'webhooks'  && isAdmin && <WebhooksTab />}
             </>
           )}
         </div>

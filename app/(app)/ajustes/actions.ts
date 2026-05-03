@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { createHash, randomBytes } from 'crypto'
+import { logAuditEvent } from '@/lib/audit'
 import type { AccountPrefs, NotificationPrefs, SessionInfo } from './tabs/shared'
 
 // ── Internal helpers ────────────────────────────────────────────────────────────
@@ -295,6 +297,323 @@ export async function updateRetentionPolicy(data: {
 
   revalidatePath('/ajustes')
   return { success: true }
+}
+
+// ── Security settings ────────────────────────────────────────────────────────────
+
+export interface SecuritySettings {
+  mfa_required:            boolean
+  allowed_email_domains:   string[]
+  session_timeout_minutes: number | null
+}
+
+export async function getSecuritySettings(): Promise<SecuritySettings | { error: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+
+  const fluxion = createFluxionClient()
+  const { data: org } = await fluxion
+    .from('organizations')
+    .select('settings')
+    .eq('id', profile.organization_id)
+    .single()
+
+  const security = ((org?.settings as any)?.security ?? {}) as Record<string, unknown>
+  return {
+    mfa_required:            security.mfa_required            === true,
+    allowed_email_domains:   Array.isArray(security.allowed_email_domains) ? security.allowed_email_domains as string[] : [],
+    session_timeout_minutes: typeof security.session_timeout_minutes === 'number' ? security.session_timeout_minutes : null,
+  }
+}
+
+export async function updateSecuritySettings(data: SecuritySettings): Promise<{ success?: true; error?: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden modificar la seguridad.' }
+
+  const fluxion = createFluxionClient()
+  const { data: currentOrg } = await fluxion
+    .from('organizations')
+    .select('settings')
+    .eq('id', profile.organization_id)
+    .single()
+
+  const merged = {
+    ...(typeof currentOrg?.settings === 'object' && currentOrg.settings ? currentOrg.settings : {}),
+    security: data,
+  }
+
+  const { error: updateError } = await fluxion
+    .from('organizations')
+    .update({ settings: merged, updated_at: new Date().toISOString() })
+    .eq('id', profile.organization_id)
+
+  if (updateError) return { error: 'Error al guardar: ' + updateError.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:    profile.id,
+    actor_name:  (profile as any).full_name ?? undefined,
+    action:      'org.security_updated',
+    target_type: 'organization',
+    metadata:    { mfa_required: data.mfa_required, domains: data.allowed_email_domains.length },
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
+// ── API Keys ─────────────────────────────────────────────────────────────────────
+
+export type ApiKeyRow = {
+  id:          string
+  name:        string
+  key_prefix:  string
+  scopes:      string[]
+  expires_at:  string | null
+  last_used_at: string | null
+  revoked_at:  string | null
+  created_at:  string
+}
+
+export async function getApiKeys(): Promise<{ keys: ApiKeyRow[] } | { error: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const fluxion = createFluxionClient()
+  const { data, error: qErr } = await fluxion
+    .from('api_keys')
+    .select('id, name, key_prefix, scopes, expires_at, last_used_at, revoked_at, created_at')
+    .eq('organization_id', profile.organization_id)
+    .order('created_at', { ascending: false })
+
+  if (qErr) return { error: qErr.message }
+  return { keys: (data ?? []) as ApiKeyRow[] }
+}
+
+export async function createApiKey(data: {
+  name:       string
+  scopes:     string[]
+  expires_at?: string | null
+}): Promise<{ key: string; id: string } | { error: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const rawKey   = `flx_${randomBytes(32).toString('hex')}`
+  const keyHash  = createHash('sha256').update(rawKey).digest('hex')
+  const keyPrefix = rawKey.substring(0, 12)
+
+  const fluxion = createFluxionClient()
+  const { data: row, error: insertErr } = await fluxion
+    .from('api_keys')
+    .insert({
+      organization_id: profile.organization_id,
+      name:        data.name,
+      key_prefix:  keyPrefix,
+      key_hash:    keyHash,
+      scopes:      data.scopes,
+      expires_at:  data.expires_at ?? null,
+      created_by:  profile.id,
+    })
+    .select('id')
+    .single()
+
+  if (insertErr) return { error: 'Error al crear la clave: ' + insertErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:   profile.id,
+    actor_name: (profile as any).full_name ?? undefined,
+    action:     'api_key.created',
+    target_type: 'organization',
+    target_id:  row.id,
+    target_label: data.name,
+    metadata:   { scopes: data.scopes },
+  })
+
+  revalidatePath('/ajustes')
+  return { key: rawKey, id: row.id }
+}
+
+export async function revokeApiKey(keyId: string): Promise<{ success?: true; error?: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const fluxion = createFluxionClient()
+  const { error: updateErr } = await fluxion
+    .from('api_keys')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', keyId)
+    .eq('organization_id', profile.organization_id)
+
+  if (updateErr) return { error: 'Error al revocar: ' + updateErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:   profile.id,
+    actor_name: (profile as any).full_name ?? undefined,
+    action:     'api_key.revoked',
+    target_type: 'organization',
+    target_id:  keyId,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
+// ── Webhooks ──────────────────────────────────────────────────────────────────────
+
+export type WebhookRow = {
+  id:               string
+  name:             string
+  url:              string
+  events:           string[]
+  is_active:        boolean
+  last_triggered_at: string | null
+  created_at:       string
+}
+
+export async function getWebhooks(): Promise<{ webhooks: WebhookRow[] } | { error: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const fluxion = createFluxionClient()
+  const { data, error: qErr } = await fluxion
+    .from('webhooks')
+    .select('id, name, url, events, is_active, last_triggered_at, created_at')
+    .eq('organization_id', profile.organization_id)
+    .order('created_at', { ascending: false })
+
+  if (qErr) return { error: qErr.message }
+  return { webhooks: (data ?? []) as WebhookRow[] }
+}
+
+export async function createWebhook(data: {
+  name:   string
+  url:    string
+  events: string[]
+}): Promise<{ secret: string; id: string } | { error: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const secret = `whsec_${randomBytes(32).toString('hex')}`
+
+  const fluxion = createFluxionClient()
+  const { data: row, error: insertErr } = await fluxion
+    .from('webhooks')
+    .insert({
+      organization_id: profile.organization_id,
+      name:       data.name,
+      url:        data.url,
+      secret,
+      events:     data.events,
+      is_active:  true,
+      created_by: profile.id,
+    })
+    .select('id')
+    .single()
+
+  if (insertErr) return { error: 'Error al crear el webhook: ' + insertErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:   profile.id,
+    actor_name: (profile as any).full_name ?? undefined,
+    action:     'webhook.created',
+    target_type: 'organization',
+    target_id:  row.id,
+    target_label: data.name,
+    metadata:   { url: data.url, events: data.events.length },
+  })
+
+  revalidatePath('/ajustes')
+  return { secret, id: row.id }
+}
+
+export async function deleteWebhook(webhookId: string): Promise<{ success?: true; error?: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const fluxion = createFluxionClient()
+  const { error: deleteErr } = await fluxion
+    .from('webhooks')
+    .delete()
+    .eq('id', webhookId)
+    .eq('organization_id', profile.organization_id)
+
+  if (deleteErr) return { error: 'Error al eliminar: ' + deleteErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:   profile.id,
+    actor_name: (profile as any).full_name ?? undefined,
+    action:     'webhook.deleted',
+    target_type: 'organization',
+    target_id:  webhookId,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
+export async function testWebhook(webhookId: string): Promise<{ success?: true; status?: number; error?: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+
+  const fluxion = createFluxionClient()
+  const { data: webhook } = await fluxion
+    .from('webhooks')
+    .select('url, secret')
+    .eq('id', webhookId)
+    .eq('organization_id', profile.organization_id)
+    .single()
+
+  if (!webhook) return { error: 'Webhook no encontrado.' }
+
+  const payload = JSON.stringify({
+    event:   'test',
+    timestamp: new Date().toISOString(),
+    organization_id: profile.organization_id,
+  })
+
+  // HMAC-SHA256 signature
+  const signature = createHash('sha256')
+    .update(`${webhook.secret}.${payload}`)
+    .digest('hex')
+
+  try {
+    const res = await fetch(webhook.url, {
+      method:  'POST',
+      headers: {
+        'Content-Type':         'application/json',
+        'X-Fluxion-Event':      'test',
+        'X-Fluxion-Signature':  `sha256=${signature}`,
+      },
+      body:    payload,
+      signal:  AbortSignal.timeout(10_000),
+    })
+
+    void logAuditEvent({
+      organization_id: profile.organization_id,
+      actor_id:   profile.id,
+      actor_name: (profile as any).full_name ?? undefined,
+      action:     'webhook.tested',
+      target_type: 'organization',
+      target_id:  webhookId,
+      metadata:   { status: res.status },
+    })
+
+    return { success: true, status: res.status }
+  } catch (e: any) {
+    return { error: `Error de conexión: ${e?.message ?? 'timeout'}` }
+  }
 }
 
 // ── Legacy: keep old action working during transition ───────────────────────────

@@ -29,6 +29,15 @@ export type AuditAction =
   // Sesiones
   | 'session.revoked'
   | 'session.all_revoked'
+  // API Keys
+  | 'api_key.created'
+  | 'api_key.revoked'
+  // Webhooks
+  | 'webhook.created'
+  | 'webhook.deleted'
+  | 'webhook.tested'
+  // Seguridad
+  | 'org.security_updated'
 
 export interface AuditEvent {
   organization_id: string
