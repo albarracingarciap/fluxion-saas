@@ -324,7 +324,7 @@ function KanbanColumn({
       {/* Cards */}
       <div className={`flex flex-col gap-4 p-3 flex-1 min-h-[120px]`}>
         {groups.map(({ key, label: groupLabel, tasks: groupTasks }) => (
-          <div key={key}>
+          <div key={key} className="flex flex-col gap-4">
             {swimlane !== '' && (
               <SwimLaneHeader label={groupLabel} count={groupTasks.length} />
             )}
