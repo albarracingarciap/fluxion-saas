@@ -1076,6 +1076,308 @@ export async function reorderTaskAction(
   return { ok: true }
 }
 
+// ─── Plantillas (templates) ───────────────────────────────────────────────────
+
+export type TemplateChecklistItem = {
+  label:     string
+  required?: boolean
+}
+
+export type TaskTemplate = {
+  id:               string
+  organization_id:  string | null
+  owner_id:         string | null
+  scope:            'personal' | 'shared' | 'system'
+  name:             string
+  description:      string | null
+  default_priority: TaskPriority
+  default_tags:     string[]
+  checklist:        TemplateChecklistItem[]
+  is_archived:      boolean
+  created_at:       string
+}
+
+export async function getTemplatesAction(): Promise<TaskTemplate[]> {
+  const ctx = await getOrgId()
+  if (!ctx) return []
+
+  const admin = createAdminFluxionClient()
+
+  const { data } = await admin
+    .from('task_templates')
+    .select('id, organization_id, owner_id, scope, name, description, default_priority, default_tags, checklist, is_archived, created_at')
+    .or(`scope.eq.system,organization_id.eq.${ctx.organizationId}`)
+    .eq('is_archived', false)
+    .order('scope',      { ascending: true })  // system primero
+    .order('name',       { ascending: true })
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id:               r.id              as string,
+    organization_id:  r.organization_id as string | null,
+    owner_id:         r.owner_id        as string | null,
+    scope:            r.scope           as TaskTemplate['scope'],
+    name:             r.name            as string,
+    description:      r.description     as string | null,
+    default_priority: (r.default_priority as TaskPriority) ?? 'medium',
+    default_tags:     (r.default_tags as string[]) ?? [],
+    checklist:        (r.checklist as TemplateChecklistItem[]) ?? [],
+    is_archived:      (r.is_archived as boolean) ?? false,
+    created_at:       r.created_at      as string,
+  }))
+}
+
+export async function createTemplateAction(input: {
+  name:             string
+  description?:     string | null
+  scope:            'personal' | 'shared'
+  default_priority?: TaskPriority
+  default_tags?:    string[]
+  checklist?:       TemplateChecklistItem[]
+}): Promise<{ id: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { data, error } = await fluxion
+    .from('task_templates')
+    .insert({
+      organization_id:  ctx.organizationId,
+      owner_id:         ctx.profileId,
+      scope:            input.scope,
+      name:             input.name.trim(),
+      description:      input.description ?? null,
+      default_priority: input.default_priority ?? 'medium',
+      default_tags:     input.default_tags ?? [],
+      checklist:        input.checklist ?? [],
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Error al crear la plantilla' }
+  revalidatePath('/tareas/plantillas')
+  return { id: data.id as string }
+}
+
+export async function updateTemplateAction(
+  templateId: string,
+  input: {
+    name?:             string
+    description?:      string | null
+    scope?:            'personal' | 'shared'
+    default_priority?: TaskPriority
+    default_tags?:     string[]
+    checklist?:        TemplateChecklistItem[]
+    is_archived?:      boolean
+  }
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const patch: Record<string, unknown> = {}
+  if (input.name             !== undefined) patch.name             = input.name.trim()
+  if (input.description      !== undefined) patch.description      = input.description
+  if (input.scope            !== undefined) patch.scope            = input.scope
+  if (input.default_priority !== undefined) patch.default_priority = input.default_priority
+  if (input.default_tags     !== undefined) patch.default_tags     = input.default_tags
+  if (input.checklist        !== undefined) patch.checklist        = input.checklist
+  if (input.is_archived      !== undefined) patch.is_archived      = input.is_archived
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_templates')
+    .update(patch)
+    .eq('id', templateId)
+    .eq('owner_id', ctx.profileId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/tareas/plantillas')
+  return { ok: true }
+}
+
+export async function deleteTemplateAction(
+  templateId: string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_templates')
+    .delete()
+    .eq('id', templateId)
+    .eq('owner_id', ctx.profileId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/tareas/plantillas')
+  return { ok: true }
+}
+
+/**
+ * Crea una tarea nueva a partir de una plantilla.
+ * Los overrides (título, fechas, asignado, sistema) reemplazan los valores por defecto.
+ * También crea los ítems de checklist definidos en la plantilla.
+ */
+export async function createTaskFromTemplateAction(
+  templateId: string,
+  overrides: {
+    title?:      string
+    systemId?:   string | null
+    assigneeId?: string | null
+    dueDate?:    string | null
+  } = {}
+): Promise<{ id: string } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  // Leer la plantilla (con admin para poder leer system templates)
+  const admin = createAdminFluxionClient()
+  const { data: tpl } = await admin
+    .from('task_templates')
+    .select('name, description, default_priority, default_tags, checklist')
+    .eq('id', templateId)
+    .single()
+
+  if (!tpl) return { error: 'Plantilla no encontrada' }
+
+  const taskResult = await createTaskAction({
+    title:       overrides.title ?? (tpl.name as string),
+    description: tpl.description as string | null,
+    priority:    tpl.default_priority as TaskPriority,
+    tags:        tpl.default_tags as string[],
+    systemId:    overrides.systemId   ?? null,
+    assigneeId:  overrides.assigneeId ?? null,
+    dueDate:     overrides.dueDate    ?? null,
+    sourceType:  'manual',
+  })
+
+  if ('error' in taskResult) return taskResult
+
+  const taskId   = taskResult.id
+  const checklist = (tpl.checklist as TemplateChecklistItem[]) ?? []
+
+  if (checklist.length > 0) {
+    const items = checklist.map((item, idx) => ({
+      task_id:  taskId,
+      label:    item.label,
+      position: (idx + 1) * 10,
+    }))
+    await admin.from('task_checklist_items').insert(items)
+  }
+
+  return { id: taskId }
+}
+
+// ─── Checklist items ──────────────────────────────────────────────────────────
+
+export type ChecklistItem = {
+  id:           string
+  task_id:      string
+  label:        string
+  completed:    boolean
+  completed_by: string | null
+  completed_at: string | null
+  position:     number
+  created_at:   string
+}
+
+export async function getChecklistAction(taskId: string): Promise<ChecklistItem[]> {
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_checklist_items')
+    .select('id, task_id, label, completed, completed_by, completed_at, position, created_at')
+    .eq('task_id', taskId)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  return (data ?? []) as ChecklistItem[]
+}
+
+export async function addChecklistItemAction(
+  taskId: string,
+  label:  string
+): Promise<{ id: string } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+  if (!label.trim()) return { error: 'La etiqueta no puede estar vacía' }
+
+  const admin = createAdminFluxionClient()
+
+  // Calcular posición: último ítem + 10
+  const { data: last } = await admin
+    .from('task_checklist_items')
+    .select('position')
+    .eq('task_id', taskId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const position = ((last?.position as number | null) ?? 0) + 10
+
+  const { data, error } = await admin
+    .from('task_checklist_items')
+    .insert({ task_id: taskId, label: label.trim(), position })
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Error al añadir ítem' }
+  return { id: data.id as string }
+}
+
+export async function toggleChecklistItemAction(
+  itemId:    string,
+  completed: boolean
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+  const { error } = await admin
+    .from('task_checklist_items')
+    .update({
+      completed,
+      completed_by: completed ? ctx.profileId : null,
+      completed_at: completed ? new Date().toISOString() : null,
+    })
+    .eq('id', itemId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+export async function updateChecklistItemLabelAction(
+  itemId: string,
+  label:  string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+  if (!label.trim()) return { error: 'La etiqueta no puede estar vacía' }
+
+  const admin = createAdminFluxionClient()
+  const { error } = await admin
+    .from('task_checklist_items')
+    .update({ label: label.trim() })
+    .eq('id', itemId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+export async function deleteChecklistItemAction(
+  itemId: string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+  const { error } = await admin
+    .from('task_checklist_items')
+    .delete()
+    .eq('id', itemId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 // ─── WIP limits ───────────────────────────────────────────────────────────────
 
 export async function getWipLimitsAction(): Promise<Record<string, number>> {

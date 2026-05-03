@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   X, Save, Trash2, Loader2, ExternalLink, XCircle, Plus, CheckCircle2,
-  LayoutGrid, MessageSquare, Activity, Paperclip, Eye, EyeOff,
+  LayoutGrid, MessageSquare, Activity, Paperclip, Eye, EyeOff, ListChecks,
 } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_SOURCE_LABELS } from '@/lib/tasks/types'
@@ -20,6 +20,7 @@ import {
 import { TaskComments }    from './TaskComments'
 import { TaskActivity }    from './TaskActivity'
 import { TaskAttachments } from './TaskAttachments'
+import { TaskChecklist }   from './TaskChecklist'
 import type { Member, System } from './CreateTaskModal'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ const PRIORITY_STYLES: Record<TaskPriority, string> = {
   critical: 'bg-redim text-re border-reb',
 }
 
-type DetailTab = 'comments' | 'activity' | 'attachments'
+type DetailTab = 'checklist' | 'comments' | 'activity' | 'attachments'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ export function TaskDetailPanel({
   const [error,         setError]         = useState<string | null>(null)
   const [saved,         setSaved]         = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [activeTab,     setActiveTab]     = useState<DetailTab>('comments')
+  const [activeTab,     setActiveTab]     = useState<DetailTab>('checklist')
   const [isPending,     startTransition]  = useTransition()
   const [gapLinks,      setGapLinks]      = useState<Array<{
     gap_key: string; group_key: string | null; gap_layer: string; gap_source_id: string | null
@@ -273,6 +274,7 @@ export function TaskDetailPanel({
   const overdue    = isOverdue(dueDate || null, status)
 
   const TABS: Array<{ key: DetailTab; label: string; icon: React.ReactNode }> = [
+    { key: 'checklist',   label: 'Checklist',   icon: <ListChecks    size={13} /> },
     { key: 'comments',    label: 'Comentarios', icon: <MessageSquare size={13} /> },
     { key: 'activity',    label: 'Actividad',   icon: <Activity      size={13} /> },
     { key: 'attachments', label: 'Adjuntos',    icon: <Paperclip     size={13} /> },
@@ -530,6 +532,9 @@ export function TaskDetailPanel({
 
             {/* Tab content */}
             <div className="flex-1 p-5 overflow-y-auto">
+              {activeTab === 'checklist' && (
+                <TaskChecklist taskId={task.id} />
+              )}
               {activeTab === 'comments' && (
                 <TaskComments
                   taskId={task.id}

@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon,
   CalendarClock, User, Tag, X as XIcon, Calendar, Download,
-  CheckSquare, Square, ChevronDown, Bookmark, BookmarkPlus, Trash,
+  CheckSquare, Square, ChevronDown, Bookmark, BookmarkPlus, Trash, LayoutTemplate,
 } from 'lucide-react'
 import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
 import {
@@ -692,13 +693,22 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
               Seguimiento de tareas de cumplimiento — manuales y generadas automáticamente
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:shadow-[0_4px_12px_rgba(0,173,239,0.4)] transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva tarea
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/tareas/plantillas"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+            >
+              <LayoutTemplate className="w-4 h-4" />
+              Plantillas
+            </Link>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:shadow-[0_4px_12px_rgba(0,173,239,0.4)] transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva tarea
+            </button>
+          </div>
         </div>
 
         {/* KPI cards */}
