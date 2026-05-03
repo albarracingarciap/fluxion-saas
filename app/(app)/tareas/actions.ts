@@ -2,9 +2,15 @@
 
 import { revalidatePath } from 'next/cache'
 
-import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
 import type { CreateTaskInput, UpdateTaskInput, TaskStatus } from '@/lib/tasks/types'
+import {
+  createNotification,
+  notifyTaskWatchers,
+  addAutoWatchers,
+  logTaskActivity,
+} from '@/lib/notifications/sender'
 
 async function getOrgId(): Promise<{ userId: string; organizationId: string } | null> {
   const supabase = createClient()
@@ -21,6 +27,35 @@ async function getOrgId(): Promise<{ userId: string; organizationId: string } | 
 
   if (!profile) return null
   return { userId: user.id, organizationId: profile.organization_id }
+}
+
+async function getCtx(): Promise<{
+  userId: string
+  organizationId: string
+  profileId: string
+  email: string | null
+  displayName: string | null
+} | null> {
+  const supabase = createClient()
+  const fluxion = createFluxionClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('id, organization_id, email, display_name, full_name')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile) return null
+  return {
+    userId:         user.id,
+    organizationId: profile.organization_id,
+    profileId:      profile.id,
+    email:          profile.email ?? null,
+    displayName:    profile.display_name ?? profile.full_name ?? null,
+  }
 }
 
 export async function createTaskAction(input: CreateTaskInput): Promise<{ id: string } | { error: string }> {
@@ -55,6 +90,43 @@ export async function createTaskAction(input: CreateTaskInput): Promise<{ id: st
 
   if (error || !data) return { error: error?.message ?? 'Error al crear la tarea' }
 
+  // Auto-watchers: creador + asignado
+  const watcherIds = [profile?.id, input.assigneeId].filter(Boolean) as string[]
+  void addAutoWatchers({ taskId: data.id, profileIds: watcherIds })
+
+  // Activity log: tarea creada
+  void logTaskActivity({ taskId: data.id, actorId: profile?.id, action: 'created' })
+
+  // Notificar al asignado (si es distinto del creador)
+  if (input.assigneeId && input.assigneeId !== profile?.id) {
+    const adminClient = createAdminFluxionClient()
+    const { data: assignee } = await adminClient
+      .from('profiles')
+      .select('id, email, display_name, full_name, preferences')
+      .eq('id', input.assigneeId)
+      .single()
+    if (assignee) {
+      const { data: actor } = await adminClient
+        .from('profiles')
+        .select('display_name, full_name')
+        .eq('id', profile?.id ?? '')
+        .maybeSingle()
+      void createNotification({
+        recipientProfileId: assignee.id,
+        organizationId:     ctx.organizationId,
+        type:               'task_assigned',
+        title:              `Nueva tarea asignada: ${input.title}`,
+        body:               input.description ?? undefined,
+        linkUrl:            `/tareas`,
+        relatedTaskId:      data.id,
+        recipientEmail:     assignee.email ?? undefined,
+        recipientName:      assignee.display_name ?? assignee.full_name ?? undefined,
+        actorName:          actor?.display_name ?? actor?.full_name ?? undefined,
+        taskTitle:          input.title,
+      })
+    }
+  }
+
   revalidatePath('/tareas')
   revalidatePath('/kanban')
   return { id: data.id }
@@ -64,10 +136,18 @@ export async function updateTaskAction(
   taskId: string,
   input: UpdateTaskInput
 ): Promise<{ ok: true } | { error: string }> {
-  const ctx = await getOrgId()
+  const ctx = await getCtx()
   if (!ctx) return { error: 'No autenticado' }
 
   const fluxion = createFluxionClient()
+  const admin   = createAdminFluxionClient()
+
+  // Leer estado actual para log de cambios
+  const { data: prev } = await admin
+    .from('tasks')
+    .select('status, priority, assignee_id, due_date, title')
+    .eq('id', taskId)
+    .single()
 
   const patch: Record<string, unknown> = {}
   if (input.title !== undefined)       patch.title       = input.title
@@ -85,6 +165,65 @@ export async function updateTaskAction(
     .eq('organization_id', ctx.organizationId)
 
   if (error) return { error: error.message }
+
+  // Registrar cambios en activity log
+  if (prev) {
+    const changes: Array<{ field: string; old: unknown; new: unknown }> = []
+    if (input.status   !== undefined && input.status   !== prev.status)      changes.push({ field: 'status',      old: prev.status,      new: input.status })
+    if (input.priority !== undefined && input.priority !== prev.priority)    changes.push({ field: 'priority',    old: prev.priority,    new: input.priority })
+    if (input.assigneeId !== undefined && input.assigneeId !== prev.assignee_id) changes.push({ field: 'assignee_id', old: prev.assignee_id, new: input.assigneeId })
+    if (input.dueDate  !== undefined && input.dueDate  !== prev.due_date)    changes.push({ field: 'due_date',    old: prev.due_date,    new: input.dueDate })
+    if (input.title    !== undefined && input.title    !== prev.title)       changes.push({ field: 'title',       old: prev.title,       new: input.title })
+
+    for (const ch of changes) {
+      void logTaskActivity({
+        taskId,
+        actorId:  ctx.profileId,
+        action:   `${ch.field}_changed`,
+        field:    ch.field,
+        oldValue: ch.old,
+        newValue: ch.new,
+      })
+    }
+
+    // Notificar watchers si el estado cambió
+    if (input.status && input.status !== prev.status) {
+      void notifyTaskWatchers({
+        taskId,
+        organizationId:    ctx.organizationId,
+        excludeProfileIds: [ctx.profileId],
+        type:              'status_changed',
+        title:             `Estado actualizado: ${prev.title ?? taskId}`,
+        linkUrl:           `/tareas`,
+        actorName:         ctx.displayName ?? undefined,
+        taskTitle:         prev.title ?? taskId,
+      })
+    }
+
+    // Si se reasigna, notificar al nuevo asignado
+    if (input.assigneeId && input.assigneeId !== prev.assignee_id && input.assigneeId !== ctx.profileId) {
+      void addAutoWatchers({ taskId, profileIds: [input.assigneeId] })
+      const { data: assignee } = await admin
+        .from('profiles')
+        .select('id, email, display_name, full_name')
+        .eq('id', input.assigneeId)
+        .single()
+      if (assignee) {
+        void createNotification({
+          recipientProfileId: assignee.id,
+          organizationId:     ctx.organizationId,
+          type:               'task_assigned',
+          title:              `Se te ha reasignado: ${prev.title ?? taskId}`,
+          linkUrl:            `/tareas`,
+          relatedTaskId:      taskId,
+          recipientEmail:     assignee.email ?? undefined,
+          recipientName:      assignee.display_name ?? assignee.full_name ?? undefined,
+          actorName:          ctx.displayName ?? undefined,
+          taskTitle:          prev.title ?? taskId,
+        })
+      }
+    }
+  }
 
   revalidatePath('/tareas')
   revalidatePath('/kanban')
@@ -289,4 +428,431 @@ export async function createEvaluationTaskAction(params: {
     dueDate:     params.dueDate,
     tags:        ['evaluacion'],
   })
+}
+
+// ─── Comentarios ──────────────────────────────────────────────────────────────
+
+export type CommentRow = {
+  id:         string
+  task_id:    string
+  author_id:  string | null
+  body:       string
+  mentions:   string[]
+  created_at: string
+  updated_at: string
+  edited_at:  string | null
+  deleted_at: string | null
+  // joins
+  author_name?:   string | null
+  author_email?:  string | null
+  author_avatar?: string | null
+}
+
+export async function getCommentsAction(taskId: string): Promise<CommentRow[]> {
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_comments')
+    .select('*, profiles:author_id(display_name, full_name, email, avatar_url)')
+    .eq('task_id', taskId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    author_name:   r.profiles?.display_name ?? r.profiles?.full_name ?? null,
+    author_email:  r.profiles?.email ?? null,
+    author_avatar: r.profiles?.avatar_url ?? null,
+    profiles:      undefined,
+  }))
+}
+
+export async function addCommentAction(
+  taskId:   string,
+  body:     string,
+  mentions: string[] = []
+): Promise<{ id: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+  if (!body.trim()) return { error: 'El comentario no puede estar vacío' }
+
+  const admin = createAdminFluxionClient()
+
+  // Obtener datos de la tarea para notificaciones
+  const { data: task } = await admin
+    .from('tasks')
+    .select('title, organization_id')
+    .eq('id', taskId)
+    .single()
+
+  if (!task) return { error: 'Tarea no encontrada' }
+
+  const { data: comment, error } = await admin
+    .from('task_comments')
+    .insert({
+      task_id:   taskId,
+      author_id: ctx.profileId,
+      body:      body.trim(),
+      mentions,
+    })
+    .select('id')
+    .single()
+
+  if (error || !comment) return { error: error?.message ?? 'Error al guardar el comentario' }
+
+  // Auto-watcher: el comentarista sigue la tarea
+  void addAutoWatchers({ taskId, profileIds: [ctx.profileId] })
+
+  // Activity log
+  void logTaskActivity({
+    taskId,
+    actorId:  ctx.profileId,
+    action:   'comment_added',
+    metadata: { comment_id: comment.id, preview: body.trim().substring(0, 80) },
+  })
+
+  // Notificar a mencionados
+  for (const mentionedId of mentions) {
+    if (mentionedId === ctx.profileId) continue
+    void addAutoWatchers({ taskId, profileIds: [mentionedId] })
+    const { data: mentioned } = await admin
+      .from('profiles')
+      .select('id, email, display_name, full_name')
+      .eq('id', mentionedId)
+      .single()
+    if (mentioned) {
+      void createNotification({
+        recipientProfileId: mentioned.id,
+        organizationId:     ctx.organizationId,
+        type:               'mention',
+        title:              `${ctx.displayName ?? 'Alguien'} te mencionó en una tarea`,
+        body:               body.trim().substring(0, 120),
+        linkUrl:            `/tareas`,
+        relatedTaskId:      taskId,
+        recipientEmail:     mentioned.email ?? undefined,
+        recipientName:      mentioned.display_name ?? mentioned.full_name ?? undefined,
+        actorName:          ctx.displayName ?? undefined,
+        taskTitle:          task.title,
+      })
+    }
+  }
+
+  // Notificar a watchers (excepto actor y ya notificados por mención)
+  const alreadyNotified = new Set([ctx.profileId, ...mentions])
+  void notifyTaskWatchers({
+    taskId,
+    organizationId:    ctx.organizationId,
+    excludeProfileIds: Array.from(alreadyNotified),
+    type:              'comment_added',
+    title:             `Nuevo comentario de ${ctx.displayName ?? 'un compañero'}: ${task.title}`,
+    body:              body.trim().substring(0, 120),
+    linkUrl:           `/tareas`,
+    actorName:         ctx.displayName ?? undefined,
+    taskTitle:         task.title,
+  })
+
+  return { id: comment.id }
+}
+
+export async function updateCommentAction(
+  commentId: string,
+  body:       string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_comments')
+    .update({ body: body.trim(), edited_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .eq('author_id', ctx.profileId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+export async function deleteCommentAction(commentId: string): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_comments')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .eq('author_id', ctx.profileId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+// ─── Activity log ─────────────────────────────────────────────────────────────
+
+export type ActivityRow = {
+  id:         string
+  task_id:    string
+  actor_id:   string | null
+  action:     string
+  field:      string | null
+  old_value:  unknown
+  new_value:  unknown
+  metadata:   Record<string, unknown> | null
+  created_at: string
+  actor_name?:  string | null
+  actor_email?: string | null
+}
+
+export async function getTaskActivityAction(taskId: string): Promise<ActivityRow[]> {
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_activity_log')
+    .select('*, profiles:actor_id(display_name, full_name, email)')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true })
+
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    actor_name:  r.profiles?.display_name ?? r.profiles?.full_name ?? null,
+    actor_email: r.profiles?.email ?? null,
+    profiles:    undefined,
+  }))
+}
+
+// ─── Adjuntos ─────────────────────────────────────────────────────────────────
+
+export type AttachmentRow = {
+  id:           string
+  task_id:      string
+  uploader_id:  string | null
+  file_name:    string
+  storage_path: string
+  file_size:    number | null
+  mime_type:    string | null
+  created_at:   string
+  uploader_name?: string | null
+  signed_url?:    string | null
+}
+
+const BUCKET = 'task-attachments'
+const ALLOWED_TYPES = [
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/csv',
+]
+const MAX_SIZE_BYTES = 25 * 1024 * 1024 // 25 MB
+
+export async function getAttachmentsAction(taskId: string): Promise<AttachmentRow[]> {
+  const admin = createAdminFluxionClient()
+
+  const { data } = await admin
+    .from('task_attachments')
+    .select('*, profiles:uploader_id(display_name, full_name)')
+    .eq('task_id', taskId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (!data || data.length === 0) return []
+
+  // Generar URLs firmadas (60 min)
+  const { createClient: createStorageClient } = await import('@supabase/supabase-js')
+  const storage = createStorageClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  ).storage
+
+  return await Promise.all(
+    data.map(async (r: any) => {
+      const { data: signed } = await storage
+        .from(BUCKET)
+        .createSignedUrl(r.storage_path, 3600)
+      return {
+        ...r,
+        uploader_name: r.profiles?.display_name ?? r.profiles?.full_name ?? null,
+        signed_url:    signed?.signedUrl ?? null,
+        profiles:      undefined,
+      }
+    })
+  )
+}
+
+export async function uploadAttachmentAction(
+  taskId:   string,
+  formData: FormData
+): Promise<{ id: string; file_name: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const file = formData.get('file') as File | null
+  if (!file) return { error: 'No se recibió ningún archivo' }
+  if (file.size > MAX_SIZE_BYTES) return { error: `El archivo supera el límite de 25 MB` }
+  if (!ALLOWED_TYPES.includes(file.type)) return { error: 'Tipo de archivo no permitido' }
+
+  const admin = createAdminFluxionClient()
+
+  // Leer la tarea para obtener org_id
+  const { data: task } = await admin
+    .from('tasks')
+    .select('title, organization_id')
+    .eq('id', taskId)
+    .single()
+  if (!task) return { error: 'Tarea no encontrada' }
+
+  // Subir a Storage
+  const { createClient: createStorageClient } = await import('@supabase/supabase-js')
+  const storage = createStorageClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  ).storage
+
+  const ext          = file.name.split('.').pop() ?? 'bin'
+  const attachmentId = crypto.randomUUID()
+  const storagePath  = `${ctx.organizationId}/${taskId}/${attachmentId}.${ext}`
+
+  const arrayBuffer = await file.arrayBuffer()
+  const { error: uploadError } = await storage
+    .from(BUCKET)
+    .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: false })
+
+  if (uploadError) return { error: `Error al subir: ${uploadError.message}` }
+
+  // Insertar metadatos
+  const { data: row, error: dbError } = await admin
+    .from('task_attachments')
+    .insert({
+      id:           attachmentId,
+      task_id:      taskId,
+      uploader_id:  ctx.profileId,
+      file_name:    file.name,
+      storage_path: storagePath,
+      file_size:    file.size,
+      mime_type:    file.type,
+    })
+    .select('id, file_name')
+    .single()
+
+  if (dbError || !row) {
+    // Limpiar el archivo subido
+    await storage.from(BUCKET).remove([storagePath])
+    return { error: dbError?.message ?? 'Error al registrar el adjunto' }
+  }
+
+  // Activity log
+  void logTaskActivity({
+    taskId,
+    actorId:  ctx.profileId,
+    action:   'attachment_added',
+    metadata: { file_name: file.name, file_size: file.size, mime_type: file.type },
+  })
+
+  // Notificar watchers
+  void notifyTaskWatchers({
+    taskId,
+    organizationId:    ctx.organizationId,
+    excludeProfileIds: [ctx.profileId],
+    type:              'attachment_added',
+    title:             `Nuevo adjunto en: ${task.title}`,
+    body:              file.name,
+    linkUrl:           `/tareas`,
+    actorName:         ctx.displayName ?? undefined,
+    taskTitle:         task.title,
+  })
+
+  return { id: row.id, file_name: row.file_name }
+}
+
+export async function deleteAttachmentAction(attachmentId: string): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+
+  // Soft delete — solo el uploader o admin pueden eliminar (RLS lo controla)
+  const { error } = await admin
+    .from('task_attachments')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', attachmentId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+// ─── Watchers ─────────────────────────────────────────────────────────────────
+
+export type WatcherRow = {
+  user_id:    string
+  source:     'auto' | 'manual'
+  created_at: string
+  name?:      string | null
+  email?:     string | null
+  avatar_url?: string | null
+}
+
+export async function getWatchersAction(taskId: string): Promise<WatcherRow[]> {
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_watchers')
+    .select('user_id, source, created_at, profiles:user_id(display_name, full_name, email, avatar_url)')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true })
+
+  return (data ?? []).map((r: any) => ({
+    user_id:    r.user_id,
+    source:     r.source,
+    created_at: r.created_at,
+    name:       r.profiles?.display_name ?? r.profiles?.full_name ?? null,
+    email:      r.profiles?.email ?? null,
+    avatar_url: r.profiles?.avatar_url ?? null,
+  }))
+}
+
+export async function toggleWatchAction(
+  taskId: string
+): Promise<{ watching: boolean } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+
+  // ¿Ya está siguiendo?
+  const { data: existing } = await admin
+    .from('task_watchers')
+    .select('user_id')
+    .eq('task_id', taskId)
+    .eq('user_id', ctx.profileId)
+    .maybeSingle()
+
+  if (existing) {
+    // Dejar de seguir (solo se pueden eliminar watchers manuales del propio usuario)
+    const { error } = await admin
+      .from('task_watchers')
+      .delete()
+      .eq('task_id', taskId)
+      .eq('user_id', ctx.profileId)
+    if (error) return { error: error.message }
+    return { watching: false }
+  } else {
+    // Empezar a seguir
+    const { error } = await admin
+      .from('task_watchers')
+      .upsert(
+        { task_id: taskId, user_id: ctx.profileId, source: 'manual' },
+        { onConflict: 'task_id,user_id', ignoreDuplicates: true }
+      )
+    if (error) return { error: error.message }
+    return { watching: true }
+  }
+}
+
+export async function getCurrentProfileAction(): Promise<{
+  id: string; email: string | null; displayName: string | null
+} | null> {
+  const ctx = await getCtx()
+  if (!ctx) return null
+  return { id: ctx.profileId, email: ctx.email, displayName: ctx.displayName }
 }

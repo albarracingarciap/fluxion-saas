@@ -476,6 +476,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
           task={selectedTask}
           members={members}
           systems={systems}
+          currentProfileId={currentProfileId ?? ''}
           onClose={() => setSelectedTask(null)}
           onUpdated={handleTaskUpdated}
           onDeleted={handleTaskDeleted}

@@ -38,6 +38,10 @@ export type AuditAction =
   | 'webhook.tested'
   // Seguridad
   | 'org.security_updated'
+  // Tareas — evidencias (van al audit_log global por valor documental)
+  | 'task.attachment_uploaded'
+  | 'task.attachment_deleted'
+  | 'task.comment_added'
 
 export interface AuditEvent {
   organization_id: string

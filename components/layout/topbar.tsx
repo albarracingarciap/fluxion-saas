@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { ChevronDown, LogOut, Settings, User } from "lucide-react"
+import { NotificationsBell } from "@/components/notifications/NotificationsBell"
 import { useAuthStore } from "@/lib/store/authStore"
 
 export function Topbar() {
@@ -102,7 +103,9 @@ export function Topbar() {
   return (
     <header className="flex-shrink-0 h-[52px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
       <h1 className="font-sora text-[15px] font-semibold text-dkt">{getPageTitle()}</h1>
-      <div className="relative" ref={containerRef}>
+      <div className="flex items-center gap-2">
+        <NotificationsBell />
+        <div className="relative" ref={containerRef}>
         <button 
           ref={triggerRef}
           type="button"
@@ -168,6 +171,7 @@ export function Topbar() {
             </button>
           </div>
         )}
+        </div>
       </div>
     </header>
   )

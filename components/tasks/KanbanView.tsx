@@ -378,6 +378,7 @@ export function KanbanView({ tasks: initialTasks, members, systems, currentProfi
           task={selectedTask}
           members={members}
           systems={systems}
+          currentProfileId={currentProfileId ?? ''}
           onClose={() => setSelectedTask(null)}
           onUpdated={handleTaskUpdated}
           onDeleted={handleTaskDeleted}
