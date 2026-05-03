@@ -1024,3 +1024,86 @@ export async function deleteSavedViewAction(
   if (error) return { error: error.message }
   return { ok: true }
 }
+
+// ─── Kanban reorder ───────────────────────────────────────────────────────────
+
+/**
+ * Actualiza posición (y opcionalmente status) de una tarea tras un drag-and-drop.
+ * Si needsRebalance = true, renumera todas las tareas de esa columna con gap 1024.
+ */
+export async function reorderTaskAction(
+  taskId:          string,
+  newStatus:       TaskStatus,
+  newPosition:     number,
+  needsRebalance?: boolean
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  const { error } = await fluxion
+    .from('tasks')
+    .update({ status: newStatus, position: newPosition })
+    .eq('id', taskId)
+    .eq('organization_id', ctx.organizationId)
+
+  if (error) return { error: error.message }
+
+  // Rebalancear columna si el gap quedó < 2
+  if (needsRebalance) {
+    // Obtener todas las tareas de la columna ordenadas por posición actual
+    const { data: colTasks } = await fluxion
+      .from('tasks')
+      .select('id, position')
+      .eq('organization_id', ctx.organizationId)
+      .eq('status', newStatus)
+      .order('position', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+
+    if (colTasks && colTasks.length > 0) {
+      const updates = (colTasks as Array<{ id: string }>).map((t, idx) => ({
+        id: t.id,
+        position: (idx + 1) * 1024,
+      }))
+      // Upsert en batch (Supabase no tiene UPDATE CASE, usamos upsert)
+      await fluxion.from('tasks').upsert(updates, { onConflict: 'id' })
+    }
+  }
+
+  revalidatePath('/tareas')
+  revalidatePath('/kanban')
+  return { ok: true }
+}
+
+// ─── WIP limits ───────────────────────────────────────────────────────────────
+
+export async function getWipLimitsAction(): Promise<Record<string, number>> {
+  const ctx = await getOrgId()
+  if (!ctx) return {}
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('organizations')
+    .select('kanban_wip_limits')
+    .eq('id', ctx.organizationId)
+    .single()
+
+  return (data?.kanban_wip_limits as Record<string, number> | null) ?? {}
+}
+
+export async function updateWipLimitsAction(
+  limits: Record<string, number>
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('organizations')
+    .update({ kanban_wip_limits: limits })
+    .eq('id', ctx.organizationId)
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}

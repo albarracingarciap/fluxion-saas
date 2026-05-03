@@ -62,6 +62,7 @@ export type TaskRow = {
   tags: string[]
   created_at: string
   updated_at: string
+  position?: number | null
   // Joins opcionales
   system_name?: string | null
   assignee_name?: string | null

@@ -14,7 +14,7 @@ export async function fetchTasks(
       id, organization_id, system_id, title, description,
       status, priority, source_type, source_id,
       assignee_id, created_by, due_date, completed_at,
-      tags, created_at, updated_at,
+      tags, created_at, updated_at, position,
       ai_systems!tasks_system_id_fkey(name),
       profiles!tasks_assignee_id_fkey(full_name)
     `)
@@ -54,6 +54,7 @@ export async function fetchTasks(
     tags: (row.tags as string[]) ?? [],
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+    position: (row.position as number | null) ?? null,
     system_name: (row.ai_systems as { name?: string } | null)?.name ?? null,
     assignee_name: (row.profiles as { full_name?: string } | null)?.full_name ?? null,
     assignee_email: (row.profiles as { email?: string } | null)?.email ?? null,
@@ -72,7 +73,7 @@ export async function fetchTask(
       id, organization_id, system_id, title, description,
       status, priority, source_type, source_id,
       assignee_id, created_by, due_date, completed_at,
-      tags, created_at, updated_at,
+      tags, created_at, updated_at, position,
       ai_systems!tasks_system_id_fkey(name),
       profiles!tasks_assignee_id_fkey(full_name)
     `)
@@ -100,6 +101,7 @@ export async function fetchTask(
     tags: (row.tags as string[]) ?? [],
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+    position: (row.position as number | null) ?? null,
     system_name: (row.ai_systems as { name?: string } | null)?.name ?? null,
     assignee_name: (row.profiles as { full_name?: string } | null)?.full_name ?? null,
     assignee_email: (row.profiles as { email?: string } | null)?.email ?? null,
