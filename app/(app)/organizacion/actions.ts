@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { revalidatePath } from 'next/cache';
+import { logAuditEvent } from '@/lib/audit';
 
 import type { RiskAppetite } from '@/lib/organization/options';
 
@@ -122,6 +123,23 @@ export async function updateOrganizationProfile(formData: {
     return { error: 'Error al actualizar la organización: ' + error.message };
   }
 
+  // Fetch actor name for audit
+  const { data: actorProfile } = await fluxion
+    .from('profiles')
+    .select('id, full_name')
+    .eq('user_id', user.id)
+    .single();
+
+  void logAuditEvent({
+    organization_id: formData.id,
+    actor_id:    actorProfile?.id,
+    actor_name:  actorProfile?.full_name ?? undefined,
+    action:      'org.settings_updated',
+    target_type: 'organization',
+    target_id:   formData.id,
+    target_label: formData.name,
+  });
+
   revalidatePath('/organizacion');
   return { success: true };
 }
@@ -230,6 +248,17 @@ export async function upsertCommittee(data: {
   }
 
   if (error) return { error: 'Error al guardar el comité: ' + error.message };
+
+  const { data: actorPr } = await fluxion.from('profiles').select('id, full_name').eq('user_id', user.id).single();
+  void logAuditEvent({
+    organization_id: data.organization_id,
+    actor_id:    actorPr?.id,
+    actor_name:  actorPr?.full_name ?? undefined,
+    action:      data.id ? 'org.committee_updated' : 'org.committee_created',
+    target_type: 'committee',
+    target_id:   data.id,
+    target_label: data.name,
+  });
 
   revalidatePath('/organizacion');
   return { success: true };

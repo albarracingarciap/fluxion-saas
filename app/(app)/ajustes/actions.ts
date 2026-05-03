@@ -211,6 +211,92 @@ export async function revokeAllOtherSessions(): Promise<{ success?: true; count?
   }
 }
 
+// ── Audit log ───────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 25
+
+export type AuditLogEntry = {
+  id:           string
+  actor_name:   string | null
+  actor_email:  string | null
+  action:       string
+  target_type:  string | null
+  target_label: string | null
+  metadata:     Record<string, unknown> | null
+  created_at:   string
+}
+
+export async function getAuditLog({
+  page       = 1,
+  actionFilter = '',
+  dateFrom     = '',
+  dateTo       = '',
+}: {
+  page?:         number
+  actionFilter?: string
+  dateFrom?:     string
+  dateTo?:       string
+} = {}): Promise<
+  { entries: AuditLogEntry[]; total: number; totalPages: number } | { error: string }
+> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden ver el registro de auditoría.' }
+
+  const fluxion = createFluxionClient()
+  const from    = (page - 1) * PAGE_SIZE
+  const to      = from + PAGE_SIZE - 1
+
+  let query = fluxion
+    .from('audit_log')
+    .select('id, actor_name, actor_email, action, target_type, target_label, metadata, created_at', { count: 'exact' })
+    .eq('organization_id', profile.organization_id)
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (actionFilter) query = (query as any).eq('action', actionFilter)
+  if (dateFrom)     query = (query as any).gte('created_at', dateFrom)
+  if (dateTo)       query = (query as any).lte('created_at', dateTo + 'T23:59:59Z')
+
+  const { data, error: qErr, count } = await (query as any)
+  if (qErr) return { error: 'Error al cargar el registro: ' + qErr.message }
+
+  const total      = count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  return {
+    entries:    (data ?? []) as AuditLogEntry[],
+    total,
+    totalPages,
+  }
+}
+
+export async function updateRetentionPolicy(data: {
+  audit_log_retention_months:     number
+  evidence_retention_months:      number
+  personal_data_retention_months: number
+}): Promise<{ success?: true; error?: string }> {
+  const { user, profile, error } = await getCurrentUserProfile()
+  if (error || !user || !profile) return { error: error ?? 'No autorizado' }
+  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden modificar las políticas de retención.' }
+
+  const fluxion = createFluxionClient()
+  const { error: updateError } = await fluxion
+    .from('organizations')
+    .update({
+      audit_log_retention_months:     data.audit_log_retention_months,
+      evidence_retention_months:      data.evidence_retention_months,
+      personal_data_retention_months: data.personal_data_retention_months,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', profile.organization_id)
+
+  if (updateError) return { error: 'Error al actualizar políticas: ' + updateError.message }
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
 // ── Legacy: keep old action working during transition ───────────────────────────
 
 export async function updateAppSettings(data: {

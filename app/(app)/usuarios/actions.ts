@@ -3,13 +3,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { revalidatePath } from 'next/cache';
+import { logAuditEvent } from '@/lib/audit';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function getActorProfile(fluxion: ReturnType<typeof createFluxionClient>, userId: string) {
   const { data } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role')
+    .select('id, organization_id, role, full_name')
     .eq('user_id', userId)
     .single();
   return data;
@@ -254,6 +255,16 @@ export async function inviteUser(email: string, role: string, message?: string) 
     return { error: 'Ocurrió un error al crear la invitación.' };
   }
 
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:    profile.id,
+    actor_name:  profile.full_name ?? undefined,
+    action:      'member.invited',
+    target_type: 'invitation',
+    target_label: email.toLowerCase().trim(),
+    metadata:    { role },
+  });
+
   revalidatePath('/usuarios');
   return { success: true, token: invite.token };
 }
@@ -298,6 +309,18 @@ export async function inviteUserBulk(emails: string[], role: string, message?: s
     }
   }
 
+  const successCount = results.filter((r) => !r.error).length;
+  if (successCount > 0) {
+    void logAuditEvent({
+      organization_id: profile.organization_id,
+      actor_id:    profile.id,
+      actor_name:  profile.full_name ?? undefined,
+      action:      'member.bulk_invited',
+      target_type: 'invitation',
+      metadata:    { role, total: emails.length, success: successCount },
+    });
+  }
+
   revalidatePath('/usuarios');
   return { success: true, results };
 }
@@ -339,6 +362,15 @@ export async function resendInvitation(invitationId: string) {
 
   if (error) return { error: 'Error al reenviar la invitación: ' + error.message };
 
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:   profile.id,
+    actor_name: profile.full_name ?? undefined,
+    action:     'invitation.resent',
+    target_type: 'invitation',
+    target_id:  invitationId,
+  });
+
   revalidatePath('/usuarios');
   return { success: true, token: newToken };
 }
@@ -373,6 +405,16 @@ export async function updateMemberRole(memberId: string, newRole: string) {
     change_type: 'role_change',
     prev_role:   target?.role ?? null,
     new_role:    newRole,
+  });
+
+  void logAuditEvent({
+    organization_id: actor.organization_id,
+    actor_id:   actor.id,
+    actor_name: actor.full_name ?? undefined,
+    action:     'member.role_changed',
+    target_type: 'member',
+    target_id:  memberId,
+    metadata:   { prev_role: target?.role, new_role: newRole },
   });
 
   revalidatePath('/usuarios');
@@ -412,6 +454,16 @@ export async function deactivateMember(memberId: string) {
     prev_role:   target?.role ?? null,
   });
 
+  void logAuditEvent({
+    organization_id: actor.organization_id,
+    actor_id:   actor.id,
+    actor_name: actor.full_name ?? undefined,
+    action:     'member.deactivated',
+    target_type: 'member',
+    target_id:  memberId,
+    metadata:   { prev_role: target?.role },
+  });
+
   revalidatePath('/usuarios');
   return { success: true };
 }
@@ -447,6 +499,16 @@ export async function reactivateMember(memberId: string) {
     new_role:    target?.role ?? null,
   });
 
+  void logAuditEvent({
+    organization_id: actor.organization_id,
+    actor_id:   actor.id,
+    actor_name: actor.full_name ?? undefined,
+    action:     'member.reactivated',
+    target_type: 'member',
+    target_id:  memberId,
+    metadata:   { role: target?.role },
+  });
+
   revalidatePath('/usuarios');
   return { success: true };
 }
@@ -478,6 +540,16 @@ export async function removeMember(memberId: string) {
     prev_role:   target?.role ?? null,
   });
 
+  void logAuditEvent({
+    organization_id: actor.organization_id,
+    actor_id:   actor.id,
+    actor_name: actor.full_name ?? undefined,
+    action:     'member.removed',
+    target_type: 'member',
+    target_id:  memberId,
+    metadata:   { prev_role: target?.role },
+  });
+
   const { error } = await fluxion
     .from('profiles')
     .delete()
@@ -502,6 +574,18 @@ export async function cancelInvitation(id: string) {
     .eq('id', id);
 
   if (error) return { error: 'Error al cancelar.' };
+
+  const actor = await getActorProfile(createFluxionClient(), (await createClient().auth.getUser()).data.user?.id ?? '');
+  if (actor) {
+    void logAuditEvent({
+      organization_id: actor.organization_id,
+      actor_id:   actor.id,
+      actor_name: actor.full_name ?? undefined,
+      action:     'invitation.cancelled',
+      target_type: 'invitation',
+      target_id:  id,
+    });
+  }
 
   revalidatePath('/usuarios');
   return { success: true };

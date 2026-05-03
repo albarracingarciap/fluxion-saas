@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/authStore'
-import { Settings, ChevronRight, User, Bell, Monitor, Loader2 } from 'lucide-react'
+import { Settings, ChevronRight, User, Bell, Monitor, ClipboardList, Loader2 } from 'lucide-react'
 import { MiCuentaTab }        from './tabs/mi-cuenta'
 import { NotificacionesTab }  from './tabs/notificaciones'
 import { SesionesTab }        from './tabs/sesiones'
+import { AuditoriaTab }       from './tabs/auditoria'
 import {
   DEFAULT_ACCOUNT_PREFS, DEFAULT_NOTIF_PREFS,
   type AccountPrefs, type NotificationPrefs,
@@ -13,12 +14,16 @@ import {
 
 // ── Tab config ──────────────────────────────────────────────────────────────────
 
-type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones'
+type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones' | 'auditoria'
 
-const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
-  { key: 'mi-cuenta',      label: 'Mi cuenta',       icon: <User     size={14} /> },
-  { key: 'notificaciones', label: 'Notificaciones',   icon: <Bell     size={14} /> },
-  { key: 'sesiones',       label: 'Sesiones activas', icon: <Monitor  size={14} /> },
+const PERSONAL_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
+  { key: 'mi-cuenta',      label: 'Mi cuenta',       icon: <User          size={14} /> },
+  { key: 'notificaciones', label: 'Notificaciones',   icon: <Bell          size={14} /> },
+  { key: 'sesiones',       label: 'Sesiones activas', icon: <Monitor       size={14} /> },
+]
+
+const WORKSPACE_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
+  { key: 'auditoria',      label: 'Auditoría',        icon: <ClipboardList size={14} /> },
 ]
 
 // ── Helpers: parse preferences from JSONB ───────────────────────────────────────
@@ -83,11 +88,19 @@ function parseNotifPrefs(raw: unknown): NotificationPrefs {
 // ── Page ────────────────────────────────────────────────────────────────────────
 
 export default function AjustesPage() {
-  const { profile, loadUserData } = useAuthStore()
+  const { profile, organization, loadUserData } = useAuthStore()
   const [activeTab, setActiveTab]         = useState<TabKey>('mi-cuenta')
   const [accountPrefs, setAccountPrefs]   = useState<AccountPrefs>(DEFAULT_ACCOUNT_PREFS)
   const [notifPrefs, setNotifPrefs]       = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS)
   const [prefsLoaded, setPrefsLoaded]     = useState(false)
+
+  const isAdmin = (profile as any)?.role === 'org_admin'
+
+  const orgRetentionMonths = {
+    audit_log:     (organization as any)?.audit_log_retention_months     ?? 36,
+    evidence:      (organization as any)?.evidence_retention_months      ?? 84,
+    personal_data: (organization as any)?.personal_data_retention_months ?? 60,
+  }
 
   useEffect(() => {
     if (profile) {
@@ -132,12 +145,12 @@ export default function AjustesPage() {
           aria-label="Secciones de ajustes"
           className="bg-ltcard rounded-[12px] border border-ltb shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-2 lg:sticky lg:top-4 lg:self-start"
         >
-          {/* Section label */}
+          {/* Personal section */}
           <p className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm px-3 py-2">
             Personal
           </p>
-          <ul className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible">
-            {TABS.map((tab) => {
+          <ul className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible mb-1">
+            {PERSONAL_TABS.map((tab) => {
               const isActive = tab.key === activeTab
               return (
                 <li key={tab.key} className="shrink-0 lg:w-full">
@@ -150,15 +163,44 @@ export default function AjustesPage() {
                         : 'text-ltt2 hover:bg-ltbg hover:text-ltt'
                     }`}
                   >
-                    <span className={isActive ? 'text-brand-cyan' : 'text-lttm'}>
-                      {tab.icon}
-                    </span>
+                    <span className={isActive ? 'text-brand-cyan' : 'text-lttm'}>{tab.icon}</span>
                     <span className="flex-1">{tab.label}</span>
                   </button>
                 </li>
               )
             })}
           </ul>
+
+          {/* Workspace section (admin only) */}
+          {isAdmin && (
+            <>
+              <div className="mx-3 my-1.5 border-t border-ltb" />
+              <p className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm px-3 py-2">
+                Workspace
+              </p>
+              <ul className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible">
+                {WORKSPACE_TABS.map((tab) => {
+                  const isActive = tab.key === activeTab
+                  return (
+                    <li key={tab.key} className="shrink-0 lg:w-full">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[8px] font-sora text-[13px] text-left transition-colors whitespace-nowrap ${
+                          isActive
+                            ? 'bg-cyan-dim text-brand-cyan font-medium'
+                            : 'text-ltt2 hover:bg-ltbg hover:text-ltt'
+                        }`}
+                      >
+                        <span className={isActive ? 'text-brand-cyan' : 'text-lttm'}>{tab.icon}</span>
+                        <span className="flex-1">{tab.label}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
         </nav>
 
         {/* Content */}
@@ -184,6 +226,10 @@ export default function AjustesPage() {
               )}
 
               {activeTab === 'sesiones' && <SesionesTab />}
+
+              {activeTab === 'auditoria' && isAdmin && (
+                <AuditoriaTab orgRetentionMonths={orgRetentionMonths} />
+              )}
             </>
           )}
         </div>
