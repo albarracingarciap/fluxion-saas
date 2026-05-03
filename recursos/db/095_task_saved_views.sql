@@ -40,8 +40,8 @@ ALTER TABLE fluxion.task_saved_views ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "task_saved_views_select" ON fluxion.task_saved_views
   FOR SELECT USING (
     organization_id IN (
-      SELECT organization_id FROM fluxion.organization_members
-      WHERE user_id = auth.uid() AND is_active = true
+      SELECT organization_id FROM fluxion.profiles
+      WHERE user_id = auth.uid()
     )
     AND (
       scope = 'shared'
@@ -53,8 +53,8 @@ CREATE POLICY "task_saved_views_select" ON fluxion.task_saved_views
 CREATE POLICY "task_saved_views_insert" ON fluxion.task_saved_views
   FOR INSERT WITH CHECK (
     organization_id IN (
-      SELECT organization_id FROM fluxion.organization_members
-      WHERE user_id = auth.uid() AND is_active = true
+      SELECT organization_id FROM fluxion.profiles
+      WHERE user_id = auth.uid()
     )
     AND owner_id = auth.uid()
   );
