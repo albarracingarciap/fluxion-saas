@@ -896,3 +896,131 @@ export async function getCurrentProfileAction(): Promise<{
   if (!ctx) return null
   return { id: ctx.profileId, email: ctx.email, displayName: ctx.displayName }
 }
+
+// ─── Bulk actions ─────────────────────────────────────────────────────────────
+
+export async function bulkUpdateStatusAction(
+  taskIds: string[],
+  status: TaskStatus
+): Promise<{ ok: true; updated: number } | { error: string }> {
+  if (taskIds.length === 0) return { ok: true, updated: 0 }
+
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  const { error, count } = await fluxion
+    .from('tasks')
+    .update({ status })
+    .in('id', taskIds)
+    .eq('organization_id', ctx.organizationId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/tareas')
+  revalidatePath('/kanban')
+  return { ok: true, updated: count ?? taskIds.length }
+}
+
+export async function bulkDeleteAction(
+  taskIds: string[]
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  if (taskIds.length === 0) return { ok: true, deleted: 0 }
+
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  // Solo se eliminan tareas manuales
+  const { error, count } = await fluxion
+    .from('tasks')
+    .delete()
+    .in('id', taskIds)
+    .eq('organization_id', ctx.organizationId)
+    .eq('source_type', 'manual')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/tareas')
+  revalidatePath('/kanban')
+  return { ok: true, deleted: count ?? 0 }
+}
+
+// ─── Saved views ──────────────────────────────────────────────────────────────
+
+export type SavedView = {
+  id:         string
+  name:       string
+  scope:      'personal' | 'shared'
+  filters:    Record<string, unknown>
+  sort:       Record<string, unknown>
+  grouping:   string | null
+  is_default: boolean
+  owner_id:   string | null
+  created_at: string
+}
+
+export async function getSavedViewsAction(): Promise<SavedView[]> {
+  const ctx = await getOrgId()
+  if (!ctx) return []
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('task_saved_views')
+    .select('id, name, scope, filters, sort, grouping, is_default, owner_id, created_at')
+    .eq('organization_id', ctx.organizationId)
+    .order('scope', { ascending: false }) // shared primero
+    .order('name',  { ascending: true })
+
+  return (data ?? []) as SavedView[]
+}
+
+export async function createSavedViewAction(input: {
+  name:      string
+  scope:     'personal' | 'shared'
+  filters:   Record<string, unknown>
+  sort?:     Record<string, unknown>
+  grouping?: string | null
+}): Promise<{ id: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  const { data, error } = await fluxion
+    .from('task_saved_views')
+    .insert({
+      organization_id: ctx.organizationId,
+      owner_id:        ctx.profileId,
+      name:            input.name.trim(),
+      scope:           input.scope,
+      filters:         input.filters,
+      sort:            input.sort ?? {},
+      grouping:        input.grouping ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'No se pudo guardar la vista' }
+  return { id: data.id as string }
+}
+
+export async function deleteSavedViewAction(
+  viewId: string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+
+  const { error } = await fluxion
+    .from('task_saved_views')
+    .delete()
+    .eq('id', viewId)
+    .eq('owner_id', ctx.profileId) // solo el owner puede borrar
+
+  if (error) return { error: error.message }
+  return { ok: true }
+}
