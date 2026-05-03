@@ -766,10 +766,10 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
         </div>
 
         {/* Table card */}
-        <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_4px_24px_rgba(0,74,173,0.04)] overflow-hidden">
+        <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
 
           {/* Filter row 1 */}
-          <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center gap-3 flex-wrap">
+          <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center gap-3 flex-wrap rounded-t-[12px]">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-lttm pointer-events-none" />
