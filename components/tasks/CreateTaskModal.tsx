@@ -14,10 +14,11 @@ export type Member = { id: string; full_name: string; email?: string }
 export type System = { id: string; name: string }
 
 type Props = {
-  members:   Member[]
-  systems:   System[]
-  onClose:   () => void
-  onCreated?: () => void
+  members:        Member[]
+  systems:        System[]
+  onClose:        () => void
+  onCreated?:     () => void
+  defaultDueDate?: string   // ISO date pre-filled from calendar
 }
 
 const inputCls =
@@ -154,7 +155,7 @@ function TemplatePicker({
 
 type Mode = 'choose' | 'template-pick' | 'form'
 
-export function CreateTaskModal({ members, systems, onClose, onCreated }: Props) {
+export function CreateTaskModal({ members, systems, onClose, onCreated, defaultDueDate }: Props) {
   const [mode,        setMode]        = useState<Mode>('choose')
   const [selectedTpl, setSelectedTpl] = useState<TaskTemplate | null>(null)
   const [templates,   setTemplates]   = useState<TaskTemplate[]>([])
@@ -166,7 +167,7 @@ export function CreateTaskModal({ members, systems, onClose, onCreated }: Props)
   const [priority,    setPriority]    = useState<TaskPriority>('medium')
   const [systemId,    setSystemId]    = useState('')
   const [assigneeId,  setAssigneeId]  = useState('')
-  const [dueDate,     setDueDate]     = useState('')
+  const [dueDate,     setDueDate]     = useState(defaultDueDate ?? '')
   const [tags,        setTags]        = useState<string[]>([])
   const [tagInput,    setTagInput]    = useState('')
   const [error,       setError]       = useState<string | null>(null)
