@@ -1103,17 +1103,31 @@ export async function getTemplatesAction(): Promise<TaskTemplate[]> {
 
   const admin = createAdminFluxionClient()
 
-  const { data, error } = await admin
-    .from('task_templates')
-    .select('id, organization_id, owner_id, scope, name, description, default_priority, default_tags, checklist, is_archived, created_at')
-    .or(`scope.eq.system,organization_id.eq.${ctx.organizationId}`)
-    .eq('is_archived', false)
-    .order('scope',      { ascending: false }) // 'system' > 'shared' > 'personal' desc → system primero
-    .order('name',       { ascending: true })
+  const SELECT_FIELDS = 'id, organization_id, owner_id, scope, name, description, default_priority, default_tags, checklist, is_archived, created_at'
 
-  if (error) console.error('[getTemplatesAction]', error.message)
+  // Dos queries separadas para evitar problemas de PostgREST con OR + NULL en org_id
+  const [systemRes, orgRes] = await Promise.all([
+    admin
+      .from('task_templates')
+      .select(SELECT_FIELDS)
+      .eq('scope', 'system')
+      .eq('is_archived', false)
+      .order('name', { ascending: true }),
+    admin
+      .from('task_templates')
+      .select(SELECT_FIELDS)
+      .eq('organization_id', ctx.organizationId)
+      .eq('is_archived', false)
+      .order('scope', { ascending: true })
+      .order('name',  { ascending: true }),
+  ])
 
-  return (data ?? []).map((r: Record<string, unknown>) => ({
+  if (systemRes.error) console.error('[getTemplatesAction system]', systemRes.error.message)
+  if (orgRes.error)    console.error('[getTemplatesAction org]',    orgRes.error.message)
+
+  const combined = [...(systemRes.data ?? []), ...(orgRes.data ?? [])]
+
+  return combined.map((r: Record<string, unknown>) => ({
     id:               r.id              as string,
     organization_id:  r.organization_id as string | null,
     owner_id:         r.owner_id        as string | null,
