@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon,
   CalendarClock, User, Tag, X as XIcon, Calendar, Download,
-  CheckSquare, Square, ChevronDown, Bookmark, BookmarkPlus, Trash, LayoutTemplate,
+  CheckSquare, Square, ChevronDown, Bookmark, BookmarkPlus, Trash, LayoutTemplate, RefreshCw,
 } from 'lucide-react'
 import type { TaskRow, TaskSummary, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'
 import {
@@ -694,6 +694,13 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/tareas/recurrentes"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Recurrentes
+            </Link>
             <Link
               href="/tareas/plantillas"
               className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"

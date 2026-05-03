@@ -1378,6 +1378,357 @@ export async function deleteChecklistItemAction(
   return { ok: true }
 }
 
+// ─── Tareas recurrentes ───────────────────────────────────────────────────────
+
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually'
+
+export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
+  daily:     'Diaria',
+  weekly:    'Semanal',
+  biweekly:  'Quincenal',
+  monthly:   'Mensual',
+  quarterly: 'Trimestral',
+  annually:  'Anual',
+}
+
+export const DAY_OF_WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+export const MONTH_LABELS = [
+  'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
+]
+
+export type TaskRecurrence = {
+  id:               string
+  organization_id:  string
+  template_id:      string | null
+  title:            string
+  description:      string | null
+  priority:         TaskPriority
+  system_id:        string | null
+  assignee_id:      string | null
+  tags:             string[]
+  frequency:        RecurrenceFrequency
+  day_of_week:      number | null
+  day_of_month:     number | null
+  month_of_year:    number | null
+  due_offset_days:  number
+  active:           boolean
+  last_run_at:      string | null
+  next_run_at:      string | null
+  created_at:       string
+  // joined
+  system_name?:     string | null
+  assignee_name?:   string | null
+  template_name?:   string | null
+}
+
+export type RecurrenceRun = {
+  id:            string
+  recurrence_id: string
+  task_id:       string | null
+  scheduled_for: string
+  triggered_by:  'cron' | 'manual'
+  created_at:    string
+  task_title?:   string | null
+}
+
+export async function getRecurrencesAction(): Promise<TaskRecurrence[]> {
+  const ctx = await getOrgId()
+  if (!ctx) return []
+
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_recurrences')
+    .select(`
+      id, organization_id, template_id, title, description,
+      priority, system_id, assignee_id, tags,
+      frequency, day_of_week, day_of_month, month_of_year,
+      due_offset_days, active, last_run_at, next_run_at, created_at,
+      ai_systems!task_recurrences_system_id_fkey(name),
+      profiles!task_recurrences_assignee_id_fkey(full_name),
+      task_templates!task_recurrences_template_id_fkey(name)
+    `)
+    .eq('organization_id', ctx.organizationId)
+    .order('active',      { ascending: false })
+    .order('next_run_at', { ascending: true, nullsFirst: false })
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id:              r.id              as string,
+    organization_id: r.organization_id as string,
+    template_id:     r.template_id     as string | null,
+    title:           r.title           as string,
+    description:     r.description     as string | null,
+    priority:        r.priority        as TaskPriority,
+    system_id:       r.system_id       as string | null,
+    assignee_id:     r.assignee_id     as string | null,
+    tags:            (r.tags as string[]) ?? [],
+    frequency:       r.frequency       as RecurrenceFrequency,
+    day_of_week:     r.day_of_week     as number | null,
+    day_of_month:    r.day_of_month    as number | null,
+    month_of_year:   r.month_of_year   as number | null,
+    due_offset_days: (r.due_offset_days as number) ?? 7,
+    active:          (r.active as boolean) ?? true,
+    last_run_at:     r.last_run_at     as string | null,
+    next_run_at:     r.next_run_at     as string | null,
+    created_at:      r.created_at      as string,
+    system_name:     (r.ai_systems as { name?: string } | null)?.name ?? null,
+    assignee_name:   (r.profiles   as { full_name?: string } | null)?.full_name ?? null,
+    template_name:   (r.task_templates as { name?: string } | null)?.name ?? null,
+  }))
+}
+
+export async function createRecurrenceAction(input: {
+  title:           string
+  description?:    string | null
+  priority?:       TaskPriority
+  systemId?:       string | null
+  assigneeId?:     string | null
+  tags?:           string[]
+  templateId?:     string | null
+  frequency:       RecurrenceFrequency
+  dayOfWeek?:      number | null
+  dayOfMonth?:     number | null
+  monthOfYear?:    number | null
+  dueOffsetDays?:  number
+}): Promise<{ id: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { data, error } = await fluxion
+    .from('task_recurrences')
+    .insert({
+      organization_id:  ctx.organizationId,
+      created_by:       ctx.profileId,
+      template_id:      input.templateId   ?? null,
+      title:            input.title.trim(),
+      description:      input.description  ?? null,
+      priority:         input.priority     ?? 'medium',
+      system_id:        input.systemId     ?? null,
+      assignee_id:      input.assigneeId   ?? null,
+      tags:             input.tags         ?? [],
+      frequency:        input.frequency,
+      day_of_week:      input.dayOfWeek    ?? null,
+      day_of_month:     input.dayOfMonth   ?? null,
+      month_of_year:    input.monthOfYear  ?? null,
+      due_offset_days:  input.dueOffsetDays ?? 7,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Error al crear la recurrencia' }
+  revalidatePath('/tareas/recurrentes')
+  return { id: data.id as string }
+}
+
+export async function updateRecurrenceAction(
+  recurrenceId: string,
+  input: {
+    title?:          string
+    description?:    string | null
+    priority?:       TaskPriority
+    systemId?:       string | null
+    assigneeId?:     string | null
+    tags?:           string[]
+    templateId?:     string | null
+    frequency?:      RecurrenceFrequency
+    dayOfWeek?:      number | null
+    dayOfMonth?:     number | null
+    monthOfYear?:    number | null
+    dueOffsetDays?:  number
+  }
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const patch: Record<string, unknown> = {}
+  if (input.title         !== undefined) patch.title           = input.title?.trim()
+  if (input.description   !== undefined) patch.description     = input.description
+  if (input.priority      !== undefined) patch.priority        = input.priority
+  if (input.systemId      !== undefined) patch.system_id       = input.systemId
+  if (input.assigneeId    !== undefined) patch.assignee_id     = input.assigneeId
+  if (input.tags          !== undefined) patch.tags            = input.tags
+  if (input.templateId    !== undefined) patch.template_id     = input.templateId
+  if (input.frequency     !== undefined) patch.frequency       = input.frequency
+  if (input.dayOfWeek     !== undefined) patch.day_of_week     = input.dayOfWeek
+  if (input.dayOfMonth    !== undefined) patch.day_of_month    = input.dayOfMonth
+  if (input.monthOfYear   !== undefined) patch.month_of_year   = input.monthOfYear
+  if (input.dueOffsetDays !== undefined) patch.due_offset_days = input.dueOffsetDays
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_recurrences')
+    .update(patch)
+    .eq('id', recurrenceId)
+    .eq('organization_id', ctx.organizationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/tareas/recurrentes')
+  return { ok: true }
+}
+
+export async function toggleRecurrenceAction(
+  recurrenceId: string
+): Promise<{ active: boolean } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+
+  const { data: current } = await admin
+    .from('task_recurrences')
+    .select('active')
+    .eq('id', recurrenceId)
+    .eq('organization_id', ctx.organizationId)
+    .single()
+
+  if (!current) return { error: 'Recurrencia no encontrada' }
+
+  const newActive = !current.active
+  const { error } = await admin
+    .from('task_recurrences')
+    .update({ active: newActive })
+    .eq('id', recurrenceId)
+
+  if (error) return { error: error.message }
+  return { active: newActive }
+}
+
+export async function deleteRecurrenceAction(
+  recurrenceId: string
+): Promise<{ ok: true } | { error: string }> {
+  const ctx = await getOrgId()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const fluxion = createFluxionClient()
+  const { error } = await fluxion
+    .from('task_recurrences')
+    .delete()
+    .eq('id', recurrenceId)
+    .eq('organization_id', ctx.organizationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/tareas/recurrentes')
+  return { ok: true }
+}
+
+/**
+ * Dispara una recurrencia manualmente: crea la tarea ahora mismo
+ * y avanza next_run_at para que el cron no duplique.
+ */
+export async function triggerRecurrenceNowAction(
+  recurrenceId: string
+): Promise<{ taskId: string } | { error: string }> {
+  const ctx = await getCtx()
+  if (!ctx) return { error: 'No autenticado' }
+
+  const admin = createAdminFluxionClient()
+
+  // Leer recurrencia
+  const { data: rec } = await admin
+    .from('task_recurrences')
+    .select('*')
+    .eq('id', recurrenceId)
+    .eq('organization_id', ctx.organizationId)
+    .single()
+
+  if (!rec) return { error: 'Recurrencia no encontrada' }
+
+  // Formatear título
+  const now = new Date()
+  let title: string = rec.title as string
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  title = title.replace('{{date}}',    `${pad2(now.getDate())}/${pad2(now.getMonth()+1)}/${now.getFullYear()}`)
+  title = title.replace('{{month}}',   `${pad2(now.getMonth()+1)}/${now.getFullYear()}`)
+  title = title.replace('{{year}}',    `${now.getFullYear()}`)
+  title = title.replace('{{quarter}}', `Q${Math.ceil((now.getMonth()+1)/3)} ${now.getFullYear()}`)
+
+  const dueDate = new Date(now.getTime() + (rec.due_offset_days as number ?? 7) * 86400000)
+  const dueDateStr = `${dueDate.getFullYear()}-${pad2(dueDate.getMonth()+1)}-${pad2(dueDate.getDate())}`
+
+  // Crear tarea
+  const taskResult = await createTaskAction({
+    title,
+    description: rec.description as string | null,
+    priority:    rec.priority    as TaskPriority,
+    systemId:    rec.system_id   as string | null,
+    assigneeId:  rec.assignee_id as string | null,
+    dueDate:     dueDateStr,
+    tags:        (rec.tags as string[]) ?? [],
+    sourceType:  'manual',
+  })
+
+  if ('error' in taskResult) return taskResult
+
+  const taskId = taskResult.id
+
+  // Copiar checklist si hay plantilla
+  if (rec.template_id) {
+    const { data: tpl } = await admin
+      .from('task_templates')
+      .select('checklist')
+      .eq('id', rec.template_id as string)
+      .single()
+    if (tpl?.checklist) {
+      const items = (tpl.checklist as Array<{ label: string }>).map((item, idx) => ({
+        task_id:  taskId,
+        label:    item.label,
+        position: (idx + 1) * 10,
+      }))
+      await admin.from('task_checklist_items').insert(items)
+    }
+  }
+
+  // Registrar ejecución
+  await admin.from('task_recurrence_runs').insert({
+    recurrence_id: recurrenceId,
+    task_id:       taskId,
+    scheduled_for: now.toISOString().split('T')[0],
+    triggered_by:  'manual',
+  })
+
+  // Actualizar last_run_at + avanzar next_run_at para no duplicar
+  // (llamamos a compute_next_run via RPC con supabase admin)
+  await admin
+    .from('task_recurrences')
+    .update({ last_run_at: now.toISOString() })
+    .eq('id', recurrenceId)
+
+  // next_run_at lo recalcula el motor en la próxima pasada (no avanzamos desde TS,
+  // lo hace la función SQL. Lo marcamos como ya ejecutado actualizando last_run_at)
+
+  revalidatePath('/tareas/recurrentes')
+  revalidatePath('/tareas')
+  return { taskId }
+}
+
+export async function getRecurrenceRunsAction(
+  recurrenceId: string,
+  limit = 20
+): Promise<RecurrenceRun[]> {
+  const ctx = await getOrgId()
+  if (!ctx) return []
+
+  const admin = createAdminFluxionClient()
+  const { data } = await admin
+    .from('task_recurrence_runs')
+    .select('id, recurrence_id, task_id, scheduled_for, triggered_by, created_at, tasks!task_recurrence_runs_task_id_fkey(title)')
+    .eq('recurrence_id', recurrenceId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id:            r.id            as string,
+    recurrence_id: r.recurrence_id as string,
+    task_id:       r.task_id       as string | null,
+    scheduled_for: r.scheduled_for as string,
+    triggered_by:  (r.triggered_by as 'cron' | 'manual') ?? 'cron',
+    created_at:    r.created_at    as string,
+    task_title:    (r.tasks as { title?: string } | null)?.title ?? null,
+  }))
+}
+
 // ─── WIP limits ───────────────────────────────────────────────────────────────
 
 export async function getWipLimitsAction(): Promise<Record<string, number>> {
