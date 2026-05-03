@@ -202,7 +202,7 @@ function SavedViewsMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+4px)] z-50 w-72 bg-ltcard border border-ltb rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] overflow-hidden">
+        <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-72 bg-ltcard border border-ltb rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] overflow-hidden">
           {/* Guardar vista actual */}
           {!showSave ? (
             <button
