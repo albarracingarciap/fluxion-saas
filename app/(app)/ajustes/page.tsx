@@ -100,11 +100,16 @@ export default function AjustesPage() {
   const [notifPrefs, setNotifPrefs]       = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS)
   const [prefsLoaded, setPrefsLoaded]     = useState(false)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = (profile as any)?.role === 'org_admin'
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orgRetentionMonths = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     audit_log:     (organization as any)?.audit_log_retention_months     ?? 36,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     evidence:      (organization as any)?.evidence_retention_months      ?? 84,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     personal_data: (organization as any)?.personal_data_retention_months ?? 60,
   }
 

@@ -75,8 +75,6 @@ export default async function GapSnapshotsComparePage({ searchParams }: Props) {
 
   const totalChange = delta.summary.total_b - delta.summary.total_a
   const criticoChange = delta.summary.critico_b - delta.summary.critico_a
-  const exposureChange = delta.summary.avg_exposure_b - delta.summary.avg_exposure_a
-
   return (
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
       {/* Header */}

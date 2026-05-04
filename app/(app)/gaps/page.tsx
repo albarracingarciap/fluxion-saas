@@ -265,9 +265,6 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
   const pageStart = (safePage - 1) * PAGE_SIZE
   const paginatedGaps = filteredGaps.slice(pageStart, pageStart + PAGE_SIZE)
 
-  const critical = paginatedGaps.filter((gap) => gap.severity === 'critico')
-  const high = paginatedGaps.filter((gap) => gap.severity === 'alto')
-  const medium = paginatedGaps.filter((gap) => gap.severity === 'medio')
   const expiredCaducities = data.caducities.filter((gap) => gap.overdue)
   const caducitiesUnder7 = data.caducities.filter(
     (gap) => !gap.overdue && typeof gap.days_until_due === 'number' && gap.days_until_due <= 7

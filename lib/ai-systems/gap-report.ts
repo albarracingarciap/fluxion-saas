@@ -198,8 +198,10 @@ export type GapReportData = {
 }
 
 export async function buildGapReportData(params: {
-  fluxion: SupabaseClient
-  compliance: SupabaseClient
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  compliance: SupabaseClient<any, any, any>
   organizationId: string
   aiSystemId: string
 }): Promise<GapReportData | null> {

@@ -260,7 +260,7 @@ function ControlsTab({ entries }: { entries: ControlEntry[] }) {
               {entry.justification && (
                 <div className="flex gap-2 text-[12px] font-sora leading-relaxed">
                   <FileText size={14} className="shrink-0 mt-1 text-lttm" />
-                  <p className="text-ltt2 italic">"{entry.justification}"</p>
+                  <p className="text-ltt2 italic">&quot;{entry.justification}&quot;</p>
                 </div>
               )}
               {entry.notes && (

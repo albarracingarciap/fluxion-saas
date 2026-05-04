@@ -181,7 +181,7 @@ export function ReviewAcceptanceModal({
               </div>
               {action.justification && (
                 <p className="mt-2 font-sora text-[11px] text-lttm italic leading-snug line-clamp-3">
-                  "{action.justification}"
+                  &quot;{action.justification}&quot;
                 </p>
               )}
             </div>

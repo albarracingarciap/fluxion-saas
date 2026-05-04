@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   X, Loader2, ShieldCheck, ShieldOff, Calendar, Clock,
   Cpu, Users2, ArrowRight, RefreshCw, UserX, UserCheck,
-  Trash2, Phone, Briefcase, AlertCircle,
+  Trash2, Phone, AlertCircle,
 } from 'lucide-react';
 import { getMemberDetail } from '../actions';
 import { MemberAvatar, RoleBadge, ROLE_LABELS, formatDate } from './shared';
@@ -61,6 +61,7 @@ export function MemberDrawer({ memberId, onClose }: Props) {
       if ('success' in result && result.success) {
         setData(result as DetailData)
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setError((result as any).error ?? 'Error al cargar el perfil.')
       }
       setLoading(false)
@@ -157,7 +158,7 @@ export function MemberDrawer({ memberId, onClose }: Props) {
                     )}
                     {data.profile.bio && (
                       <p className="text-[12px] font-sora text-lttm leading-relaxed italic">
-                        "{data.profile.bio}"
+                        &quot;{data.profile.bio}&quot;
                       </p>
                     )}
                   </div>

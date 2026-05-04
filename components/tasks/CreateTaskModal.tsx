@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { X, Plus, Loader2, XCircle, LayoutTemplate, ChevronRight, Check } from 'lucide-react'
 import {
   createTaskAction,

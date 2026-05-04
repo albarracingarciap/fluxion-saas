@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://localhost:8001'

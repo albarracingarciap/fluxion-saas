@@ -258,6 +258,7 @@ export default function OnboardingWizard() {
                   {isUploadingLogo ? (
                     <Loader2 className="animate-spin text-brand-cyan w-6 h-6 mb-2" />
                   ) : logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={logoUrl} alt="Logo corporativo" className="h-12 object-contain mb-2" />
                   ) : (
                     <Upload size={22} className="text-lttm group-hover:text-brand-cyan transition-colors mb-2" />

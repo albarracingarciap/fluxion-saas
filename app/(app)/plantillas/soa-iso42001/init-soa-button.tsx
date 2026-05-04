@@ -15,8 +15,8 @@ export function InitSoAButton() {
       // Usar un FormData vacío si no requerimos mandar nada extra
       const fd = new FormData()
       await initializeSoA(fd)
-    } catch (err: any) {
-      setError(err.message || 'Error inesperado al intentar inicializar el SoA')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error inesperado al intentar inicializar el SoA')
     } finally {
       setIsSaving(false)
     }

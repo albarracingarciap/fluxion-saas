@@ -29,14 +29,6 @@ function esc(str: string | null | undefined): string {
     .replace(/"/g, '&quot;');
 }
 
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  try {
-    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 export async function GET(
   request: Request,

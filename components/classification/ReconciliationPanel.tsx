@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { getReconciliationDiff } from '@/app/(app)/inventario/actions/classification'
-import type { DiffItem, DiffResolution, ObligationStatus } from '@/types/classification'
+import type { DiffItem, DiffResolution } from '@/types/classification'
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ export function ReconciliationPanel({
   eventId,
   version,
   riskLabel,
-  riskLevel,
+  riskLevel: _riskLevel,
   onConfirmed,
   onCancelled,
 }: ReconciliationPanelProps) {

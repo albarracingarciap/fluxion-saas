@@ -171,7 +171,7 @@ export type ActivationResult = {
 function normalizeText(value: string | null | undefined) {
   return (value ?? '')
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+        .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
 }
 

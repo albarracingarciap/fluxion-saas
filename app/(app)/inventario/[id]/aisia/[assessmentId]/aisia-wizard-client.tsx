@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AisiaAssessmentEntry, AisiaSectionEntry } from '../../system-detail-client';
+import type { AisiaAssessmentEntry } from '../../system-detail-client';
 import { updateAisiaSection, submitAisia } from '../actions';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -62,26 +62,6 @@ function Textarea({
         placeholder={placeholder}
         rows={rows}
         className="w-full bg-ltbg border border-ltb rounded-[8px] px-3 py-2.5 font-plex text-[13px] text-ltt placeholder:text-lttm/50 focus:outline-none focus:ring-2 focus:ring-[#004aad30] focus:border-[#004aad60] resize-y transition-colors"
-      />
-    </div>
-  );
-}
-
-function Field({
-  label, value, onChange, placeholder, type = 'text',
-}: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string;
-}) {
-  return (
-    <div>
-      <label className="block font-plex text-[12px] font-semibold text-ltt mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-ltbg border border-ltb rounded-[8px] px-3 py-2.5 font-plex text-[13px] text-ltt placeholder:text-lttm/50 focus:outline-none focus:ring-2 focus:ring-[#004aad30] focus:border-[#004aad60] transition-colors"
       />
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Check, CheckCheck, Loader2, MessageSquare, User, Paperclip, Activity, AlertCircle } from 'lucide-react'
+import { Bell, CheckCheck, Loader2, MessageSquare, User, Paperclip, Activity, AlertCircle } from 'lucide-react'
 import {
   getMyNotificationsAction,
   getUnreadCountAction,

@@ -71,6 +71,7 @@ export async function getOrganizationMembersAndInvitations() {
 
   if (invError) return { error: 'Error al obtener invitaciones: ' + invError.message };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapMember = (m: any) => ({
     id:         m.id,
     user_id:    m.user_id,
@@ -85,7 +86,9 @@ export async function getOrganizationMembersAndInvitations() {
   return {
     success: true,
     organizationId:   profile.organization_id,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     members:          (allMembers ?? []).filter((m: any) => m.is_active !== false).map(mapMember),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inactiveMembers:  (allMembers ?? []).filter((m: any) => m.is_active === false).map(mapMember),
     invitations:      pendingInvitations ?? [],
     currentUserRole:  profile.role,
@@ -116,6 +119,7 @@ export async function getMemberDetail(memberId: string) {
   const { data: authData } = await supabase.auth.admin.getUserById(profile.user_id);
   const lastSignIn  = authData?.user?.last_sign_in_at ?? null;
   const mfaEnabled  = (authData?.user?.factors ?? []).some(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (f: any) => f.status === 'verified',
   );
 
@@ -141,11 +145,13 @@ export async function getMemberDetail(memberId: string) {
     .limit(20);
 
   // Resolve actor names
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const actorIds = Array.from(new Set((roleHistory ?? []).map((r: any) => r.actor_id)));
   const { data: actorProfiles } = await fluxion
     .from('profiles')
     .select('id, full_name')
     .in('id', actorIds.length > 0 ? actorIds : ['00000000-0000-0000-0000-000000000000']);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nameMap = new Map((actorProfiles ?? []).map((p: any) => [p.id, p.full_name || 'Usuario']));
 
   return {
@@ -158,23 +164,29 @@ export async function getMemberDetail(memberId: string) {
       role:       profile.role,
       created_at: profile.created_at,
       is_active:  profile.is_active !== false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       job_title:  (profile as any).job_title ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       phone:      (profile as any).phone ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       bio:        (profile as any).bio ?? null,
     },
     auth: { lastSignIn, mfaEnabled },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     systems: (systems ?? []).map((s: any) => ({
       id:      s.ai_system_id,
       name:    s.ai_systems.name,
       status:  s.ai_systems.status,
       is_lead: s.is_lead,
     })),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     committees: (committeeMemberships ?? []).map((cm: any) => ({
       id:             cm.committees.id,
       name:           cm.committees.name,
       type:           cm.committees.type,
       committee_role: cm.committee_role,
     })),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     roleHistory: (roleHistory ?? []).map((r: any) => ({
       ...r,
       actor_name: nameMap.get(r.actor_id) ?? 'Usuario',
@@ -203,7 +215,9 @@ export async function getRoleChanges() {
 
   // Fetch profile names for actors and members
   const ids = Array.from(new Set([
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(data ?? []).map((r: any) => r.actor_id),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(data ?? []).map((r: any) => r.member_id),
   ]));
 
@@ -212,10 +226,12 @@ export async function getRoleChanges() {
     .select('id, full_name')
     .in('id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000']);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name || 'Usuario']));
 
   return {
     success: true,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
     changes: (data ?? []).map((r: any) => ({
       ...r,
       actor_name:  nameMap.get(r.actor_id)  ?? 'Usuario',

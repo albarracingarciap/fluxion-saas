@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  Paperclip, Upload, Loader2, Trash2, Download, FileText,
+  Upload, Loader2, Trash2, Download, FileText,
   Image as ImageIcon, FileSpreadsheet, FileCode, File, AlertCircle,
 } from 'lucide-react'
 import {

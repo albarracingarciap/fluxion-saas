@@ -3,14 +3,10 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarClock,
-  CheckCircle,
   ExternalLink,
-  FileText,
   History,
   Link2,
   ShieldAlert,
-  Tag,
 } from 'lucide-react'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
@@ -199,7 +195,7 @@ export default async function EvidenceDetailPage({
         {ev.validation_notes && (
           <div className="mt-4 rounded-[10px] border border-ltb bg-ltbg px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-1">Notas de revisión</p>
-            <p className="font-sora text-[12.5px] text-ltt italic">"{ev.validation_notes}"</p>
+            <p className="font-sora text-[12.5px] text-ltt italic">&quot;{ev.validation_notes}&quot;</p>
           </div>
         )}
       </section>

@@ -138,7 +138,7 @@ export async function getActiveSessions(): Promise<
     }
 
     return { sessions, currentSessionId }
-  } catch (e) {
+  } catch {
     // Fallback: if auth.sessions is not accessible, return minimal info
     return {
       sessions: [{
@@ -170,7 +170,7 @@ export async function revokeSession(sessionId: string): Promise<{ success?: true
 
     if (error) return { error: 'No se pudo revocar la sesión: ' + error.message }
     return { success: true }
-  } catch (e) {
+  } catch {
     return { error: 'Error al revocar la sesión.' }
   }
 }
@@ -195,8 +195,10 @@ export async function revokeAllOtherSessions(): Promise<{ success?: true; count?
     const authAdmin = createAuthSchemaClient()
     let query = authAdmin.from('sessions').delete().eq('user_id', user.id)
     if (currentSessionId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       query = (query as any).neq('id', currentSessionId)
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error, count } = await (query as any)
 
     if (error) return { error: 'Error al cerrar sesiones: ' + error.message }
@@ -205,6 +207,7 @@ export async function revokeAllOtherSessions(): Promise<{ success?: true; count?
     // Fallback: use Admin API signOut with 'others' scope
     try {
       const serviceClient = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await serviceClient.auth.admin.signOut(user.id, 'others' as any)
       return { success: true }
     } catch {
@@ -256,10 +259,14 @@ export async function getAuditLog({
     .order('created_at', { ascending: false })
     .range(from, to)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (actionFilter) query = (query as any).eq('action', actionFilter)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (dateFrom)     query = (query as any).gte('created_at', dateFrom)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (dateTo)       query = (query as any).lte('created_at', dateTo + 'T23:59:59Z')
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error: qErr, count } = await (query as any)
   if (qErr) return { error: 'Error al cargar el registro: ' + qErr.message }
 
@@ -318,6 +325,7 @@ export async function getSecuritySettings(): Promise<SecuritySettings | { error:
     .eq('id', profile.organization_id)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const security = ((org?.settings as any)?.security ?? {}) as Record<string, unknown>
   return {
     mfa_required:            security.mfa_required            === true,
@@ -353,6 +361,7 @@ export async function updateSecuritySettings(data: SecuritySettings): Promise<{ 
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:    profile.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actor_name:  (profile as any).full_name ?? undefined,
     action:      'org.security_updated',
     target_type: 'organization',
@@ -425,6 +434,7 @@ export async function createApiKey(data: {
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:   profile.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actor_name: (profile as any).full_name ?? undefined,
     action:     'api_key.created',
     target_type: 'organization',
@@ -454,6 +464,7 @@ export async function revokeApiKey(keyId: string): Promise<{ success?: true; err
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:   profile.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actor_name: (profile as any).full_name ?? undefined,
     action:     'api_key.revoked',
     target_type: 'organization',
@@ -523,6 +534,7 @@ export async function createWebhook(data: {
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:   profile.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actor_name: (profile as any).full_name ?? undefined,
     action:     'webhook.created',
     target_type: 'organization',
@@ -552,6 +564,7 @@ export async function deleteWebhook(webhookId: string): Promise<{ success?: true
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:   profile.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actor_name: (profile as any).full_name ?? undefined,
     action:     'webhook.deleted',
     target_type: 'organization',
@@ -603,7 +616,8 @@ export async function testWebhook(webhookId: string): Promise<{ success?: true; 
     void logAuditEvent({
       organization_id: profile.organization_id,
       actor_id:   profile.id,
-      actor_name: (profile as any).full_name ?? undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    actor_name: (profile as any).full_name ?? undefined,
       action:     'webhook.tested',
       target_type: 'organization',
       target_id:  webhookId,
@@ -611,8 +625,8 @@ export async function testWebhook(webhookId: string): Promise<{ success?: true; 
     })
 
     return { success: true, status: res.status }
-  } catch (e: any) {
-    return { error: `Error de conexión: ${e?.message ?? 'timeout'}` }
+  } catch (e: unknown) {
+    return { error: `Error de conexión: ${e instanceof Error ? e.message : 'timeout'}` }
   }
 }
 
@@ -630,8 +644,6 @@ export async function updateAppSettings(data: {
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
 
   const fluxion  = createFluxionClient()
-  const supabase = createClient()
-
   const merged = mergePrefs(profile.preferences, {
     notifications_email: data.notifications_email,
     notifications_inapp: data.notifications_inapp,

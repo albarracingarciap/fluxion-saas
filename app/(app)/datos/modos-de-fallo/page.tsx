@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Database, Plus, Search, Loader2, Trash2, Edit2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert } from 'lucide-react';
 import { getFailureModes, deleteFailureMode, getRiskDimensions, createFailureMode, updateFailureMode } from './actions';
 
 export default function ModosDeFalloPage() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dimensions, setDimensions] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -17,6 +19,7 @@ export default function ModosDeFalloPage() {
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editingItem, setEditingItem] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
@@ -43,6 +46,7 @@ export default function ModosDeFalloPage() {
     setMounted(true);
     loadData();
     loadDimensions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const loadData = async () => {
@@ -83,6 +87,7 @@ export default function ModosDeFalloPage() {
     setIsModalOpen(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openEditModal = (item: any) => {
     setEditingItem(item);
     setFormData({ ...item });
@@ -95,7 +100,7 @@ export default function ModosDeFalloPage() {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    let finalValue: any = value;
+    let finalValue: string | number = value;
     
     if (type === 'number') {
       finalValue = Number(value);
@@ -117,6 +122,7 @@ export default function ModosDeFalloPage() {
 
     // Remover properties anidadas antes de guardar
     const payload = { ...formData };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (payload as any).risk_dimensions; 
 
     if (editingItem) {

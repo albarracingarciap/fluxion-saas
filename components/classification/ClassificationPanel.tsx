@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { ClassificationProposal, PanelState, RiskLevel } from '@/types/classification'
-import { RiskLevelBadge, RISK_CONFIG } from './RiskLevelBadge'
+import { RiskLevelBadge } from './RiskLevelBadge'
 import { StreamingReasoning } from './StreamingReasoning'
 import { RagSourcesAccordion } from './RagSourcesAccordion'
 import { ConfirmationForm } from './ConfirmationForm'
@@ -195,7 +195,7 @@ export function ClassificationPanel({
     await doFetch()
   }
 
-  async function handleConfirm(level: RiskLevel, reviewerNotes: string) {
+  async function handleConfirm(level: RiskLevel, _reviewerNotes: string) {
     if (!proposal) return
     setPhase('confirming')
 

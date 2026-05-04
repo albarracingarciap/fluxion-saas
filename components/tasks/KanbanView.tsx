@@ -8,10 +8,9 @@ import {
 } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import {
-  TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, KANBAN_COLUMNS,
+  TASK_PRIORITY_LABELS, KANBAN_COLUMNS,
 } from '@/lib/tasks/types'
 import {
-  updateTaskStatusAction,
   reorderTaskAction,
   getWipLimitsAction,
   updateWipLimitsAction,

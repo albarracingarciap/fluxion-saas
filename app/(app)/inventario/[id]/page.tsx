@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 
 import { computeCausalDegrees } from '@/lib/causal-graph/propagation';
-import { buildSystemCausalGraph, type SystemCausalGraph } from '@/lib/causal-graph/system-graph';
+import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
@@ -13,7 +13,6 @@ import {
   type SoaControlState,
   type SystemDetailData,
   type SystemEvidenceEntry,
-  type SystemFailureModeEntry,
   type SystemHistoryEntry,
   type SystemObligationEntry,
 } from './system-detail-client';
@@ -660,7 +659,6 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   return (
     <SystemDetailClient
       system={system}
-      organizationId={membership.organization_id}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

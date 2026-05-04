@@ -178,7 +178,7 @@ export function SaveReportEvidenceModal({
           <div className="rounded-[10px] border border-orb bg-ordim px-4 py-3">
             <p className="font-sora text-[11.5px] text-ltt leading-snug">
               La evidencia se guarda en estado <span className="font-medium text-or">pendiente de revisión</span>.
-              Pasará a "válida" cuando alguien la apruebe desde la biblioteca de evidencias.
+              Pasará a &quot;válida&quot; cuando alguien la apruebe desde la biblioteca de evidencias.
             </p>
           </div>
         </div>

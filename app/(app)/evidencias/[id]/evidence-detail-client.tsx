@@ -7,11 +7,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  ExternalLink,
   FileText,
-  ImageIcon,
   Loader2,
-  Pencil,
   Trash2,
   X,
 } from 'lucide-react'

@@ -162,7 +162,7 @@ export function CalendarView({
   systems: System[]
   currentProfileId: string | null
 }) {
-  const todayDate = new Date()
+  const todayDate = useMemo(() => new Date(), [])
   const todayStr  = todayDate.toISOString().split('T')[0]!
 
   const [year, setYear]   = useState(todayDate.getFullYear())
@@ -185,7 +185,7 @@ export function CalendarView({
   const noDueDate = useMemo(() => tasks.filter(t => !t.due_date && t.status !== 'done' && t.status !== 'cancelled'), [tasks])
 
   // ── calendar grid ────────────────────────────────────────────────────────
-  const { weeks, firstDay } = useMemo(() => {
+  const { weeks } = useMemo(() => {
     const first = new Date(year, month, 1)
     // day-of-week Mon=0 ... Sun=6
     const startDow = (first.getDay() + 6) % 7
@@ -299,7 +299,7 @@ export function CalendarView({
           {/* Weeks */}
           {weeks.map((week, wi) => (
             <div key={wi} className="grid grid-cols-7">
-              {week.map((day, di) => {
+              {week.map((day) => {
                 const isCurrentMonth = parseInt(day.split('-')[1]!) - 1 === month
                 return (
                   <DayCell

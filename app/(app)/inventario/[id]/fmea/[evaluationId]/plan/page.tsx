@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 import { buildTreatmentPlanData } from '@/lib/fmea/treatment-plan';
 import { requireFmeaContext } from '@/lib/fmea/data';
@@ -13,17 +13,7 @@ type TreatmentPlanPageProps = {
 };
 
 export default async function TreatmentPlanPage({ params }: TreatmentPlanPageProps) {
-  const { fluxion, membership, user } = await requireFmeaContext();
-
-  const { data: evaluationItems } = await fluxion
-    .from('fmea_items')
-    .select('status, requires_second_review, second_review_status')
-    .eq('evaluation_id', params.evaluationId);
-
-  /* 
-    Se permite el acceso al plan en modo borrador/previsualización 
-    incluso si hay ítems pendientes, para facilitar la planificación temprana.
-  */
+  const { membership, user } = await requireFmeaContext();
 
   const data = await buildTreatmentPlanData({
     organizationId: membership.organization_id,

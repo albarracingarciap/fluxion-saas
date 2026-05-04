@@ -34,8 +34,10 @@ export function AuditoriaTab() {
     void (async () => {
       const result = await getRoleChanges()
       if ('success' in result && result.success) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setChanges((result as any).changes)
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setError((result as any).error ?? 'Error al cargar el historial.')
       }
       setLoading(false)
@@ -127,7 +129,7 @@ export function AuditoriaTab() {
                       )}
                     </p>
                     {c.reason && (
-                      <p className="font-sora text-[11.5px] text-lttm mt-0.5 italic">"{c.reason}"</p>
+                      <p className="font-sora text-[11.5px] text-lttm mt-0.5 italic">&quot;{c.reason}&quot;</p>
                     )}
                     <p className="font-sora text-[11px] text-lttm mt-1">{formatDateTime(c.created_at)}</p>
                   </div>

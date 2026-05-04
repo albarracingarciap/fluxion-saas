@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import Dagre from '@dagrejs/dagre';
-import { X, ZoomIn } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { SystemCausalGraph, SystemGraphNode } from '@/lib/causal-graph/system-graph';
 
 // ---------------------------------------------------------------------------

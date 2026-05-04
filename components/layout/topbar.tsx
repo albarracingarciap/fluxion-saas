@@ -119,7 +119,7 @@ export function Topbar() {
               {displayName}
             </span>
             <span className="font-plex text-[10px] text-dkt2 leading-tight">
-              {{
+              {({
                 org_admin:          'Administrador',
                 sgai_manager:       'SGAI Manager',
                 caio:               'CAIO',
@@ -130,7 +130,7 @@ export function Topbar() {
                 executive:          'Directivo',
                 auditor:            'Auditor',
                 viewer:             'Lector',
-              }[role ?? ''] ?? 'Lector'}
+              } as Record<string, string>)[role ?? ''] ?? 'Lector'}
             </span>
           </div>
           <div className="w-[34px] h-[34px] rounded-full overflow-hidden bg-gradient-to-tr from-brand-cyan to-brand-blue flex items-center justify-center text-white font-sora text-[13px] font-bold shadow-[0_2px_8px_rgba(0,173,239,0.3)] border-[1.5px] border-dk8 shrink-0 relative">

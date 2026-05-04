@@ -1,6 +1,5 @@
 import type { TreatmentPlanMember } from '@/lib/fmea/treatment-plan'
 import type { EditableTreatmentAction } from '@/lib/fmea/treatment-plan-utils'
-import { getOptionLabel } from '@/lib/fmea/treatment-plan-utils'
 import type { TreatmentPlanListRow } from '@/lib/treatment-plans/data'
 
 const OPTION_LABELS: Record<string, string> = {

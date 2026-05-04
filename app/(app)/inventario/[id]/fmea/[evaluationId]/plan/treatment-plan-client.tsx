@@ -435,7 +435,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         aiSystemId: data.system.id,
         evaluationId: data.evaluation.id,
         actionId: action.id,
-        option: action.option,
+        option: action.option!,
         ownerId: action.owner_id,
         dueDate: action.due_date,
         justification: action.justification,

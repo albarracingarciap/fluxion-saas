@@ -16,8 +16,11 @@ import {
 export default function RelacionesCausalesPage() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [families, setFamilies] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [nodes, setNodes] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -25,6 +28,7 @@ export default function RelacionesCausalesPage() {
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editingItem, setEditingItem] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
@@ -46,6 +50,7 @@ export default function RelacionesCausalesPage() {
     setMounted(true);
     loadData();
     if (families.length === 0) loadCatalogs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const loadData = async () => {
@@ -87,6 +92,7 @@ export default function RelacionesCausalesPage() {
     setIsModalOpen(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openEditModal = (item: any) => {
     setEditingItem(item);
     setFormData({ 
@@ -114,6 +120,7 @@ export default function RelacionesCausalesPage() {
 
     if (editingItem) {
       const payload = { ...formData };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (payload as any).id; 
       res = await updateCausalRelationship(editingItem.id, payload);
     } else {

@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, CheckCircle2, AlertTriangle, Clock, TrendingUp,
+  ArrowLeft, CheckCircle2, AlertTriangle, TrendingUp,
   BarChart2, Target, ListTodo, Shield,
 } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority, TaskSourceType } from '@/lib/tasks/types'

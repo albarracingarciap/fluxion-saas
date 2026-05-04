@@ -13,7 +13,6 @@ import {
   Download,
   ExternalLink,
   FileText,
-  ImageIcon,
   Link2,
   Loader2,
   Paperclip,
@@ -679,7 +678,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                   )}
                   {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
                     <p className="font-sora text-[10.5px] text-lttm italic max-w-[220px] text-right leading-tight">
-                      "{evidence.validation_notes}"
+                      &quot;{evidence.validation_notes}&quot;
                     </p>
                   )}
 

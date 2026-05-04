@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
-import { Send, Loader2, Pencil, Trash2, X, Check, AtSign } from 'lucide-react'
+import { Send, Loader2, Pencil, Trash2, X, AtSign } from 'lucide-react'
 import {
   getCommentsAction,
   addCommentAction,

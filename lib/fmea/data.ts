@@ -502,11 +502,15 @@ export async function buildFmeaEvaluationData(params: {
         description: mode.description,
         dimension_id: mode.dimension_id,
         dimension_name: Array.isArray(mode.risk_dimensions)
-          ? mode.risk_dimensions[0]?.name ?? mode.dimension_id
-          : mode.risk_dimensions?.name ?? mode.dimension_id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (mode.risk_dimensions as any)[0]?.name ?? mode.dimension_id
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          : (mode.risk_dimensions as any)?.name ?? mode.dimension_id,
         dimension_order: Array.isArray(mode.risk_dimensions)
-          ? mode.risk_dimensions[0]?.display_order ?? 99
-          : mode.risk_dimensions?.display_order ?? 99,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (mode.risk_dimensions as any)[0]?.display_order ?? 99
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          : (mode.risk_dimensions as any)?.display_order ?? 99,
         bloque: mode.bloque,
         subcategoria: mode.subcategoria,
         tipo: mode.tipo,

@@ -230,7 +230,7 @@ function DimensionRow({ dim }: { dim: FmeaDimensionComparisonRow }) {
   );
 }
 
-function ModeRow({ mode, prevVersion, currVersion }: { mode: FmeaModeComparisonRow; prevVersion: number; currVersion: number }) {
+function ModeRow({ mode }: { mode: FmeaModeComparisonRow; prevVersion?: number; currVersion?: number }) {
   let rowBg = '';
   if (mode.is_new) rowBg = 'bg-[rgba(0,173,239,0.04)]';
   else if (mode.is_removed) rowBg = 'bg-[rgba(217,45,32,0.03)]';
@@ -268,8 +268,6 @@ function ModeRow({ mode, prevVersion, currVersion }: { mode: FmeaModeComparisonR
 
 export function FmeaComparisonClient({ data }: { data: FmeaVersionComparisonData }) {
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [expandedDims, setExpandedDims] = useState<Set<string>>(new Set());
-
   const { system, currentEvaluation, previousEvaluation, modes, dimensions, summary } = data;
 
   const aiSystemId = system.id;
@@ -295,14 +293,6 @@ export function FmeaComparisonClient({ data }: { data: FmeaVersionComparisonData
     [filteredModes]
   );
 
-  const zoneImproved =
-    summary.curr_zone &&
-    summary.prev_zone &&
-    (ZONE_ORDER[summary.curr_zone] ?? 4) > (ZONE_ORDER[summary.prev_zone] ?? 4);
-  const zoneWorsened =
-    summary.curr_zone &&
-    summary.prev_zone &&
-    (ZONE_ORDER[summary.curr_zone] ?? 4) < (ZONE_ORDER[summary.prev_zone] ?? 4);
 
   return (
     <div className="max-w-[1200px] mx-auto w-full animate-fadein pb-10">

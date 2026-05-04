@@ -16,7 +16,7 @@ type Props = {
 
 const ASSIGNABLE_LAYERS: GapLayer[] = ['normativo', 'control', 'caducidad']
 
-export function BulkActionBar({ selectedGaps, members, onClear, onAssign, onCreateTasks, onDispose }: Props) {
+export function BulkActionBar({ selectedGaps, onClear, onAssign, onCreateTasks, onDispose }: Props) {
   if (selectedGaps.length === 0) return null
 
   const layerCounts = selectedGaps.reduce<Partial<Record<GapLayer, number>>>((acc, gap) => {

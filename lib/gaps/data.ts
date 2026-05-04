@@ -1,4 +1,4 @@
-import { buildArticleToFailureModeMap, extractArticleCode, normalizeObligationCode } from '@/lib/causal-graph/amplifiers'
+import { buildArticleToFailureModeMap, extractArticleCode } from '@/lib/causal-graph/amplifiers'
 import { createComplianceClient } from '@/lib/supabase/compliance'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import {
@@ -509,14 +509,6 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
 
   // Determine severity from the system's AI Act risk level
   // DB may store English ('high', 'limited', 'minimal', 'unacceptable') or Spanish ('alto_riesgo', etc.)
-  function severityFromRiskLevel(riskLevel: string): GapSeverity {
-    const level = riskLevel.toLowerCase()
-    if (level === 'unacceptable' || level === 'inaceptable') return 'critico'
-    if (level === 'high' || level === 'alto' || level === 'alto_riesgo') return 'critico'
-    if (level === 'limited' || level === 'limitado' || level === 'limitado_riesgo') return 'alto'
-    return 'medio'
-  }
-
   // Generate normativo gaps from persisted system_obligations records
   for (const record of obligations) {
     if (['resolved', 'excluded'].includes(record.status)) continue

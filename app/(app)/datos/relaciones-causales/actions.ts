@@ -43,6 +43,7 @@ export async function getCausalRelationships(page = 1, pageSize = 50) {
     }
 
     // Adapt payload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const processedData = data.map((item: any) => ({
       ...item,
       family_name: item.causal_families?.name,
@@ -53,8 +54,8 @@ export async function getCausalRelationships(page = 1, pageSize = 50) {
     }));
 
     return { data: processedData, count, success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -68,8 +69,8 @@ export async function getCausalFamilies() {
 
     if (error) return { error: error.message };
     return { data, success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -83,12 +84,12 @@ export async function getCausalNodes() {
 
     if (error) return { error: error.message };
     return { data, success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function createCausalRelationship(payload: any) {
+export async function createCausalRelationship(payload: Record<string, unknown>) {
   try {
     await requireAdmin();
     
@@ -101,12 +102,12 @@ export async function createCausalRelationship(payload: any) {
 
     revalidatePath('/datos/relaciones-causales');
     return { success: true, data };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function updateCausalRelationship(id: string, payload: any) {
+export async function updateCausalRelationship(id: string, payload: Record<string, unknown>) {
   try {
     await requireAdmin();
 
@@ -120,8 +121,8 @@ export async function updateCausalRelationship(id: string, payload: any) {
 
     revalidatePath('/datos/relaciones-causales');
     return { success: true, data };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -138,7 +139,7 @@ export async function deleteCausalRelationship(id: string) {
 
     revalidatePath('/datos/relaciones-causales');
     return { success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }

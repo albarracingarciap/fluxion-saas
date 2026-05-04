@@ -41,12 +41,12 @@ export async function getFailureModes(page = 1, pageSize = 50) {
     }
 
     return { data, count, success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function createFailureMode(payload: any) {
+export async function createFailureMode(payload: Record<string, unknown>) {
   try {
     await requireAdmin();
     
@@ -63,12 +63,12 @@ export async function createFailureMode(payload: any) {
 
     revalidatePath('/datos/modos-de-fallo');
     return { success: true, data };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function updateFailureMode(id: string, payload: any) {
+export async function updateFailureMode(id: string, payload: Record<string, unknown>) {
   try {
     await requireAdmin();
 
@@ -82,8 +82,8 @@ export async function updateFailureMode(id: string, payload: any) {
 
     revalidatePath('/datos/modos-de-fallo');
     return { success: true, data };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -100,8 +100,8 @@ export async function deleteFailureMode(id: string) {
 
     revalidatePath('/datos/modos-de-fallo');
     return { success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -114,7 +114,7 @@ export async function getRiskDimensions() {
 
     if (error) return { error: error.message };
     return { data, success: true };
-  } catch (e: any) {
-    return { error: e.message };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }

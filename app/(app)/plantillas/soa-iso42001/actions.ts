@@ -8,9 +8,8 @@ import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fl
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 
-export async function initializeSoA(formData: FormData) {
+export async function initializeSoA(_formData: FormData) {
   const adminClient = createAdminFluxionClient()
-  const fluxion = createFluxionClient()
   const { user, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')

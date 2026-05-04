@@ -1,6 +1,5 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 
 /**

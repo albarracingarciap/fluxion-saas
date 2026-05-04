@@ -106,7 +106,7 @@ async function requireEditableTreatmentPlan(params: {
 
   const { data: plan, error: planError } = await fluxion
     .from('treatment_plans')
-    .select('id, organization_id, system_id, evaluation_id, status, code, approval_level, approver_id')
+    .select('id, organization_id, system_id, evaluation_id, status, code, approval_level, approver_id, deadline')
     .eq('organization_id', membership.organization_id)
     .eq('system_id', params.aiSystemId)
     .eq('evaluation_id', params.evaluationId)
@@ -244,7 +244,8 @@ async function calculateCurrentPlanProjectedZone(params: {
     .eq('plan_id', planId);
 
   return calculateProjectedZoneForTreatmentActions({
-    actions: (persistedActions ?? []).map((action) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    actions: (persistedActions ?? []).map((action: any) => {
       const item = Array.isArray(action.fmea_items) ? action.fmea_items[0] : action.fmea_items;
       return {
         id: action.id,
@@ -1664,7 +1665,9 @@ export async function reviewAcceptanceAction(
 
   if (actionError || !action) return { error: 'Acción no encontrada.' };
 
-  const plan = action.treatment_plans as {
+  const plan = (Array.isArray(action.treatment_plans)
+    ? action.treatment_plans[0]
+    : action.treatment_plans) as {
     id: string; evaluation_id: string; system_id: string;
     organization_id: string; code: string;
   };

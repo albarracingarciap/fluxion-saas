@@ -1,5 +1,5 @@
 import { createFluxionClient } from '@/lib/supabase/fluxion'
-import { computeVersionDiff, getChangeTypeLabel, type EvidenceVersionRecord } from './versions'
+import { computeVersionDiff, type EvidenceVersionRecord } from './versions'
 
 // ─── Raw DB types ────────────────────────────────────────────────────────────
 

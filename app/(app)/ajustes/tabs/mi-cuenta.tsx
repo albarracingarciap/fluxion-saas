@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { User } from 'lucide-react';
 import {
   AccountPrefs, TIMEZONES,
-  inputCls, selectCls, SelectArrow, SectionHeader, FieldLabel, SaveBar,
+  selectCls, SelectArrow, SectionHeader, FieldLabel, SaveBar,
 } from './shared';
 import { updateAccountPrefs } from '../actions';
 

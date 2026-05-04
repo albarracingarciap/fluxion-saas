@@ -141,7 +141,7 @@ export function TaskChecklist({ taskId }: { taskId: string }) {
   const [loading,    setLoading]    = useState(true)
   const [newLabel,   setNewLabel]   = useState('')
   const [adding,     setAdding]     = useState(false)
-  const [isPending,  startT]        = useTransition()
+  const [_isPending, startT]        = useTransition()
   const [showAddRow, setShowAddRow] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
 

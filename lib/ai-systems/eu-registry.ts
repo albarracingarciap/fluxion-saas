@@ -110,7 +110,8 @@ function hasDocStatus(value: string | null | undefined) {
 }
 
 export async function buildEuRegistryData(params: {
-  fluxion: SupabaseClient
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>
   organizationId: string
   aiSystemId: string
 }): Promise<EuRegistryData | null> {

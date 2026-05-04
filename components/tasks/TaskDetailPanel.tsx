@@ -41,13 +41,6 @@ const STATUS_STYLES: Record<TaskStatus, string> = {
   cancelled:   'bg-ltbg text-lttm border-ltb',
 }
 
-const PRIORITY_STYLES: Record<TaskPriority, string> = {
-  low:      'bg-ltbg text-lttm border-ltb',
-  medium:   'bg-cyan-dim text-brand-cyan border-cyan-border',
-  high:     'bg-ordim text-or border-orb',
-  critical: 'bg-redim text-re border-reb',
-}
-
 type DetailTab = 'checklist' | 'comments' | 'activity' | 'attachments'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -180,7 +173,7 @@ type Props = {
 }
 
 export function TaskDetailPanel({
-  task, members, systems, currentProfileId, onClose, onUpdated, onDeleted,
+  task, members, systems: _systems, currentProfileId, onClose, onUpdated, onDeleted,
 }: Props) {
   const [show,          setShow]          = useState(false)
   const [title,         setTitle]         = useState(task.title)

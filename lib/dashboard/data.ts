@@ -114,7 +114,7 @@ function getComplianceFromSystem(
 
   return progressItems.length === 0
     ? 0
-    : Math.round(progressItems.reduce((acc, value) => acc + value, 0) / progressItems.length);
+    : Math.round(progressItems.reduce<number>((acc, value) => acc + value, 0) / progressItems.length);
 }
 
 function classifyPillar(title: string) {

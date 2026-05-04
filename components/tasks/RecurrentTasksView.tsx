@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, Plus, Pencil, Trash2, Play, Loader2, X, Check,
-  ChevronDown, ChevronRight, Clock, Calendar, AlertCircle,
+  ChevronDown, Clock, Calendar, AlertCircle,
   CheckSquare2, User, Cpu, Tag, XCircle,
 } from 'lucide-react'
 import {
@@ -536,7 +536,7 @@ function RecurrenceCard({
   onShowHistory:  () => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [isPending,     startT]           = useTransition()
+  const [isPending,     _startT]          = useTransition()
   const overdue = isOverdue(rec.next_run_at) && rec.active
 
   return (
@@ -701,7 +701,7 @@ export function RecurrentTasksView({ recurrences: initial, members, systems, tem
   const [editTarget,   setEditTarget]   = useState<TaskRecurrence | null>(null)
   const [historyFor,   setHistoryFor]   = useState<string | null>(null)
   const [triggerMsg,   setTriggerMsg]   = useState<{ id: string; msg: string } | null>(null)
-  const [isPending,    startT]          = useTransition()
+  const [_isPending,   startT]          = useTransition()
 
   const active   = recurrences.filter((r) => r.active)
   const inactive = recurrences.filter((r) => !r.active)

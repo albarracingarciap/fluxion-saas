@@ -92,6 +92,7 @@ function MemberAvatar({ name, url }: { name: string | null; url: string | null }
     ? name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
     : '?';
   if (url) {
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={url} alt={name ?? ''} className="w-8 h-8 rounded-full object-cover border border-ltb" />;
   }
   return (
@@ -249,7 +250,7 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
               )}
             </div>
             {committee
-              ? <p className="font-sora text-[12.5px] text-lttm mt-0.5 italic">"{committee.name}"</p>
+              ? <p className="font-sora text-[12.5px] text-lttm mt-0.5 italic">&quot;{committee.name}&quot;</p>
               : <p className="font-sora text-[12.5px] text-lttm mt-0.5">{description}</p>}
             {committee?.established_at && (
               <p className="font-sora text-[11.5px] text-lttm mt-1">

@@ -28,7 +28,6 @@ export function RecordResidualModal({
   const target = action.s_residual_target
   const actual = action.s_actual_at_creation
   const effectiveValue = notMeasured ? null : sAchieved
-  const isSlippage = effectiveValue !== null && target !== null && effectiveValue > target
   const isOnTarget = effectiveValue !== null && target !== null && effectiveValue <= target
 
   function handleSubmit() {

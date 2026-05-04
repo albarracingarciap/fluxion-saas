@@ -341,15 +341,6 @@ const OUTPUT_LABELS: Record<string, string> = {
   otro: 'Otro',
 };
 
-const AI_TYPE_LABELS: Record<string, string> = {
-  clasico: 'ML clásico',
-  generativo: 'IA generativa',
-  nlp: 'NLP',
-  cv: 'Visión por computador',
-  reglas: 'Sistema híbrido / reglas',
-  agentico: 'Sistema agéntico',
-};
-
 const PROVIDER_LABELS: Record<string, string> = {
   interno: 'Interno',
   proveedor: 'Proveedor externo',
@@ -364,13 +355,6 @@ const OVERSIGHT_LABELS: Record<string, string> = {
   muestral: 'Revisión muestral periódica',
   umbral: 'Intervención solo si supera umbral de riesgo',
   auditoria: 'Solo auditoría retrospectiva',
-};
-
-const DOC_STATUS_LABELS: Record<string, string> = {
-  si: 'Sí',
-  parcial: 'Parcial',
-  proceso: 'En proceso',
-  no: 'No',
 };
 
 const CERT_STATUS_LABELS: Record<string, string> = {
@@ -687,15 +671,6 @@ function formatJoined(values: string[] | null | undefined) {
   return values.join(' · ');
 }
 
-function formatBool(value: boolean | null, trueLabel = 'Sí', falseLabel = 'No') {
-  if (value === null) return '—';
-  return value ? trueLabel : falseLabel;
-}
-
-function formatDocStatus(value: string | null) {
-  return value ? DOC_STATUS_LABELS[value] ?? value : '—';
-}
-
 function isFilled(v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (typeof v === 'string') return v.length > 0;
@@ -965,7 +940,7 @@ function HistoryTab({ events }: { events: SystemHistoryEntry[] }) {
                               )}
                               {isClasif && (
                                 <div className="flex flex-wrap gap-4 pt-1">
-                                  {event.payload.risk_level && (
+                                  {!!(event.payload.risk_level) && (
                                     <div>
                                       <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Nivel resultante</span>
                                       <span className="font-sora text-[12px] font-semibold text-ltt">
@@ -973,13 +948,13 @@ function HistoryTab({ events }: { events: SystemHistoryEntry[] }) {
                                       </span>
                                     </div>
                                   )}
-                                  {event.payload.source && (
+                                  {!!(event.payload.source) && (
                                     <div>
                                       <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Origen</span>
                                       <span className="font-sora text-[12px] text-ltt2">{String(event.payload.source)}</span>
                                     </div>
                                   )}
-                                  {event.payload.method && (
+                                  {!!(event.payload.method) && (
                                     <div>
                                       <span className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm block mb-0.5">Método</span>
                                       <span className="font-sora text-[12px] text-ltt2">{String(event.payload.method)}</span>
@@ -1631,7 +1606,6 @@ function buildSyntheticHistory(system: SystemDetailData): SystemHistoryEntry[] {
 
 export function SystemDetailClient({
   system,
-  organizationId,
   history,
   classificationEvents,
   evidences,
@@ -1646,7 +1620,6 @@ export function SystemDetailClient({
   soaScopeSystemTags,
 }: {
   system: SystemDetailData;
-  organizationId: string;
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -1661,7 +1634,7 @@ export function SystemDetailClient({
   soaScopeSystemTags: string[];
 }) {
   const searchParams = useSearchParams();
-  const { profile, user } = useAuthStore();
+  const { profile } = useAuthStore();
   const [localHistory, setLocalHistory] = useState<SystemHistoryEntry[]>(history);
   const [activeTab, setActiveTab] = useState(() => resolveInitialSystemTab(searchParams.get('tab')));
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
@@ -3516,7 +3489,7 @@ export function SystemDetailClient({
                                 )}
                                 {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
                                   <p className="font-sora text-[10.5px] text-lttm italic max-w-[200px] text-right leading-tight">
-                                    "{evidence.validation_notes}"
+                                    &quot;{evidence.validation_notes}&quot;
                                   </p>
                                 )}
 
@@ -4105,7 +4078,7 @@ export function SystemDetailClient({
                           <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
                             <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Zona proyectada</div>
                             <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none mb-2">
-                              {treatmentPlanData.plan.zone_at_creation} → {treatmentPlanData.plan.residual_risk ?? 'TBD'}
+                              {treatmentPlanData.plan.zone_at_creation} → {treatmentPlanData.plan.zone_target ?? 'TBD'}
                             </div>
                             <div className="font-sora text-[11px] text-lttm">Tras aplicar todas las medidas del plan</div>
                           </div>

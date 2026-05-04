@@ -70,12 +70,18 @@ export default function UsersPage() {
     setPageError(null)
     const result = await getOrganizationMembersAndInvitations()
     if ('success' in result && result.success) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setMembers((result as any).members)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setInactiveMembers((result as any).inactiveMembers)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setInvitations((result as any).invitations)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setCurrentUserId((result as any).currentUserId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setCurrentUserRole((result as any).currentUserRole)
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setPageError((result as any).error ?? 'Error al cargar los datos.')
     }
     setLoading(false)
@@ -122,6 +128,7 @@ export default function UsersPage() {
   async function handleResend(invId: string) {
     const res = await resendInvitation(invId)
     loadData()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return { token: res.success ? (res as any).token : undefined, error: (res as any).error }
   }
 

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import Link from 'next/link'
-import { Plus, Search, Filter, ChevronRight, AlertTriangle, ShieldCheck, Clock, Archive } from 'lucide-react'
+import { Plus, ChevronRight, AlertTriangle, Archive } from 'lucide-react'
 import { redirect } from 'next/navigation'
 
 // ─── Types ──────────────────────────────────────────────────────────────────

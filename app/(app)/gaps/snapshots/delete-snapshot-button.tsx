@@ -65,7 +65,7 @@ export function DeleteSnapshotButton({ snapshotId, snapshotTitle }: Props) {
 
               <div className="px-5 py-4">
                 <p className="font-sora text-[13px] text-ltt2">
-                  ¿Eliminar <span className="font-semibold text-ltt">"{snapshotTitle}"</span>? Esta acción no se puede deshacer.
+                  ¿Eliminar <span className="font-semibold text-ltt">&quot;{snapshotTitle}&quot;</span>? Esta acción no se puede deshacer.
                 </p>
                 {error && (
                   <p className="mt-3 font-sora text-[12px] text-re bg-redim border border-reb rounded-lg px-3 py-2">

@@ -188,7 +188,8 @@ export type TechnicalDossierData = {
 }
 
 export async function buildTechnicalDossierData(params: {
-  fluxion: SupabaseClient
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: SupabaseClient<any, any, any>
   organizationId: string
   aiSystemId: string
 }): Promise<TechnicalDossierData | null> {
@@ -395,7 +396,7 @@ export async function buildTechnicalDossierData(params: {
   try {
     const allChains = await detectActiveCausalChains(organizationId, { minLength: 3, limit: 20 })
     causalChains = allChains.filter((c) => c.system_id === aiSystemId)
-  } catch (e) {
+  } catch {
     // Si falla la detección (ej. compliance DB inaccesible) seguimos sin cadenas
     causalChains = []
   }

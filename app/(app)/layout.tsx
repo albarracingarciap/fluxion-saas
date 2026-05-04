@@ -1,6 +1,5 @@
 import { Sidebar, type SidebarOrgState } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
-import { IntelBanner } from "@/components/layout/intel-banner"
 import { OverdueReviewsBanner } from "@/components/layout/overdue-reviews-banner"
 import { AssistantPanel } from "@/components/assistant/AssistantPanel"
 import { ThemeApplier } from "@/components/profile/ThemeApplier"

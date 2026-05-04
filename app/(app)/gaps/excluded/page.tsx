@@ -75,7 +75,7 @@ export default async function ExcludedGapsPage() {
           </div>
           <p className="font-sora text-[14px] font-semibold text-ltt">Sin gaps excluidos</p>
           <p className="font-sora text-[13px] text-ltt2 mt-2 max-w-[400px] mx-auto">
-            Cuando aceptes o marques como "no aplica" algún gap desde la cola activa, aparecerá aquí.
+            Cuando aceptes o marques como &quot;no aplica&quot; algún gap desde la cola activa, aparecerá aquí.
           </p>
           <Link
             href="/gaps"

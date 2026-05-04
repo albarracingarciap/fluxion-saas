@@ -171,7 +171,9 @@ export async function getCommittees() {
 
   if (ce) return { error: ce.message };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const committeeIds = (committees ?? []).map((c: any) => c.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let members: any[] = [];
   if (committeeIds.length > 0) {
     const { data: mData } = await fluxion
@@ -193,8 +195,10 @@ export async function getCommittees() {
     success: true,
     organizationId: profile.organization_id,
     currentUserRole: profile.role,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     committees: (committees ?? []).map((c: any) => ({
       ...c,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       members: members.filter((m: any) => m.committee_id === c.id),
     })),
     orgProfiles: orgProfiles ?? [],

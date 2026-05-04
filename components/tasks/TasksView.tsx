@@ -55,15 +55,6 @@ const PRIORITY_STYLES: Record<TaskPriority, string> = {
   critical: 'bg-redim text-re border-reb',
 }
 
-function StatusBadge({ status }: { status: TaskStatus }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-plex text-[10px] uppercase tracking-[0.5px] ${STATUS_STYLES[status]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />
-      {TASK_STATUS_LABELS[status]}
-    </span>
-  )
-}
-
 function PriorityBadge({ priority }: { priority: TaskPriority }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full border font-plex text-[10px] uppercase tracking-[0.5px] ${PRIORITY_STYLES[priority]}`}>
@@ -599,7 +590,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
       const s = new Set(prev)
-      s.has(id) ? s.delete(id) : s.add(id)
+      if (s.has(id)) { s.delete(id) } else { s.add(id) }
       return s
     })
   }

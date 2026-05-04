@@ -113,7 +113,7 @@ export function InvitacionesTab({ invitations, isAdmin, onCancel, onResend, onCo
         {inv.message && (
           <div className="mt-2.5 ml-[52px] flex items-start gap-1.5 text-[11.5px] text-lttm font-sora">
             <MessageSquare size={11} className="mt-0.5 shrink-0" />
-            <span className="italic">"{inv.message}"</span>
+            <span className="italic">&quot;{inv.message}&quot;</span>
           </div>
         )}
       </div>

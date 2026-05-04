@@ -351,7 +351,7 @@ export async function createGapGroupTaskAction(params: {
   const systemId = uniqueSystems.length === 1 ? uniqueSystems[0] : null
 
   // Determinar assigneeId del perfil (la action necesita profile.id)
-  let resolvedAssigneeId: string | undefined = params.assigneeId
+  const resolvedAssigneeId: string | undefined = params.assigneeId
 
   const description = [
     `Tarea-paraguas que cubre ${params.gaps.length} gaps de capa ${params.groupLayer}.`,
@@ -497,6 +497,7 @@ export async function getCommentsAction(taskId: string): Promise<CommentRow[]> {
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((r: any) => ({
     ...r,
     author_name:   r.profiles?.display_name ?? r.profiles?.full_name ?? null,
@@ -650,6 +651,7 @@ export async function getTaskActivityAction(taskId: string): Promise<ActivityRow
     .eq('task_id', taskId)
     .order('created_at', { ascending: true })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((r: any) => ({
     ...r,
     actor_name:  r.profiles?.display_name ?? r.profiles?.full_name ?? null,
@@ -707,6 +709,7 @@ export async function getAttachmentsAction(taskId: string): Promise<AttachmentRo
   ).storage
 
   return await Promise.all(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data.map(async (r: any) => {
       const { data: signed } = await storage
         .from(BUCKET)
@@ -841,6 +844,7 @@ export async function getWatchersAction(taskId: string): Promise<WatcherRow[]> {
     .eq('task_id', taskId)
     .order('created_at', { ascending: true })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((r: any) => ({
     user_id:    r.user_id,
     source:     r.source,

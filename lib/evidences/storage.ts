@@ -41,7 +41,6 @@ export async function uploadEvidenceFile(
   evidenceId: string,
 ): Promise<UploadEvidenceFileResult> {
   const supabase = createClient();
-  const ext = getFileExtension(file.name);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `${organizationId}/${evidenceId}/${Date.now()}-${safeName}`;
 

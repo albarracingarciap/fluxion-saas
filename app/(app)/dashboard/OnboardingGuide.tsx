@@ -70,8 +70,6 @@ export function OnboardingGuide({ firstFocus }: { firstFocus?: string }) {
   const defaultKey = (firstFocus && firstFocus in FOCUS_CONFIG ? firstFocus : 'inventory') as FocusKey
   const [activeKey, setActiveKey] = useState<FocusKey>(defaultKey)
   const focus = FOCUS_CONFIG[activeKey]
-  const FocusIcon = focus.Icon
-
   return (
     <div className="bg-ltcard border border-ltb rounded-[14px] shadow-[0_2px_12px_rgba(0,74,173,0.04)] overflow-hidden">
       {/* Header */}
