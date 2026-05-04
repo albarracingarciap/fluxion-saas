@@ -73,7 +73,7 @@ export function GapAssignmentPanel(props: GapAssignmentPanelProps) {
               dueDate: dueDate || null,
             })
 
-      if (payload?.error) {
+      if (payload && 'error' in payload && payload.error) {
         setError(payload.error)
         return
       }
@@ -105,7 +105,7 @@ export function GapAssignmentPanel(props: GapAssignmentPanelProps) {
                 className="h-10 rounded-[8px] border border-ltb bg-white px-3 font-sora text-[12px] text-ltt outline-none focus:border-cyan-border"
               >
                 <option value="">Sin owner</option>
-                {members.map((member) => (
+                {props.members.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.full_name} · {member.role}
                   </option>
