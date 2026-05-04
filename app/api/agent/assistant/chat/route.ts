@@ -13,18 +13,29 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
 
-  const agentRes = await fetch(`${AGENT_BASE_URL}/api/agent/assistant/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-      'Accept':        'text/event-stream',
-    },
-    body: JSON.stringify(body),
-  })
+  let agentRes: Response
+  try {
+    agentRes = await fetch(`${AGENT_BASE_URL}/api/agent/assistant/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'Accept':        'text/event-stream',
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[chat] No se pudo conectar con el agente:', msg, '| URL:', AGENT_BASE_URL)
+    return new Response(
+      JSON.stringify({ error: `No se pudo conectar con el servidor de agentes: ${msg}` }),
+      { status: 502, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
 
   if (!agentRes.ok) {
     const text = await agentRes.text().catch(() => '')
+    console.error('[chat] Error del agente:', agentRes.status, text)
     return new Response(text || `Error ${agentRes.status}`, { status: agentRes.status })
   }
 
