@@ -9,8 +9,6 @@ import { StreamingReasoning } from './StreamingReasoning'
 import { RagSourcesAccordion } from './RagSourcesAccordion'
 import { ConfirmationForm } from './ConfirmationForm'
 
-const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://localhost:8001'
-
 const CONFIDENCE_MAP: Record<string, number> = { high: 0.9, medium: 0.6, low: 0.3 }
 const LEVEL_MAP: Record<string, RiskLevel> = {
   prohibited:   'prohibited',
@@ -127,13 +125,9 @@ export function ClassificationPanel({
 
     async function doFetch() {
       try {
-        const response = await fetch(`${AGENT_BASE_URL}/api/agent/classify-system`, {
+        const response = await fetch('/api/agent/classify-system', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'text/event-stream',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ system_id: systemId, force_reclassify: true }),
           signal: abortRef.current!.signal,
         })

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 
-const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://localhost:8001'
+const AGENT_BASE_URL = process.env.AGENT_SERVER_URL ?? 'http://localhost:8001'
 
 const LEVEL_LABELS: Record<string, string> = {
   prohibited: 'Prohibido',
