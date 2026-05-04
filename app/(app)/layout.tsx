@@ -103,7 +103,6 @@ export default async function AppLayout({
             overdueCount={overdueReviewsCount}
             upcomingCount={upcomingReviewsCount}
           />
-          <IntelBanner />
         </div>
         {/* Zona Clara - Contenido Principal con layout de grilla o flex */}
         <main className="flex-1 overflow-y-auto bg-ltbg p-[24px_26px] print:overflow-visible print:bg-white print:p-0">

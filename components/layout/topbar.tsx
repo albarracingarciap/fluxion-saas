@@ -101,7 +101,7 @@ export function Topbar() {
     || '?'
 
   return (
-    <header className="flex-shrink-0 h-[52px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
+    <header className="flex-shrink-0 h-[62px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
       <h1 className="font-sora text-[15px] font-semibold text-dkt">{getPageTitle()}</h1>
       <div className="flex items-center gap-2">
         <NotificationsBell />
