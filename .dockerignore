@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env*
+*.md
+.DS_Store
+Dockerfile
+docker-compose*.yml
+__pycache__
+*.pyc
+.venv
+.pytest_cache
+coverage
