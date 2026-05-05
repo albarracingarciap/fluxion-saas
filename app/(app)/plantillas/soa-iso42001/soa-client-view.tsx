@@ -203,7 +203,7 @@ export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, 
                 onClick={() => { setFilterApplicability('applicable'); setFilterStatus('missing_justification') }}
                 className="shrink-0 px-3 py-1.5 rounded-[8px] border border-[#fde68a] bg-white text-[#d97706] font-sora text-[12px] font-medium hover:bg-[#fef9c3] transition-colors"
               >
-                Ver controles con huecos
+                Ver controles con gaps
               </button>
             )}
           </div>
@@ -219,8 +219,8 @@ export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, 
           <div className="divide-y divide-ltb">
             {Object.entries(domainStats).map(([group, stats]) => {
               const pct = stats.applicable > 0 ? Math.round((stats.implemented / stats.applicable) * 100) : null
-              const progressPct = stats.applicable > 0 ? (stats.implemented / stats.applicable) * 100 : 0
-              const inProgressPct = stats.applicable > 0 ? (stats.inProgress / stats.applicable) * 100 : 0
+              const progressPct = stats.total > 0 ? (stats.implemented / stats.total) * 100 : 0
+              const inProgressPct = stats.total > 0 ? (stats.inProgress / stats.total) * 100 : 0
               return (
                 <button
                   key={group}
