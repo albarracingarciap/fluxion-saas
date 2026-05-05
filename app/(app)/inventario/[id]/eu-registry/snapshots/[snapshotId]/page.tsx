@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 
 import type { EuRegistryData } from '@/lib/ai-systems/eu-registry';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createAdminFluxionClient, createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 import { EuRegistryPrintButton } from '../../eu-registry-print-button';
@@ -14,6 +14,7 @@ type EuRegistrySnapshotPageProps = {
 export default async function EuRegistrySnapshotPage({ params }: EuRegistrySnapshotPageProps) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const {
     data: { user },
@@ -30,7 +31,7 @@ export default async function EuRegistrySnapshotPage({ params }: EuRegistrySnaps
   if (!membership && membershipError?.code === 'PGRST116') redirect('/onboarding');
   if (membershipError || !membership) notFound();
 
-  const { data: snapshot, error: snapshotError } = await fluxion
+  const { data: snapshot, error: snapshotError } = await adminFluxion
     .from('system_report_snapshots')
     .select('id, ai_system_id, title, payload, created_at')
     .eq('organization_id', membership.organization_id)

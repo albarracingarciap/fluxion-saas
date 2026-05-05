@@ -190,15 +190,23 @@ function FmeaODHeatmap({ items }: { items: EditableItemState[] }) {
         <div className="font-plex text-[9.5px] text-lttm">{evaluated.length} modos evaluados</div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-[3px] bg-[rgba(34,197,94,0.25)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Bajo</span>
+          <span className="font-plex text-[9.5px] text-lttm">Bajo (S&lt;4)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.25)] border border-ltb" />
+          <span className="font-plex text-[9.5px] text-lttm">Moderado (S 4-5)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.55)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Medio</span>
+          <span className="font-plex text-[9.5px] text-lttm">Medio (S 6-7)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.55)] border border-ltb" />
+          <span className="font-plex text-[9.5px] text-lttm">Alto (S 8)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.85)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Crítico</span>
+          <span className="font-plex text-[9.5px] text-lttm">Crítico (S 9)</span>
         </div>
       </div>
     </div>
@@ -1218,7 +1226,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
             <span>/</span>
             <span className="text-ltt">Evaluación FMEA</span>
           </div>
-          <h1 className="font-fraunces text-[32px] leading-none font-semibold text-ltt mb-2">{data.system.name}</h1>
+          <h1 className="font-sora font-bold text-[32px] leading-none font-semibold text-ltt mb-2">{data.system.name}</h1>
           <div className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">
             {data.system.internal_id ?? data.system.id.slice(0, 8)} · Evaluación FMEA · Versión {data.evaluation.version}
           </div>
@@ -1292,7 +1300,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           <div className="px-5 py-4 flex items-center gap-3">
             <span className={`w-2.5 h-2.5 rounded-full ${zoneMeta.dot} ${currentZone === 'zona_i' || currentZone === 'zona_ii' ? 'animate-pulse' : ''}`} />
             <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8]">Zona activa</div>
-            <div className={`font-fraunces text-[22px] ${zoneMeta.text}`}>{getZoneLabel(currentZone)}</div>
+            <div className={`font-sora font-bold text-[22px] ${zoneMeta.text}`}>{getZoneLabel(currentZone)}</div>
             <div className="font-sora text-[12.5px] text-[#c3d6e7]">{getZoneNarrative(currentZone)}</div>
           </div>
           <div className="px-5 py-4">
@@ -1308,7 +1316,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
             <div className="font-sora text-[14px] text-white">{draftSyncLabel}</div>
           </div>
           <div className="px-5 py-4 flex items-center justify-end">
-            <span className={`inline-flex items-center px-3 py-1 rounded-[8px] border font-fraunces text-[14px] ${zoneMeta.pill}`}>
+            <span className={`inline-flex items-center px-3 py-1 rounded-[8px] border font-sora font-bold text-[14px] ${zoneMeta.pill}`}>
               {getZoneLabel(currentZone)}
             </span>
           </div>
@@ -1389,7 +1397,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 <div className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">{progress.percent}%</div>
               </div>
               <div className="h-2 bg-ltb rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#00adef] to-[#3871c1]" style={{ width: `${progress.percent}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue" style={{ width: `${progress.percent}%` }} />
               </div>
             </div>
 
@@ -1713,7 +1721,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                         <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-1">S_actual sugerido</div>
                                         <div className="font-plex text-[11px] text-lttm">S_default: {item.s_default_frozen} → sistema concreto</div>
                                       </div>
-                                      <div className={`font-fraunces text-[28px] leading-none ${getSeverityClasses(effectiveSActual).text}`}>
+                                      <div className={`font-sora font-bold text-[28px] leading-none ${getSeverityClasses(effectiveSActual).text}`}>
                                         {effectiveSActual ?? '—'}
                                       </div>
                                     </div>

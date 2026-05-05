@@ -355,7 +355,7 @@ export function PlansViewClient({ plans, systems, members }: Props) {
 
       {filtered.length === 0 ? (
         <div className="rounded-[12px] border border-ltb bg-ltcard p-10 text-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-          <h2 className="font-fraunces text-[22px] font-semibold text-ltt mb-2">
+          <h2 className="font-sora font-bold text-[22px] text-ltt mb-2">
             Ningún plan coincide con los filtros aplicados
           </h2>
           <p className="font-sora text-[13.5px] text-ltt2 max-w-[480px] mx-auto">
@@ -517,7 +517,7 @@ function PlanRow({
         <div className="flex items-center gap-2">
           <div className="flex-1 h-[6px] bg-ltbg rounded-full overflow-hidden border border-ltb">
             <div
-              className="h-full bg-gradient-to-r from-[#00adef] to-[#2a9d55] rounded-full transition-all"
+              className="h-full bg-gradient-to-r from-brand-cyan to-brand-blue rounded-full transition-all"
               style={{ width: `${plan.progress_pct}%` }}
             />
           </div>

@@ -6,6 +6,7 @@ import {
   CalendarClock,
   FileClock,
   FileSearch,
+  LayoutDashboard,
   ShieldCheck,
 } from 'lucide-react'
 
@@ -141,7 +142,7 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">{label}</p>
-          <p className="font-fraunces text-[34px] mt-3">{value}</p>
+          <p className="font-sora font-bold text-[34px] mt-3">{value}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-2">{detail}</p>
         </div>
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">
@@ -164,7 +165,7 @@ function MiniCard({
   return (
     <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
       <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">{label}</p>
-      <p className="font-fraunces text-[28px] mt-2 text-ltt">{value}</p>
+      <p className="font-sora font-bold text-[28px] mt-2 text-ltt">{value}</p>
       <p className="font-sora text-[12px] text-ltt2 mt-1">{detail}</p>
     </div>
   )
@@ -337,7 +338,7 @@ export default async function EvidencesPage({
             <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
               Gobierno documental transversal
             </p>
-            <h1 className="font-fraunces text-[32px] leading-none text-ltt">Evidencias</h1>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Evidencias</h1>
             <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
               Biblioteca global de evidencias de la organización. Aquí puedes vigilar revisión, caducidades, trazabilidad y fricción documental sin entrar sistema por sistema.
             </p>
@@ -345,8 +346,9 @@ export default async function EvidencesPage({
           <div className="flex flex-wrap gap-3">
             <Link
               href="/dashboard"
-              className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
             >
+              <LayoutDashboard size={14} />
               Volver al dashboard
             </Link>
             <Link

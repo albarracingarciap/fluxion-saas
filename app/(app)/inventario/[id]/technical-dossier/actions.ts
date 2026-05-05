@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { buildTechnicalDossierData } from '@/lib/ai-systems/technical-dossier';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createAdminFluxionClient, createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 type SaveTechnicalDossierAsEvidenceInput = {
@@ -19,6 +19,7 @@ type SaveTechnicalDossierAsEvidenceInput = {
 export async function saveTechnicalDossierAsEvidence(input: SaveTechnicalDossierAsEvidenceInput) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const {
     data: { user },
@@ -56,7 +57,7 @@ export async function saveTechnicalDossierAsEvidence(input: SaveTechnicalDossier
   const now = new Date().toISOString();
   const title = `Dossier técnico · ${dossier.system.name} · ${now.slice(0, 10)}`;
 
-  const { data: snapshot, error: snapshotError } = await fluxion
+  const { data: snapshot, error: snapshotError } = await adminFluxion
     .from('system_report_snapshots')
     .insert({
       ai_system_id: input.aiSystemId,

@@ -3,10 +3,12 @@ import { redirect } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowRight,
+  Boxes,
   ClipboardCheck,
   ClipboardList,
   Clock,
   FileCheck,
+  LayoutDashboard,
   PlayCircle,
   ShieldAlert,
   Siren,
@@ -120,7 +122,7 @@ function EvaluationsHero() {
           <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
             Pipeline de evaluación
           </p>
-          <h1 className="font-fraunces text-[32px] leading-none text-ltt">Evaluaciones</h1>
+          <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Evaluaciones</h1>
           <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[720px]">
             Vista transversal de los sistemas con cola priorizada, evaluaciones FMEA activas, segundas revisiones y planes de tratamiento en curso.
           </p>
@@ -128,16 +130,17 @@ function EvaluationsHero() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/inventario"
-            className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
           >
+            <Boxes size={14} />
             Ver inventario
           </Link>
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
           >
+            <LayoutDashboard size={14} />
             Dashboard global
-            <ArrowRight size={15} />
           </Link>
         </div>
       </div>
@@ -160,28 +163,28 @@ function KpiCard({
 }) {
   const accentClass =
     accent === 'red'
-      ? 'border-t-[#f87171] bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.10),transparent_28%)]'
+      ? 'border-t-re bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.10),transparent_28%)]'
       : accent === 'amber'
-        ? 'border-t-[#f59e0b] bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_28%)]'
+        ? 'border-t-or bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_28%)]'
         : accent === 'orange'
-          ? 'border-t-[#f97316] bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.10),transparent_28%)]'
+          ? 'border-t-or bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.10),transparent_28%)]'
           : accent === 'blue'
-            ? 'border-t-[#3b82f6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
+            ? 'border-t-brand-blue bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
             : accent === 'green'
-              ? 'border-t-[#22c55e] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
+              ? 'border-t-gr bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
               : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
 
   const valueClass =
     accent === 'red'
-      ? 'text-[#ef4444]'
+      ? 'text-re'
       : accent === 'amber'
-        ? 'text-[#d97706]'
+        ? 'text-or'
         : accent === 'orange'
-          ? 'text-[#ea580c]'
+          ? 'text-or'
           : accent === 'blue'
-            ? 'text-[#2563eb]'
+            ? 'text-brand-blue'
             : accent === 'green'
-              ? 'text-[#16a34a]'
+              ? 'text-gr'
               : 'text-brand-cyan'
 
   return (
@@ -191,7 +194,7 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">{label}</p>
-          <p className={`font-fraunces text-[34px] mt-3 ${valueClass}`}>{value}</p>
+          <p className={`font-sora font-bold text-[34px] mt-3 ${valueClass}`}>{value}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-2">{detail}</p>
         </div>
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">
@@ -214,10 +217,10 @@ function ZoneDistributionWidget({ pipeline }: { pipeline: EvaluationsDashboardDa
   }
 
   const zones = [
-    { key: 'zona_i', label: 'Zona I', count: counts.zona_i, color: 'text-[#ef4444]', bg: 'bg-[#fff1f2]', border: 'border-[#fecdd3]', bar: 'bg-[#ef4444]' },
-    { key: 'zona_ii', label: 'Zona II', count: counts.zona_ii, color: 'text-[#d97706]', bg: 'bg-[#fff7ed]', border: 'border-[#fed7aa]', bar: 'bg-[#f59e0b]' },
+    { key: 'zona_i', label: 'Zona I', count: counts.zona_i, color: 'text-re', bg: 'bg-red-dim', border: 'border-reb', bar: 'bg-re' },
+    { key: 'zona_ii', label: 'Zona II', count: counts.zona_ii, color: 'text-or', bg: 'bg-ordim', border: 'border-orb', bar: 'bg-or' },
     { key: 'zona_iii', label: 'Zona III', count: counts.zona_iii, color: 'text-brand-cyan', bg: 'bg-cyan-dim', border: 'border-cyan-border', bar: 'bg-brand-cyan' },
-    { key: 'zona_iv', label: 'Zona IV', count: counts.zona_iv, color: 'text-[#16a34a]', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]', bar: 'bg-[#22c55e]' },
+    { key: 'zona_iv', label: 'Zona IV', count: counts.zona_iv, color: 'text-gr', bg: 'bg-grdim', border: 'border-grb', bar: 'bg-gr' },
   ]
 
   return (
@@ -231,7 +234,7 @@ function ZoneDistributionWidget({ pipeline }: { pipeline: EvaluationsDashboardDa
           <div key={z.key} className={`rounded-[10px] border ${z.border} ${z.bg} px-4 py-3 flex flex-col gap-2`}>
             <div className="flex items-center justify-between">
               <span className={`font-plex text-[10px] uppercase tracking-[0.8px] ${z.color}`}>{z.label}</span>
-              <span className={`font-fraunces text-[22px] leading-none ${z.color}`}>{z.count}</span>
+              <span className={`font-sora font-bold text-[22px] leading-none ${z.color}`}>{z.count}</span>
             </div>
             <div className="h-1.5 rounded-full bg-ltb overflow-hidden">
               <div
@@ -376,7 +379,7 @@ function ImmediateAttentionCard({ dashboard }: { dashboard: EvaluationsDashboard
               <Link
                 key={row.systemId}
                 href={row.actionHref}
-                className={`rounded-[12px] border p-4 transition-colors hover:border-cyan-border ${row.planDeadlineOverdue ? 'border-[#fecdd3] bg-[#fff8f8]' : 'border-ltb bg-ltbg'}`}
+                className={`rounded-[12px] border p-4 transition-colors hover:border-cyan-border ${row.planDeadlineOverdue ? 'border-reb bg-red-dim' : 'border-ltb bg-ltbg'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -399,12 +402,12 @@ function ImmediateAttentionCard({ dashboard }: { dashboard: EvaluationsDashboard
                 </div>
                 <div className="flex flex-wrap gap-3 mt-3">
                   {row.sActual9Count > 0 && (
-                    <span className="font-sora text-[12px] text-[#dc2626]">
+                    <span className="font-sora text-[12px] text-re">
                       {row.sActual9Count} críticos
                     </span>
                   )}
                   {row.planDeadlineOverdue && row.planDeadline && (
-                    <span className="font-sora text-[12px] text-[#dc2626] flex items-center gap-1">
+                    <span className="font-sora text-[12px] text-re flex items-center gap-1">
                       <Clock size={11} />
                       Venció el {new Date(row.planDeadline + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
@@ -508,11 +511,11 @@ function DeadlineMetric({
   })
 
   return (
-    <div className={`rounded-[10px] border px-3 py-2 ${overdue ? 'border-[#fecdd3] bg-[#fff1f2]' : 'border-ltb bg-ltcard'}`}>
-      <p className={`font-plex text-[10px] uppercase tracking-[0.8px] ${overdue ? 'text-[#dc2626]' : 'text-lttm'}`}>
+    <div className={`rounded-[10px] border px-3 py-2 ${overdue ? 'border-reb bg-red-dim' : 'border-ltb bg-ltcard'}`}>
+      <p className={`font-plex text-[10px] uppercase tracking-[0.8px] ${overdue ? 'text-re' : 'text-lttm'}`}>
         Deadline{overdue ? ' · Vencido' : ''}
       </p>
-      <p className={`font-sora text-[12px] mt-1 flex items-center gap-1 ${overdue ? 'text-[#dc2626] font-medium' : 'text-ltt'}`}>
+      <p className={`font-sora text-[12px] mt-1 flex items-center gap-1 ${overdue ? 'text-re font-medium' : 'text-ltt'}`}>
         {overdue && <Clock size={11} />}
         {formatted}
       </p>
@@ -529,11 +532,11 @@ function InlineBadge({
 }) {
   const toneClass =
     tone === 'red'
-      ? 'bg-[#fff1f2] border-[#fecdd3] text-[#dc2626]'
+      ? 'bg-red-dim border-reb text-re'
       : tone === 'blue'
         ? 'bg-cyan-dim border-cyan-border text-brand-cyan'
         : tone === 'amber'
-          ? 'bg-[#fff7ed] border-[#fed7aa] text-[#d97706]'
+          ? 'bg-ordim border-orb text-or'
           : 'bg-ltbg border-ltb text-lttm'
 
   return (

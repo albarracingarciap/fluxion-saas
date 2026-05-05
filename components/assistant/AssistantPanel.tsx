@@ -144,7 +144,7 @@ export function AssistantPanel() {
       {isOpen && (
         <div
           className="fixed bottom-0 right-0 z-[80] flex flex-col bg-ltbg border-l border-t border-ltb shadow-[−4px_0_30px_rgba(0,0,0,0.12)] animate-fadein print:hidden"
-          style={{ width: 380, height: '100vh', maxHeight: '100vh' }}
+          style={{ width: 500, height: '100vh', maxHeight: '100vh' }}
         >
           {/* Cabecera zona oscura */}
           <AssistantHeader

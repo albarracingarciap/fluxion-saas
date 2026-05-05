@@ -2,9 +2,10 @@
 
 import { useState, useRef, useTransition, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  Plus, Loader2, Calendar, User, Layers, Settings2,
-  X as XIcon, AlertTriangle, Rows3,
+  ArrowLeft, Plus, Loader2, Calendar, User, Layers, Settings2,
+  X as XIcon, AlertTriangle, Rows3, Columns,
 } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import {
@@ -105,7 +106,7 @@ function WipLimitsModal({
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-ltcard border border-ltb rounded-[14px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] w-full max-w-[360px]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ltb">
-          <h2 className="font-fraunces text-[16px] font-semibold text-ltt">Límites WIP</h2>
+          <h2 className="font-sora font-bold text-[16px] text-ltt">Límites WIP</h2>
           <button onClick={onClose} className="p-1 text-lttm hover:text-ltt transition-colors">
             <XIcon className="w-4 h-4" />
           </button>
@@ -577,31 +578,42 @@ export function KanbanView({ tasks: initialTasks, members, systems, currentProfi
     <>
       <div className="max-w-[1600px] w-full mx-auto flex flex-col gap-5 animate-fadein pb-10">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="font-fraunces text-[28px] leading-none font-semibold text-ltt mb-2">
-              Tablero Kanban
-            </h1>
-            <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
-              Arrastra entre columnas para cambiar estado · arrastra dentro de la columna para reordenar
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {moving && (
-              <div className="flex items-center gap-2 font-sora text-[12px] text-ltt2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-cyan" />
-                Guardando…
+        <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+          >
+            <ArrowLeft size={13} />
+            Volver al dashboard
+          </Link>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Columns size={13} className="text-lttm" />
+                <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Seguimiento · Kanban</p>
               </div>
-            )}
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:shadow-[0_4px_12px_rgba(0,173,239,0.4)] transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva tarea
-            </button>
+              <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Tablero Kanban</h1>
+              <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+                Arrastra entre columnas para cambiar estado · arrastra dentro de la columna para reordenar
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {moving && (
+                <div className="flex items-center gap-2 font-sora text-[12px] text-ltt2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-cyan" />
+                  Guardando…
+                </div>
+              )}
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva tarea
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* Filter bar */}
         <div className="flex items-center gap-3 bg-ltcard border border-ltb rounded-[10px] px-4 py-3 flex-wrap">

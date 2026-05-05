@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 
 import type { GapsDataResult } from '@/lib/gaps/data'
-import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
 
 import { GapAnalysisPrintButton } from '../../gap-analysis-print-button'
@@ -33,7 +33,8 @@ export default async function GapAnalysisSnapshotPage({
   if (!membership && membershipError?.code === 'PGRST116') redirect('/onboarding')
   if (membershipError || !membership) notFound()
 
-  const { data: snapshot, error: snapshotError } = await fluxion
+  const adminFluxion = createAdminFluxionClient()
+  const { data: snapshot, error: snapshotError } = await adminFluxion
     .from('system_report_snapshots')
     .select('id, ai_system_id, title, payload, created_at')
     .eq('organization_id', membership.organization_id)

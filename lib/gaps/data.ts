@@ -305,10 +305,6 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const compliance = createComplianceClient()
   const now = new Date()
 
-  // Load causal amplifier map in parallel with other queries
-  // (catalog-level: article_code -> failure_mode_ids that amplify it)
-  const articleToFmMapPromise = buildArticleToFailureModeMap()
-
   const [
     systemsResult,
     obligationsResult,
@@ -386,6 +382,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const latestEvaluationIds = Array.from(latestEvaluationBySystem.values()).map((row) => row.id)
   const latestPlanIds = Array.from(latestPlanBySystem.values()).map((row) => row.id)
 
+
   const [
     fmeaItemsResult,
     treatmentActionsResult,
@@ -425,6 +422,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const treatmentActions = (treatmentActionsResult.data ?? []) as GapTreatmentActionRow[]
   const controls = (controlsResult.data ?? []) as GapControlRow[]
 
+
   const failureModeIds = Array.from(new Set(fmeaItems.map((row) => row.failure_mode_id)))
   const controlTemplateIds = Array.from(new Set(controls.map((row) => row.template_id)))
   const profileIds = Array.from(
@@ -439,7 +437,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     )
   )
 
-  const [failureModesResult, controlTemplatesResult, profilesResult] = await Promise.all([
+  const [failureModesResult, controlTemplatesResult, profilesResult, articleToFmMap] = await Promise.all([
     failureModeIds.length === 0
       ? { data: [], error: null }
       : compliance
@@ -458,14 +456,12 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
           .from('profiles')
           .select('id, full_name')
           .in('id', profileIds),
+    buildArticleToFailureModeMap(),
   ])
 
   const failureModes = (failureModesResult.data ?? []) as GapFailureModeCatalogRow[]
   const controlTemplates = (controlTemplatesResult.data ?? []) as GapControlTemplateRow[]
   const profiles = (profilesResult.data ?? []) as GapProfileRow[]
-
-  // Resolve the amplifier map (was started in parallel)
-  const articleToFmMap = await articleToFmMapPromise
 
   // Build per-system active failure_mode lookup: system_id -> Map<failure_mode_id, s_actual>
   // Used to filter catalog-level amplifiers to only those active in the gap's system
@@ -601,11 +597,13 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     if (!system) continue
 
     const action = actionByItemId.get(item.id) ?? null
-    const hasResolvedAction =
-      action &&
-      ['completed', 'accepted', 'in_progress', 'pending', 'evidence_pending'].includes(action.status)
+    // Skip if being actively mitigated (will appear as control gap) or definitively closed
+    const isBeingMitigated =
+      action?.option === 'mitigar' &&
+      ['pending', 'in_progress', 'evidence_pending'].includes(action.status)
+    const isClosed = action && ['completed', 'accepted'].includes(action.status)
 
-    if (hasResolvedAction) continue
+    if (isBeingMitigated || isClosed) continue
 
     const failureMode = failureModeMap.get(item.failure_mode_id)
     gaps.push({

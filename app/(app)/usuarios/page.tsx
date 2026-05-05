@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Users, UserPlus, Mail, Loader2, Copy, Check, X,
-  ChevronRight, AlertCircle, ClipboardList, Shield, ToggleLeft, ToggleRight,
+  ArrowLeft, Users, UserPlus, Mail, Loader2, Copy, Check, X,
+  AlertCircle, ClipboardList, Shield, ToggleLeft, ToggleRight,
   MessageSquare,
 } from 'lucide-react';
+import Link from 'next/link';
 import {
   getOrganizationMembersAndInvitations,
   inviteUser,
@@ -167,34 +168,36 @@ export default function UsersPage() {
   return (
     <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[12px] font-plex text-lttm uppercase tracking-wider mb-4">
-        <Users size={13} className="text-lttm" />
-        <span>Configuración</span>
-        <ChevronRight size={11} className="text-lttm" />
-        <span className="text-ltt">Usuarios</span>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-7">
-        <div>
-          <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
-            Gestión de Usuarios
-          </h1>
-          <p className="text-[13px] text-ltt2 font-sora leading-relaxed">
-            Gestiona el acceso al workspace, define roles y revisa invitaciones pendientes.
-          </p>
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-7">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+        >
+          <ArrowLeft size={13} />
+          Volver al dashboard
+        </Link>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Users size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Configuración · Usuarios</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Gestión de Usuarios</h1>
+            <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+              Gestiona el acceso al workspace, define roles y revisa invitaciones pendientes.
+            </p>
+          </div>
+          {isAdmin && !isInviting && (
+            <button
+              onClick={() => { setIsInviting(true); setInviteResult(null) }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all shrink-0"
+            >
+              <UserPlus size={15} />
+              Invitar miembro
+            </button>
+          )}
         </div>
-        {isAdmin && !isInviting && (
-          <button
-            onClick={() => { setIsInviting(true); setInviteResult(null) }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[9px] font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] shadow-[0_2px_12px_rgba(0,173,239,0.18)] shrink-0"
-          >
-            <UserPlus size={15} />
-            Invitar miembro
-          </button>
-        )}
-      </div>
+      </section>
 
       {/* Page error */}
       {pageError && (

@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import Link from 'next/link'
-import { Plus, ChevronRight, AlertTriangle, Archive } from 'lucide-react'
+import { Plus, AlertTriangle, LayoutGrid } from 'lucide-react'
+import { SystemsTable } from './systems-table-client'
 import { redirect } from 'next/navigation'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -23,41 +24,6 @@ type AiSystem = {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const DOMAIN_LABELS: Record<string, { label: string; emoji: string }> = {
-  finanzas:    { label: 'Finanzas y Banca',       emoji: '🏦' },
-  seguros:     { label: 'Seguros',                 emoji: '🛡️' },
-  credito:     { label: 'Crédito y Scoring',       emoji: '📊' },
-  salud:       { label: 'Salud y Medicina',         emoji: '🏥' },
-  rrhh:        { label: 'RRHH y Empleo',           emoji: '👥' },
-  educacion:   { label: 'Educación',               emoji: '🎓' },
-  seguridad:   { label: 'Seguridad Pública',       emoji: '🔒' },
-  justicia:    { label: 'Justicia y Legal',        emoji: '⚖️' },
-  migracion:   { label: 'Migración',               emoji: '🛂' },
-  infra:       { label: 'Infraestructura Crítica', emoji: '⚡' },
-  marketing:   { label: 'Marketing',              emoji: '📣' },
-  operaciones: { label: 'Operaciones',             emoji: '⚙️' },
-  atencion:    { label: 'Atención al Cliente',     emoji: '💬' },
-  cumplimiento:{ label: 'Cumplimiento',            emoji: '📋' },
-  otro:        { label: 'Otro',                    emoji: '◎'  },
-}
-
-const RISK_CONFIG: Record<string, { label: string; pill: string; dot: string }> = {
-  prohibited: { label: 'Prohibido',      pill: 'bg-red-dim text-re border border-reb',   dot: 'bg-re' },
-  high:       { label: 'Alto Riesgo',    pill: 'bg-red-dim text-re border border-reb',   dot: 'bg-re' },
-  limited:    { label: 'Riesgo Limitado',pill: 'bg-ordim text-or border border-orb',     dot: 'bg-or' },
-  minimal:    { label: 'Riesgo Mínimo',  pill: 'bg-grdim text-gr border border-grb',     dot: 'bg-gr' },
-  gpai:       { label: 'GPAI',           pill: 'bg-cyan-dim text-brand-cyan border border-cyan-border', dot: 'bg-brand-cyan' },
-  pending:    { label: 'Pendiente',      pill: 'bg-ltbg text-lttm border border-ltb',    dot: 'bg-lttm' },
-}
-
-const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  produccion: { label: 'Producción',  dot: 'bg-gr' },
-  desarrollo: { label: 'Desarrollo',  dot: 'bg-brand-blue' },
-  piloto:     { label: 'Piloto',      dot: 'bg-or' },
-  deprecado:  { label: 'Deprecado',   dot: 'bg-lttm' },
-  retirado:   { label: 'Retirado',    dot: 'bg-re' },
-}
-
 function isoColor(score: number | null) {
   if (score === null) return 'text-lttm'
   if (score >= 70) return 'text-gr'
@@ -65,11 +31,18 @@ function isoColor(score: number | null) {
   return 'text-re'
 }
 
-function isoBarColor(score: number | null) {
-  if (score === null) return 'bg-ltb'
-  if (score >= 70) return 'bg-gr'
-  if (score >= 40) return 'bg-or'
-  return 'bg-re'
+function isoLevel(score: number | null) {
+  if (score === null) return '—'
+  if (score >= 70) return 'Alto'
+  if (score >= 40) return 'Medio'
+  return 'Bajo'
+}
+
+function isoGradient(score: number | null) {
+  if (score === null) return 'from-ltb to-ltb'
+  if (score >= 70) return 'from-gr to-te'
+  if (score >= 40) return 'from-or to-[#fbbf24]'
+  return 'from-re to-[#f87171]'
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -119,28 +92,45 @@ export default async function InventarioPage() {
   const avgISO = list.filter(s => s.iso_42001_score !== null).length > 0
     ? Math.round(list.reduce((acc, s) => acc + (s.iso_42001_score ?? 0), 0) / list.filter(s => s.iso_42001_score !== null).length)
     : null
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const upcomingReviews = list.filter(s =>
+    !['retirado', 'deprecado'].includes(s.status) &&
+    (s.deployed_at ?? s.created_at) < ninetyDaysAgo
+  ).length
 
   return (
     <div className="flex flex-col space-y-[22px] max-w-[1280px] w-full animate-fadein mx-auto">
 
-      {/* ── Header ────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-fraunces text-[26px] font-semibold text-ltt tracking-[-0.4px]">
-            Inventario de Sistemas IA
-          </h1>
-          <p className="font-sora text-[13px] text-lttm mt-0.5">
-            Registro centralizado · AI Act · ISO 42001 · RGPD · DORA
-          </p>
+      {/* ── Hero ──────────────────────────────────────────────── */}
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <LayoutGrid size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Registro de Sistemas IA</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Inventario de Sistemas IA</h1>
+            <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+              Registro centralizado de todos los sistemas de IA de la organización. Gestiona el cumplimiento del AI Act, ISO 42001, RGPD y DORA desde un único lugar.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] font-sora font-medium text-[13px] bg-ltcard hover:bg-ltbg border border-ltb text-lttm transition-colors"
+            >
+              Volver al dashboard
+            </Link>
+            <Link
+              href="/inventario/nuevo"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] font-sora font-medium text-[13px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_2px_12px_#00adef30] hover:shadow-[0_4px_18px_#00adef45] hover:-translate-y-px transition-all"
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              Registrar sistema
+            </Link>
+          </div>
         </div>
-        <Link
-          href="/inventario/nuevo"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] font-sora font-medium text-[13px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_2px_12px_#00adef30] hover:shadow-[0_4px_18px_#00adef45] hover:-translate-y-px transition-all"
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          Registrar sistema
-        </Link>
-      </div>
+      </section>
 
       {/* ── KPIs ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-[14px]">
@@ -151,7 +141,7 @@ export default async function InventarioPage() {
           <div className="p-4 px-5">
             <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">Sistemas IA</h3>
             <div className="flex items-baseline space-x-2 mb-1">
-              <span className="font-fraunces text-[34px] font-semibold text-brand-blue">{total}</span>
+              <span className="font-sora text-[34px] font-bold text-brand-blue">{total}</span>
             </div>
             <p className="font-sora text-[12px] text-ltt2">{inProd} en producción</p>
           </div>
@@ -163,7 +153,7 @@ export default async function InventarioPage() {
           <div className="p-4 px-5">
             <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">Alto Riesgo</h3>
             <div className="flex items-baseline space-x-2 mb-1">
-              <span className="font-fraunces text-[34px] font-semibold text-re">{highRisk}</span>
+              <span className="font-sora text-[34px] font-bold text-re">{highRisk}</span>
             </div>
             <p className="font-sora text-[12px] text-ltt2">
               {highRisk === 0 ? 'Sin sistemas de alto riesgo' : 'Requieren conformidad AI Act'}
@@ -173,77 +163,42 @@ export default async function InventarioPage() {
 
         {/* ISO score */}
         <div className="relative bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden hover:border-cyan-border hover:shadow-[0_4px_20px_#00adef18] transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-brand-blue to-brand-navy" />
+          <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${isoGradient(avgISO)}`} />
           <div className="p-4 px-5">
-            <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">ISO 42001 Medio</h3>
-            <div className="flex items-baseline space-x-2 mb-1">
-              <span className={`font-fraunces text-[34px] font-semibold ${isoColor(avgISO ?? null)}`}>
+            <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">Madurez ISO 42001</h3>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className={`font-sora text-[34px] font-bold ${isoColor(avgISO)}`}>
                 {avgISO !== null ? `${avgISO}%` : '—'}
               </span>
+              {avgISO !== null && (
+                <span className={`font-sora text-[12px] font-normal opacity-70 ${isoColor(avgISO)}`}>
+                  {isoLevel(avgISO)}
+                </span>
+              )}
             </div>
             <p className="font-sora text-[12px] text-ltt2">Score de madurez de gobierno</p>
           </div>
         </div>
 
-        {/* Pending */}
+        {/* Upcoming reviews */}
         <div className="relative bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden hover:border-cyan-border hover:shadow-[0_4px_20px_#00adef18] transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-gr to-te" />
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-or to-[#fbbf24]" />
           <div className="p-4 px-5">
-            <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">Sin clasificar</h3>
+            <h3 className="font-plex text-[10.5px] uppercase tracking-wider text-lttm mb-1">Próximas revisiones</h3>
             <div className="flex items-baseline space-x-2 mb-1">
-              <span className="font-fraunces text-[34px] font-semibold text-or">
-                {list.filter(s => s.aiact_risk_level === 'pending').length}
+              <span className={`font-sora text-[34px] font-bold ${upcomingReviews > 0 ? 'text-or' : 'text-gr'}`}>
+                {upcomingReviews}
               </span>
             </div>
-            <p className="font-sora text-[12px] text-ltt2">Clasificación AI Act pendiente</p>
+            <p className="font-sora text-[12px] text-ltt2">
+              {upcomingReviews === 0 ? 'Sin revisiones pendientes' : 'Sistemas sin revisar en +90 días'}
+            </p>
           </div>
         </div>
       </div>
 
       {/* ── Table Card ────────────────────────────────────────── */}
-      <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
-
-        {/* Table header bar */}
-        <div className="bg-ltcard2 px-[18px] py-[14px] border-b border-ltb flex items-center justify-between gap-4">
-          <h2 className="font-plex text-[11px] font-semibold text-ltt2 uppercase tracking-[0.8px] shrink-0">
-            Todos los sistemas
-          </h2>
-          <div className="flex items-center gap-3 ml-auto">
-            <span className="font-plex text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-cyan-dim text-brand-cyan border border-cyan-border">
-              {total} REGISTRADOS
-            </span>
-            <Link
-              href="/inventario/nuevo"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all"
-            >
-              <Plus size={12} strokeWidth={2.5} />
-              Nuevo
-            </Link>
-          </div>
-        </div>
-
-        {/* Column headers */}
-        {list.length > 0 && (
-          <div className="grid grid-cols-[2.5fr_1fr_1.1fr_1fr_80px_60px] gap-4 px-5 py-2.5 border-b border-ltb bg-ltbg">
-            {['Sistema', 'Dominio', 'Clasificación AI Act', 'Estado', 'ISO 42001', ''].map((h, i) => (
-              <div key={i} className="font-plex text-[9.5px] uppercase tracking-[0.9px] text-lttm">
-                {h}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Rows */}
-        {list.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="divide-y divide-ltb">
-            {list.map(sys => (
-              <SystemRow key={sys.id} sys={sys} />
-            ))}
-          </div>
-        )}
-      </div>
+      <SystemsTable list={list} />
 
       {/* Error state */}
       {error && (
@@ -256,100 +211,3 @@ export default async function InventarioPage() {
   )
 }
 
-// ─── System Row ──────────────────────────────────────────────────────────────
-
-function SystemRow({ sys }: { sys: AiSystem }) {
-  const domain = DOMAIN_LABELS[sys.domain] ?? { label: sys.domain, emoji: '◎' }
-  const risk = RISK_CONFIG[sys.aiact_risk_level] ?? RISK_CONFIG.pending
-  const status = STATUS_CONFIG[sys.status] ?? { label: sys.status, dot: 'bg-lttm' }
-
-  return (
-    <Link
-      href={`/inventario/${sys.id}`}
-      className="grid grid-cols-[2.5fr_1fr_1.1fr_1fr_80px_60px] gap-4 px-5 py-4 items-center hover:bg-ltbg transition-colors group cursor-pointer"
-    >
-      {/* Name + version */}
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-[9px] flex items-center justify-center text-[18px] shrink-0 bg-ltbg border border-ltb group-hover:border-cyan-border transition-colors">
-          {domain.emoji}
-        </div>
-        <div className="min-w-0">
-          <div className="font-sora text-[13.5px] font-semibold text-ltt group-hover:text-brand-blue transition-colors truncate">
-            {sys.name}
-          </div>
-          <div className="font-plex text-[10.5px] text-lttm mt-0.5">
-            v{sys.version}
-            {sys.ai_owner && <span className="ml-2">· {sys.ai_owner}</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Domain */}
-      <div className="font-sora text-[12.5px] text-ltt2 truncate">{domain.label}</div>
-
-      {/* AI Act classification */}
-      <div>
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium ${risk.pill}`}>
-          <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${risk.dot}`} />
-          {risk.label}
-        </span>
-      </div>
-
-      {/* Status */}
-      <div className="flex items-center gap-1.5">
-        <span className={`w-[6px] h-[6px] rounded-full shrink-0 ${status.dot}`} />
-        <span className="font-sora text-[12.5px] text-ltt2">{status.label}</span>
-      </div>
-
-      {/* ISO score */}
-      <div className="flex flex-col gap-1">
-        {sys.iso_42001_score !== null ? (
-          <>
-            <span className={`font-plex text-[12px] font-medium ${isoColor(sys.iso_42001_score)}`}>
-              {sys.iso_42001_score}%
-            </span>
-            <div className="h-[3px] w-full bg-ltb rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${isoBarColor(sys.iso_42001_score)} transition-all`}
-                style={{ width: `${sys.iso_42001_score}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <span className="font-plex text-[11px] text-lttm italic">—</span>
-        )}
-      </div>
-
-      {/* Arrow */}
-      <div className="flex justify-end">
-        <ChevronRight size={15} className="text-lttm group-hover:text-brand-blue group-hover:translate-x-0.5 transition-all" />
-      </div>
-    </Link>
-  )
-}
-
-// ─── Empty State ─────────────────────────────────────────────────────────────
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-      <div className="w-16 h-16 rounded-[16px] bg-cyan-dim border border-cyan-border flex items-center justify-center mb-5">
-        <Archive size={28} className="text-brand-cyan opacity-70" />
-      </div>
-      <h3 className="font-fraunces text-[20px] font-semibold text-ltt mb-2">
-        Sin sistemas registrados
-      </h3>
-      <p className="font-sora text-[13.5px] text-lttm max-w-[360px] leading-relaxed mb-8">
-        Todavía no has registrado ningún sistema de IA en el inventario.
-        Empieza registrando tu primer sistema para comenzar a gestionar su cumplimiento normativo.
-      </p>
-      <Link
-        href="/inventario/nuevo"
-        className="flex items-center gap-2 px-5 py-2.5 rounded-[9px] font-sora font-semibold text-[13.5px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_2px_16px_#00adef35] hover:shadow-[0_4px_22px_#00adef50] hover:-translate-y-px transition-all"
-      >
-        <Plus size={16} strokeWidth={2.5} />
-        Registrar primer sistema
-      </Link>
-    </div>
-  )
-}

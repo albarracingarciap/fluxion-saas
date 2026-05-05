@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { buildEuRegistryData } from '@/lib/ai-systems/eu-registry';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createAdminFluxionClient, createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 type SaveEuRegistryAsEvidenceInput = {
@@ -19,6 +19,7 @@ type SaveEuRegistryAsEvidenceInput = {
 export async function saveEuRegistryAsEvidence(input: SaveEuRegistryAsEvidenceInput) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const {
     data: { user },
@@ -56,7 +57,7 @@ export async function saveEuRegistryAsEvidence(input: SaveEuRegistryAsEvidenceIn
   const now = new Date().toISOString();
   const title = `Ficha registro EU · ${registry.system.name} · ${now.slice(0, 10)}`;
 
-  const { data: snapshot, error: snapshotError } = await fluxion
+  const { data: snapshot, error: snapshotError } = await adminFluxion
     .from('system_report_snapshots')
     .insert({
       ai_system_id: input.aiSystemId,

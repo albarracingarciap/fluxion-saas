@@ -23,8 +23,8 @@ CREATE INDEX IF NOT EXISTS idx_system_report_snapshots_org
 
 ALTER TABLE fluxion.system_report_snapshots ENABLE ROW LEVEL SECURITY;
 
-GRANT USAGE ON SCHEMA fluxion TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE fluxion.system_report_snapshots TO authenticated;
+GRANT USAGE ON SCHEMA fluxion TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE fluxion.system_report_snapshots TO authenticated, service_role;
 
 DROP POLICY IF EXISTS "system_report_snapshots_select" ON fluxion.system_report_snapshots;
 CREATE POLICY "system_report_snapshots_select"

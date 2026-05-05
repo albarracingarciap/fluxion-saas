@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/authStore';
 import { updateOrganizationProfile } from './actions';
 import { CommitteesTab } from './CommitteesTab';
@@ -12,7 +13,7 @@ import { OperacionesTab } from './tabs/operaciones';
 import { PlanTab } from './tabs/plan';
 import { DEFAULT_ORG_FORM, type OrgFormData } from './tabs/shared';
 import {
-  Save, Loader2, AlertCircle, CheckCircle2, ChevronRight,
+  ArrowLeft, Save, Loader2, AlertCircle, CheckCircle2,
   Building2, FileText, Globe, ShieldCheck, Settings2, Users2, CreditCard,
 } from 'lucide-react';
 import type { NormativeModule, RiskAppetite } from '@/lib/organization/options';
@@ -167,22 +168,23 @@ export default function OrganizationPage() {
   return (
     <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[12px] font-plex text-lttm uppercase tracking-wider mb-4">
-        <Building2 size={13} className="text-lttm" />
-        <span>Configuración</span>
-        <ChevronRight size={11} className="text-lttm" />
-        <span className="text-ltt">Organización</span>
-      </div>
-
-      <div className="mb-7">
-        <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
-          Organización
-        </h1>
-        <p className="text-[13px] text-ltt2 font-sora leading-relaxed">
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-7">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+        >
+          <ArrowLeft size={13} />
+          Volver al dashboard
+        </Link>
+        <div className="flex items-center gap-2 mb-2">
+          <Building2 size={13} className="text-lttm" />
+          <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Configuración · Organización</p>
+        </div>
+        <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Organización</h1>
+        <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
           Configura los datos de tu organización, gobernanza del SGAI y comités de supervisión.
         </p>
-      </div>
+      </section>
 
       {/* Alerts */}
       {error && (
@@ -276,7 +278,7 @@ export default function OrganizationPage() {
                 type="button"
                 onClick={handleSave}
                 disabled={!isAdmin || loading}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[9px] font-sora text-[13px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] shadow-[0_2px_12px_rgba(0,173,239,0.18)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {loading ? 'Guardando...' : 'Guardar cambios'}

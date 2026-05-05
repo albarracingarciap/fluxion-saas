@@ -54,35 +54,35 @@ export function CatalogClient({ graph }: { graph: SystemCausalGraph }) {
   }
 
   return (
-    <div className="max-w-7xl w-full mx-auto animate-fadein pb-10">
-      {/* Breadcrumb section */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 text-[12px] font-plex text-lttm uppercase tracking-wider">
-          <Link href="/datos" className="flex items-center gap-1.5 hover:text-brand-cyan transition-colors">
-            <ArrowLeft size={14} className="text-lttm" />
-            <span>Base de Datos</span>
-          </Link>
-          <span className="text-lttm">/</span>
-          <span className="text-ltt font-medium">Catálogo Causal</span>
-        </div>
-
-        <button
-          onClick={() => setFullscreen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-ltcard text-lttm border border-ltb rounded-[8px] font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:text-brand-cyan hover:border-cyan-border hover:bg-cyan-dim shadow-sm"
+    <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-6">
+        <Link
+          href="/datos"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
         >
-          <Maximize2 className="w-4 h-4" />
-          Ir a Pantalla Completa
-        </button>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
-          Catálogo: Grafo Causal Global
-        </h1>
-        <p className="text-[13px] text-ltt2 font-sora leading-relaxed max-w-3xl">
-          Visualiza la estructura completa del repositorio causal. Este mapa maestro sirve de base para que el sistema identifique cómo los diferentes modos de fallo pueden propagar su severidad a través de dependencias estructurales.
-        </p>
-      </div>
+          <ArrowLeft size={13} />
+          Volver a Datos
+        </Link>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Network size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Datos · Catálogo Causal</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Catálogo: Grafo Causal Global</h1>
+            <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+              Visualiza la estructura completa del repositorio causal. Este mapa maestro sirve de base para que el sistema identifique cómo los diferentes modos de fallo pueden propagar su severidad a través de dependencias estructurales.
+            </p>
+          </div>
+          <button
+            onClick={() => setFullscreen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-ltbg border border-ltb rounded-[9px] font-sora text-[13px] text-lttm hover:text-brand-cyan hover:border-cyan-border hover:bg-cyan-dim transition-all"
+          >
+            <Maximize2 className="w-4 h-4" />
+            Pantalla completa
+          </button>
+        </div>
+      </section>
 
       <div className="w-full bg-ltcard p-3 rounded-[16px] border border-ltb shadow-sm h-[750px]">
         <CatalogCanvas graph={graph} fullscreen={false} />

@@ -53,7 +53,7 @@ export function AssistantInput({ value, onChange, onSubmit, disabled }: Assistan
           }
         </button>
       </div>
-      <p className="font-plex text-[9.5px] text-lttm mt-2 text-center">
+      <p className="font-plex text-[11px] text-ltt2 mt-2 text-center">
         Enter para enviar · Shift+Enter para nueva línea
       </p>
     </div>

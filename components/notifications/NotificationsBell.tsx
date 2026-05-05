@@ -101,7 +101,7 @@ export function NotificationsBell() {
       <button
         type="button"
         onClick={openDropdown}
-        className="relative flex items-center justify-center w-8 h-8 rounded-[8px] text-dktm hover:text-dkt hover:bg-dk7 transition-colors"
+        className="relative flex items-center justify-center w-8 h-8 rounded-[8px] text-dkt hover:text-white hover:bg-dk7 transition-colors"
         aria-label="Notificaciones"
       >
         <Bell size={16} />

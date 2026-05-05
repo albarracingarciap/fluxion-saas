@@ -711,14 +711,19 @@ function getEvidenceTypeLabel(value: string) {
 
 function isInternalAppUrl(value: string | null | undefined) {
   if (!value) return false;
-
   if (value.startsWith('/')) return true;
-
   try {
-    const url = new URL(value);
-    return url.pathname.startsWith('/inventario/');
+    return new URL(value).pathname.startsWith('/inventario/');
   } catch {
     return false;
+  }
+}
+
+function toInternalPath(value: string) {
+  try {
+    return new URL(value).pathname;
+  } catch {
+    return value;
   }
 }
 
@@ -1200,7 +1205,7 @@ function IsoTab({
         {!aisia && (
           <div className="p-6">
             <div className="max-w-[520px]">
-              <div className="font-fraunces text-[20px] font-semibold text-ltt mb-2">
+              <div className="font-sora text-[20px] font-semibold text-ltt mb-2">
                 Este sistema no tiene ninguna evaluación AISIA
               </div>
               <div className="text-[13px] text-ltt2 leading-relaxed mb-5">
@@ -1249,7 +1254,7 @@ function IsoTab({
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-5 items-start">
               <div>
-                <div className="font-fraunces text-[18px] font-semibold text-ltt mb-1">
+                <div className="font-sora text-[18px] font-semibold text-ltt mb-1">
                   {aisia.title ?? `Evaluación AISIA v${aisia.version}`}
                 </div>
                 {sectionProgress && (
@@ -2642,76 +2647,54 @@ export function SystemDetailClient({
 
   return (
     <div className="flex flex-col min-h-screen bg-ltbg text-ltt">
-      <div className="h-14 bg-ltcard border-b border-ltb flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-2 font-plex text-[12px] text-lttm">
-          <Link href="/inventario" className="flex items-center gap-1 hover:text-brand-cyan transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Inventario
-          </Link>
-          <span className="text-ltb">/</span>
-          <span className="text-ltt font-medium">{system.name}</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all">
-            <Download className="w-3.5 h-3.5" /> Exportar PDF
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-lttm hover:bg-ltbg hover:text-ltt border border-ltb transition-all">
-            <Bot className="w-3.5 h-3.5" /> Abrir agente
-          </button>
-          <button
-            onClick={openEvidenceModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora font-medium text-[12px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_1px_8px_#00adef25] hover:shadow-[0_2px_14px_#00adef40] transition-all border-0"
-          >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Nueva evidencia
-          </button>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-6 max-w-[1440px] mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-ltcard rounded-[12px] border border-ltb shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden min-h-full">
           <div className="flex flex-col min-w-0 bg-ltcard">
-            <div className="pt-8 px-8 pb-0 border-b border-ltb bg-gradient-to-b from-ltcard to-ltbg">
-              {/* Fila 1: icono + nombre + panel de KPIs */}
-              <div className="flex items-start gap-5 mb-3">
+            <div className="pt-6 px-8 pb-0 border-b border-ltb bg-gradient-to-b from-ltcard to-ltbg">
+
+              {/* Fila 0: breadcrumb + acciones */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2 font-plex text-[12px] text-lttm">
+                  <Link href="/inventario" className="flex items-center gap-1 hover:text-brand-cyan transition-colors">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Inventario
+                  </Link>
+                  <span className="text-ltb">/</span>
+                  <span className="text-ltt2 font-medium truncate max-w-[260px]">{system.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[12px] text-lttm hover:text-ltt border border-ltb hover:border-ltb2 bg-ltcard hover:bg-ltbg transition-all">
+                    <Download className="w-3.5 h-3.5" /> Exportar PDF
+                  </button>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[12px] text-lttm hover:text-ltt border border-ltb hover:border-ltb2 bg-ltcard hover:bg-ltbg transition-all">
+                    <Bot className="w-3.5 h-3.5" /> Abrir agente
+                  </button>
+                  <button
+                    onClick={openEvidenceModal}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-[9px] font-sora font-medium text-[13px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue shadow-[0_2px_12px_#00adef30] hover:shadow-[0_4px_18px_#00adef45] hover:-translate-y-px transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Nueva evidencia
+                  </button>
+                </div>
+              </div>
+
+              {/* Fila 1: icono + nombre + versión */}
+              <div className="flex items-center gap-4 mb-3">
                 <div className="w-14 h-14 rounded-[12px] bg-ltcard2 border border-ltb flex items-center justify-center text-[28px] shrink-0 shadow-sm">
                   {domainMeta.emoji}
                 </div>
-                <div className="flex-1 min-w-0 mt-1">
-                  <h1 className="font-fraunces text-[24px] font-semibold text-ltt tracking-[-0.5px] leading-tight">
+                <div>
+                  <h1 className="font-sora text-[26px] font-semibold text-ltt tracking-[-0.5px] leading-tight">
                     {system.name}
                   </h1>
-                  <div className="font-plex text-[11px] text-lttm mt-1">
+                  <div className="font-plex text-[11px] text-lttm mt-0.5">
                     v{system.version}{system.internal_id ? ` · ${system.internal_id}` : ''}
-                  </div>
-                </div>
-                <div className="flex bg-ltcard2 border border-ltb rounded-[10px] overflow-hidden shrink-0 self-start shadow-sm">
-                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
-                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Compliance</div>
-                    <div className="font-fraunces text-[20px] font-semibold text-re leading-none mb-1">{compliance}%</div>
-                    <div className="font-sora text-[11px] text-lttm">{obligationSummary.pending} pendientes críticas</div>
-                  </div>
-                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
-                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Obligaciones</div>
-                    <div className="font-fraunces text-[20px] font-semibold text-ltt leading-none mb-1">{obligations.length}</div>
-                    <div className="font-sora text-[11px] text-lttm">{obligationSummary.resolved} OK · {obligationSummary.inProgress} en curso · {obligationSummary.pending} pendientes</div>
-                  </div>
-                  <div className="px-4 py-2.5 border-r border-ltb min-w-[100px]">
-                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Próx. hito</div>
-                    <div className="font-fraunces text-[20px] font-semibold text-or leading-none mb-1">
-                      {system.next_audit_date ? formatDate(system.next_audit_date, { day: '2-digit', month: 'short' }) : '—'}
-                    </div>
-                    <div className="font-sora text-[11px] text-lttm">{system.cert_status ? CERT_STATUS_LABELS[system.cert_status] ?? system.cert_status : 'Sin hito registrado'}</div>
-                  </div>
-                  <div className="px-4 py-2.5 min-w-[100px]">
-                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Responsable</div>
-                    <div className="font-sora text-[15px] font-semibold text-ltt leading-none mb-1 mt-[3px]">{system.ai_owner ?? '—'}</div>
-                    <div className="font-sora text-[11px] text-lttm mt-[5px]">{system.responsible_team ?? 'Sin equipo asignado'}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Fila 2: badges en horizontal a ancho completo */}
-              <div className="flex items-center gap-2 flex-wrap mb-5">
+              {/* Fila 2: badges */}
+              <div className="flex items-center gap-2 flex-wrap mb-4">
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${riskMeta.pill} ${riskMeta.text}`}>
                   <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${riskMeta.text.replace('text-', 'bg-')}`} />
                   {riskMeta.label}
@@ -2730,25 +2713,50 @@ export function SystemDetailClient({
                 </span>
               </div>
 
-              <div className="flex items-center justify-between border-b border-transparent">
-                <div className="flex items-center gap-1">
-                  {TABS.map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => {
-                        setActiveTab(tab as TabName);
-                        if (tab === 'Historial') {
-                          router.refresh();
-                        }
-                      }}
-                      className={`px-4 py-3 text-[13px] font-sora font-medium whitespace-nowrap transition-colors border-b-2 ${
-                        activeTab === tab ? 'border-brand-cyan text-brand-cyan' : 'border-transparent text-lttm hover:text-ltt'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
+              {/* Fila 3: KPI cards */}
+              <div className="flex bg-ltcard2 border border-ltb rounded-[10px] overflow-hidden shadow-sm mb-5">
+                <div className="flex-1 px-4 py-3 border-r border-ltb">
+                  <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Compliance</div>
+                  <div className="font-sora text-[22px] font-bold text-re leading-none mb-1">{compliance}%</div>
+                  <div className="font-sora text-[11px] text-lttm">{obligationSummary.pending} pendientes críticas</div>
                 </div>
+                <div className="flex-1 px-4 py-3 border-r border-ltb">
+                  <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Obligaciones</div>
+                  <div className="font-sora text-[22px] font-bold text-ltt leading-none mb-1">{obligations.length}</div>
+                  <div className="font-sora text-[11px] text-lttm">{obligationSummary.resolved} OK · {obligationSummary.inProgress} en curso · {obligationSummary.pending} pendientes</div>
+                </div>
+                <div className="flex-1 px-4 py-3 border-r border-ltb">
+                  <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Próx. hito</div>
+                  <div className="font-sora text-[22px] font-bold text-or leading-none mb-1">
+                    {system.next_audit_date ? formatDate(system.next_audit_date, { day: '2-digit', month: 'short' }) : '—'}
+                  </div>
+                  <div className="font-sora text-[11px] text-lttm">{system.cert_status ? CERT_STATUS_LABELS[system.cert_status] ?? system.cert_status : 'Sin hito registrado'}</div>
+                </div>
+                <div className="flex-1 px-4 py-3">
+                  <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Responsable</div>
+                  <div className="font-sora text-[15px] font-semibold text-ltt leading-none mb-1 mt-[3px]">{system.ai_owner ?? '—'}</div>
+                  <div className="font-sora text-[11px] text-lttm mt-[5px]">{system.responsible_team ?? 'Sin equipo asignado'}</div>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex items-center gap-1">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setActiveTab(tab as TabName);
+                      if (tab === 'Historial') {
+                        router.refresh();
+                      }
+                    }}
+                    className={`px-4 py-3 text-[13px] font-sora font-medium whitespace-nowrap transition-colors border-b-2 ${
+                      activeTab === tab ? 'border-brand-cyan text-brand-cyan' : 'border-transparent text-lttm hover:text-ltt'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -2759,7 +2767,7 @@ export function SystemDetailClient({
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1">
                         <div className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-re mb-1.5">Clasificación AI Act — Resultado general</div>
-                        <div className={`font-fraunces text-[22px] font-semibold mb-1.5 ${riskMeta.text}`}>{riskMeta.label}</div>
+                        <div className={`font-sora text-[22px] font-semibold mb-1.5 ${riskMeta.text}`}>{riskMeta.label}</div>
                         {(() => {
                           const activeEvent = classificationEvents.find(
                             (e) => e.id === (system as Record<string, unknown>).current_classification_event_id
@@ -2896,14 +2904,14 @@ export function SystemDetailClient({
                     </div>
 
                     <table className="w-full text-left border-collapse">
-                      <thead className="bg-[#0f141a]">
+                      <thead className="bg-ltbg border-b border-ltb">
                         <tr>
-                          <th className="w-[50px] p-3 border-b border-ltb"></th>
-                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Obligación</th>
-                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Referencia</th>
-                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Estado</th>
-                          <th className="font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Evidencias</th>
-                          <th className="w-[100px] font-plex text-[10px] uppercase text-lttm p-3 border-b border-ltb">Acción</th>
+                          <th className="w-[50px] p-3"></th>
+                          <th className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm p-3">Obligación</th>
+                          <th className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm p-3">Referencia</th>
+                          <th className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm p-3">Estado</th>
+                          <th className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm p-3">Evidencias</th>
+                          <th className="w-[100px] font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm p-3">Acción</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-ltb">
@@ -2998,7 +3006,7 @@ export function SystemDetailClient({
                 <div className="flex flex-col gap-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="font-fraunces text-[18px] font-semibold text-ltt mb-1">Ficha técnica</h2>
+                      <h2 className="font-sora text-[18px] font-semibold text-ltt mb-1">Ficha técnica</h2>
                       <p className="font-sora text-[12px] text-lttm">Información completa del sistema organizada por dominio de responsabilidad</p>
                     </div>
                     <Link
@@ -3288,19 +3296,19 @@ export function SystemDetailClient({
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                         <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Total</div>
-                        <div className="font-fraunces text-[24px] font-semibold text-ltt leading-none">{evidenceSummary.total}</div>
+                        <div className="font-sora text-[24px] font-semibold text-ltt leading-none">{evidenceSummary.total}</div>
                       </div>
                       <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                         <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Válidas</div>
-                        <div className="font-fraunces text-[24px] font-semibold text-gr leading-none">{evidenceSummary.valid}</div>
+                        <div className="font-sora text-[24px] font-semibold text-gr leading-none">{evidenceSummary.valid}</div>
                       </div>
                       <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                         <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Pendientes</div>
-                        <div className="font-fraunces text-[24px] font-semibold text-or leading-none">{evidenceSummary.pending}</div>
+                        <div className="font-sora text-[24px] font-semibold text-or leading-none">{evidenceSummary.pending}</div>
                       </div>
                       <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                         <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Caducadas</div>
-                        <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{evidenceSummary.expired}</div>
+                        <div className="font-sora text-[24px] font-semibold text-re leading-none">{evidenceSummary.expired}</div>
                       </div>
                     </div>
                   </div>
@@ -3311,7 +3319,7 @@ export function SystemDetailClient({
                         <Link2 className="w-6 h-6 text-lttm" />
                       </div>
                       <div className="text-ltt font-sora font-semibold text-[15px] mb-2">Todavía no hay evidencias registradas</div>
-                      <div className="text-[13px] text-lttm max-w-[420px] mb-5">
+                      <div className="font-sora text-[14px] text-lttm max-w-[420px] mb-5">
                         Empieza vinculando documentación técnica, DPIAs, políticas, contratos o informes mediante una URL. Más adelante podremos ampliar esta pestaña con subida de archivos a Storage.
                       </div>
                       <button
@@ -3401,7 +3409,7 @@ export function SystemDetailClient({
                                 {evidence.external_url &&
                                   (isInternalAppUrl(evidence.external_url) ? (
                                     <Link
-                                      href={evidence.external_url}
+                                      href={toInternalPath(evidence.external_url)}
                                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-lttm hover:bg-ltcard2 border border-ltb transition-all"
                                     >
                                       <ExternalLink className="w-3.5 h-3.5" />
@@ -3646,11 +3654,11 @@ export function SystemDetailClient({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                           <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Total activo</div>
-                          <div className="font-fraunces text-[24px] font-semibold text-ltt leading-none">{failureModeSummary.total}</div>
+                          <div className="font-sora text-[24px] font-semibold text-ltt leading-none">{failureModeSummary.total}</div>
                         </div>
                         <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                           <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Prioritarios</div>
-                          <div className="font-fraunces text-[24px] font-semibold text-re leading-none">{failureModeSummary.prioritized}</div>
+                          <div className="font-sora text-[24px] font-semibold text-re leading-none">{failureModeSummary.prioritized}</div>
                         </div>
                         <div className="bg-ltcard border border-ltb rounded-[10px] p-3">
                           <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Siguiente paso</div>
@@ -3957,7 +3965,7 @@ export function SystemDetailClient({
                                         <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1">
                                           Score
                                         </div>
-                                        <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none">
+                                        <div className="font-sora text-[22px] font-semibold text-ltt leading-none">
                                           {mode.priority_score ?? '—'}
                                         </div>
                                         <div className="font-sora text-[11.5px] text-lttm mt-1">
@@ -4077,21 +4085,21 @@ export function SystemDetailClient({
                         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
                             <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Zona proyectada</div>
-                            <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none mb-2">
+                            <div className="font-sora text-[22px] font-semibold text-ltt leading-none mb-2">
                               {treatmentPlanData.plan.zone_at_creation} → {treatmentPlanData.plan.zone_target ?? 'TBD'}
                             </div>
                             <div className="font-sora text-[11px] text-lttm">Tras aplicar todas las medidas del plan</div>
                           </div>
                           <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
                             <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Acciones candidatas</div>
-                            <div className="font-fraunces text-[22px] font-semibold text-ltt leading-none mb-2">
+                            <div className="font-sora text-[22px] font-semibold text-ltt leading-none mb-2">
                               {treatmentPlanData.actions.length}
                             </div>
                             <div className="font-sora text-[11px] text-lttm">Acciones identificadas en FMEA</div>
                           </div>
                           <div className="bg-ltbg border border-ltb rounded-[10px] p-4">
                             <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Aprobación requerida</div>
-                            <div className="font-fraunces text-[18px] font-semibold text-ltt leading-none mb-2">
+                            <div className="font-sora text-[18px] font-semibold text-ltt leading-none mb-2">
                               {treatmentPlanData.plan.approval_level}
                             </div>
                             <div className="font-sora text-[11px] text-lttm">Basado en riesgo y nivel AI Act</div>
@@ -4111,7 +4119,7 @@ export function SystemDetailClient({
                         <div className="grid grid-cols-1 gap-3">
                           {treatmentPlanData.actions.map((action) => (
                             <div key={action.id} className="bg-ltcard border border-ltb rounded-[12px] p-4 flex items-center gap-4 hover:border-cyan-border transition-all">
-                              <div className={`w-10 h-10 rounded-[8px] border flex items-center justify-center font-fraunces text-[18px] shrink-0 ${
+                              <div className={`w-10 h-10 rounded-[8px] border flex items-center justify-center font-sora text-[18px] shrink-0 ${
                                 action.s_actual_at_creation >= 9 ? 'bg-red-dim border-reb text-re' : 
                                 action.s_actual_at_creation >= 8 ? 'bg-ordim border-orb text-or' : 'bg-cyan-dim border-cyan-border text-brand-cyan'
                               }`}>
@@ -4140,7 +4148,7 @@ export function SystemDetailClient({
                       <div className="w-14 h-14 rounded-full bg-ltbg border border-ltb flex items-center justify-center mx-auto mb-5">
                         <CalendarClock className="w-6 h-6 text-lttm" />
                       </div>
-                      <h3 className="font-fraunces text-[20px] font-semibold text-ltt mb-2">No hay un plan activo</h3>
+                      <h3 className="font-sora text-[20px] font-semibold text-ltt mb-2">No hay un plan activo</h3>
                       <p className="text-[14px] text-ltt2 max-w-[420px] mx-auto mb-6">
                         Para generar un plan de tratamiento, primero debes realizar una evaluación FMEA. Si ya has empezado una, el plan aparecerá aquí automáticamente como borrador.
                       </p>
@@ -4175,8 +4183,8 @@ export function SystemDetailClient({
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="font-fraunces text-[36px] font-bold text-re leading-none mb-1">{compliance}%</span>
-                    <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">AI Act</span>
+                    <span className="font-sora text-[34px] font-bold text-re leading-none">{compliance}%</span>
+                    <span className="font-plex text-[11px] uppercase tracking-[1px] text-ltt2 mt-1">AI Act</span>
                   </div>
                 </div>
                 <div className="flex gap-3 flex-wrap justify-center">
@@ -4303,7 +4311,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-2xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-lg font-semibold text-ltt">
+                <h2 className="font-sora text-lg font-semibold text-ltt">
                   {editingEvidence ? 'Editar evidencia' : 'Nueva evidencia'}
                 </h2>
                 <p className="font-sora text-[12px] text-lttm mt-1">
@@ -4449,7 +4457,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[80vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-base font-semibold text-ltt">Vincular a modos de fallo</h2>
+                <h2 className="font-sora text-base font-semibold text-ltt">Vincular a modos de fallo</h2>
                 <p className="font-sora text-[11.5px] text-lttm mt-0.5 truncate max-w-[340px]">{linkingEvidence.title}</p>
               </div>
               <button onClick={() => setLinkingEvidence(null)} className="text-lttm hover:text-ltt transition-colors">
@@ -4506,7 +4514,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-3xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-lg font-semibold text-ltt">Resolver obligación</h2>
+                <h2 className="font-sora text-lg font-semibold text-ltt">Resolver obligación</h2>
                 <p className="font-sora text-[12px] text-lttm mt-1">
                   {selectedObligation.name}
                 </p>
@@ -4668,7 +4676,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-5xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[92vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-lg font-semibold text-ltt">Revisar clasificación</h2>
+                <h2 className="font-sora text-lg font-semibold text-ltt">Revisar clasificación</h2>
                 <p className="font-sora text-[12px] text-lttm mt-1">
                   Ajusta los factores que impactan AI Act y confirma la nueva clasificación con trazabilidad.
                 </p>
@@ -4825,7 +4833,7 @@ export function SystemDetailClient({
                 <div className="space-y-4">
                   <div className="rounded-[12px] border border-ltb bg-ltbg p-4">
                     <div className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-2">Clasificación actual</div>
-                    <div className={`font-fraunces text-[22px] font-semibold mb-2 ${riskMeta.text}`}>{riskMeta.label}</div>
+                    <div className={`font-sora text-[22px] font-semibold mb-2 ${riskMeta.text}`}>{riskMeta.label}</div>
                     <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
                       {system.aiact_risk_reason ?? 'Sin narrativa disponible.'}
                     </div>
@@ -4846,7 +4854,7 @@ export function SystemDetailClient({
                             <span className="font-plex text-[10px] text-or bg-ordim border border-orb rounded-full px-2 py-0.5">Cambio de nivel</span>
                           )}
                         </div>
-                        <div className={`font-fraunces text-[22px] font-semibold mb-2 ${previewMeta?.text ?? 'text-lttm'}`}>
+                        <div className={`font-sora text-[22px] font-semibold mb-2 ${previewMeta?.text ?? 'text-lttm'}`}>
                           {preview?.label ?? 'Pendiente'}
                         </div>
                         <div className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-2">
@@ -4913,7 +4921,7 @@ export function SystemDetailClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
           <div className="bg-white border border-ltb rounded-[16px] shadow-[0_24px_64px_rgba(0,74,173,0.12)] w-full max-w-md overflow-hidden">
             <div className="px-6 py-5 border-b border-ltb bg-ltcard2 flex items-center justify-between">
-              <h3 className="font-fraunces text-[18px] text-ltt">Excluir obligación</h3>
+              <h3 className="font-sora text-[18px] text-ltt">Excluir obligación</h3>
               <button onClick={() => setIsExcludingObligation(false)} className="text-lttm hover:text-ltt">
                 <X className="w-5 h-5" />
               </button>
@@ -4958,7 +4966,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-[16px] font-semibold text-ltt">
+                <h2 className="font-sora text-[16px] font-semibold text-ltt">
                   {failureModeActionModal.type === 'promote' ? 'Promover a prioritario' : 'Descartar modo de fallo'}
                 </h2>
                 <p className="font-plex text-[11px] text-lttm mt-0.5">
@@ -5044,7 +5052,7 @@ export function SystemDetailClient({
           <div className="bg-ltcard w-full max-w-3xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[88vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
               <div>
-                <h2 className="font-fraunces text-[16px] font-semibold text-ltt">Promover varios modos descartados por cuota</h2>
+                <h2 className="font-sora text-[16px] font-semibold text-ltt">Promover varios modos descartados por cuota</h2>
                 <p className="font-plex text-[11px] text-lttm mt-0.5">
                   {bulkPromoteCandidates.length} candidatos altos pendientes de revisión. Selecciona los que apliquen al sistema y justifícalo de forma común.
                 </p>

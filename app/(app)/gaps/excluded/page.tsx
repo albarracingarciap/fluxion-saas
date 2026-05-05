@@ -34,7 +34,7 @@ export default async function ExcludedGapsPage() {
             <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
               Análisis de gaps
             </p>
-            <h1 className="font-fraunces text-[32px] leading-none text-ltt">Gaps excluidos</h1>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Gaps excluidos</h1>
             <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[700px]">
               Gaps marcados como aceptados o fuera de alcance. No aparecen en la cola activa pero siguen siendo auditables.
             </p>
@@ -53,17 +53,17 @@ export default async function ExcludedGapsPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-[14px] border border-ltb bg-ltcard p-5">
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">Total excluidos</p>
-          <p className="font-fraunces text-[34px] text-ltt mt-2">{excluded.length}</p>
+          <p className="font-sora font-bold text-[34px] text-ltt mt-2">{excluded.length}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-1">No aparecen en la cola activa</p>
         </div>
         <div className="rounded-[14px] border border-ltb bg-ltcard p-5">
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">Aceptados</p>
-          <p className="font-fraunces text-[34px] text-brand-cyan mt-2">{accepted.length}</p>
+          <p className="font-sora font-bold text-[34px] text-brand-cyan mt-2">{accepted.length}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-1">Riesgo conocido y asumido</p>
         </div>
         <div className="rounded-[14px] border border-ltb bg-ltcard p-5">
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">No aplica</p>
-          <p className="font-fraunces text-[34px] text-lttm mt-2">{notApplicable.length}</p>
+          <p className="font-sora font-bold text-[34px] text-lttm mt-2">{notApplicable.length}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-1">Fuera del alcance definido</p>
         </div>
       </section>

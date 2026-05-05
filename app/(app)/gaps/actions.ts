@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildGapsData, type GapLayer, type GapDispositionType } from '@/lib/gaps/data'
-import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 
 type GapAssignmentInput = {
   layer: GapLayer
@@ -24,7 +24,6 @@ type GapGroupAssignmentInput = {
 }
 
 export async function saveGapAnalysisSnapshot() {
-  const fluxion = createFluxionClient()
   const { user, membership, organization, onboardingCompleted } = await getAppAuthState()
 
   if (!user) {
@@ -39,7 +38,8 @@ export async function saveGapAnalysisSnapshot() {
   const now = new Date().toISOString()
   const title = `Análisis de gaps · ${organization?.name ?? 'Organización'} · ${now.slice(0, 10)}`
 
-  const { data: snapshot, error } = await fluxion
+  const adminFluxion = createAdminFluxionClient()
+  const { data: snapshot, error } = await adminFluxion
     .from('system_report_snapshots')
     .insert({
       ai_system_id: null,

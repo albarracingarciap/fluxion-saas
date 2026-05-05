@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Eye, EyeOff, LayoutGrid, RefreshCw, ShieldAlert } from 'lucide-react'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
@@ -50,52 +50,58 @@ export default async function PlanesPage({ searchParams }: PageProps) {
   const members = (membersRes.data ?? []) as { id: string; full_name: string }[]
 
   return (
-    <div className="max-w-[1500px] mx-auto w-full animate-fadein pb-10">
-      <section className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[12px] font-plex text-lttm uppercase tracking-wider mb-3">
-            <ClipboardList size={14} className="text-lttm" />
-            <span className="text-ltt">Ejecución / Planes de tratamiento</span>
+    <div className="max-w-[1280px] mx-auto w-full animate-fadein pb-10">
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-5">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+        >
+          <ArrowLeft size={13} />
+          Volver al dashboard
+        </Link>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <ClipboardList size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Evaluación · Planes de tratamiento</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">
+              Planes de tratamiento
+            </h1>
+            <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+              Vista transversal de todos los planes generados desde evaluaciones FMEA.
+              Filtra por estado, zona, sistema o vencimiento para priorizar la ejecución.
+            </p>
           </div>
-          <h1 className="font-fraunces text-[32px] leading-none font-semibold text-ltt mb-2">
-            Planes de tratamiento
-          </h1>
-          <p className="font-sora text-[14px] text-ltt2 max-w-[720px]">
-            Vista transversal de todos los planes generados desde evaluaciones FMEA.
-            Filtra por estado, zona, sistema o vencimiento para priorizar la ejecución.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {summary.pendingReviewsCount > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {summary.pendingReviewsCount > 0 && (
+              <Link
+                href="/planes/revisiones-pendientes"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border border-orb bg-ordim font-sora text-[12.5px] font-medium text-or transition-colors hover:-translate-y-px"
+              >
+                <RefreshCw size={13} />
+                {summary.pendingReviewsCount} {summary.pendingReviewsCount === 1 ? 'revisión pendiente' : 'revisiones pendientes'}
+              </Link>
+            )}
             <Link
-              href="/planes/revisiones-pendientes"
+              href={includeSuperseded ? '/planes' : '/planes?superseded=1'}
               className={`inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border font-sora text-[12.5px] font-medium transition-colors ${
-                summary.overdueReviewsCount > 0
-                  ? 'border-orb bg-ordim text-or'
-                  : 'border-orb bg-ordim text-or'
+                includeSuperseded
+                  ? 'border-cyan-border bg-cyan-dim text-brand-cyan'
+                  : 'border-ltb bg-ltbg text-lttm hover:border-cyan-border hover:text-ltt'
               }`}
             >
-              <RefreshCw size={13} />
-              {summary.pendingReviewsCount} {summary.pendingReviewsCount === 1 ? 'revisión pendiente' : 'revisiones pendientes'}
+              {includeSuperseded ? <EyeOff size={14} /> : <Eye size={14} />}
+              {includeSuperseded ? 'Ocultar reemplazados' : 'Mostrar reemplazados'}
             </Link>
-          )}
-          <Link
-            href={includeSuperseded ? '/planes' : '/planes?superseded=1'}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-[8px] border font-sora text-[12.5px] font-medium transition-colors ${
-              includeSuperseded
-                ? 'border-cyan-border bg-cyan-dim text-brand-cyan'
-                : 'border-ltb bg-ltcard text-lttm hover:border-cyan-border hover:text-ltt'
-            }`}
-          >
-            {includeSuperseded ? 'Ocultar reemplazados' : 'Mostrar reemplazados'}
-          </Link>
-          <Link
-            href="/inventario"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
-          >
-            Ir al inventario
-            <ArrowRight size={15} />
-          </Link>
+            <Link
+              href="/inventario"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
+            >
+              <LayoutGrid size={14} />
+              Ir al inventario
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -145,7 +151,7 @@ export default async function PlanesPage({ searchParams }: PageProps) {
           <div className="w-14 h-14 rounded-full bg-cyan-dim border border-cyan-border flex items-center justify-center mx-auto mb-5">
             <ShieldAlert className="w-6 h-6 text-brand-cyan" />
           </div>
-          <h2 className="font-fraunces text-[24px] font-semibold text-ltt mb-2">
+          <h2 className="font-sora font-bold text-[24px] text-ltt mb-2">
             Aún no hay planes de tratamiento
           </h2>
           <p className="font-sora text-[14px] text-ltt2 max-w-[520px] mx-auto">

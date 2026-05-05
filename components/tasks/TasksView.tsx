@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon,
+  ArrowLeft, Search, Plus, Trash2, Loader2, ListTodo, Activity, AlertOctagon,
   CalendarClock, User, Tag, X as XIcon, Calendar, Download,
   CheckSquare, Square, ChevronDown, Bookmark, BookmarkPlus, Trash, LayoutTemplate, RefreshCw,
   CalendarDays, BarChart2,
@@ -479,7 +479,7 @@ function KpiCard({ label, value, icon, accent, bar }: SummaryCard) {
             {icon}
           </div>
         </div>
-        <span className="font-fraunces text-[32px] font-semibold text-ltt leading-none">{value}</span>
+        <span className="font-sora font-bold text-[32px] text-ltt leading-none">{value}</span>
       </div>
     </div>
   )
@@ -676,53 +676,64 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
     <>
       <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein pb-10">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="font-fraunces text-[28px] leading-none font-semibold text-ltt mb-2">
-              Gestión de Tareas
-            </h1>
-            <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
-              Seguimiento de tareas de cumplimiento — manuales y generadas automáticamente
-            </p>
+        <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+          >
+            <ArrowLeft size={13} />
+            Volver al dashboard
+          </Link>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <ListTodo size={13} className="text-lttm" />
+                <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Seguimiento · Tareas</p>
+              </div>
+              <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Gestión de Tareas</h1>
+              <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+                Seguimiento de tareas de cumplimiento — manuales y generadas automáticamente
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href="/tareas/calendario"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+              >
+                <CalendarDays className="w-4 h-4" />
+                Calendario
+              </Link>
+              <Link
+                href="/tareas/metricas"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+              >
+                <BarChart2 className="w-4 h-4" />
+                Métricas
+              </Link>
+              <Link
+                href="/tareas/recurrentes"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Recurrentes
+              </Link>
+              <Link
+                href="/tareas/plantillas"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                Plantillas
+              </Link>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva tarea
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/tareas/calendario"
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
-            >
-              <CalendarDays className="w-4 h-4" />
-              Calendario
-            </Link>
-            <Link
-              href="/tareas/metricas"
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
-            >
-              <BarChart2 className="w-4 h-4" />
-              Métricas
-            </Link>
-            <Link
-              href="/tareas/recurrentes"
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Recurrentes
-            </Link>
-            <Link
-              href="/tareas/plantillas"
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-ltbg border border-ltb rounded-[8px] font-sora text-[13px] text-lttm hover:text-ltt hover:border-brand-cyan transition-all"
-            >
-              <LayoutTemplate className="w-4 h-4" />
-              Plantillas
-            </Link>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:shadow-[0_4px_12px_rgba(0,173,239,0.4)] transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva tarea
-            </button>
-          </div>
-        </div>
+        </section>
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -731,14 +742,14 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
             value={summary.total}
             icon={<ListTodo className="w-3.5 h-3.5 text-brand-cyan" />}
             accent="bg-cyan-dim"
-            bar="bg-gradient-to-r from-brand-cyan to-[#33c3f5]"
+            bar="bg-gradient-to-r from-brand-cyan to-brand-blue"
           />
           <KpiCard
             label="En progreso"
             value={inProgressCount}
             icon={<Activity className="w-3.5 h-3.5 text-brand-blue" />}
             accent="bg-blue-dim"
-            bar="bg-gradient-to-r from-brand-blue to-[#5a8fd6]"
+            bar="bg-gradient-to-r from-brand-blue to-brand-cyan"
           />
           <KpiCard
             label="Bloqueadas"

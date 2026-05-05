@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/authStore'
-import { Settings, ChevronRight, User, Bell, Monitor, ClipboardList, Shield, Key, Webhook, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, Settings, User, Bell, Monitor, ClipboardList, Shield, Key, Webhook, Loader2 } from 'lucide-react'
 import { MiCuentaTab }        from './tabs/mi-cuenta'
 import { NotificacionesTab }  from './tabs/notificaciones'
 import { SesionesTab }        from './tabs/sesiones'
@@ -132,21 +133,23 @@ export default function AjustesPage() {
   return (
     <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[12px] font-plex text-lttm uppercase tracking-wider mb-4">
-        <Settings size={13} className="text-lttm" />
-        <span>Configuración</span>
-        <ChevronRight size={11} className="text-lttm" />
-        <span className="text-ltt">Ajustes</span>
-      </div>
-
-      {/* Header */}
-      <div className="mb-7">
-        <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">Ajustes</h1>
-        <p className="text-[13px] text-ltt2 font-sora leading-relaxed">
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-7">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+        >
+          <ArrowLeft size={13} />
+          Volver al dashboard
+        </Link>
+        <div className="flex items-center gap-2 mb-2">
+          <Settings size={13} className="text-lttm" />
+          <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Configuración · Ajustes</p>
+        </div>
+        <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Ajustes</h1>
+        <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
           Personaliza tu experiencia y gestiona el acceso a tu cuenta.
         </p>
-      </div>
+      </section>
 
       {/* Body */}
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">

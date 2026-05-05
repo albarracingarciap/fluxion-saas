@@ -8,6 +8,7 @@ import {
   FileWarning,
   History,
   Info,
+  LayoutDashboard,
   ShieldAlert,
   ShieldOff,
 } from 'lucide-react'
@@ -301,7 +302,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
               Radar transversal
             </p>
-            <h1 className="font-fraunces text-[32px] leading-none text-ltt">Análisis de gaps</h1>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Análisis de gaps</h1>
             <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
               Vista consolidada de brechas normativas, evaluación FMEA, tratamiento pendiente y caducidades próximas. Esta pantalla es de lectura y te deriva al módulo origen para actuar.
             </p>
@@ -309,8 +310,9 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
           <div className="flex flex-wrap gap-3">
             <Link
               href="/dashboard"
-              className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
             >
+              <LayoutDashboard size={14} />
               Volver al dashboard
             </Link>
             <Link
@@ -502,7 +504,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                         </span>
                       ) : null}
                       <span
-                        className={`font-fraunces text-[26px] ${
+                        className={`font-sora font-bold text-[26px] ${
                           row.exposure_score >= 70
                             ? 'text-re'
                             : row.exposure_score >= 40
@@ -996,7 +998,7 @@ function MiniCard({ label, value, detail }: { label: string; value: string; deta
   return (
     <div className="rounded-[12px] border border-ltb bg-ltcard p-4">
       <p className="font-plex text-[10px] uppercase tracking-[0.8px] text-lttm">{label}</p>
-      <p className="font-fraunces text-[28px] text-ltt mt-2">{value}</p>
+      <p className="font-sora font-bold text-[28px] text-ltt mt-2">{value}</p>
       <p className="font-sora text-[12px] text-ltt2 mt-2">{detail}</p>
     </div>
   )
@@ -1040,7 +1042,7 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">{label}</p>
-          <p className={`font-fraunces text-[34px] mt-3 ${valueClass}`}>{value}</p>
+          <p className={`font-sora font-bold text-[34px] mt-3 ${valueClass}`}>{value}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-2">{detail}</p>
         </div>
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">

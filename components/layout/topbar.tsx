@@ -56,13 +56,26 @@ export function Topbar() {
     if (pathname?.includes('/inventario/nuevo')) return "Nuevo Sistema IA"
     if (pathname?.match(/\/inventario\/.+/)) return "Detalle del Sistema"
     if (pathname?.includes('/inventario')) return "Inventario de Sistemas"
-    if (pathname?.includes('/evaluaciones')) return "Evaluación"
+    if (pathname?.includes('/evaluaciones')) return "Evaluaciones"
+    if (pathname?.includes('/planes/revisiones-pendientes')) return "Revisiones pendientes"
+    if (pathname?.includes('/planes')) return "Planes de tratamiento"
     if (pathname?.includes('/gaps')) return "Análisis de Gaps"
     if (pathname?.includes('/evidencias')) return "Evidencias"
+    if (pathname?.includes('/tareas')) return "Tareas"
+    if (pathname?.includes('/kanban')) return "Kanban"
+    if (pathname?.includes('/datos/modos-de-fallo')) return "Modos de Fallo"
+    if (pathname?.includes('/datos/medidas')) return "Medidas de Control"
+    if (pathname?.includes('/datos/tipos-de-evidencia')) return "Tipos de Evidencia"
+    if (pathname?.includes('/datos/obligaciones')) return "Obligaciones"
+    if (pathname?.includes('/datos/mappings/obligacion-evidencia')) return "Obligación ↔ Evidencia"
+    if (pathname?.includes('/datos/mappings/modo-medida')) return "Modo ↔ Medida"
+    if (pathname?.includes('/datos/relaciones-causales')) return "Relaciones Causales"
+    if (pathname?.includes('/datos/catalogo-causal')) return "Catálogo Causal"
     if (pathname?.includes('/datos')) return "Datos"
     if (pathname?.includes('/organizacion')) return "Organización"
     if (pathname?.includes('/usuarios')) return "Usuarios"
     if (pathname?.includes('/ajustes')) return "Ajustes"
+    if (pathname === '/dashboard') return "Dashboard"
     return "Dashboard"
   }
 
@@ -101,7 +114,7 @@ export function Topbar() {
     || '?'
 
   return (
-    <header className="flex-shrink-0 h-[62px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
+    <header className="flex-shrink-0 h-[70px] bg-dk8 border-b border-dkb flex items-center justify-between px-6 z-[60] relative">
       <h1 className="font-sora text-[15px] font-semibold text-dkt">{getPageTitle()}</h1>
       <div className="flex items-center gap-2">
         <NotificationsBell />
@@ -118,7 +131,7 @@ export function Topbar() {
             <span className="font-sora text-[13px] font-semibold text-dkt leading-tight">
               {displayName}
             </span>
-            <span className="font-plex text-[10px] text-dkt2 leading-tight">
+            <span className="font-plex text-[11.5px] text-dkt leading-tight">
               {({
                 org_admin:          'Administrador',
                 sgai_manager:       'SGAI Manager',

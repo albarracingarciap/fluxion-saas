@@ -146,7 +146,7 @@ function EventCard({ event, isActive }: { event: ClassificationEventEntry; isAct
 
           <div className="min-w-0">
             {/* Nivel de riesgo */}
-            <div className={`font-fraunces text-[14px] font-semibold ${riskColor}`}>
+            <div className={`font-sora text-[14px] font-semibold ${riskColor}`}>
               {event.risk_label}
             </div>
             {/* Método + estado */}

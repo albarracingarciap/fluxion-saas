@@ -184,7 +184,7 @@ export function HeaderActions({ metadata, availableTags, userRole, lifecycleStat
                   <AlertTriangle size={18} className="text-[#b45309]" />
                 </div>
                 <div>
-                  <h3 className="font-fraunces text-[17px] text-ltt leading-none">Controles sin justificación</h3>
+                  <h3 className="font-sora font-bold text-[17px] text-ltt leading-none">Controles sin justificación</h3>
                   <p className="font-sora text-[11px] text-[#b45309] mt-1">
                     {confirmDialog.missingCodes.length} control{confirmDialog.missingCodes.length > 1 ? 'es' : ''} aplicable{confirmDialog.missingCodes.length > 1 ? 's' : ''} sin documentar
                   </p>

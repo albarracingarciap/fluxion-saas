@@ -179,7 +179,7 @@ function DashboardHero({
           <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
             Resumen operativo
           </p>
-          <h1 className="font-fraunces text-[32px] leading-none text-ltt">{organizationName}</h1>
+          <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">{organizationName}</h1>
           <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[680px]">
             {systemsTotal > 0
               ? 'Vista ejecutiva del inventario, cumplimiento, riesgos priorizados y próximos pasos operativos de la organización.'
@@ -189,8 +189,9 @@ function DashboardHero({
         <div className="flex flex-wrap gap-3">
           <Link
             href="/inventario"
-            className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
           >
+            <Boxes size={15} />
             Ver inventario
           </Link>
           <Link
@@ -221,20 +222,20 @@ function KpiCard({
 }) {
   const accentClass =
     accent === 'red'
-      ? 'border-t-[#f87171] bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.10),transparent_28%)]'
+      ? 'border-t-re bg-[radial-gradient(circle_at_top_right,rgba(248,113,113,0.10),transparent_28%)]'
       : accent === 'green'
-        ? 'border-t-[#22c55e] bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
+        ? 'border-t-gr bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.10),transparent_28%)]'
         : accent === 'blue'
-          ? 'border-t-[#3b82f6] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
+          ? 'border-t-brand-blue bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]'
           : 'border-t-brand-cyan bg-[radial-gradient(circle_at_top_right,rgba(0,173,239,0.12),transparent_28%)]'
 
   const valueClass =
     accent === 'red'
-      ? 'text-[#ef4444]'
+      ? 'text-re'
       : accent === 'green'
-        ? 'text-[#16a34a]'
+        ? 'text-gr'
         : accent === 'blue'
-          ? 'text-[#2563eb]'
+          ? 'text-brand-blue'
           : 'text-brand-cyan'
 
   return (
@@ -244,7 +245,7 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">{label}</p>
-          <p className={`font-fraunces text-[34px] mt-3 ${valueClass}`}>{value}</p>
+          <p className={`font-sora font-bold text-[34px] mt-3 ${valueClass}`}>{value}</p>
           <p className="font-sora text-[12px] text-ltt2 mt-2">{detail}</p>
         </div>
         <div className="w-9 h-9 rounded-full bg-ltbg border border-ltb flex items-center justify-center shrink-0">
@@ -289,21 +290,21 @@ function EvidenceHealthCard({ kpis }: { kpis: DashboardData['kpis'] }) {
           {/* Stat: Total */}
           <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Total</p>
-            <p className="font-fraunces text-[28px] text-ltt mt-1">{total}</p>
+            <p className="font-sora font-bold text-[28px] text-ltt mt-1">{total}</p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">evidencias registradas</p>
           </div>
 
           {/* Stat: Válidas */}
           <div className="rounded-[12px] border border-grb bg-grdim px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-gr">Válidas</p>
-            <p className="font-fraunces text-[28px] text-gr mt-1">{kpis.evidencesValid}</p>
+            <p className="font-sora font-bold text-[28px] text-gr mt-1">{kpis.evidencesValid}</p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">aprobadas y vigentes</p>
           </div>
 
           {/* Stat: Pendientes */}
           <div className="rounded-[12px] border border-orb bg-ordim px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-or">Pendientes</p>
-            <p className="font-fraunces text-[28px] text-or mt-1">{kpis.evidencesPending}</p>
+            <p className="font-sora font-bold text-[28px] text-or mt-1">{kpis.evidencesPending}</p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">borrador o en revisión</p>
           </div>
 
@@ -315,7 +316,7 @@ function EvidenceHealthCard({ kpis }: { kpis: DashboardData['kpis'] }) {
                 Caducan ≤ 30 d
               </p>
             </div>
-            <p className={`font-fraunces text-[28px] mt-1 ${kpis.evidencesExpiringSoon > 0 ? 'text-re' : 'text-ltt'}`}>
+            <p className={`font-sora font-bold text-[28px] mt-1 ${kpis.evidencesExpiringSoon > 0 ? 'text-re' : 'text-ltt'}`}>
               {kpis.evidencesExpiringSoon}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
@@ -328,7 +329,7 @@ function EvidenceHealthCard({ kpis }: { kpis: DashboardData['kpis'] }) {
             <p className={`font-plex text-[10px] uppercase tracking-[0.7px] ${kpis.evidencesNoOwner > 0 ? 'text-or' : 'text-lttm'}`}>
               Sin owner
             </p>
-            <p className={`font-fraunces text-[28px] mt-1 ${kpis.evidencesNoOwner > 0 ? 'text-or' : 'text-ltt'}`}>
+            <p className={`font-sora font-bold text-[28px] mt-1 ${kpis.evidencesNoOwner > 0 ? 'text-or' : 'text-ltt'}`}>
               {kpis.evidencesNoOwner}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">sin responsable asignado</p>
@@ -344,7 +345,7 @@ function EvidenceHealthCard({ kpis }: { kpis: DashboardData['kpis'] }) {
                 {Math.round((kpis.evidencesValid / total) * 100)}%
               </p>
             </div>
-            <div className="h-2 rounded-full bg-[#e7eef8] overflow-hidden">
+            <div className="h-2 rounded-full bg-ltb overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-gr to-[#2b9d6f] transition-all"
                 style={{ width: `${Math.max(4, Math.round((kpis.evidencesValid / total) * 100))}%` }}
@@ -374,7 +375,7 @@ function ComplianceOverviewCard({ dashboard }: { dashboard: DashboardData }) {
           <div className="flex items-center justify-center">
             <div className="relative w-[136px] h-[136px] rounded-full bg-[conic-gradient(var(--tw-gradient-stops))] from-brand-cyan via-brand-blue to-[#dce9f8]">
               <div className="absolute inset-[12px] rounded-full bg-ltcard border border-ltb flex flex-col items-center justify-center">
-                <span className="font-fraunces text-[34px] text-brand-cyan leading-none">
+                <span className="font-sora font-bold text-[34px] text-brand-cyan leading-none">
                   {dashboard.kpis.complianceGlobal}%
                 </span>
                 <span className="font-plex text-[11px] uppercase tracking-[0.8px] text-lttm mt-2">
@@ -388,17 +389,17 @@ function ComplianceOverviewCard({ dashboard }: { dashboard: DashboardData }) {
             <MetricBar
               label="Documentación técnica"
               value={dashboard.pillarSummary.documentacion}
-              color="bg-[#ef4444]"
+              color="bg-re"
             />
             <MetricBar
               label="Supervisión humana"
               value={dashboard.pillarSummary.supervision}
-              color="bg-[#d97706]"
+              color="bg-or"
             />
             <MetricBar
               label="Transparencia"
               value={dashboard.pillarSummary.transparencia}
-              color="bg-[#16a34a]"
+              color="bg-gr"
             />
             <MetricBar
               label="Gobernanza y riesgos"
@@ -418,11 +419,11 @@ function ComplianceOverviewCard({ dashboard }: { dashboard: DashboardData }) {
                 Proxy de madurez agregado a partir de la información disponible por sistema.
               </p>
             </div>
-            <span className="font-fraunces text-[28px] text-brand-blue">
+            <span className="font-sora font-bold text-[28px] text-brand-blue">
               {dashboard.kpis.isoAverage === null ? '—' : `${dashboard.kpis.isoAverage}%`}
             </span>
           </div>
-          <div className="w-full h-2 rounded-full bg-[#d9e6f4] overflow-hidden mt-4">
+          <div className="w-full h-2 rounded-full bg-ltb overflow-hidden mt-4">
             <div
               className="h-full rounded-full bg-brand-blue transition-all"
               style={{ width: `${dashboard.kpis.isoAverage ?? 0}%` }}
@@ -472,12 +473,12 @@ function SystemsHealthCard({ systems }: { systems: HealthSystem[] }) {
                 </div>
                 <div className="text-right shrink-0">
                   <p
-                    className={`font-fraunces text-[24px] leading-none ${
+                    className={`font-sora font-bold text-[24px] leading-none ${
                       system.compliancePercent >= 80
-                        ? 'text-[#16a34a]'
+                        ? 'text-gr'
                         : system.compliancePercent >= 50
-                          ? 'text-[#d97706]'
-                          : 'text-[#ef4444]'
+                          ? 'text-or'
+                          : 'text-re'
                     }`}
                   >
                     {system.compliancePercent}%
@@ -487,14 +488,14 @@ function SystemsHealthCard({ systems }: { systems: HealthSystem[] }) {
                   </p>
                 </div>
               </div>
-              <div className="w-full h-2 rounded-full bg-[#d9e6f4] overflow-hidden mt-3">
+              <div className="w-full h-2 rounded-full bg-ltb overflow-hidden mt-3">
                 <div
                   className={`h-full rounded-full transition-all ${
                     system.compliancePercent >= 80
-                      ? 'bg-[#16a34a]'
+                      ? 'bg-gr'
                       : system.compliancePercent >= 50
-                        ? 'bg-[#d97706]'
-                        : 'bg-[#ef4444]'
+                        ? 'bg-or'
+                        : 'bg-re'
                   }`}
                   style={{ width: `${system.compliancePercent}%` }}
                 />
@@ -663,7 +664,7 @@ function MetricBar({ label, value, color }: { label: string; value: number; colo
         <span className="font-sora text-[13px] text-ltt">{label}</span>
         <span className="font-sora text-[12px] text-lttm">{value}%</span>
       </div>
-      <div className="w-full h-2 rounded-full bg-[#d9e6f4] overflow-hidden">
+      <div className="w-full h-2 rounded-full bg-ltb overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -715,14 +716,14 @@ function AnalyticsRow({
 }) {
   const color =
     tone === 'red'
-      ? 'bg-[#ef4444]'
+      ? 'bg-re'
       : tone === 'purple'
         ? 'bg-[#8b5cf6]'
         : tone === 'cyan'
           ? 'bg-brand-cyan'
           : tone === 'orange'
-            ? 'bg-[#d97706]'
-            : 'bg-[#f59e0b]'
+            ? 'bg-or'
+            : 'bg-or'
 
   const width = Math.max(14, Math.min(100, value))
 
@@ -735,7 +736,7 @@ function AnalyticsRow({
         </div>
         <span className="font-sora text-[12px] text-lttm shrink-0">{value}</span>
       </div>
-      <div className="w-full h-2 rounded-full bg-[#d9e6f4] overflow-hidden">
+      <div className="w-full h-2 rounded-full bg-ltb overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} />
       </div>
     </div>
@@ -751,7 +752,7 @@ function InlineBadge({
 }) {
   const toneClass =
     tone === 'red'
-      ? 'bg-[#fff1f2] border-[#fecdd3] text-[#dc2626]'
+      ? 'bg-red-dim border-reb text-re'
       : tone === 'blue'
         ? 'bg-cyan-dim border-cyan-border text-brand-cyan'
         : 'bg-ltbg border-ltb text-lttm'
@@ -810,7 +811,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-[12px] border border-ltb bg-ltbg px-4 py-3">
             <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Activos</p>
-            <p className="font-fraunces text-[28px] text-ltt mt-1">{summary.active}</p>
+            <p className="font-sora font-bold text-[28px] text-ltt mt-1">{summary.active}</p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
               {summary.inReview > 0 ? `${summary.inReview} en aprobación` : 'en ejecución o aprobados'}
             </p>
@@ -823,7 +824,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
                 Acciones vencidas
               </p>
             </div>
-            <p className={`font-fraunces text-[28px] mt-1 ${summary.overdueActionsCount > 0 ? 'text-re' : 'text-ltt'}`}>
+            <p className={`font-sora font-bold text-[28px] mt-1 ${summary.overdueActionsCount > 0 ? 'text-re' : 'text-ltt'}`}>
               {summary.overdueActionsCount}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
@@ -838,7 +839,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
                 Tasa slippage
               </p>
             </div>
-            <p className={`font-fraunces text-[28px] mt-1 ${summary.slippageRate !== null && summary.slippageRate > 0 ? 'text-or' : 'text-ltt'}`}>
+            <p className={`font-sora font-bold text-[28px] mt-1 ${summary.slippageRate !== null && summary.slippageRate > 0 ? 'text-or' : 'text-ltt'}`}>
               {summary.slippageRate !== null ? `${summary.slippageRate}%` : '—'}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
@@ -851,7 +852,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
               <Clock size={11} className="text-lttm" />
               <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Mediana cierre</p>
             </div>
-            <p className="font-fraunces text-[28px] text-ltt mt-1">
+            <p className="font-sora font-bold text-[28px] text-ltt mt-1">
               {summary.medianDaysToClose !== null ? `${summary.medianDaysToClose}d` : '—'}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
@@ -866,7 +867,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
                 Revisiones
               </p>
             </div>
-            <p className={`font-fraunces text-[28px] mt-1 ${summary.overdueReviewsCount > 0 ? 'text-or' : 'text-ltt'}`}>
+            <p className={`font-sora font-bold text-[28px] mt-1 ${summary.overdueReviewsCount > 0 ? 'text-or' : 'text-ltt'}`}>
               {summary.pendingReviewsCount}
             </p>
             <p className="font-sora text-[11px] text-ltt2 mt-0.5">
@@ -887,7 +888,7 @@ function TreatmentPlansCard({ summary }: { summary: TreatmentPlansSummary }) {
             </p>
             <p className="font-plex text-[10px] text-lttm">{summary.avgProgressPct}%</p>
           </div>
-          <div className="h-2 rounded-full bg-[#e7eef8] overflow-hidden">
+          <div className="h-2 rounded-full bg-ltb overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue transition-all"
               style={{ width: `${Math.max(4, summary.avgProgressPct)}%` }}
@@ -911,7 +912,7 @@ function EmptyDashboard({ organizationName, firstFocus }: { organizationName: st
         <div className="bg-ltcard2 px-[18px] py-[14px] border-b border-ltb flex items-center justify-between">
           <div>
             <p className="font-plex text-[10.5px] uppercase tracking-[0.8px] text-lttm">Dashboard listo</p>
-            <h1 className="font-fraunces text-[24px] font-semibold text-ltt mt-1">{organizationName}</h1>
+            <h1 className="font-sora font-bold text-[24px] font-semibold text-ltt mt-1">{organizationName}</h1>
           </div>
           <span className="font-plex text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-cyan-dim text-brand-cyan border border-cyan-border">
             Onboarding completado
@@ -923,7 +924,7 @@ function EmptyDashboard({ organizationName, firstFocus }: { organizationName: st
             <div className="w-16 h-16 rounded-[16px] bg-cyan-dim border border-cyan-border flex items-center justify-center mb-5">
               <Archive size={28} className="text-brand-cyan opacity-70" />
             </div>
-            <h2 className="font-fraunces text-[22px] font-semibold text-ltt mb-2">
+            <h2 className="font-sora font-bold text-[22px] font-semibold text-ltt mb-2">
               Registra el primer sistema
             </h2>
             <p className="font-sora text-[13.5px] text-lttm max-w-[400px] leading-relaxed mb-8">
@@ -1070,9 +1071,9 @@ function CausalChainsAlertCard({ chains }: { chains: ActiveCausalChain[] }) {
 }
 
 const LIFECYCLE_BADGE: Record<string, { label: string; cls: string; Icon: React.ComponentType<{ size?: number | string; className?: string }> }> = {
-  draft:        { label: 'Borrador',    cls: 'bg-[#f0f9ff] border-[#bae6fd] text-[#0369a1]', Icon: FileEdit },
-  under_review: { label: 'En revisión', cls: 'bg-[#fffbeb] border-[#fde68a] text-[#b45309]', Icon: Clock },
-  approved:     { label: 'Aprobado',    cls: 'bg-[#f0fdf4] border-[#bbf7d0] text-[#15803d]', Icon: CheckCircle2 },
+  draft:        { label: 'Borrador',    cls: 'bg-cyan-dim border-cyan-border text-brand-cyan', Icon: FileEdit },
+  under_review: { label: 'En revisión', cls: 'bg-ordim border-orb text-or',                   Icon: Clock },
+  approved:     { label: 'Aprobado',    cls: 'bg-grdim border-grb text-gr',                    Icon: CheckCircle2 },
 }
 
 function SoAStatusCard({
@@ -1121,7 +1122,7 @@ function SoAStatusCard({
         {/* Left — completion */}
         <div className="flex flex-col gap-3">
           <div className="flex items-end gap-3">
-            <span className="font-fraunces text-[42px] leading-none text-ltt">{soaKpis.completionPct}%</span>
+            <span className="font-sora font-bold text-[42px] leading-none text-ltt">{soaKpis.completionPct}%</span>
             <span className="font-sora text-[13px] text-ltt2 mb-1">cumplimiento SoA</span>
           </div>
           {/* Progress bar */}
@@ -1133,7 +1134,7 @@ function SoAStatusCard({
           </div>
           <p className="font-sora text-[12px] text-ltt2">
             {soaKpis.implementedCount} de {soaKpis.applicableCount} controles implantados
-            {inProgressCount > 0 && <span className="text-[#d97706]"> · {inProgressCount} en progreso</span>}
+            {inProgressCount > 0 && <span className="text-or"> · {inProgressCount} en progreso</span>}
           </p>
         </div>
 

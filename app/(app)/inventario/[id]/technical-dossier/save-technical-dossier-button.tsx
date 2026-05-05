@@ -69,7 +69,7 @@ export function SaveTechnicalDossierButton({
         type="button"
         onClick={() => { setError(null); setSuccess(null); setIsOpen(true); }}
         disabled={isPending}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12px] font-medium text-[#14233c] bg-white border border-[#d7e6fb] hover:bg-[#f8fbff] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-sora text-[12px] font-medium bg-ltcard hover:bg-ltbg border border-ltb text-lttm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FilePlus2 className="w-4 h-4" />}
         Guardar como evidencia

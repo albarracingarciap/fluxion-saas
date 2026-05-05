@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { buildGapReportData } from '@/lib/ai-systems/gap-report';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { createComplianceClient } from '@/lib/supabase/compliance';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createAdminFluxionClient, createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 type SaveGapReportAsEvidenceInput = {
@@ -21,6 +21,7 @@ export async function saveGapReportAsEvidence(input: SaveGapReportAsEvidenceInpu
   const supabase = createClient();
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
+  const adminFluxion = createAdminFluxionClient();
 
   const {
     data: { user },
@@ -59,7 +60,7 @@ export async function saveGapReportAsEvidence(input: SaveGapReportAsEvidenceInpu
   const now = new Date().toISOString();
   const title = `Gap report · ${report.system.name} · ${now.slice(0, 10)}`;
 
-  const { data: snapshot, error: snapshotError } = await fluxion
+  const { data: snapshot, error: snapshotError } = await adminFluxion
     .from('system_report_snapshots')
     .insert({
       ai_system_id: input.aiSystemId,

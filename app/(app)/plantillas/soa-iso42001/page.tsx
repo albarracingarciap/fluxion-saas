@@ -7,7 +7,7 @@ import { SoAClientView } from './soa-client-view'
 import { HeaderActions } from './header-actions'
 import { SoAPrintView } from './soa-print-view'
 import { SoAMetadataBar } from './metadata-bar'
-import { ShieldCheck, Clock, CheckCircle2, FileEdit } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, Clock, CheckCircle2, FileEdit } from 'lucide-react'
 import Link from 'next/link'
 
 const LIFECYCLE_CONFIG = {
@@ -66,24 +66,26 @@ export default async function SoAPage() {
   return (
     <div className="max-w-[1280px] w-full mx-auto flex flex-col gap-6 animate-fadein">
       <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)]">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
+        >
+          <ArrowLeft size={13} />
+          Volver al dashboard
+        </Link>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-2">
-              Plantilla Normativa
-            </p>
-            <h1 className="font-fraunces text-[32px] leading-none text-ltt">Declaración de Aplicabilidad (SoA)</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Cumplimiento · ISO/IEC 42001</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Declaración de Aplicabilidad (SoA)</h1>
             <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
               ISO/IEC 42001:2023. El SoA define qué controles del Anexo A aplican a tu organización y traza su implementación contra tus Sistemas de IA de forma centralizada.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/dashboard"
-              className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
-            >
-              Volver al dashboard
-            </Link>
-            {data.isInitialized && (
+          {data.isInitialized && (
+            <div className="flex flex-wrap gap-3">
               <HeaderActions
                 metadata={data.metadata}
                 availableTags={data.availableTags}
@@ -91,8 +93,8 @@ export default async function SoAPage() {
                 lifecycleStatus={lifecycleStatus}
                 controls={data.controls}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -101,7 +103,7 @@ export default async function SoAPage() {
           <div className="w-16 h-16 rounded-full bg-cyan-dim2 border border-cyan-border flex items-center justify-center mb-5">
             <ShieldCheck size={28} className="text-brand-cyan" />
           </div>
-          <h2 className="font-fraunces text-[24px] text-ltt mb-2">Inicializar Declaración de Aplicabilidad</h2>
+          <h2 className="font-sora font-bold text-[24px] text-ltt mb-2">Inicializar Declaración de Aplicabilidad</h2>
           <p className="font-sora text-[14px] text-ltt2 max-w-[600px] mb-8">
             Tu organización aún no ha definido el alcance del ISO 42001. Inicializa la plantilla en blanco con los 38 controles del Anexo A para empezar a evaluar cuáles aplican a tus sistemas de IA.
           </p>
@@ -180,15 +182,15 @@ function KpiCard({
 }) {
   const accentClass =
     accent === 'green'
-      ? 'border-t-[#22c55e] text-[#16a34a]'
+      ? 'border-t-gr text-gr'
       : accent === 'blue'
-        ? 'border-t-[#3b82f6] text-[#2563eb]'
+        ? 'border-t-brand-blue text-brand-blue'
         : 'border-t-brand-cyan text-brand-cyan'
 
   return (
     <div className={`bg-ltcard border border-ltb border-t-[3px] rounded-[14px] p-5 shadow-[0_2px_12px_rgba(0,74,173,0.03)] ${accentClass}`}>
       <p className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">{label}</p>
-      <p className="font-fraunces text-[34px] mt-2">{value}</p>
+      <p className="font-sora font-bold text-[34px] mt-2">{value}</p>
       <p className="font-sora text-[12px] text-ltt2 mt-1">{detail}</p>
     </div>
   )

@@ -137,39 +137,39 @@ export default function RelacionesCausalesPage() {
   };
 
   return (
-    <div className="max-w-7xl w-full mx-auto animate-fadein pb-10">
-      
-      {/* Breadcrumb section */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 text-[12px] font-plex text-lttm uppercase tracking-wider">
-          <Link href="/datos" className="flex items-center gap-1.5 hover:text-brand-cyan transition-colors">
-            <ArrowLeft size={14} className="text-lttm" />
-            <span>Base de Datos</span>
-          </Link>
-          <span className="text-lttm">/</span>
-          <span className="text-ltt font-medium">Relaciones Causales</span>
-        </div>
+    <div className="max-w-[1280px] w-full mx-auto animate-fadein pb-10">
 
-        <button
-          onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-[8px] font-sora text-[12.5px] font-medium transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] shadow-[0_2px_12px_rgba(0,173,239,0.18)] border-none"
+      <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] mb-6">
+        <Link
+          href="/datos"
+          className="inline-flex items-center gap-1.5 font-sora text-[12px] text-lttm hover:text-brand-cyan transition-colors mb-4"
         >
-          <Plus className="w-4 h-4" />
-          Añadir Nueva
-        </button>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="font-fraunces text-2xl font-semibold tracking-tight text-ltt mb-1.5">
-          Catálogo: Relaciones Causales
-        </h1>
-        <p className="text-[13px] text-ltt2 font-sora leading-relaxed max-w-3xl">
-          Administra el inventario de grafos, relaciones causa-efecto, activadores y mecanismos de propagación del modelo.
-        </p>
-      </div>
+          <ArrowLeft size={13} />
+          Volver a Datos
+        </Link>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Network size={13} className="text-lttm" />
+              <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm">Datos · Relaciones Causales</p>
+            </div>
+            <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Catálogo: Relaciones Causales</h1>
+            <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
+              Administra el inventario de grafos, relaciones causa-efecto, activadores y mecanismos de propagación del modelo.
+            </p>
+          </div>
+          <button
+            onClick={openNewModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Añadir Nueva
+          </button>
+        </div>
+      </section>
 
       {error && (
-        <div className="flex items-start space-x-2 bg-red-50 border border-red-200 text-red-600 text-[13px] font-sora p-4 rounded-lg mb-6">
+        <div className="flex items-start space-x-2 bg-red-dim border border-reb text-re text-[13px] font-sora p-4 rounded-lg mb-6">
           <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
             <span className="font-semibold block mb-0.5">Error de carga</span>
@@ -212,22 +212,22 @@ export default function RelacionesCausalesPage() {
                   <tr key={item.id} className="hover:bg-ltbg transition-colors group">
                     <td className="px-5 py-3.5 font-plex text-[12px] whitespace-nowrap">{item.id}</td>
                     <td className="px-5 py-3.5">
-                       <span className="bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded-[4px] text-[10px] font-plex mr-1">
+                       <span className="bg-cyan-dim border border-cyan-border text-brand-cyan px-1.5 py-0.5 rounded-[4px] text-[10px] font-plex mr-1">
                          [{item.source_domain}]
                        </span>
                        <span className="line-clamp-2" title={item.source_name}>{item.source_name}</span>
                     </td>
                     <td className="px-5 py-3.5">
                         <span className={`px-2 py-1 rounded-[4px] text-[11px] font-plex uppercase tracking-wide
-                           ${item.type === 'causes' ? 'bg-red-50 text-red-600' : 
-                             item.type === 'amplifies' ? 'bg-orange-50 text-orange-600' :
-                             item.type === 'correlates' ? 'bg-purple-50 text-purple-600' :
-                             'bg-emerald-50 text-emerald-600'}`}>
+                           ${item.type === 'causes' ? 'bg-red-dim border border-reb text-re' :
+                             item.type === 'amplifies' ? 'bg-ordim border border-orb text-or' :
+                             item.type === 'correlates' ? 'bg-cyan-dim border border-cyan-border text-brand-cyan' :
+                             'bg-grdim border border-grb text-gr'}`}>
                            {item.type}
                         </span>
                     </td>
                     <td className="px-5 py-3.5">
-                       <span className="bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded-[4px] text-[10px] font-plex mr-1">
+                       <span className="bg-cyan-dim border border-cyan-border text-brand-cyan px-1.5 py-0.5 rounded-[4px] text-[10px] font-plex mr-1">
                          [{item.target_domain}]
                        </span>
                        <span className="line-clamp-2" title={item.target_name}>{item.target_name}</span>
@@ -241,10 +241,10 @@ export default function RelacionesCausalesPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditModal(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-50 rounded-md transition-colors" title="Editar">
+                        <button onClick={() => openEditModal(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-dim rounded-md transition-colors" title="Editar">
                           <Edit2 size={15} />
                         </button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-lttm hover:text-re hover:bg-red-50 rounded-md transition-colors" title="Eliminar">
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-lttm hover:text-re hover:bg-red-dim rounded-md transition-colors" title="Eliminar">
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -294,7 +294,7 @@ export default function RelacionesCausalesPage() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
           <div className="bg-ltcard w-full max-w-4xl rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-ltb bg-ltcard2 flex justify-between items-center">
-              <h2 className="font-fraunces text-lg font-semibold text-ltt">
+              <h2 className="font-sora font-bold text-[17px] text-ltt">
                 {editingItem ? 'Editar Relación' : 'Añadir Relación'}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-lttm hover:text-ltt">x</button>
@@ -385,7 +385,7 @@ export default function RelacionesCausalesPage() {
                 type="submit" 
                 form="fmea-form"
                 disabled={saving}
-                className="px-5 py-2 bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white rounded-lg font-sora text-[13px] font-medium transition-all hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-lg font-sora text-[13px] font-medium transition-all hover:shadow-[0_4px_18px_rgba(0,173,239,0.28)] flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : null}
                 Guardar
