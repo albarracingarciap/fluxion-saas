@@ -6,9 +6,10 @@ import { ensureActiveFmeaEvaluation, requireFmeaContext } from '@/lib/fmea/data'
 
 type FmeaEntryPageProps = {
   params: { id: string };
+  searchParams?: { item?: string };
 };
 
-export default async function FmeaEntryPage({ params }: FmeaEntryPageProps) {
+export default async function FmeaEntryPage({ params, searchParams }: FmeaEntryPageProps) {
   const { fluxion, membership, user } = await requireFmeaContext();
 
   const { data: system } = await fluxion
@@ -95,6 +96,12 @@ export default async function FmeaEntryPage({ params }: FmeaEntryPageProps) {
         </div>
       </div>
     );
+  }
+
+  const requestedItem = searchParams?.item;
+
+  if (requestedItem) {
+    redirect(`/inventario/${params.id}/fmea/${result.evaluationId}/evaluar?item=${encodeURIComponent(requestedItem)}`);
   }
 
   const { data: treatmentPlan } = await fluxion

@@ -146,67 +146,99 @@ function FmeaODHeatmap({ items }: { items: EditableItemState[] }) {
   }
 
   return (
-    <div>
-      <div className="flex items-end gap-2 mb-2">
-        <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">D_real →</div>
-        <div className="grid grid-cols-5 gap-1 flex-1">
-          {[1, 2, 3, 4, 5].map((d) => (
-            <div key={d} className="text-center font-plex text-[10px] text-lttm">{d}</div>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <div className="flex flex-col gap-1 justify-around">
-          {[1, 2, 3, 4, 5].map((o) => (
-            <div key={o} className="font-plex text-[10px] text-lttm w-5 text-right">{o}</div>
-          ))}
-        </div>
-        <div className="flex-1">
-          <div className="space-y-1">
-            {[0, 1, 2, 3, 4].map((oIdx) => (
-              <div key={oIdx} className="grid grid-cols-5 gap-1">
-                {[0, 1, 2, 3, 4].map((dIdx) => {
-                  const bucket = cells[oIdx][dIdx];
-                  const count = bucket?.length ?? 0;
-                  return (
-                    <div
-                      key={dIdx}
-                      title={count > 0 ? `O=${oIdx + 1}, D=${dIdx + 1}: ${count} modo${count > 1 ? 's' : ''}` : undefined}
-                      className={`aspect-square rounded-[5px] border border-ltb flex items-center justify-center font-plex text-[11px] font-medium transition-colors ${cellBg(bucket)}`}
-                    >
-                      {count > 0 ? count : ''}
-                    </div>
-                  );
-                })}
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+      <div className="shrink-0">
+        <div className="max-w-[360px]">
+          <div className="flex items-end gap-2 mb-2">
+            <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm w-5" />
+            <div className="grid grid-cols-5 gap-1 flex-1">
+              {[1, 2, 3, 4, 5].map((d) => (
+                <div key={d} className="text-center font-plex text-[10px] text-lttm">{d}</div>
+              ))}
+            </div>
+            <div className="w-4" />
+          </div>
+          <div className="flex gap-2 items-center">
+            <div className="flex flex-col gap-1 justify-around">
+              {[1, 2, 3, 4, 5].map((o) => (
+                <div key={o} className="font-plex text-[10px] text-lttm w-5 text-right">{o}</div>
+              ))}
+            </div>
+            <div className="flex-1">
+              <div className="space-y-1">
+                {[0, 1, 2, 3, 4].map((oIdx) => (
+                  <div key={oIdx} className="grid grid-cols-5 gap-1">
+                    {[0, 1, 2, 3, 4].map((dIdx) => {
+                      const bucket = cells[oIdx][dIdx];
+                      const count = bucket?.length ?? 0;
+                      return (
+                        <div
+                          key={dIdx}
+                          title={count > 0 ? `O=${oIdx + 1}, D=${dIdx + 1}: ${count} modo${count > 1 ? 's' : ''}` : undefined}
+                          className={`aspect-square rounded-[5px] border border-ltb flex items-center justify-center font-plex text-[11px] font-medium transition-colors ${cellBg(bucket)}`}
+                        >
+                          {count > 0 ? count : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="font-plex text-[10px] text-lttm flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+              O ↑
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="w-5" />
+            <div className="flex-1 text-center font-plex text-[10px] uppercase tracking-[0.9px] text-lttm">D_real →</div>
+            <div className="w-4" />
           </div>
         </div>
-        <div className="font-plex text-[10px] text-lttm flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-          O ↑
+        <div className="mt-3 flex items-center gap-3 flex-wrap max-w-[360px]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[rgba(34,197,94,0.25)] border border-ltb" />
+            <span className="font-plex text-[9.5px] text-lttm">Bajo (S&lt;4)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.25)] border border-ltb" />
+            <span className="font-plex text-[9.5px] text-lttm">Moderado (S 4-5)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.55)] border border-ltb" />
+            <span className="font-plex text-[9.5px] text-lttm">Medio (S 6-7)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.55)] border border-ltb" />
+            <span className="font-plex text-[9.5px] text-lttm">Alto (S 8)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.85)] border border-ltb" />
+            <span className="font-plex text-[9.5px] text-lttm">Crítico (S 9)</span>
+          </div>
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-3 flex-wrap">
-        <div className="font-plex text-[9.5px] text-lttm">{evaluated.length} modos evaluados</div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[3px] bg-[rgba(34,197,94,0.25)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Bajo (S&lt;4)</span>
+      <div className="flex-1 min-w-0 max-w-[640px] font-sora text-[12.5px] text-ltt2 leading-relaxed space-y-3">
+        <div>
+          <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Qué muestra</div>
+          <p>
+            Distribución de los <span className="font-medium text-ltt">{evaluated.length} modos evaluados</span> según su Ocurrencia (O) y su Detectabilidad real (D_real).
+            El número en cada celda indica cuántos modos caen en esa combinación; el color refleja el <span className="font-medium text-ltt">S_actual máximo</span> dentro de la celda.
+          </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.25)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Moderado (S 4-5)</span>
+        <div>
+          <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Cómo se lee</div>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><span className="font-medium text-ltt">Eje O (vertical, 1→5):</span> a mayor valor, mayor probabilidad de ocurrencia operativa del modo.</li>
+            <li><span className="font-medium text-ltt">Eje D_real (horizontal, 1→5):</span> a mayor valor, peor capacidad real de detectarlo a tiempo con los controles actuales.</li>
+            <li>La <span className="font-medium text-ltt">esquina inferior derecha</span> (O alto · D alto) concentra el peor escenario: ocurre con frecuencia y no se detecta. Cualquier celda en esa zona merece atención prioritaria.</li>
+          </ul>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[3px] bg-[rgba(245,158,11,0.55)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Medio (S 6-7)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.55)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Alto (S 8)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[3px] bg-[rgba(217,45,32,0.85)] border border-ltb" />
-          <span className="font-plex text-[9.5px] text-lttm">Crítico (S 9)</span>
+        <div>
+          <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Cómo usarlo</div>
+          <p>
+            Pasa el cursor sobre cualquier celda con número para ver cuántos modos contiene. Úsalo para detectar concentraciones de riesgo y para validar que los modos críticos (rojo) no quedan en esquinas con baja detectabilidad sin un plan de tratamiento.
+          </p>
         </div>
       </div>
     </div>
@@ -515,8 +547,6 @@ function getComparableItemSignature(item: EditableItemState) {
     second_reviewed_by: item.second_reviewed_by,
     second_reviewed_at: item.second_reviewed_at,
     second_review_notes: item.second_review_notes ?? '',
-    manualSActual: item.manualSActual,
-    manualMode: item.manualMode,
   });
 }
 
@@ -595,7 +625,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     if (requestedItemId && data.items.some((item) => item.id === requestedItemId)) {
       return requestedItemId;
     }
-    return data.items[0]?.id ?? null;
+    return null;
   });
   const [collapsedDimensions, setCollapsedDimensions] = useState<Record<string, boolean>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -699,7 +729,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       return;
     }
 
-    setExpandedItemId(items[0]?.id ?? null);
+    setExpandedItemId(null);
   }, [searchParams, items, expandedItemId]);
 
   const progress = useMemo(
@@ -1253,6 +1283,25 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           )}
           {!isReadOnly && (
             <>
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] font-plex text-[10px] uppercase tracking-[1px] ${
+                  isSavingDraft || isSavingItem || isSubmittingReview
+                    ? 'bg-ordim border border-orb text-or'
+                    : hasPendingLocalChanges
+                      ? 'bg-ltcard2 border border-ltb text-lttm'
+                      : 'bg-grdim border border-grb text-gr'
+                }`}
+                title={draftSyncLabel}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  isSavingDraft || isSavingItem || isSubmittingReview
+                    ? 'bg-or animate-pulse'
+                    : hasPendingLocalChanges
+                      ? 'bg-lttm'
+                      : 'bg-gr'
+                }`} />
+                {draftSyncLabel}
+              </span>
               <button
                 type="button"
                 onClick={handleSaveDraft}
@@ -1295,52 +1344,45 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         </div>
       </div>
 
-      <div className="mb-5 rounded-[12px] border border-ltb bg-[#070c14] text-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
-        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr_1fr_1fr_auto] divide-y xl:divide-y-0 xl:divide-x divide-[#18324a]">
+      <div className="mb-5 rounded-[12px] border border-ltb bg-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.04)]">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,1.4fr)_3fr] divide-y xl:divide-y-0 xl:divide-x divide-ltb">
           <div className="px-5 py-4 flex items-center gap-3">
-            <span className={`w-2.5 h-2.5 rounded-full ${zoneMeta.dot} ${currentZone === 'zona_i' || currentZone === 'zona_ii' ? 'animate-pulse' : ''}`} />
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8]">Zona activa</div>
-            <div className={`font-sora font-bold text-[22px] ${zoneMeta.text}`}>{getZoneLabel(currentZone)}</div>
-            <div className="font-sora text-[12.5px] text-[#c3d6e7]">{getZoneNarrative(currentZone)}</div>
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${zoneMeta.dot} ${currentZone === 'zona_i' || currentZone === 'zona_ii' ? 'animate-pulse' : ''}`} />
+            <div className="min-w-0">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-0.5">Zona activa</div>
+              <div className={`font-sora font-bold text-[22px] leading-tight ${zoneMeta.text}`}>{getZoneLabel(currentZone)}</div>
+              <div className="font-sora text-[12px] text-ltt2 mt-0.5">{getZoneNarrative(currentZone)}</div>
+            </div>
           </div>
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Evaluados</div>
-            <div className="font-sora text-[14px] text-white">{progress.completed} / {progress.total}</div>
-          </div>
-          <div className="px-5 py-4">
-                  <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Pendientes</div>
-            <div className="font-sora text-[14px] text-white">{progress.pending}</div>
-          </div>
-          <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Estado borrador</div>
-            <div className="font-sora text-[14px] text-white">{draftSyncLabel}</div>
-          </div>
-          <div className="px-5 py-4 flex items-center justify-end">
-            <span className={`inline-flex items-center px-3 py-1 rounded-[8px] border font-sora font-bold text-[14px] ${zoneMeta.pill}`}>
-              {getZoneLabel(currentZone)}
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-[#18324a] border-t border-[#18324a]">
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Pospuestos</div>
-            <div className="font-sora text-[13px] text-white">{progress.skipped}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">2ª revisión</div>
-            <div className="font-sora text-[13px] text-white">{secondReviewCount}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">S_actual = 9</div>
-            <div className="font-sora text-[13px] text-white">{highestSeverityCount > 0 ? `${highestSeverityCount} críticos` : 'Ninguno'}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Suelo AI Act</div>
-            <div className="font-sora text-[13px] text-white">{getZoneLabel(calculateFmeaZone([], data.system.aiact_risk_level))}</div>
-          </div>
-          <div className="px-5 py-3">
-            <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Tareas delegadas</div>
-            <div className="font-sora text-[13px] text-white">{linkedTasksCount > 0 ? linkedTasksCount : 'Ninguna'}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 divide-x divide-ltb">
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Evaluados</div>
+              <div className="font-sora font-bold text-[15px] text-ltt">{progress.completed} / {progress.total}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Pendientes</div>
+              <div className="font-sora font-bold text-[15px] text-ltt">{progress.pending}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Pospuestos</div>
+              <div className="font-sora font-bold text-[15px] text-ltt">{progress.skipped}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">2ª revisión</div>
+              <div className="font-sora font-bold text-[15px] text-ltt">{secondReviewCount}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">S_actual = 9</div>
+              <div className={`font-sora font-bold text-[15px] ${highestSeverityCount > 0 ? 'text-re' : 'text-ltt'}`}>{highestSeverityCount > 0 ? highestSeverityCount : '—'}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Tareas delegadas</div>
+              <div className="font-sora font-bold text-[15px] text-ltt">{linkedTasksCount > 0 ? linkedTasksCount : '—'}</div>
+            </div>
+            <div className="px-4 py-4">
+              <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-1">Suelo AI Act</div>
+              <div className="font-sora font-bold text-[13px] text-ltt">{getZoneLabel(aiActFloorZone)}</div>
+            </div>
           </div>
         </div>
       </div>

@@ -934,12 +934,25 @@ export async function delegateFmeaItemAsTaskAction(input: {
     return { error: 'No se encontró el ítem FMEA.' };
   }
 
+  let assigneeProfileId: string | null = null;
+  if (input.assigneeId) {
+    const { data: assigneeProfile } = await fluxion
+      .from('profiles')
+      .select('id')
+      .eq('user_id', input.assigneeId)
+      .maybeSingle();
+    if (!assigneeProfile) {
+      return { error: 'El usuario asignado no tiene perfil en esta organización.' };
+    }
+    assigneeProfileId = assigneeProfile.id as string;
+  }
+
   const result = await createFmeaItemTaskAction({
     itemId:       input.itemId,
     systemId:     input.aiSystemId,
     evaluationId: input.evaluationId,
     title:        input.title,
-    assigneeId:   input.assigneeId,
+    assigneeId:   assigneeProfileId,
     dueDate:      input.dueDate,
     priority:     input.priority,
   });

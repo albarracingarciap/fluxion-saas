@@ -60,7 +60,9 @@ function getSourceHref(task: TaskRow): string | null {
   if (task.source_type === 'manual') return null
   if (task.source_type === 'evaluation' && task.system_id && task.source_id)
     return `/inventario/${task.system_id}/fmea/${task.source_id}/evaluar`
-  if ((task.source_type === 'treatment_action' || task.source_type === 'fmea_item') && task.system_id)
+  if (task.source_type === 'fmea_item' && task.system_id && task.source_id)
+    return `/inventario/${task.system_id}/fmea?item=${task.source_id}`
+  if (task.source_type === 'treatment_action' && task.system_id)
     return `/inventario/${task.system_id}/fmea`
   if (task.source_type === 'gap' && task.source_id)
     return `/gaps?focus=${task.source_id}`

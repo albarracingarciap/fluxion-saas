@@ -286,6 +286,19 @@ export async function createGapTaskAction(params: {
 
   if (existing) return { taskId: existing.id, created: false }
 
+  let assigneeProfileId: string | null = null
+  if (params.assigneeId) {
+    const { data: assigneeProfile } = await fluxion
+      .from('profiles')
+      .select('id')
+      .eq('user_id', params.assigneeId)
+      .maybeSingle()
+    if (!assigneeProfile) {
+      return { error: 'El usuario asignado no tiene perfil en esta organización.' }
+    }
+    assigneeProfileId = assigneeProfile.id as string
+  }
+
   const result = await createTaskAction({
     systemId:    params.systemId,
     title:       params.title,
@@ -293,7 +306,7 @@ export async function createGapTaskAction(params: {
     priority:    params.priority ?? 'high',
     sourceType:  'gap',
     sourceId:    params.gapId,
-    assigneeId:  params.assigneeId,
+    assigneeId:  assigneeProfileId,
     dueDate:     params.dueDate,
     tags:        ['gap', params.gapLayer],
   })
@@ -350,8 +363,19 @@ export async function createGapGroupTaskAction(params: {
   const uniqueSystems = Array.from(new Set(params.gaps.map((g) => g.systemId)))
   const systemId = uniqueSystems.length === 1 ? uniqueSystems[0] : null
 
-  // Determinar assigneeId del perfil (la action necesita profile.id)
-  const resolvedAssigneeId: string | undefined = params.assigneeId
+  // Traducir user_id → profile.id (la action necesita profile.id)
+  let resolvedAssigneeId: string | null = null
+  if (params.assigneeId) {
+    const { data: assigneeProfile } = await fluxion
+      .from('profiles')
+      .select('id')
+      .eq('user_id', params.assigneeId)
+      .maybeSingle()
+    if (!assigneeProfile) {
+      return { error: 'El usuario asignado no tiene perfil en esta organización.' }
+    }
+    resolvedAssigneeId = assigneeProfile.id as string
+  }
 
   const description = [
     `Tarea-paraguas que cubre ${params.gaps.length} gaps de capa ${params.groupLayer}.`,
