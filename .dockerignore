@@ -1,13 +1,39 @@
+# El contexto de build de TODOS los servicios es la raíz del monorepo.
+# Sin estas exclusiones se subirían cientos de MB en cada build.
+
+# Dependencias y artefactos de build
 node_modules
 .next
+out
+build
+coverage
+*.tsbuildinfo
+
+# Control de versiones y herramientas
 .git
+.github
+.claude
+.vscode
+
+# Secretos
 .env*
-*.md
-.DS_Store
-Dockerfile
-docker-compose*.yml
+
+# Python
 __pycache__
 *.pyc
 .venv
 .pytest_cache
-coverage
+
+# Nada de esto entra en ninguna imagen
+recursos/
+docs/
+supabase/
+infra/
+tools/
+*.md
+*.zip
+.DS_Store
+
+# Los Dockerfiles se pasan con -f, no hacen falta dentro del contexto
+Dockerfile
+docker-compose*.yml
