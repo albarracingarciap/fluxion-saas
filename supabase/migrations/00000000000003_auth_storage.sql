@@ -1,3 +1,8 @@
+-- PRERREQUISITO: el stack Supabase debe haber arrancado al menos una vez antes
+-- de aplicar esta migración. GoTrue crea auth.users y storage-api añade a
+-- storage.buckets las columnas public / file_size_limit / allowed_mime_types.
+-- Sobre una imagen supabase/postgres recién arrancada, sin esos servicios,
+-- el INSERT de buckets falla.
 -- ── Trigger de auth ──────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
