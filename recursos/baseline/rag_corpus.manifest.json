@@ -53,5 +53,16 @@
     "verificacion": "SELECT count(*), vector_dims(embedding) FROM rag.chunks GROUP BY 2;  -- esperado 3129 / 1024"
   },
 
-  "advertencia": "NO regenerar este corpus con backend/scripts/rag_ingestor.py para reconstruir el existente. Re-embeber produce vectores distintos (dependen del modelo, su version y la estrategia de troceado), lo que cambia el retrieval y por tanto el comportamiento del Agente 1 y del Agente 4. El ingestor se usa solo para ANADIR normativa nueva, generando una version nueva de este artefacto. Precedente: la migracion 043 documenta una perdida previa del corpus global por TRUNCATE CASCADE."
+  "advertencia": "NO re-embeber este corpus para reconstruirlo. Los vectores dependen del modelo, su version y la estrategia de troceado: regenerarlos produce un indice distinto y cambia el comportamiento del Agente 1 y del Agente 4. Precedente: la migracion 043 documenta una perdida previa del corpus global por TRUNCATE CASCADE.",
+
+  "ingestor": {
+    "estado": "NO EXISTE",
+    "detalle": "backend/scripts/rag_ingestor.py era un borrador incompleto (chunk_text sin implementar, modelo text-embedding-3-small a 1536d, columnas obsoletas anteriores a las migraciones 043/044). Eliminado en la reestructuracion a monorepo; sigue en el historial de git.",
+    "requisitos_cuando_se_escriba": [
+      "Modelo voyage-law-2, 1024 dimensiones, input_type='document' al ingerir",
+      "Escribir en rag.documents (metadatos) y rag.chunks (contenido + embedding), no todo en documents",
+      "Solo ANADIR normativa nueva; nunca reconstruir el corpus existente",
+      "Cada ingesta genera una version nueva de este artefacto en MinIO y actualiza este manifiesto"
+    ]
+  }
 }
