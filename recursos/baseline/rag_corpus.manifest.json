@@ -1,0 +1,57 @@
+{
+  "artefacto": "Corpus RAG normativo global de Fluxion",
+  "tipo": "artefacto de producto (no regenerable de forma reproducible)",
+
+  "almacenamiento": {
+    "backend": "MinIO (instancia compartida con MLflow)",
+    "contenedor": "mlflow-fluxion-8678pt-minio-1",
+    "endpoint_interno": "http://mlflow-fluxion-8678pt-minio-1:9000",
+    "nota_red": "El puerto 9000 no esta publicado en el host. Solo accesible desde la red Docker del stack mlflow-fluxion.",
+    "bucket": "fluxion-artifacts",
+    "objeto": "rag/corpus_voyage-law-2_20260810.sql",
+    "versionado_objetos": true
+  },
+
+  "integridad": {
+    "sha256": "f5c2ca3efc314d024dfa6c037a17e4e6fc6a772a5c9e3d675a8f23f4ca2860a0",
+    "bytes": 45034825,
+    "origen": "pg_dump --data-only --schema=rag desde Supabase Cloud (PostgreSQL 17.6)",
+    "limpieza": "eliminadas las metaordenes \\restrict / \\unrestrict y SET transaction_timeout"
+  },
+
+  "embeddings": {
+    "modelo": "voyage-law-2",
+    "dimensiones": 1024,
+    "operador_similitud": "cosine distance (<=>)",
+    "indices": [
+      "rag.chunks: idx_chunks_embedding_hnsw (hnsw, m=16, ef_construction=64, WHERE is_active)",
+      "rag.chunks: idx_chunks_global_hnsw (hnsw, m=16, ef_construction=64, WHERE is_active)"
+    ]
+  },
+
+  "contenido": {
+    "tablas": ["rag.documents", "rag.chunks", "rag.ingestion_jobs", "rag.organization_documents", "rag.organization_chunks", "rag.org_ingestion_jobs"],
+    "filas": {
+      "documents": 22,
+      "chunks": 3129,
+      "ingestion_jobs": 22,
+      "organization_documents": 0,
+      "organization_chunks": 0,
+      "org_ingestion_jobs": 0
+    },
+    "normas_ingeridas": ["AI Act", "MDR", "IVDR", "DORA", "ISO 42001", "RGPD", "ENS", "guias AESIA"],
+    "fecha_extraccion": "2026-08-06"
+  },
+
+  "restauracion": {
+    "orden": [
+      "1. Aplicar supabase/migrations/00000000000001_schema.sql (crea las tablas rag)",
+      "2. Descargar el objeto de MinIO y verificar el sha256",
+      "3. Cargar con psql -v ON_ERROR_STOP=1",
+      "4. Recomendado en instalaciones nuevas: crear los indices HNSW DESPUES de la carga"
+    ],
+    "verificacion": "SELECT count(*), vector_dims(embedding) FROM rag.chunks GROUP BY 2;  -- esperado 3129 / 1024"
+  },
+
+  "advertencia": "NO regenerar este corpus con backend/scripts/rag_ingestor.py para reconstruir el existente. Re-embeber produce vectores distintos (dependen del modelo, su version y la estrategia de troceado), lo que cambia el retrieval y por tanto el comportamiento del Agente 1 y del Agente 4. El ingestor se usa solo para ANADIR normativa nueva, generando una version nueva de este artefacto. Precedente: la migracion 043 documenta una perdida previa del corpus global por TRUNCATE CASCADE."
+}

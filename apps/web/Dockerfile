@@ -1,14 +1,18 @@
+# Contexto de build: RAÍZ del monorepo (no apps/web).
+# Se hace así para que todos los servicios compartan la misma regla y puedan
+# copiar de packages/ cuando lo necesiten.
+
 # ---- deps ----
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY apps/web/package.json apps/web/package-lock.json* ./
 RUN npm ci
 
 # ---- builder ----
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY apps/web/ .
 
 # Las NEXT_PUBLIC_* se incrustan en bundle del cliente → deben existir en build time
 ARG NEXT_PUBLIC_SUPABASE_URL
