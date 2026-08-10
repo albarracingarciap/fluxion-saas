@@ -1,5 +1,5 @@
 """
-agent1/routes/assistant.py
+fluxion_agents/routes/assistant.py
 Agente 4 — Asistente conversacional del responsable del SGAI
 
 Endpoints:
@@ -20,8 +20,8 @@ from openai import OpenAI
 from pydantic import BaseModel
 from supabase import Client
 
-from agent1.prompts.assistant import ASSISTANT_SYSTEM_PROMPT
-from agent1.rag.retriever import retrieve_chunks
+from fluxion_agents.prompts.assistant import ASSISTANT_SYSTEM_PROMPT
+from fluxion_agents.rag.retriever import retrieve_chunks
 
 logger = logging.getLogger("agent4")
 

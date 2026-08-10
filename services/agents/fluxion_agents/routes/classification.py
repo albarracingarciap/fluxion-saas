@@ -1,5 +1,5 @@
 """
-agent1/routes/classification.py
+fluxion_agents/routes/classification.py
 Motor de clasificación AI Act con diff y reconciliación.
 
 Endpoints:
@@ -21,13 +21,13 @@ from openai import OpenAI
 from pydantic import BaseModel
 from supabase import Client
 
-from agent1.prompts.classification import (
+from fluxion_agents.prompts.classification import (
     CLASSIFICATION_SYSTEM_PROMPT,
     build_classification_user_prompt,
 )
-from agent1.rag.retriever import retrieve_for_classification
+from fluxion_agents.rag.retriever import retrieve_for_classification
 
-logger = logging.getLogger("agent1.classification")
+logger = logging.getLogger("fluxion_agents.classification")
 
 # ─────────────────────────────────────────────────────────────
 # LABELS DE OBLIGACIONES

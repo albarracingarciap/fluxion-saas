@@ -1,5 +1,5 @@
 """
-agent1/prompts/assistant.py
+fluxion_agents/prompts/assistant.py
 System prompt del Agente 4 — Asistente conversacional SGAI
 """
 

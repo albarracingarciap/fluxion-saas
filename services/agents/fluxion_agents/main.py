@@ -1,10 +1,10 @@
 """
-agent1/main.py
+services/agents/fluxion_agents/main.py
 Servidor FastAPI — Agente 1 (Clasificación AI Act) + Agente 4 (Asistente SGAI)
 Puerto: 8001
 
 Arrancar con:
-  uvicorn agent1.main:app --reload --port 8001
+  uvicorn fluxion_agents.main:app --reload --port 8001
 """
 
 import os
@@ -22,13 +22,13 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 from pathlib import Path
 
-from agent1.prompts.classification import (
+from fluxion_agents.prompts.classification import (
     CLASSIFICATION_SYSTEM_PROMPT,
     build_classification_user_prompt,
 )
-from agent1.rag.retriever import retrieve_for_classification
-from agent1.routes.assistant import register_assistant_routes
-from agent1.routes.classification import register_classification_routes
+from fluxion_agents.rag.retriever import retrieve_for_classification
+from fluxion_agents.routes.assistant import register_assistant_routes
+from fluxion_agents.routes.classification import register_classification_routes
 
 
 load_dotenv(Path(__file__).parent.parent / '.env.local')
@@ -38,7 +38,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
 )
-logger = logging.getLogger("agent1")
+logger = logging.getLogger("fluxion_agents")
 
 # ─── Clientes globales ──────────────────────────────────────
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

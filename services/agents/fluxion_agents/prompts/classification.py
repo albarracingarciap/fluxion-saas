@@ -1,5 +1,5 @@
 """
-agent1/prompts/classification.py
+fluxion_agents/prompts/classification.py
 System prompt + user prompt builder para el Agente 1 de Clasificación.
 """
 

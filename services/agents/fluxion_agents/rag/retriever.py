@@ -1,5 +1,5 @@
 """
-agent1/rag/retriever.py
+fluxion_agents/rag/retriever.py
 Retriever RAG para el Agente 1.
 Usa el cliente HTTP de Supabase (no asyncpg) para compatibilidad
 con el entorno de desarrollo local.
