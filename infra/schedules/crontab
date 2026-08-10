@@ -1,0 +1,4 @@
+# Fluxion — tareas programadas de la aplicación web
+# Sustituyen a los crons que declaraba vercel.json antes del cutover a Dokploy.
+0 7 * * *  /opt/fluxion/app-cron.sh /api/cron/evidence-expiry
+0 8 * * 1  /opt/fluxion/app-cron.sh /api/cron/review-reminders
