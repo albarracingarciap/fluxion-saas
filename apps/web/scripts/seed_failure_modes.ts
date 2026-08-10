@@ -33,7 +33,7 @@ const dimensionMap: Record<string, { id: string, prefix: string }> = {
 };
 
 async function seed() {
-  const dirPath = path.join(process.cwd(), 'recursos', 'modos_de_fallo');
+  const dirPath = path.join(__dirname, '..', '..', '..', 'recursos', 'modos_de_fallo');
   const files = [
     'tecnicos.json',
     'eticos.json',

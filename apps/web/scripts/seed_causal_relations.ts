@@ -50,7 +50,7 @@ async function getOrInsertNode(rawName: string) {
 async function main() {
   console.log("Iniciando la carga de Grafos Causales Normalizados...");
 
-  const dataDir = join(__dirname, '../recursos/relaciones_causales');
+  const dataDir = join(__dirname, '../../../recursos/relaciones_causales');
   const files = readdirSync(dataDir).filter(f => f.endsWith('.json') && f.startsWith('familia_'));
 
   for (const file of files) {

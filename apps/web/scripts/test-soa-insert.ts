@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
-import { ISO_42001_CONTROLS } from './lib/templates/iso42001-catalog'
+import { ISO_42001_CONTROLS } from '../lib/templates/iso42001-catalog'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
