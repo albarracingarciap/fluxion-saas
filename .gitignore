@@ -45,3 +45,5 @@ next-env.d.ts
 fluxion.zip
 
 /recursos/baseline
+# Volcados de datos pesados (van por DVC / MinIO)
+recursos/baseline/03_data_rag*.sql
