@@ -13,9 +13,34 @@
 
 import { createHash } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { grantsScope } from './scopes'
+
+/**
+ * Cliente propio, sin caché, exclusivo para validar credenciales.
+ *
+ * Next.js 14 parchea `fetch` y cachea las respuestas GET. El cliente de
+ * Supabase usa fetch por debajo, así que la consulta a api_keys se servía de
+ * caché: una clave revocada seguía autenticando durante la ventana de caché.
+ * Comprobado en producción — revocada a las 12:59, usada con éxito a las 13:01.
+ *
+ * Una comprobación de autorización no puede leer datos cacheados jamás.
+ */
+function createAuthClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      db: { schema: 'fluxion' },
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: 'no-store' }),
+      },
+    }
+  )
+}
 
 export type ApiKeyContext = {
   organizationId: string
@@ -108,7 +133,7 @@ export async function requireApiKey(
 
   const keyHash = createHash('sha256').update(rawKey).digest('hex')
 
-  const admin = createAdminFluxionClient()
+  const admin = createAuthClient()
   const { data: key, error } = await admin
     .from('api_keys')
     .select('id, organization_id, scopes, expires_at, revoked_at, last_used_at')
@@ -120,9 +145,25 @@ export async function requireApiKey(
     return { response: unauthorized() }
   }
 
-  if (!key) return { response: unauthorized() }
-  if (key.revoked_at) return { response: unauthorized() }
-  if (key.expires_at && new Date(key.expires_at) < new Date()) return { response: unauthorized() }
+  if (!key) {
+    console.warn(`[requireApiKey] clave desconocida (hash ${keyHash.slice(0, 12)}…)`)
+    return { response: unauthorized() }
+  }
+
+  // Presentar una credencial revocada o caducada no es un error de tecleo: o
+  // alguien sigue usando una integración que se dio de baja, o la clave se
+  // filtró. Se registra siempre.
+  if (key.revoked_at) {
+    console.warn(`[requireApiKey] CLAVE REVOCADA presentada: key=${key.id} revoked_at=${key.revoked_at}`)
+    return { response: unauthorized() }
+  }
+
+  if (key.expires_at && new Date(key.expires_at) < new Date()) {
+    console.warn(`[requireApiKey] clave caducada presentada: key=${key.id} expires_at=${key.expires_at}`)
+    return { response: unauthorized() }
+  }
+
+  console.info(`[requireApiKey] ok: key=${key.id} revoked_at=${key.revoked_at ?? 'null'} scope=${requiredScope}`)
 
   const rate = checkRateLimit(key.id)
   if (!rate.ok) return { response: tooManyRequests(rate.retryAfter) }
