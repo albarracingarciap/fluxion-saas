@@ -4,12 +4,7 @@ import { useEffect, useState } from 'react';
 import { Key, Plus, Copy, Check, Trash2, Loader2, AlertCircle, X, Clock, Shield } from 'lucide-react';
 import { getApiKeys, createApiKey, revokeApiKey, type ApiKeyRow } from '../actions';
 import { FieldLabel, inputCls, selectCls, SelectArrow, formatRelative } from './shared';
-
-const SCOPES = [
-  { value: 'read',  label: 'Solo lectura',       desc: 'Consultar datos (GET)' },
-  { value: 'write', label: 'Lectura y escritura', desc: 'Crear y modificar recursos' },
-  { value: 'admin', label: 'Administrador',       desc: 'Acceso completo incluida configuración' },
-]
+import { API_SCOPES, isLegacyScope } from '@/lib/auth/scopes';
 
 const EXPIRY_OPTIONS = [
   { value: '',    label: 'Sin expiración' },
@@ -37,9 +32,12 @@ function isExpired(expiresAt: string | null): boolean {
 }
 
 function ScopeBadge({ scope }: { scope: string }) {
+  // Los permisos antiguos (read/write/admin) son mucho más amplios de lo que
+  // parecen: se resaltan para que se vean como lo que son, deuda a migrar.
   const cls =
-    scope === 'admin' ? 'bg-red-dim border-reb text-re' :
-    scope === 'write' ? 'bg-[var(--ye-dim,#fff3cd)] border-[var(--ye-border,#ffc107)] text-ye' :
+    scope === 'admin'                   ? 'bg-red-dim border-reb text-re' :
+    isLegacyScope(scope)                ? 'bg-[var(--ye-dim,#fff3cd)] border-[var(--ye-border,#ffc107)] text-ye' :
+    scope.endsWith(':write')            ? 'bg-[var(--ye-dim,#fff3cd)] border-[var(--ye-border,#ffc107)] text-ye' :
     'bg-cyan-dim border-[var(--cyan-border)] text-brand-cyan'
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border font-plex text-[10px] uppercase tracking-[0.4px] ${cls}`}>
@@ -53,16 +51,26 @@ function ScopeBadge({ scope }: { scope: string }) {
 
 function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
   const [name,   setName]   = useState('')
-  const [scope,  setScope]  = useState('read')
+  const [scopes, setScopes] = useState<string[]>(['signals:write'])
   const [expiry, setExpiry] = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]  = useState<string | null>(null)
 
+  function toggleScope(value: string) {
+    setScopes((prev) =>
+      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]
+    )
+  }
+
   async function handleCreate() {
     if (!name.trim()) return
+    if (scopes.length === 0) {
+      setError('Selecciona al menos un permiso.')
+      return
+    }
     setLoading(true)
     setError(null)
-    const res = await createApiKey({ name: name.trim(), scopes: [scope], expires_at: expiryDate(expiry) })
+    const res = await createApiKey({ name: name.trim(), scopes, expires_at: expiryDate(expiry) })
     if ('error' in res) {
       setError(res.error)
     } else {
@@ -75,25 +83,16 @@ function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
     <div className="bg-ltbg border border-ltb rounded-[10px] p-5 flex flex-col gap-4">
       <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Nueva clave de API</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
           <FieldLabel>Nombre <span className="text-re">*</span></FieldLabel>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ej. CI/CD pipeline"
+            placeholder="Ej. Conector MLflow"
             className={inputCls}
           />
-        </div>
-        <div>
-          <FieldLabel>Permiso</FieldLabel>
-          <div className="relative">
-            <select value={scope} onChange={(e) => setScope(e.target.value)} className={selectCls}>
-              {SCOPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-            <SelectArrow />
-          </div>
         </div>
         <div>
           <FieldLabel>Expiración</FieldLabel>
@@ -106,11 +105,35 @@ function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
         </div>
       </div>
 
-      {SCOPES.find((s) => s.value === scope)?.desc && (
-        <p className="font-sora text-[11.5px] text-lttm -mt-2">
-          {SCOPES.find((s) => s.value === scope)?.desc}
+      <div>
+        <FieldLabel>Permisos <span className="text-re">*</span></FieldLabel>
+        <p className="font-sora text-[11.5px] text-lttm mb-2.5">
+          Concede solo lo que el módulo necesite. Una clave filtrada no debería
+          poder hacer más de aquello para lo que se emitió.
         </p>
-      )}
+        <div className="flex flex-col gap-1.5">
+          {API_SCOPES.map((s) => (
+            <label
+              key={s.value}
+              className="flex items-start gap-2.5 px-3 py-2 rounded-[8px] border border-ltb bg-ltcard cursor-pointer hover:border-[var(--cyan-border)] transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={scopes.includes(s.value)}
+                onChange={() => toggleScope(s.value)}
+                className="mt-0.5 accent-[var(--brand-cyan,#00a3c4)]"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-sora text-[13px] text-ltt">
+                  {s.label}
+                  <span className="font-plex text-[10.5px] text-lttm ml-2">{s.value}</span>
+                </span>
+                <span className="font-sora text-[11.5px] text-lttm">{s.desc}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
 
       {error && (
         <p className="text-re text-[12px] font-sora flex items-center gap-1.5">

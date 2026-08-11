@@ -1,0 +1,149 @@
+/**
+ * Autenticación máquina a máquina con claves API.
+ *
+ * Se usa al principio de cada ruta de ingesta:
+ *
+ *   const auth = await requireApiKey(request, 'signals:write')
+ *   if ('response' in auth) return auth.response
+ *   // auth.organizationId, auth.keyId, auth.scopes
+ *
+ * Va en un helper y no en el middleware: el middleware de Next corre en edge,
+ * donde no hay `crypto` de Node ni acceso cómodo a la base de datos.
+ */
+
+import { createHash } from 'crypto'
+import { NextResponse, type NextRequest } from 'next/server'
+
+import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { grantsScope } from './scopes'
+
+export type ApiKeyContext = {
+  organizationId: string
+  keyId: string
+  scopes: string[]
+}
+
+type ApiKeyResult = ApiKeyContext | { response: NextResponse }
+
+// ── Límite de peticiones ─────────────────────────────────────────────────────
+// En memoria del proceso, a propósito: con una sola réplica es suficiente y
+// evita una escritura en base de datos por petición.
+// DEUDA: si algún día hay varias réplicas, esto deja de ser un límite global.
+
+const RATE_WINDOW_MS = 60_000
+const RATE_MAX_PER_WINDOW = 300
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(keyId: string): { ok: true } | { ok: false; retryAfter: number } {
+  const now = Date.now()
+  const bucket = rateBuckets.get(keyId)
+
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(keyId, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return { ok: true }
+  }
+
+  if (bucket.count >= RATE_MAX_PER_WINDOW) {
+    return { ok: false, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) }
+  }
+
+  bucket.count++
+  return { ok: true }
+}
+
+// ── last_used_at con freno ───────────────────────────────────────────────────
+// Sin esto, cada petición de ingesta escribe en la tabla de claves. Registrar
+// el uso con precisión de minutos es más que suficiente para auditoría.
+
+const LAST_USED_THROTTLE_MS = 5 * 60_000
+
+function shouldTouchLastUsed(lastUsedAt: string | null): boolean {
+  if (!lastUsedAt) return true
+  return Date.now() - new Date(lastUsedAt).getTime() > LAST_USED_THROTTLE_MS
+}
+
+// ── Respuestas de error ──────────────────────────────────────────────────────
+// Todos los fallos de autenticación devuelven el mismo mensaje: distinguir
+// "no existe" de "revocada" o "caducada" le confirma información a quien
+// esté probando claves.
+
+function unauthorized(): NextResponse {
+  return NextResponse.json(
+    { error: 'unauthorized', message: 'Clave API ausente o no válida.' },
+    { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }
+  )
+}
+
+function forbidden(required: string): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'insufficient_scope',
+      message: `La clave no tiene el permiso requerido: ${required}.`,
+      required_scope: required,
+    },
+    { status: 403 }
+  )
+}
+
+function tooManyRequests(retryAfter: number): NextResponse {
+  return NextResponse.json(
+    { error: 'rate_limited', message: 'Demasiadas peticiones.', retry_after: retryAfter },
+    { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+  )
+}
+
+// ── Entrada principal ────────────────────────────────────────────────────────
+
+export async function requireApiKey(
+  request: NextRequest,
+  requiredScope: string
+): Promise<ApiKeyResult> {
+  const header = request.headers.get('authorization')
+
+  if (!header?.startsWith('Bearer ')) return { response: unauthorized() }
+
+  const rawKey = header.slice('Bearer '.length).trim()
+  if (!rawKey.startsWith('flx_')) return { response: unauthorized() }
+
+  const keyHash = createHash('sha256').update(rawKey).digest('hex')
+
+  const admin = createAdminFluxionClient()
+  const { data: key, error } = await admin
+    .from('api_keys')
+    .select('id, organization_id, scopes, expires_at, revoked_at, last_used_at')
+    .eq('key_hash', keyHash)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[requireApiKey] lookup error:', error)
+    return { response: unauthorized() }
+  }
+
+  if (!key) return { response: unauthorized() }
+  if (key.revoked_at) return { response: unauthorized() }
+  if (key.expires_at && new Date(key.expires_at) < new Date()) return { response: unauthorized() }
+
+  const rate = checkRateLimit(key.id)
+  if (!rate.ok) return { response: tooManyRequests(rate.retryAfter) }
+
+  const scopes = (key.scopes ?? []) as string[]
+  if (!grantsScope(scopes, requiredScope)) return { response: forbidden(requiredScope) }
+
+  if (shouldTouchLastUsed(key.last_used_at)) {
+    // Sin await: registrar el uso no debe añadir latencia a la ingesta.
+    void admin
+      .from('api_keys')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', key.id)
+      .then(({ error: touchErr }) => {
+        if (touchErr) console.error('[requireApiKey] last_used_at:', touchErr)
+      })
+  }
+
+  return {
+    organizationId: key.organization_id,
+    keyId: key.id,
+    scopes,
+  }
+}
