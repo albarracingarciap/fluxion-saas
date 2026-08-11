@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
 
-// Vercel Cron invoca este endpoint diariamente con el header Authorization: Bearer <CRON_SECRET>
-// El mismo secret se configura en vercel.json y en la variable de entorno CRON_SECRET.
+// Invocado diariamente (07:00 UTC) por cron del VPS con el header
+// Authorization: Bearer <CRON_SECRET>. Ver infra/schedules/.
+// Antes lo disparaba Vercel Cron desde vercel.json; al salir de Vercel dejó de
+// ejecutarse hasta que se rescató en infra/schedules/crontab.
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest) {
   const rows = (evidences ?? []) as EvidenceRow[]
 
   let upserted = 0
+  let superseded = 0
+  let cleared = 0
   let errors = 0
 
   for (const ev of rows) {
@@ -64,8 +68,12 @@ export async function GET(request: NextRequest) {
       alertType = 'expiry_30d'
     }
 
-    // Upsert idempotente: si ya existe la alerta del mismo tipo, no hace nada.
-    // Si la evidencia ha escalado de 30d a 7d, actualiza el tipo.
+    // Upsert real (ON CONFLICT DO UPDATE): si la alerta ya existe, refresca
+    // título y fecha. Antes usaba ignoreDuplicates, que no actualizaba nada y
+    // dejaba la fecha congelada cuando el usuario editaba la evidencia.
+    //
+    // `dismissed` se omite a propósito: en el alta toma el DEFAULT false, y al
+    // actualizar no se toca — así una alerta descartada no reaparece cada día.
     const { error: upsertErr } = await fluxion
       .from('evidence_expiry_alerts')
       .upsert(
@@ -75,19 +83,58 @@ export async function GET(request: NextRequest) {
           alert_type: alertType,
           evidence_title: ev.title,
           expires_at: ev.expires_at,
-          dismissed: false,
         },
-        {
-          onConflict: 'evidence_id,alert_type',
-          ignoreDuplicates: true,
-        }
+        { onConflict: 'evidence_id,alert_type' }
       )
 
     if (upsertErr) {
       console.error(`[cron/evidence-expiry] upsert error for ${ev.id}:`, upsertErr)
       errors++
+      continue
+    }
+    upserted++
+
+    // Una sola alerta viva por evidencia. La restricción única es
+    // (evidence_id, alert_type), así que al escalar de 30d a 7d se insertaba una
+    // fila nueva en vez de actualizar la anterior, apilando hasta tres avisos de
+    // la misma evidencia en el banner. Se retiran los tipos ya superados.
+    const { error: supErr, count: supCount } = await fluxion
+      .from('evidence_expiry_alerts')
+      .delete({ count: 'exact' })
+      .eq('evidence_id', ev.id)
+      .neq('alert_type', alertType)
+
+    if (supErr) {
+      console.error(`[cron/evidence-expiry] cleanup error for ${ev.id}:`, supErr)
+      errors++
     } else {
-      upserted++
+      superseded += supCount ?? 0
+    }
+  }
+
+  // Caducidad ampliada más allá de 30 días: retirar los avisos de proximidad,
+  // que si no seguirían anunciando una fecha que ya no es la vigente.
+  // No se tocan las alertas de tipo 'expired': esas deben seguir visibles.
+  const { data: extendedRows } = await fluxion
+    .from('system_evidences')
+    .select('id')
+    .not('expires_at', 'is', null)
+    .gt('expires_at', in30Str)
+
+  const extendedIds = (extendedRows ?? []).map((r) => (r as { id: string }).id)
+
+  if (extendedIds.length > 0) {
+    const { error: clearErr, count: clearCount } = await fluxion
+      .from('evidence_expiry_alerts')
+      .delete({ count: 'exact' })
+      .in('evidence_id', extendedIds)
+      .in('alert_type', ['expiry_30d', 'expiry_7d'])
+
+    if (clearErr) {
+      console.error('[cron/evidence-expiry] clear extended error:', clearErr)
+      errors++
+    } else {
+      cleared = clearCount ?? 0
     }
   }
 
@@ -102,11 +149,13 @@ export async function GET(request: NextRequest) {
     console.error('[cron/evidence-expiry] status sync error:', syncErr)
   }
 
-  console.log(`[cron/evidence-expiry] done: ${upserted} upserted, ${errors} errors, ${rows.length} evidences checked`)
+  console.log(`[cron/evidence-expiry] done: ${upserted} upserted, ${superseded} superseded, ${cleared} cleared, ${errors} errors, ${rows.length} checked`)
 
   return NextResponse.json({
     checked: rows.length,
     upserted,
+    superseded,
+    cleared,
     errors,
     statusSynced: !syncErr,
     runAt: now.toISOString(),
