@@ -280,12 +280,15 @@ export default async function EvidencesPage({
   const resolvedSearchParams = (await searchParams) ?? {}
   const data = await buildEvidencesData(membership.organization_id)
 
-  // Graceful fallback: table may not exist yet (migration 070)
+  // La página no debe caerse si las alertas fallan, pero el fallo tiene que
+  // dejar rastro: un catch mudo aquí ocultó durante semanas que la política RLS
+  // de evidence_expiry_alerts comparaba profiles.id con auth.uid() y el banner
+  // nunca se pintaba.
   let expiryAlerts: EvidenceExpiryAlert[] = []
   try {
     expiryAlerts = await getActiveExpiryAlerts(membership.organization_id)
-  } catch {
-    // pre-migration: table does not exist yet
+  } catch (err) {
+    console.error('[evidencias] no se pudieron cargar las alertas de caducidad:', err)
   }
   const activeSystem = resolvedSearchParams.system ?? 'all'
   const activeStatus = resolvedSearchParams.status ?? 'all'

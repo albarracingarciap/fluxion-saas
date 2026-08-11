@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { createNotification } from '@/lib/notifications/sender'
 
-// Vercel Cron invoca este endpoint semanalmente (lunes 08:00 UTC).
-// Detecta revisiones periódicas vencidas o próximas por organización y owner,
-// y registra el resumen. Preparado para envío de email cuando se configure
-// un proveedor (Resend / SendGrid): añadir llamada en el bloque TODO de abajo.
+// Invocado semanalmente (lunes 08:00 UTC) por cron del VPS con el header
+// Authorization: Bearer <CRON_SECRET>. Ver infra/schedules/.
+//
+// Detecta acciones de tratamiento aceptadas o diferidas cuya revisión periódica
+// está vencida o próxima, y avisa a cada responsable con una notificación
+// in-app. Antes solo escribía en el log: el aviso quedó pendiente de configurar
+// un proveedor de email, y mientras tanto no llegaba a nadie.
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+const NOTIFICATION_TYPE = 'review_due'
+const REVIEWS_PATH = '/planes/revisiones-pendientes'
+
+// Ventana anti-duplicados. El cron es semanal; si se relanza a mano dentro de
+// esa ventana no se repite el aviso al mismo responsable.
+const DEDUPE_DAYS = 6
 
 type PendingReviewRow = {
   organization_id: string
@@ -17,12 +28,19 @@ type PendingReviewRow = {
   option: string
 }
 
+type OwnerSummary = {
+  total: number
+  overdue: number
+  upcoming: number
+}
+
 type OrgSummary = {
   org_id: string
   total_pending: number
   overdue: number
   upcoming: number
-  owners: Record<string, number>
+  unassigned: number
+  owners: Record<string, OwnerSummary>
 }
 
 export async function GET(request: NextRequest) {
@@ -41,7 +59,7 @@ export async function GET(request: NextRequest) {
   window30.setDate(window30.getDate() + 30)
   const windowISO = window30.toISOString().slice(0, 10)
 
-  // Buscar todas las acciones aceptadas/diferidas con revisión pendiente o vencida
+  // Acciones aceptadas o diferidas con revisión pendiente o vencida
   const { data: rows, error } = await fluxion
     .from('treatment_actions')
     .select('organization_id, plan_id, owner_id, review_due_date, option')
@@ -58,61 +76,106 @@ export async function GET(request: NextRequest) {
 
   const pendingRows = (rows ?? []) as PendingReviewRow[]
 
-  // Agregar por organización
+  // ── Agregación por organización y por responsable ─────────────────────────
+
   const orgMap = new Map<string, OrgSummary>()
 
   for (const row of pendingRows) {
     const orgId = row.organization_id
     if (!orgMap.has(orgId)) {
-      orgMap.set(orgId, { org_id: orgId, total_pending: 0, overdue: 0, upcoming: 0, owners: {} })
+      orgMap.set(orgId, {
+        org_id: orgId,
+        total_pending: 0,
+        overdue: 0,
+        upcoming: 0,
+        unassigned: 0,
+        owners: {},
+      })
     }
     const summary = orgMap.get(orgId)!
+    const isOverdue = row.review_due_date <= todayISO
+
     summary.total_pending++
+    if (isOverdue) summary.overdue++
+    else summary.upcoming++
 
-    if (row.review_due_date <= todayISO) {
-      summary.overdue++
-    } else {
-      summary.upcoming++
+    if (!row.owner_id) {
+      // Sin responsable no hay a quién avisar. Se cuenta aparte para que el
+      // hueco sea visible en la respuesta en lugar de desaparecer.
+      summary.unassigned++
+      continue
     }
 
-    if (row.owner_id) {
-      summary.owners[row.owner_id] = (summary.owners[row.owner_id] ?? 0) + 1
-    }
+    const owner = summary.owners[row.owner_id] ?? { total: 0, overdue: 0, upcoming: 0 }
+    owner.total++
+    if (isOverdue) owner.overdue++
+    else owner.upcoming++
+    summary.owners[row.owner_id] = owner
   }
 
   const orgSummaries = Array.from(orgMap.values())
 
-  // TODO Paso 7.8 email: cuando se configure Resend, iterar orgSummaries,
-  // resolver emails de owners desde profiles, y enviar digest por owner:
-  //
-  // for (const org of orgSummaries) {
-  //   for (const [ownerId, count] of Object.entries(org.owners)) {
-  //     const { data: profile } = await fluxion
-  //       .from('profiles')
-  //       .select('full_name, email')
-  //       .eq('id', ownerId)
-  //       .maybeSingle()
-  //     if (profile?.email) {
-  //       await resend.emails.send({
-  //         from: 'Fluxion <noreply@fluxion.ai>',
-  //         to: profile.email,
-  //         subject: `${count} acción${count > 1 ? 'es' : ''} pendiente${count > 1 ? 's' : ''} de revisión en Fluxion`,
-  //         html: buildReviewReminderEmail(profile.full_name, count, org.overdue),
-  //       })
-  //     }
-  //   }
-  // }
+  // ── Anti-duplicados: una sola consulta para toda la tanda ─────────────────
+
+  const dedupeSince = new Date(now)
+  dedupeSince.setDate(dedupeSince.getDate() - DEDUPE_DAYS)
+
+  const { data: recentRows } = await fluxion
+    .from('notifications')
+    .select('recipient_id')
+    .eq('type', NOTIFICATION_TYPE)
+    .gte('created_at', dedupeSince.toISOString())
+
+  const alreadyNotified = new Set(
+    (recentRows ?? []).map((r) => (r as { recipient_id: string }).recipient_id)
+  )
+
+  // ── Aviso in-app por responsable ──────────────────────────────────────────
+
+  let notified = 0
+  let skipped = 0
+
+  for (const org of orgSummaries) {
+    for (const [ownerId, owner] of Object.entries(org.owners)) {
+      if (alreadyNotified.has(ownerId)) {
+        skipped++
+        continue
+      }
+
+      const plural = owner.total > 1
+      const detalle = owner.overdue > 0
+        ? `${owner.overdue} vencida${owner.overdue > 1 ? 's' : ''}` +
+          (owner.upcoming > 0 ? ` y ${owner.upcoming} próxima${owner.upcoming > 1 ? 's' : ''}` : '')
+        : `${owner.upcoming} próxima${owner.upcoming > 1 ? 's' : ''} a vencer`
+
+      await createNotification({
+        recipientProfileId: ownerId,
+        organizationId:     org.org_id,
+        type:               NOTIFICATION_TYPE,
+        title:              `${owner.total} revisión${plural ? 'es' : ''} de riesgo aceptado pendiente${plural ? 's' : ''}`,
+        body:               `Tienes ${detalle}. Revisar una aceptación vencida es requisito de seguimiento del plan de tratamiento.`,
+        linkUrl:            REVIEWS_PATH,
+        metadata:           { total: owner.total, overdue: owner.overdue, upcoming: owner.upcoming },
+        sendEmail:          false,
+      })
+
+      notified++
+    }
+  }
 
   console.log(
-    `[cron/review-reminders] done: ${pendingRows.length} pending reviews across ${orgSummaries.length} orgs`,
-    orgSummaries.map((o) => `org=${o.org_id.slice(0, 8)} total=${o.total_pending} overdue=${o.overdue}`)
+    `[cron/review-reminders] done: ${pendingRows.length} revisiones pendientes en ${orgSummaries.length} orgs · ` +
+    `${notified} avisos enviados, ${skipped} omitidos por duplicado`
   )
 
   return NextResponse.json({
-    checkedAt: now.toISOString(),
+    checkedAt:    now.toISOString(),
     totalPending: pendingRows.length,
     totalOverdue: pendingRows.filter((r) => r.review_due_date <= todayISO).length,
-    orgCount: orgSummaries.length,
-    orgs: orgSummaries,
+    orgCount:     orgSummaries.length,
+    notified,
+    skipped,
+    unassigned:   orgSummaries.reduce((acc, o) => acc + o.unassigned, 0),
+    orgs:         orgSummaries,
   })
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CheckCheck, Loader2, MessageSquare, User, Paperclip, Activity, AlertCircle } from 'lucide-react'
+import { Bell, CheckCheck, Loader2, MessageSquare, User, Paperclip, Activity, AlertCircle, CalendarClock } from 'lucide-react'
 import {
   getMyNotificationsAction,
   getUnreadCountAction,
@@ -31,6 +31,7 @@ function NotifIcon({ type }: { type: string }) {
   if (type === 'comment_added')    return <MessageSquare size={13} className={`${cls} text-lttm`} />
   if (type === 'attachment_added') return <Paperclip     size={13} className={`${cls} text-or`} />
   if (type === 'status_changed')   return <Activity      size={13} className={`${cls} text-brand-cyan`} />
+  if (type === 'review_due')       return <CalendarClock size={13} className={`${cls} text-or`} />
   return <AlertCircle size={13} className={`${cls} text-lttm`} />
 }
 
