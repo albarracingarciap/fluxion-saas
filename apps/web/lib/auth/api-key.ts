@@ -163,7 +163,6 @@ export async function requireApiKey(
     return { response: unauthorized() }
   }
 
-  console.info(`[requireApiKey] ok: key=${key.id} revoked_at=${key.revoked_at ?? 'null'} scope=${requiredScope}`)
 
   const rate = checkRateLimit(key.id)
   if (!rate.ok) return { response: tooManyRequests(rate.retryAfter) }
