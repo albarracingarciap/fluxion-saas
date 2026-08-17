@@ -10,5 +10,12 @@ Lo que solo necesita uno vive en ese servicio.
 
 from fluxion_common.config import get_env, require_env
 from fluxion_common.logging import setup_logging
+from fluxion_common.signals import SignalsClient, SignalsError
 
-__all__ = ["get_env", "require_env", "setup_logging"]
+__all__ = [
+    "get_env",
+    "require_env",
+    "setup_logging",
+    "SignalsClient",
+    "SignalsError",
+]
