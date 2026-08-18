@@ -4,6 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import {
+  BUCKET_EVIDENCES,
+  objectKey,
+  putObject,
+  deleteObject,
+  signedDownloadUrl,
+} from '@/lib/storage/objects';
 import { captureSnapshot } from '@/lib/fmea/treatment-plan-snapshots';
 import { recordTreatmentActionEvent, recordTreatmentActionEvents } from '@/lib/fmea/treatment-action-events';
 import {
@@ -793,16 +800,35 @@ export async function uploadEvidenceForActionAction(
   const ctx = await requireActionOwnership({ actionId, aiSystemId, evaluationId });
   if ('error' in ctx) return { error: ctx.error as string };
 
-  const { supabase, fluxion, user, membership, action } = ctx;
+  const { fluxion, user, membership, action } = ctx;
   const evidenceId = crypto.randomUUID();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `${membership.organization_id}/${evidenceId}/${Date.now()}-${safeName}`;
+  const contentType = file.type || 'application/octet-stream';
 
-  const { error: uploadError } = await supabase.storage
-    .from('evidence-files')
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
+  // El id se genera antes de subir, así que la clave del objeto ya puede
+  // llevarlo: aquí no hace falta el baile de tres pasos de la biblioteca de
+  // evidencias, porque el fichero llega al servidor en el formulario.
+  const storagePath = objectKey({
+    organizationId: membership.organization_id,
+    scope: 'evidences',
+    entityId: evidenceId,
+    filename: file.name,
+  });
 
-  if (uploadError) return { error: `Error al subir el archivo: ${uploadError.message}` };
+  let checksum: string;
+  let size: number;
+  try {
+    const put = await putObject({
+      bucket: BUCKET_EVIDENCES,
+      key: storagePath,
+      body: Buffer.from(await file.arrayBuffer()),
+      contentType,
+    });
+    checksum = put.checksum;
+    size = put.size;
+  } catch (e) {
+    console.error('uploadEvidenceForActionAction:', e);
+    return { error: 'Error al subir el archivo al almacenamiento.' };
+  }
 
   const { error: insertError } = await fluxion
     .from('evidences')
@@ -812,12 +838,20 @@ export async function uploadEvidenceForActionAction(
       title,
       url: '',
       storage_path: storagePath,
+      storage_backend: 's3',
+      storage_bucket: BUCKET_EVIDENCES,
+      checksum_sha256: checksum,
+      file_size: size,
+      mime_type: contentType,
       uploaded_by: user.id,
       applies_to_systems: [aiSystemId],
     });
 
   if (insertError) {
-    await supabase.storage.from('evidence-files').remove([storagePath]);
+    // Sin esto queda un objeto huérfano que nadie volverá a mirar.
+    await deleteObject({ bucket: BUCKET_EVIDENCES, key: storagePath }).catch((e) =>
+      console.error('rollback del objeto huérfano:', e),
+    );
     return { error: `Error al registrar la evidencia: ${insertError.message}` };
   }
 
@@ -897,13 +931,48 @@ export async function unlinkEvidenceFromActionAction(input: {
   return { success: true };
 }
 
+/**
+ * URL de descarga del fichero de una evidencia del plan de tratamiento.
+ *
+ * Recibe el id de la evidencia, no la ruta. Antes recibía la ruta y no
+ * comprobaba nada: se apoyaba en que las políticas de Supabase Storage
+ * rechazasen una carpeta de otra organización. MinIO no hace esa comprobación,
+ * así que ahora la hace RLS sobre `fluxion.evidences` — si el usuario no puede
+ * ver la fila, no hay URL.
+ */
 export async function getEvidenceSignedUrlAction(
-  storagePath: string,
+  evidenceId: string,
 ): Promise<{ url: string } | { error: string }> {
   const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado.' };
+
+  const { data: evidence } = await fluxion
+    .from('evidences')
+    .select('storage_path, storage_backend, storage_bucket')
+    .eq('id', evidenceId)
+    .maybeSingle();
+
+  if (!evidence?.storage_path) return { error: 'La evidencia no tiene fichero adjunto.' };
+
+  if (evidence.storage_backend === 's3') {
+    try {
+      const url = await signedDownloadUrl({
+        bucket: evidence.storage_bucket ?? BUCKET_EVIDENCES,
+        key: evidence.storage_path,
+      });
+      return { url };
+    } catch (e) {
+      console.error('getEvidenceSignedUrlAction (s3):', e);
+      return { error: 'No se pudo generar la URL de descarga.' };
+    }
+  }
+
   const { data, error } = await supabase.storage
     .from('evidence-files')
-    .createSignedUrl(storagePath, 3600);
+    .createSignedUrl(evidence.storage_path, 3600);
 
   if (error || !data?.signedUrl) return { error: 'No se pudo generar la URL de descarga.' };
   return { url: data.signedUrl };

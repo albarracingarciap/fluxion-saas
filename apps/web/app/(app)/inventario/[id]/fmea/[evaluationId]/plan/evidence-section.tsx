@@ -44,7 +44,7 @@ export function EvidenceSection({ action, aiSystemId, evaluationId, readOnly }: 
       return
     }
     setIsOpeningFile(true)
-    getEvidenceSignedUrlAction(action.evidence_storage_path).then((res) => {
+    getEvidenceSignedUrlAction(action.evidence_id!).then((res) => {
       setIsOpeningFile(false)
       if ('url' in res) window.open(res.url, '_blank', 'noopener')
       else setEvidenceError(res.error)
