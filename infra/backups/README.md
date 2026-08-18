@@ -106,8 +106,12 @@ nunca y no avisa de ello.
 ## Verificación
 
 ```bash
-# ¿Corrió hoy?
+# ¿Corrió hoy, y terminó bien?
 grep "$(date +%F)" /var/log/fluxion-minio-backup.log
+grep -c "fin (estado 0)" /var/log/fluxion-minio-backup.log
+
+# ¿Existe la instantánea de hoy? El espejo puede ir bien y esto fallar.
+ls -lh /var/backups/minio/archive/minio_$(date +%Y%m%d).tar.gz
 
 # ¿Cuadra el número de objetos con lo que hay en la base de datos?
 find /var/backups/minio/fluxion-evidences -type f | wc -l

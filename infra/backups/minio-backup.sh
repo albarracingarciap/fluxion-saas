@@ -29,7 +29,14 @@ source "$CONF"   # MINIO_HOST, MINIO_BACKUP_KEY, MINIO_BACKUP_SECRET
 # sin escapar nada.
 MC_HOST="https://${MINIO_BACKUP_KEY}:${MINIO_BACKUP_SECRET}@${MINIO_HOST}"
 
+BUCKETS=(fluxion-evidences fluxion-documents)
+
+# El directorio de cada bucket se crea aquí y no se deja a `mc mirror`: un
+# bucket vacío no genera destino, y entonces el `tar` de más abajo aborta por
+# no encontrarlo. Fallaba solo cuando no había nada que copiar, que es
+# precisamente cuando nadie mira el log.
 mkdir -p "$DEST" "$ARCHIVE"
+for b in "${BUCKETS[@]}"; do mkdir -p "$DEST/$b"; done
 
 mirror_bucket() {
   local bucket="$1"
@@ -45,10 +52,10 @@ mirror_bucket() {
 }
 
 status=0
-for bucket in fluxion-evidences fluxion-documents; do
+for bucket in "${BUCKETS[@]}"; do
   if mirror_bucket "$bucket"; then
-    objetos=$(find "$DEST/$bucket" -type f 2>/dev/null | wc -l)
-    bytes=$(du -sb "$DEST/$bucket" 2>/dev/null | cut -f1)
+    objetos=$(find "$DEST/$bucket" -type f | wc -l)
+    bytes=$(du -sb "$DEST/$bucket" | cut -f1)
     log "espejo $bucket: $objetos objetos, $bytes bytes"
   else
     log "ERROR: falló el espejo de $bucket"
@@ -60,7 +67,7 @@ done
 # antenoche: si algo se corrompe y se sincroniza, el espejo también.
 STAMP=$(date +%Y%m%d)
 TARBALL="$ARCHIVE/minio_${STAMP}.tar.gz"
-if tar czf "$TARBALL" -C "$DEST" fluxion-evidences fluxion-documents 2>>"$LOG"; then
+if tar czf "$TARBALL" -C "$DEST" "${BUCKETS[@]}" 2>>"$LOG"; then
   log "archivo $TARBALL: $(du -h "$TARBALL" | cut -f1)"
 else
   log "ERROR: no se pudo crear $TARBALL"
