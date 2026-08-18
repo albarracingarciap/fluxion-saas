@@ -53,23 +53,38 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
   if ('error' in ctx) return ctx;
   const { user, profile, fluxion } = ctx;
 
-  if (!input.evidenceId || !input.title?.trim() || !input.evidenceType?.trim() || !input.externalUrl?.trim()) {
+  if (!input.evidenceId || !input.title?.trim() || !input.evidenceType?.trim()) {
     return { error: 'Faltan datos obligatorios.' };
   }
 
-  try {
-    new URL(input.externalUrl);
-  } catch {
-    return { error: 'La URL no es válida.' };
+  const url = input.externalUrl?.trim() ?? '';
+  if (url) {
+    try {
+      new URL(url);
+    } catch {
+      return { error: 'La URL no es válida.' };
+    }
   }
 
   // Snapshot del estado actual antes de modificar
   const { data: current } = await fluxion
     .from('system_evidences')
-    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes')
+    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes, storage_path')
     .eq('id', input.evidenceId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
+
+  // Fichero o URL: hace falta uno de los dos para que la evidencia salga de
+  // borrador. La comprobación va aquí y no solo en la base de datos para poder
+  // decir qué falta, en vez de devolver una violación de restricción.
+  const nextStatus = VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
+    ? input.status
+    : 'draft';
+  const nextPath = input.storagePath !== undefined ? input.storagePath : current?.storage_path ?? null;
+
+  if (nextStatus !== 'draft' && !url && !nextPath) {
+    return { error: 'Una evidencia que no está en borrador necesita un fichero adjunto o una URL.' };
+  }
 
   const { error } = await fluxion
     .from('system_evidences')
@@ -77,10 +92,8 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
       title: input.title.trim(),
       description: input.description?.trim() || null,
       evidence_type: input.evidenceType.trim(),
-      external_url: input.externalUrl.trim(),
-      status: VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
-        ? input.status
-        : 'draft',
+      external_url: url || null,
+      status: nextStatus,
       version: input.version?.trim() || null,
       issued_at: input.issuedAt || null,
       expires_at: input.expiresAt || null,
@@ -349,6 +362,8 @@ export type CreateOrganizationEvidenceInput = {
   expiresAt?: string;
   storagePath?: string | null;
   tags?: string[];
+  /** El fichero se sube después de crear la fila; esto avisa de que viene uno. */
+  hasPendingFile?: boolean;
 };
 
 export async function createOrganizationEvidence(input: CreateOrganizationEvidenceInput) {
@@ -356,15 +371,29 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
   if ('error' in ctx) return ctx;
   const { user, profile, fluxion } = ctx;
 
-  if (!input.title?.trim() || !input.evidenceType?.trim() || !input.externalUrl?.trim()) {
+  if (!input.title?.trim() || !input.evidenceType?.trim()) {
     return { error: 'Faltan datos obligatorios.' };
   }
 
-  try {
-    new URL(input.externalUrl);
-  } catch {
-    return { error: 'La URL no es válida.' };
+  const url = input.externalUrl?.trim() ?? '';
+  if (url) {
+    try {
+      new URL(url);
+    } catch {
+      return { error: 'La URL no es válida.' };
+    }
   }
+
+  if (!url && !input.storagePath && !input.hasPendingFile) {
+    return { error: 'Adjunta un fichero o indica la URL del documento.' };
+  }
+
+  // Sin ubicación todavía, la evidencia nace en borrador: hasta que el fichero
+  // esté subido no respalda nada. El estado elegido se aplica al editarla.
+  const chosenStatus = VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
+    ? input.status
+    : 'draft';
+  const status = (!url && !input.storagePath) ? 'draft' : chosenStatus;
 
   const { data, error } = await fluxion
     .from('system_evidences')
@@ -375,10 +404,8 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
       title: input.title.trim(),
       description: input.description?.trim() || null,
       evidence_type: input.evidenceType.trim(),
-      external_url: input.externalUrl.trim(),
-      status: VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
-        ? input.status
-        : 'draft',
+      external_url: url || null,
+      status,
       version: input.version?.trim() || null,
       owner_user_id: user.id,
       issued_at: input.issuedAt || null,

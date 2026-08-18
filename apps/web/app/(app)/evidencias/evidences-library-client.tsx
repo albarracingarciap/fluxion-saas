@@ -351,6 +351,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         issuedAt: orgForm.issuedAt,
         expiresAt: orgForm.expiresAt,
         tags: orgForm.tags,
+        hasPendingFile: Boolean(pendingOrgFile),
       });
       if (result?.error) { setOrgError(result.error); return; }
 
@@ -998,10 +999,12 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">URL externa</label>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    URL externa {!pendingEditFile && !editForm.storagePath && <span className="text-lttm normal-case">· o adjunta un fichero</span>}
+                  </label>
                   <input
                     type="url"
-                    required
+                    required={!pendingEditFile && !editForm.storagePath}
                     value={editForm.externalUrl}
                     onChange={(e) => setEditForm((f) => ({ ...f, externalUrl: e.target.value }))}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
@@ -1409,10 +1412,12 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">URL del documento</label>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
+                    URL del documento {!pendingOrgFile && <span className="text-lttm normal-case">· o adjunta un fichero</span>}
+                  </label>
                   <input
                     type="url"
-                    required
+                    required={!pendingOrgFile}
                     value={orgForm.externalUrl}
                     onChange={(e) => setOrgForm((f) => ({ ...f, externalUrl: e.target.value }))}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
