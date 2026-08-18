@@ -17,7 +17,9 @@ supabase/
   migrations/           Esquema de base de datos. Fuente de verdad
 infra/
   schedules/            Tareas programadas del sistema
-docs/                   Documentación de arquitectura y decisiones
+docs/
+  infra/              Topología, red, backups y diagnóstico del VPS
+  ingesta.md          Contrato de la API que usan los módulos
 recursos/               Baseline, catálogos de origen, material de diseño
 tools/                  Utilidades sueltas
 ```
