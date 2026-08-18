@@ -98,6 +98,11 @@ export type SidebarOrgState = {
   initials: string
   hasSystems: boolean
   logo_url?: string | null
+  // Descubrimientos solo aparece si hay algún módulo contratado que los
+  // produzca. Se calcula en el layout (servidor) y llega ya resuelto: el
+  // sidebar no consulta entitlements.
+  showDiscoveries?: boolean
+  pendingDiscoveries?: number
 }
 
 const DEFAULT_SIDEBAR_ORG_STATE: SidebarOrgState = {
@@ -107,6 +112,8 @@ const DEFAULT_SIDEBAR_ORG_STATE: SidebarOrgState = {
   initials: 'OR',
   hasSystems: false,
   logo_url: null,
+  showDiscoveries: false,
+  pendingDiscoveries: 0,
 }
 
 // ── Tooltip wrapper ──────────────────────────────────────────
@@ -338,11 +345,31 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
   const [orgState] = useState<SidebarOrgState>(initialOrgState)
 
   const navSections = useMemo(() => {
-    if (!orgState.hasSystems) return NAV
+    const pending = orgState.pendingDiscoveries ?? 0
+    const discoveriesChild: Child | null = orgState.showDiscoveries
+      ? {
+          label: pending > 0 ? `Descubrimientos (${pending})` : 'Descubrimientos',
+          href: '/inventario/descubrimientos',
+          exact: true,
+        }
+      : null
+
+    const withDiscoveries = (items: NavItem[]): NavItem[] =>
+      discoveriesChild
+        ? items.map((item) =>
+            item.label === 'Sistemas' && item.children
+              ? { ...item, children: [...item.children, discoveriesChild] }
+              : item
+          )
+        : items
+
+    if (!orgState.hasSystems) {
+      return NAV.map((section) => ({ ...section, items: withDiscoveries(section.items) }))
+    }
 
     return NAV.map((section) => ({
       ...section,
-      items: section.items.map((item) => ({
+      items: withDiscoveries(section.items).map((item) => ({
         ...item,
         disabled: false,
         children: item.children?.map((child) => ({
@@ -352,7 +379,7 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         })),
       })),
     }))
-  }, [orgState.hasSystems])
+  }, [orgState.hasSystems, orgState.showDiscoveries, orgState.pendingDiscoveries])
 
   return (
     <aside

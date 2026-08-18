@@ -5,6 +5,10 @@ import { AssistantPanel } from "@/components/assistant/AssistantPanel"
 import { ThemeApplier } from "@/components/profile/ThemeApplier"
 import { getAppAuthState } from "@/lib/auth/app-state"
 import { createFluxionClient } from "@/lib/supabase/fluxion"
+import { listActiveModules } from "@/lib/modules/entitlements"
+
+// Módulos cuya contratación hace visible la cola de descubrimientos.
+const DISCOVERY_MODULES = ['connector-mlflow', 'shadow-ai']
 
 function getRoleLabel(role: string | null | undefined) {
   switch (role) {
@@ -78,9 +82,27 @@ export default async function AppLayout({
         .not('status', 'in', '(cancelled,completed)'),
     ])
 
+    // Descubrimientos: la entrada solo aparece si hay algún módulo contratado
+    // que los produzca. Si no, el usuario vería una pantalla que nunca tendrá
+    // contenido.
+    const activeModules = await listActiveModules(membership.organization_id)
+    const showDiscoveries = DISCOVERY_MODULES.some((m) => activeModules.includes(m))
+
+    let pendingDiscoveries = 0
+    if (showDiscoveries) {
+      const { count } = await fluxion
+        .from('discovered_assets')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', membership.organization_id)
+        .eq('status', 'pending')
+      pendingDiscoveries = count ?? 0
+    }
+
     sidebarOrgState = {
       ...sidebarOrgState,
       hasSystems: (systemsRes.count ?? 0) > 0,
+      showDiscoveries,
+      pendingDiscoveries,
     }
 
     const reviewRows = (reviewsRes.data ?? []) as Array<{ review_due_date: string }>
