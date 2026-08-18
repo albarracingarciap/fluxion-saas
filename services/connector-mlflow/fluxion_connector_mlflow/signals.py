@@ -27,10 +27,25 @@ def _iso(timestamp_ms: Any) -> str | None:
         return None
 
 
-def _is_production(version: dict[str, Any]) -> bool:
-    aliases = {a.lower() for a in (version.get("aliases") or [])}
-    if aliases & PRODUCTION_ALIASES:
+def _is_production(model: dict[str, Any], version: dict[str, Any]) -> bool:
+    """¿Esta versión es la que está sirviendo en producción?
+
+    Los alias se guardan en el MODELO REGISTRADO, no en la versión:
+    `registered-models/search` devuelve [{"alias": "champion", "version": "1"}]
+    mientras que `model-versions/search` no los incluye. Buscarlos en la versión
+    —como hacía la primera implementación— no encuentra nunca nada.
+    """
+    number = str(version.get("version") or "")
+
+    for entry in model.get("aliases") or []:
+        alias = str(entry.get("alias") or "").lower()
+        if alias in PRODUCTION_ALIASES and str(entry.get("version") or "") == number:
+            return True
+
+    # Algunas versiones de MLflow sí los devuelven en la versión.
+    if {a.lower() for a in (version.get("aliases") or [])} & PRODUCTION_ALIASES:
         return True
+
     # MLflow 2.x usaba etapas; siguen apareciendo en instalaciones migradas.
     return (version.get("current_stage") or "").lower() == "production"
 
@@ -82,7 +97,7 @@ def build_signals(model: dict[str, Any], version: dict[str, Any]) -> list[dict[s
         }
     ]
 
-    if _is_production(version):
+    if _is_production(model, version):
         signals.append(
             {
                 "system_id": system_id,

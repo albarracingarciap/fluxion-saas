@@ -47,9 +47,13 @@ export const signalInputSchema = z.object({
 
   payload: z.record(z.string(), z.unknown()).optional(),
 
+  // `offset: true` acepta tanto `2026-08-18T06:00:00Z` como `…+02:00`. Sin él,
+  // zod solo admite la forma con Z y rechaza lo que genera `isoformat()` de
+  // Python — que es ISO 8601 perfectamente válido. Una API pública no puede
+  // exigir una de las dos formas.
   occurred_at: z
     .string()
-    .datetime({ message: 'occurred_at debe ser una fecha ISO 8601 con zona horaria.' })
+    .datetime({ offset: true, message: 'occurred_at debe ser una fecha ISO 8601 con zona horaria.' })
     .nullish(),
 
   dedupe_key: z
