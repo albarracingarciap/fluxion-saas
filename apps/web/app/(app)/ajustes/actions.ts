@@ -870,3 +870,178 @@ export async function deleteConnectorConnection(id: string): Promise<{ success?:
   revalidatePath('/ajustes')
   return { success: true }
 }
+
+// ── Canales de aviso ────────────────────────────────────────────────────────────
+// La URL de un webhook de Slack o Teams es una credencial: se guarda cifrada en
+// Vault y nunca vuelve al navegador. La interfaz solo sabe si existe o no.
+
+import { sendToChannel } from '@/lib/channels/send'
+
+export type NotificationChannelRow = {
+  id:              string
+  channel_type:    'slack' | 'teams'
+  name:            string
+  events:          string[]
+  is_active:       boolean
+  has_url:         boolean
+  last_success_at: string | null
+  last_error_at:   string | null
+  last_error:      string | null
+  created_at:      string
+}
+
+export type ChannelDeliveryRow = {
+  id:              string
+  event_type:      string
+  status:          'pending' | 'sent' | 'failed' | 'abandoned'
+  attempts:        number
+  http_status:     number | null
+  last_error:      string | null
+  created_at:      string
+  sent_at:         string | null
+}
+
+export async function getNotificationChannels(): Promise<NotificationChannelRow[]> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return []
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('notification_channels')
+    .select('id, channel_type, name, events, is_active, secret_id, last_success_at, last_error_at, last_error, created_at')
+    .eq('organization_id', profile.organization_id)
+    .order('created_at')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((r) => ({
+    id:              r.id,
+    channel_type:    r.channel_type,
+    name:            r.name,
+    events:          r.events ?? [],
+    is_active:       r.is_active,
+    has_url:         Boolean(r.secret_id),
+    last_success_at: r.last_success_at,
+    last_error_at:   r.last_error_at,
+    last_error:      r.last_error,
+    created_at:      r.created_at,
+  }))
+}
+
+export async function getChannelDeliveries(channelId: string, limit = 10): Promise<ChannelDeliveryRow[]> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return []
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('channel_deliveries')
+    .select('id, event_type, status, attempts, http_status, last_error, created_at, sent_at')
+    .eq('channel_id', channelId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return (data ?? []) as ChannelDeliveryRow[]
+}
+
+export async function saveNotificationChannel(input: {
+  id?:           string
+  channel_type:  'slack' | 'teams'
+  name:          string
+  url?:          string | null   // vacío = conservar la existente
+  events:        string[]
+  is_active:     boolean
+}): Promise<{ id: string } | { error: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+
+  const name = input.name.trim()
+  if (!name) return { error: 'El nombre es obligatorio.' }
+
+  if (input.url) {
+    if (!/^https:\/\//i.test(input.url.trim())) {
+      return { error: 'La URL del webhook debe empezar por https://' }
+    }
+  } else if (!input.id) {
+    return { error: 'La URL del webhook es obligatoria al crear el canal.' }
+  }
+
+  const admin = createConnectorAdminClient()   // mismo cliente de servicio sobre fluxion
+
+  const payload = {
+    organization_id: profile.organization_id,
+    channel_type:    input.channel_type,
+    name,
+    events:          input.events,
+    is_active:       input.is_active,
+  }
+
+  let channelId = input.id
+
+  if (channelId) {
+    const { error: updErr } = await admin
+      .from('notification_channels')
+      .update(payload)
+      .eq('id', channelId)
+      .eq('organization_id', profile.organization_id)
+    if (updErr) return { error: 'Error al guardar: ' + updErr.message }
+  } else {
+    const { data: row, error: insErr } = await admin
+      .from('notification_channels')
+      .insert({ ...payload, created_by: profile.id })
+      .select('id')
+      .single()
+    if (insErr || !row) return { error: 'Error al crear: ' + (insErr?.message ?? '') }
+    channelId = row.id
+  }
+
+  if (input.url) {
+    const { error: secretErr } = await admin.rpc('channel_secret_set', {
+      p_channel_id: channelId,
+      p_value:      input.url.trim(),
+    })
+    if (secretErr) return { error: 'Error al guardar la URL: ' + secretErr.message }
+  }
+
+  revalidatePath('/ajustes')
+  return { id: channelId! }
+}
+
+export async function deleteNotificationChannel(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+
+  const admin = createConnectorAdminClient()
+  const { error: delErr } = await admin
+    .from('notification_channels')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+
+  if (delErr) return { error: 'Error al eliminar: ' + delErr.message }
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
+/** Envía un mensaje de prueba y devuelve el resultado real de la entrega. */
+export async function testNotificationChannel(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+
+  const admin = createConnectorAdminClient()
+
+  const result = await sendToChannel(admin, {
+    organizationId: profile.organization_id,
+    channelId:      id,
+    eventType:      'channel.test',
+    message: {
+      title: 'Prueba de canal · Fluxion',
+      text:  'Si ves este mensaje, el canal está bien configurado y recibirá los avisos de incidentes.',
+      level: 'info',
+    },
+  })
+
+  revalidatePath('/ajustes')
+  return result.ok ? { success: true } : { error: result.error ?? 'El envío falló.' }
+}

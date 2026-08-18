@@ -132,6 +132,52 @@ export async function enqueueChannelMessage(
   return { queued: (inserted ?? []).length, sent }
 }
 
+/**
+ * Envía a UN canal concreto, saltándose la suscripción a eventos.
+ *
+ * Para el botón de prueba de la interfaz: comprobar que un canal funciona no
+ * debe depender de a qué eventos esté suscrito.
+ */
+export async function sendToChannel(
+  admin: Admin,
+  params: {
+    organizationId: string
+    channelId: string
+    eventType: string
+    message: ChannelMessage
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: row, error } = await admin
+    .from('channel_deliveries')
+    .insert({
+      organization_id: params.organizationId,
+      channel_id: params.channelId,
+      event_type: params.eventType,
+      payload: params.message as unknown as Record<string, unknown>,
+    })
+    .select('id')
+    .single()
+
+  if (error || !row) return { ok: false, error: error?.message ?? 'No se pudo registrar el envío.' }
+
+  await deliverPending(admin, params.organizationId)
+
+  const { data: after } = await admin
+    .from('channel_deliveries')
+    .select('status, http_status, last_error')
+    .eq('id', row.id)
+    .maybeSingle()
+
+  if (after?.status === 'sent') return { ok: true }
+
+  return {
+    ok: false,
+    error: after?.last_error
+      ? `${after.http_status ?? ''} ${after.last_error}`.trim()
+      : 'El envío no se completó.',
+  }
+}
+
 // ── Entregar ─────────────────────────────────────────────────────────────────
 
 /**
