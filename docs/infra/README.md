@@ -191,6 +191,13 @@ pg_restore -l /var/backups/supabase/full_$(date +%Y%m%d).dump | head -20
 ⚠️ **Pendiente**: los backups siguen en el mismo servidor. Dokploy trae función
 propia de copias a proveedor externo (Settings → Backups); es lo que falta.
 
+⚠️ **Pendiente y más urgente desde MinIO**: el volumen de objetos
+(`/etc/dokploy/compose/fluxion-saas-minio-*/files/minio`) **no entra en este
+plan**, que solo cubre PostgreSQL. Desde que una evidencia vive ahí, un volcado
+de la base de datos deja de ser un punto de recuperación: son metadatos
+apuntando a ficheros que no vuelven. Añadir ese directorio antes de que haya
+evidencias de un cliente real.
+
 ---
 
 ## 6 · Base de datos y migraciones
@@ -263,6 +270,75 @@ SELECT o.name,
 ```
 
 Añadir aquí una línea `UNION ALL` por cada tabla nueva con `organization_id`.
+
+---
+
+## 6 bis · MinIO — almacenamiento de objetos
+
+Servicio `fluxion-saas-minio` en Dokploy. Contenedor
+`fluxion-saas-minio-vrfnka-minio-1`, red `fluxion-saas-minio-vrfnka_default`.
+Ficheros en `/etc/dokploy/compose/fluxion-saas-minio-*/files/minio`.
+
+**No confundir con el MinIO de MLflow** (`mlflow-fluxion-8678pt-minio-1`). Son
+instancias distintas a propósito: compartir la de MLflow habría acoplado la
+disponibilidad de las evidencias a los despliegues de un proyecto sin relación.
+
+| Bucket | Contenido | Particularidad |
+|---|---|---|
+| `fluxion-evidences` | Ficheros de evidencia | Versionado |
+| `fluxion-documents` | Documentos regulatorios de C1 | Versionado + bloqueo GOVERNANCE 10 años (Art. 18) |
+
+### Lo que no da error
+
+**MinIO no aplica RLS.** Supabase Storage sí lo hacía: aunque un camino de
+código olvidase comprobar la organización, la política lo frenaba. Aquí no hay
+nada debajo. El control vive en `lib/evidences/storage-actions.ts`, y el
+mecanismo es que **si el usuario no puede ver la fila de `system_evidences` por
+RLS, no puede tocar el fichero**. Ninguna ruta se compara a mano.
+
+**El usuario de la aplicación no es root.** `fluxion-app` tiene la política
+`fluxion-rw`, limitada a los dos buckets y **sin**
+`s3:BypassGovernanceRetention`: no puede borrar un documento regulatorio dentro
+de su plazo de retención. Las credenciales de root solo están en el servicio
+`fluxion-saas-minio`, nunca en la aplicación.
+
+Modo `GOVERNANCE` y no `COMPLIANCE` porque en *compliance* no lo podría borrar
+nadie, ni root, y eso choca con un derecho de supresión del RGPD.
+
+**El bloqueo solo se activa al crear el bucket.** Recrear es la única vía.
+
+### Dos tropiezos reales
+
+**El servicio no era alcanzable desde fuera aunque respondía por dentro**: solo
+estaba en la red del compose. Traefik vive en `dokploy-network` y hay que
+declararla como `external: true` y unir el servicio a las dos.
+
+**Las subidas desde el navegador necesitan CORS**: `MINIO_API_CORS_ALLOW_ORIGIN`
+con el origen exacto, esquema incluido.
+
+### Administración
+
+`minio-init` termina y se apaga, así que no se puede `docker exec` en él. Un
+`mc` de usar y tirar:
+
+```bash
+docker run --rm --network fluxion-saas-minio-vrfnka_default \
+  -e MC_HOST_local="http://fluxion-root:<contraseña>@minio:9000" \
+  minio/mc:latest ls --recursive local/fluxion-evidences
+```
+
+Las contraseñas se generan sin `/`, `+` ni `=` para poder ir en esa URL sin
+escapar nada.
+
+### Comprobación desde fuera
+
+```bash
+curl -sI https://minio.fluxion-ai.es/minio/health/live | head -1     # 200
+curl -s  https://minio.fluxion-ai.es/fluxion-documents/ | head -3    # AccessDenied
+```
+
+Ese `AccessDenied` es el importante. Si sale un listado de objetos, el bucket
+está abierto y hay que parar todo.
 
 ---
 
