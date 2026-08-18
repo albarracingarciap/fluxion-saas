@@ -35,6 +35,10 @@ export type AuditAction =
   // Webhooks
   | 'webhook.created'
   | 'webhook.deleted'
+  // Conectores
+  | 'connector.created'
+  | 'connector.updated'
+  | 'connector.deleted'
   | 'webhook.tested'
   // Seguridad
   | 'org.security_updated'

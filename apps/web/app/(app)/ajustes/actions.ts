@@ -679,3 +679,194 @@ export async function updateAppSettings(data: {
   revalidatePath('/ajustes')
   return { success: true }
 }
+
+// ── Conectores ──────────────────────────────────────────────────────────────────
+// La contraseña del sistema externo nunca vuelve al navegador: se escribe a
+// través de fluxion.connector_secret_set (que la cifra en Vault) y solo la lee
+// el propio conector por /api/ingest/v1/connectors/config.
+
+export type ConnectorConnectionRow = {
+  id:                    string
+  connector_type:        string
+  name:                  string
+  base_url:              string
+  auth_type:             'none' | 'basic'
+  username:              string | null
+  has_secret:            boolean
+  poll_interval_seconds: number
+  is_active:             boolean
+  last_sync_at:          string | null
+  last_sync_status:      'ok' | 'error' | 'partial' | null
+  created_at:            string
+}
+
+export type ConnectorRunRow = {
+  id:                 string
+  status:             'ok' | 'error' | 'partial'
+  started_at:         string
+  finished_at:        string
+  objects_seen:       number
+  signals_published:  number
+  signals_duplicated: number
+  signals_rejected:   number
+  details:            Record<string, unknown>
+  error_message:      string | null
+}
+
+function createConnectorAdminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      db:   { schema: 'fluxion' },
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    }
+  )
+}
+
+export async function getConnectorConnections(): Promise<ConnectorConnectionRow[]> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return []
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('connector_connections')
+    .select('id, connector_type, name, base_url, auth_type, username, secret_id, poll_interval_seconds, is_active, last_sync_at, last_sync_status, created_at')
+    .eq('organization_id', profile.organization_id)
+    .order('created_at')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((r) => ({
+    id:                    r.id,
+    connector_type:        r.connector_type,
+    name:                  r.name,
+    base_url:              r.base_url,
+    auth_type:             r.auth_type,
+    username:              r.username,
+    has_secret:            Boolean(r.secret_id),   // nunca el secreto, solo si existe
+    poll_interval_seconds: r.poll_interval_seconds,
+    is_active:             r.is_active,
+    last_sync_at:          r.last_sync_at,
+    last_sync_status:      r.last_sync_status,
+    created_at:            r.created_at,
+  }))
+}
+
+export async function getConnectorRuns(connectionId: string, limit = 10): Promise<ConnectorRunRow[]> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return []
+
+  const fluxion = createFluxionClient()
+  const { data } = await fluxion
+    .from('connector_sync_runs')
+    .select('id, status, started_at, finished_at, objects_seen, signals_published, signals_duplicated, signals_rejected, details, error_message')
+    .eq('connection_id', connectionId)
+    .order('started_at', { ascending: false })
+    .limit(limit)
+
+  return (data ?? []) as ConnectorRunRow[]
+}
+
+export async function saveConnectorConnection(input: {
+  id?:                    string
+  connector_type:         string
+  name:                   string
+  base_url:               string
+  auth_type:              'none' | 'basic'
+  username?:              string | null
+  password?:              string | null   // vacío = no tocar la existente
+  poll_interval_seconds:  number
+  is_active:              boolean
+}): Promise<{ id: string } | { error: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+
+  const name = input.name.trim()
+  const baseUrl = input.base_url.trim().replace(/\/+$/, '')
+  if (!name) return { error: 'El nombre es obligatorio.' }
+  if (!/^https?:\/\//i.test(baseUrl)) return { error: 'La URL debe empezar por http:// o https://' }
+  if (input.auth_type === 'basic' && !input.username?.trim()) {
+    return { error: 'Con autenticación básica el usuario es obligatorio.' }
+  }
+
+  const admin = createConnectorAdminClient()
+
+  const payload = {
+    organization_id:       profile.organization_id,
+    connector_type:        input.connector_type,
+    name,
+    base_url:              baseUrl,
+    auth_type:             input.auth_type,
+    username:              input.auth_type === 'basic' ? (input.username?.trim() ?? null) : null,
+    poll_interval_seconds: Math.max(60, input.poll_interval_seconds),
+    is_active:             input.is_active,
+  }
+
+  let connectionId = input.id
+
+  if (connectionId) {
+    const { error: updErr } = await admin
+      .from('connector_connections')
+      .update(payload)
+      .eq('id', connectionId)
+      .eq('organization_id', profile.organization_id)
+    if (updErr) return { error: 'Error al guardar: ' + updErr.message }
+  } else {
+    const { data: row, error: insErr } = await admin
+      .from('connector_connections')
+      .insert({ ...payload, created_by: profile.id })
+      .select('id')
+      .single()
+    if (insErr || !row) return { error: 'Error al crear: ' + (insErr?.message ?? '') }
+    connectionId = row.id
+  }
+
+  // La contraseña solo se toca si el formulario trae una nueva.
+  if (input.auth_type === 'basic' && input.password) {
+    const { error: secretErr } = await admin.rpc('connector_secret_set', {
+      p_connection_id: connectionId,
+      p_value:         input.password,
+    })
+    if (secretErr) return { error: 'Error al guardar la credencial: ' + secretErr.message }
+  }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          input.id ? 'connector.updated' : 'connector.created',
+    target_type:     'organization',
+    target_id:       connectionId,
+    target_label:    name,
+  })
+
+  revalidatePath('/ajustes')
+  return { id: connectionId! }
+}
+
+export async function deleteConnectorConnection(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+
+  const admin = createConnectorAdminClient()
+  // El trigger de la base de datos borra también su secreto del Vault.
+  const { error: delErr } = await admin
+    .from('connector_connections')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+
+  if (delErr) return { error: 'Error al eliminar: ' + delErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'connector.deleted',
+    target_type:     'organization',
+    target_id:       id,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
