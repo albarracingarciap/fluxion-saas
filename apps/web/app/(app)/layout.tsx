@@ -98,11 +98,21 @@ export default async function AppLayout({
       pendingDiscoveries = count ?? 0
     }
 
+    // Incidentes con obligación de notificar viva. Va en la navegación porque
+    // un plazo del artículo 73 corriendo no debería requerir entrar a buscarlo.
+    const { count: deadlineCount } = await fluxion
+      .from('ai_incidents')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', membership.organization_id)
+      .eq('is_serious', true)
+      .in('notification_status', ['pending', 'initial_sent'])
+
     sidebarOrgState = {
       ...sidebarOrgState,
       hasSystems: (systemsRes.count ?? 0) > 0,
       showDiscoveries,
       pendingDiscoveries,
+      openIncidentDeadlines: deadlineCount ?? 0,
     }
 
     const reviewRows = (reviewsRes.data ?? []) as Array<{ review_due_date: string }>

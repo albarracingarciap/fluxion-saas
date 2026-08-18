@@ -8,7 +8,7 @@ import { useSidebarStore } from "@/lib/store/sidebarStore"
 import {
   LayoutDashboard, ChevronDown, List, FileCheck,
   Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList,
-  ShieldCheck, CheckSquare, LayoutGrid,
+  ShieldCheck, ShieldAlert, CheckSquare, LayoutGrid,
 } from "lucide-react"
 
 type Child = { label: string; href: string; disabled?: boolean; hint?: string; activeOn?: string[]; exact?: boolean }
@@ -42,6 +42,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Evaluaciones", href: "/evaluaciones", icon: <FileCheck size={15} /> },
       { label: "Planes de tratamiento", href: "/planes", icon: <ShieldCheck size={15} /> },
+      { label: "Incidentes", href: "/incidentes", icon: <ShieldAlert size={15} /> },
     ],
   },
   {
@@ -103,6 +104,8 @@ export type SidebarOrgState = {
   // sidebar no consulta entitlements.
   showDiscoveries?: boolean
   pendingDiscoveries?: number
+  /** Incidentes con plazo de notificación vivo (Art. 73). */
+  openIncidentDeadlines?: number
 }
 
 const DEFAULT_SIDEBAR_ORG_STATE: SidebarOrgState = {
@@ -114,6 +117,7 @@ const DEFAULT_SIDEBAR_ORG_STATE: SidebarOrgState = {
   logo_url: null,
   showDiscoveries: false,
   pendingDiscoveries: 0,
+  openIncidentDeadlines: 0,
 }
 
 // ── Tooltip wrapper ──────────────────────────────────────────
@@ -354,6 +358,16 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         }
       : null
 
+    const deadlines = orgState.openIncidentDeadlines ?? 0
+    const withIncidentBadge = (items: NavItem[]): NavItem[] =>
+      deadlines > 0
+        ? items.map((item) =>
+            item.href === '/incidentes'
+              ? { ...item, label: `Incidentes (${deadlines})` }
+              : item
+          )
+        : items
+
     const withDiscoveries = (items: NavItem[]): NavItem[] =>
       discoveriesChild
         ? items.map((item) =>
@@ -364,12 +378,15 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         : items
 
     if (!orgState.hasSystems) {
-      return NAV.map((section) => ({ ...section, items: withDiscoveries(section.items) }))
+      return NAV.map((section) => ({
+        ...section,
+        items: withIncidentBadge(withDiscoveries(section.items)),
+      }))
     }
 
     return NAV.map((section) => ({
       ...section,
-      items: withDiscoveries(section.items).map((item) => ({
+      items: withIncidentBadge(withDiscoveries(section.items)).map((item) => ({
         ...item,
         disabled: false,
         children: item.children?.map((child) => ({
@@ -379,7 +396,7 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         })),
       })),
     }))
-  }, [orgState.hasSystems, orgState.showDiscoveries, orgState.pendingDiscoveries])
+  }, [orgState.hasSystems, orgState.showDiscoveries, orgState.pendingDiscoveries, orgState.openIncidentDeadlines])
 
   return (
     <aside
