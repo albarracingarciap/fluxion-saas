@@ -1,6 +1,8 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'in_review' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
-export type TaskSourceType = 'manual' | 'treatment_action' | 'gap' | 'evaluation' | 'fmea_item' | 'gap_group'
+export type TaskSourceType =
+  | 'manual' | 'treatment_action' | 'gap' | 'evaluation'
+  | 'fmea_item' | 'gap_group' | 'signal' | 'incident'
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo:        'Pendiente',
@@ -25,6 +27,24 @@ export const TASK_SOURCE_LABELS: Record<TaskSourceType, string> = {
   evaluation:       'Evaluación de riesgos',
   fmea_item:        'Modo FMEA',
   gap_group:        'Grupo de gaps',
+  signal:           'Señal de supervisión',
+  incident:         'Incidente de IA',
+}
+
+/** Orden de presentación. Usar esta lista en filtros y métricas en vez de
+ *  literales sueltos: así un origen nuevo aparece en todas partes a la vez. */
+export const TASK_SOURCE_ORDER: TaskSourceType[] = [
+  'manual', 'treatment_action', 'gap', 'gap_group',
+  'evaluation', 'fmea_item', 'signal', 'incident',
+]
+
+/**
+ * La restricción CHECK de fluxion.tasks puede admitir orígenes que este build
+ * todavía no conozca. Devolver el valor crudo es feo, pero es infinitamente
+ * mejor que un `undefined` que tumba la pantalla de Tareas entera.
+ */
+export function taskSourceLabel(source: string): string {
+  return TASK_SOURCE_LABELS[source as TaskSourceType] ?? source
 }
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [

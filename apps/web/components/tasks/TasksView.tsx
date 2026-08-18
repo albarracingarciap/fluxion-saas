@@ -14,6 +14,8 @@ import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_SOURCE_LABELS,
+  TASK_SOURCE_ORDER,
+  taskSourceLabel,
 } from '@/lib/tasks/types'
 import {
   updateTaskStatusAction,
@@ -84,7 +86,7 @@ function exportToCSV(tasks: TaskRow[]) {
     t.assignee_name ?? t.assignee_email ?? '',
     TASK_PRIORITY_LABELS[t.priority],
     TASK_STATUS_LABELS[t.status],
-    TASK_SOURCE_LABELS[t.source_type],
+    taskSourceLabel(t.source_type),
     t.due_date ?? '',
     t.tags.join('; '),
     new Date(t.created_at).toLocaleDateString('es-ES'),
@@ -389,7 +391,7 @@ function TaskListRow({ task, selected, onToggleSelect, onStatusChange, onDelete,
         )}
         {task.source_type !== 'manual' && (
           <span className="font-plex text-[9px] uppercase tracking-[0.5px] text-lttm opacity-0 group-hover:opacity-100">
-            {TASK_SOURCE_LABELS[task.source_type].split(' ')[0]}
+            {taskSourceLabel(task.source_type).split(' ')[0]}
           </span>
         )}
       </div>
@@ -810,7 +812,7 @@ export function TasksView({ tasks: initialTasks, summary, members, systems, curr
             <div className="relative">
               <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as TaskSourceType | '')} className={filterSelectCls}>
                 <option value="">Todos los orígenes</option>
-                {(['manual', 'treatment_action', 'gap', 'evaluation', 'fmea_item'] as TaskSourceType[]).map(s => (
+                {TASK_SOURCE_ORDER.map(s => (
                   <option key={s} value={s}>{TASK_SOURCE_LABELS[s]}</option>
                 ))}
               </select>

@@ -11,6 +11,7 @@ import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_SOURCE_LABELS,
+  TASK_SOURCE_ORDER,
 } from '@/lib/tasks/types'
 import { computeTaskMetrics } from '@/lib/tasks/metrics'
 
@@ -164,7 +165,7 @@ export function MetricsView({ tasks }: { tasks: TaskRow[] }) {
 
   const statusOrder: TaskStatus[] = ['todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled']
   const priorityOrder: TaskPriority[] = ['critical', 'high', 'medium', 'low']
-  const sourceOrder: TaskSourceType[] = ['manual', 'treatment_action', 'gap', 'gap_group', 'evaluation', 'fmea_item']
+  const sourceOrder: TaskSourceType[] = TASK_SOURCE_ORDER
 
   return (
     <div className="min-h-screen bg-bg">

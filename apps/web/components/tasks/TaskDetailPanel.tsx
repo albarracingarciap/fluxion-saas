@@ -8,7 +8,7 @@ import {
   LayoutGrid, MessageSquare, Activity, Paperclip, Eye, EyeOff, ListChecks,
 } from 'lucide-react'
 import type { TaskRow, TaskStatus, TaskPriority } from '@/lib/tasks/types'
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_SOURCE_LABELS } from '@/lib/tasks/types'
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, taskSourceLabel } from '@/lib/tasks/types'
 import {
   updateTaskAction,
   deleteTaskAction,
@@ -300,7 +300,7 @@ export function TaskDetailPanel({
               {TASK_STATUS_LABELS[status]}
             </span>
             <span className="font-plex text-[9px] uppercase tracking-[0.5px] text-lttm bg-ltbg border border-ltb px-2 py-0.5 rounded-full shrink-0">
-              {TASK_SOURCE_LABELS[task.source_type]}
+              {taskSourceLabel(task.source_type)}
             </span>
           </div>
           <button
@@ -440,7 +440,7 @@ export function TaskDetailPanel({
                 <FieldLabel>Origen</FieldLabel>
                 <Link href={sourceHref} className="inline-flex items-center gap-1.5 font-sora text-[12px] text-brand-cyan hover:underline">
                   <ExternalLink className="w-3.5 h-3.5" />
-                  {TASK_SOURCE_LABELS[task.source_type]}
+                  {taskSourceLabel(task.source_type)}
                   {task.system_name ? ` · ${task.system_name}` : ''}
                 </Link>
               </div>
