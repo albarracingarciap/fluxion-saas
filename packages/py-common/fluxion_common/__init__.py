@@ -9,13 +9,23 @@ Lo que solo necesita uno vive en ese servicio.
 """
 
 from fluxion_common.config import get_env, require_env
+from fluxion_common.connectors import Connection, ConnectorClient
+from fluxion_common.core import CoreApiClient, CoreApiError
 from fluxion_common.logging import setup_logging
-from fluxion_common.signals import SignalsClient, SignalsError
+from fluxion_common.signals import SignalsClient
+
+# `SignalsError` se mantiene como alias de CoreApiError: el nombre antiguo
+# aparece en código ya escrito y no hay motivo para romperlo.
+SignalsError = CoreApiError
 
 __all__ = [
     "get_env",
     "require_env",
     "setup_logging",
+    "CoreApiClient",
+    "CoreApiError",
     "SignalsClient",
     "SignalsError",
+    "ConnectorClient",
+    "Connection",
 ]

@@ -14,6 +14,7 @@ export type ApiScope =
   | 'signals:read'
   | 'inventory:read'
   | 'inventory:write'
+  | 'connectors:sync'
 
 export const API_SCOPES: ReadonlyArray<{
   value: ApiScope
@@ -44,6 +45,12 @@ export const API_SCOPES: ReadonlyArray<{
     group: 'Inventario',
     label: 'Escribir en inventario',
     desc: 'Registrar descubrimientos y actualizar metadatos de sistemas.',
+  },
+  {
+    value: 'connectors:sync',
+    group: 'Conectores',
+    label: 'Sincronizar conectores',
+    desc: 'Leer la configuración de las conexiones externas —incluidas sus credenciales— y reportar el resultado de cada sincronización. Concédelo solo a conectores.',
   },
 ]
 

@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 import { requireApiKey } from '@/lib/auth/api-key'
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { dispatchSignal } from '@/lib/signals/dispatch'
 import { parseBody, signalInputSchema, formatIssues } from '@/lib/signals/schema'
 import type { SignalRow } from '@/lib/signals/types'
@@ -27,21 +27,6 @@ type ItemResult = {
   error?: string
 }
 
-function ingestClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      db: { schema: 'fluxion' },
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: {
-        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-          fetch(input, { ...init, cache: 'no-store' }),
-      },
-    }
-  )
-}
-
 export async function POST(request: NextRequest) {
   const auth = await requireApiKey(request, 'signals:write')
   if ('response' in auth) return auth.response
@@ -61,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body', message: parsed.error }, { status: 400 })
   }
 
-  const admin = ingestClient()
+  const admin = createNoCacheAdminClient()
 
   // ── Validación por elemento ─────────────────────────────────────────────
   const results: ItemResult[] = []

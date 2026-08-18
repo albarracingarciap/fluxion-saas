@@ -13,34 +13,9 @@
 
 import { createHash } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 
 import { grantsScope } from './scopes'
-
-/**
- * Cliente propio, sin caché, exclusivo para validar credenciales.
- *
- * Next.js 14 parchea `fetch` y cachea las respuestas GET. El cliente de
- * Supabase usa fetch por debajo, así que la consulta a api_keys se servía de
- * caché: una clave revocada seguía autenticando durante la ventana de caché.
- * Comprobado en producción — revocada a las 12:59, usada con éxito a las 13:01.
- *
- * Una comprobación de autorización no puede leer datos cacheados jamás.
- */
-function createAuthClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      db: { schema: 'fluxion' },
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: {
-        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-          fetch(input, { ...init, cache: 'no-store' }),
-      },
-    }
-  )
-}
 
 export type ApiKeyContext = {
   organizationId: string
@@ -133,7 +108,7 @@ export async function requireApiKey(
 
   const keyHash = createHash('sha256').update(rawKey).digest('hex')
 
-  const admin = createAuthClient()
+  const admin = createNoCacheAdminClient()
   const { data: key, error } = await admin
     .from('api_keys')
     .select('id, organization_id, scopes, expires_at, revoked_at, last_used_at')

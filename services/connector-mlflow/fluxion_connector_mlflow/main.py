@@ -4,85 +4,166 @@ Recorre el registro de modelos de MLflow y publica una señal por cada versión.
 No guarda estado: la idempotencia vive en el Core mediante `dedupe_key`, así que
 cada pasada puede reenviar todo el registro sin duplicar nada.
 
+La configuración de las instancias de MLflow se pide al Core (se gestiona desde
+Ajustes → Conectores). Si no hay ninguna configurada, cae a las variables de
+entorno — así un despliegue existente sigue funcionando mientras se migra.
+
 Variables de entorno:
 
     FLUXION_API_URL          https://fluxion-ai.es
-    FLUXION_API_KEY          clave con permiso signals:write
-    MLFLOW_TRACKING_URI      http://mlflow:5000
-    MLFLOW_USERNAME          opcional
-    MLFLOW_PASSWORD          opcional
+    FLUXION_API_KEY          clave con signals:write y connectors:sync
     POLL_INTERVAL_SECONDS    por defecto 900 (15 min)
     RUN_ONCE                 "true" para una sola pasada y salir
+
+    MLFLOW_TRACKING_URI      solo como respaldo si no hay conexiones en el Core
+    MLFLOW_USERNAME          ídem
+    MLFLOW_PASSWORD          ídem
 """
 
 import sys
 import time
+from datetime import datetime, timezone
 
-from fluxion_common import SignalsClient, SignalsError, get_env, require_env, setup_logging
+from fluxion_common import (
+    Connection,
+    ConnectorClient,
+    CoreApiError,
+    SignalsClient,
+    get_env,
+    require_env,
+    setup_logging,
+)
 
 from .mlflow_client import MLflowClient, MLflowError
 from .signals import build_signals
 
 logger = setup_logging("fluxion_connector_mlflow")
 
+CONNECTOR_TYPE = "mlflow"
 
-def run_once(mlflow: MLflowClient, fluxion: SignalsClient) -> dict[str, int]:
-    """Una pasada completa por el registro de modelos."""
-    pending: list[dict] = []
+
+def _connections_from_env() -> list[Connection]:
+    """Respaldo cuando el Core no tiene ninguna conexión configurada."""
+    uri = get_env("MLFLOW_TRACKING_URI")
+    if not uri:
+        return []
+
+    username = get_env("MLFLOW_USERNAME")
+    password = get_env("MLFLOW_PASSWORD")
+
+    return [
+        Connection(
+            id="",                       # sin id: la pasada se reporta sin conexión asociada
+            name="MLflow (variables de entorno)",
+            base_url=uri,
+            auth_type="basic" if username and password else "none",
+            username=username,
+            password=password,
+            poll_interval_seconds=int(get_env("POLL_INTERVAL_SECONDS", "900") or 900),
+        )
+    ]
+
+
+def sync_connection(
+    connection: Connection,
+    signals_client: SignalsClient,
+    connector_client: ConnectorClient,
+) -> None:
+    """Una pasada sobre una instancia de MLflow, reportada al Core."""
+    started_at = datetime.now(timezone.utc)
+    credentials = connection.credentials
+
+    mlflow = MLflowClient(
+        connection.base_url,
+        username=credentials[0] if credentials else None,
+        password=credentials[1] if credentials else None,
+    )
+
     models = 0
     versions = 0
+    pending: list[dict] = []
 
-    for model in mlflow.registered_models():
-        models += 1
-        for version in mlflow.model_versions(model["name"]):
-            versions += 1
-            pending.extend(build_signals(model, version))
+    try:
+        for model in mlflow.registered_models():
+            models += 1
+            for version in mlflow.model_versions(model["name"]):
+                versions += 1
+                pending.extend(build_signals(model, version))
 
-    logger.info("MLflow: %s modelos, %s versiones → %s senales", models, versions, len(pending))
+        logger.info(
+            "«%s»: %s modelos, %s versiones → %s senales",
+            connection.name, models, versions, len(pending),
+        )
 
-    if not pending:
-        return {"received": 0, "accepted": 0, "duplicates": 0, "rejected": 0}
+        totals = (
+            signals_client.publish(pending)
+            if pending
+            else {"accepted": 0, "duplicates": 0, "rejected": 0}
+        )
 
-    return fluxion.publish(pending)
+        connector_client.report_run(
+            connector_type=CONNECTOR_TYPE,
+            connection_id=connection.id or None,
+            started_at=started_at,
+            status="partial" if totals["rejected"] else "ok",
+            objects_seen=models,
+            signals_published=totals["accepted"],
+            signals_duplicated=totals["duplicates"],
+            signals_rejected=totals["rejected"],
+            details={"versions_seen": versions},
+        )
+
+    except MLflowError as exc:
+        # MLflow caído no debe tumbar el conector: se registra la pasada como
+        # fallida —para que se vea en la aplicación— y se reintenta en la
+        # siguiente.
+        logger.error("«%s» no responde: %s", connection.name, exc)
+        connector_client.report_run(
+            connector_type=CONNECTOR_TYPE,
+            connection_id=connection.id or None,
+            started_at=started_at,
+            status="error",
+            objects_seen=models,
+            error_message=str(exc)[:2000],
+        )
 
 
 def main() -> int:
     api_url = require_env("FLUXION_API_URL")
     api_key = require_env("FLUXION_API_KEY")
-    tracking_uri = require_env("MLFLOW_TRACKING_URI")
 
-    interval = int(get_env("POLL_INTERVAL_SECONDS", "900") or 900)
+    default_interval = int(get_env("POLL_INTERVAL_SECONDS", "900") or 900)
     run_once_only = (get_env("RUN_ONCE", "false") or "false").lower() == "true"
 
-    fluxion = SignalsClient(api_url, api_key)
-    mlflow = MLflowClient(
-        tracking_uri,
-        username=get_env("MLFLOW_USERNAME"),
-        password=get_env("MLFLOW_PASSWORD"),
-    )
+    signals_client = SignalsClient(api_url, api_key)
+    connector_client = ConnectorClient(api_url, api_key)
 
-    # Fallar aquí es mucho más barato que descubrir dentro de tres horas que la
-    # clave estaba revocada o que MLflow no es alcanzable.
-    fluxion.ping()
-    logger.info("MLflow en %s · intervalo %ss", tracking_uri, interval)
+    signals_client.ping()
 
     while True:
         try:
-            totals = run_once(mlflow, fluxion)
-            logger.info(
-                "pasada completa · %s nuevas, %s ya conocidas, %s rechazadas",
-                totals["accepted"], totals["duplicates"], totals["rejected"],
+            connections = connector_client.fetch_connections(CONNECTOR_TYPE)
+        except CoreApiError as exc:
+            # Lo más habitual: la clave no tiene el permiso connectors:sync.
+            logger.warning("no se pudo leer la configuracion (%s); uso variables de entorno", exc)
+            connections = []
+
+        if not connections:
+            connections = _connections_from_env()
+
+        if not connections:
+            logger.warning(
+                "sin conexiones configuradas. Añade una en Ajustes → Conectores, "
+                "o define MLFLOW_TRACKING_URI"
             )
-        except MLflowError as exc:
-            # MLflow caído no debe tumbar el conector: se reintenta en la
-            # siguiente pasada.
-            logger.error("MLflow no responde: %s", exc)
-        except SignalsError as exc:
-            logger.error("no se pudieron publicar las senales: %s", exc)
+        else:
+            for connection in connections:
+                sync_connection(connection, signals_client, connector_client)
 
         if run_once_only:
             return 0
 
+        interval = connections[0].poll_interval_seconds if connections else default_interval
         time.sleep(interval)
 
 
