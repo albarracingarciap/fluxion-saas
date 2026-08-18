@@ -1,7 +1,19 @@
-import { createClient } from '@/lib/supabase/client';
+import {
+  requestEvidenceUpload,
+  confirmEvidenceUpload,
+  getEvidenceDownloadUrl,
+} from './storage-actions';
 
-const BUCKET = 'evidence-files';
-const SIGNED_URL_TTL = 3600; // 1 hora
+/**
+ * Ficheros de evidencia, lado cliente.
+ *
+ * Las subidas siguen yendo directas del navegador al almacenamiento, sin pasar
+ * por el servidor de la aplicación — pero ahora en tres tiempos: el servidor
+ * firma, el navegador sube, el servidor confirma.
+ *
+ * Aquí no hay ninguna credencial ni ningún nombre de bucket. Todo eso vive en
+ * `lib/storage/objects.ts`, que es `server-only` y no puede llegar al navegador.
+ */
 
 export type UploadEvidenceFileResult =
   | { path: string; error?: never }
@@ -32,45 +44,64 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * Sube un archivo al bucket evidence-files.
- * Path: {organizationId}/{evidenceId}/{timestamp}-{filename}
+ * Sube el fichero de una evidencia ya creada.
+ *
+ * `organizationId` se mantiene en la firma por compatibilidad con las pantallas,
+ * pero **no se usa para nada**: la organización la resuelve el servidor a partir
+ * de la evidencia. Un identificador de organización que viaja desde el navegador
+ * no es una credencial, es una sugerencia.
  */
 export async function uploadEvidenceFile(
   file: File,
-  organizationId: string,
+  _organizationId: string,
   evidenceId: string,
 ): Promise<UploadEvidenceFileResult> {
-  const supabase = createClient();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${organizationId}/${evidenceId}/${Date.now()}-${safeName}`;
+  const contentType = file.type || 'application/octet-stream';
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: false,
-    contentType: file.type,
+  const ticket = await requestEvidenceUpload({
+    evidenceId,
+    filename: file.name,
+    contentType,
+    size: file.size,
   });
+  if ('error' in ticket && ticket.error) return { error: ticket.error };
+  if (!ticket.url || !ticket.key) return { error: 'No se pudo preparar la subida.' };
 
-  if (error) return { error: error.message };
-  return { path };
+  let response: Response;
+  try {
+    response = await fetch(ticket.url, {
+      method: 'PUT',
+      body: file,
+      // Debe coincidir exactamente con el tipo que se firmó, o el
+      // almacenamiento rechaza la firma.
+      headers: { 'Content-Type': contentType },
+    });
+  } catch {
+    return { error: 'No se pudo conectar con el almacenamiento de ficheros.' };
+  }
+
+  if (!response.ok) {
+    return { error: `El almacenamiento rechazó el fichero (${response.status}).` };
+  }
+
+  const confirmed = await confirmEvidenceUpload({
+    evidenceId,
+    key: ticket.key,
+    filename: file.name,
+    contentType,
+  });
+  if ('error' in confirmed && confirmed.error) return { error: confirmed.error };
+
+  return { path: ticket.key };
 }
 
 /**
- * Genera una URL firmada de corta duración (1h) para visualizar el archivo.
+ * URL firmada para ver o descargar el fichero de una evidencia.
+ *
+ * Recibe el id de la evidencia, no la ruta: la ruta no autoriza nada y pedirla
+ * al cliente invitaba a construirla a mano.
  */
-export async function getSignedUrl(storagePath: string): Promise<string | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(storagePath, SIGNED_URL_TTL);
-
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
-}
-
-/**
- * Elimina el archivo del bucket.
- */
-export async function deleteEvidenceFile(storagePath: string): Promise<boolean> {
-  const supabase = createClient();
-  const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
-  return !error;
+export async function getEvidenceFileUrl(evidenceId: string): Promise<string | null> {
+  const res = await getEvidenceDownloadUrl(evidenceId);
+  return 'url' in res && res.url ? res.url : null;
 }

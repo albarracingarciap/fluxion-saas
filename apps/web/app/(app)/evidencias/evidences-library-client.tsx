@@ -31,7 +31,7 @@ import {
 import { getEvidenceVersions } from '@/lib/evidences/versions-actions';
 import {
   uploadEvidenceFile,
-  getSignedUrl,
+  getEvidenceFileUrl,
   getPreviewType,
   formatFileSize,
 } from '@/lib/evidences/storage';
@@ -204,7 +204,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
     setPreviewEvidence(evidence);
     setPreviewUrl(null);
     setIsLoadingPreview(true);
-    const url = await getSignedUrl(evidence.storage_path);
+    const url = await getEvidenceFileUrl(evidence.id);
     setPreviewUrl(url);
     setIsLoadingPreview(false);
   };

@@ -15,7 +15,7 @@ import {
 
 import type { EvidenceDetail, EvidenceVersionWithDiff } from '@/lib/evidences/detail'
 import { getChangeTypeLabel } from '@/lib/evidences/versions'
-import { getSignedUrl, getPreviewType } from '@/lib/evidences/storage'
+import { getEvidenceFileUrl, getPreviewType } from '@/lib/evidences/storage'
 import {
   reviewSystemEvidence,
   deleteSystemEvidence,
@@ -163,7 +163,10 @@ export function DeleteAction({ evidence }: { evidence: EvidenceDetail }) {
 
 // ─── File preview ─────────────────────────────────────────────────────────────
 
-export function FilePreviewButton({ storagePath, title }: { storagePath: string; title: string }) {
+export function FilePreviewButton(
+  { evidenceId, storagePath, title }:
+  { evidenceId: string; storagePath: string; title: string },
+) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -171,7 +174,7 @@ export function FilePreviewButton({ storagePath, title }: { storagePath: string;
   const handleOpen = async () => {
     if (!previewUrl) {
       setLoading(true)
-      const url = await getSignedUrl(storagePath)
+      const url = await getEvidenceFileUrl(evidenceId)
       setPreviewUrl(url)
       setLoading(false)
     }

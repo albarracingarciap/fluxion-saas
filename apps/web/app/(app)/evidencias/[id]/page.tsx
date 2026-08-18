@@ -148,7 +148,7 @@ export default async function EvidenceDetailPage({
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="flex items-center gap-2">
               {ev.storage_path && (
-                <FilePreviewButton storagePath={ev.storage_path} title={ev.title} />
+                <FilePreviewButton evidenceId={ev.id} storagePath={ev.storage_path} title={ev.title} />
               )}
               {ev.external_url && (
                 <a
