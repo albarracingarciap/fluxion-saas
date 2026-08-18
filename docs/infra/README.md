@@ -204,6 +204,66 @@ Ver [`recursos/db/README.md`](../../recursos/db/README.md). En resumen:
 - Convención: `<timestamp>_<modulo>_<descripcion>.sql`. Una migración aplicada
   no se edita nunca.
 
+### Comprobación de aislamiento entre organizaciones
+
+Hay **tres organizaciones** en la base de datos (Globalnet, Sintagma, Grupo
+Bancario). Eso ya ha causado confusión dos veces —una clave de API y un canal de
+Slack creados en la organización equivocada— pero el riesgo real no es ese: es
+que una tabla nueva salga con un `organization_id` que no case con el de su
+padre, o con una política RLS que no filtre. **Ninguna de las dos cosas produce
+un error**: se ven datos de otro cliente, o no se ve nada.
+
+Ejecutar como `supabase_admin` (sin RLS, que es justo lo que queremos comprobar)
+después de añadir cualquier tabla con `organization_id`. **Todos los recuentos
+deben ser 0.**
+
+```sql
+-- Filas cuyo organization_id no coincide con el de la entidad de la que cuelgan.
+SELECT 'signals → api_keys' AS rel, count(*) AS fugas
+  FROM fluxion.signals s
+  JOIN fluxion.api_keys k ON k.id = s.api_key_id
+ WHERE k.organization_id <> s.organization_id
+UNION ALL
+SELECT 'discovered_assets → connections',  count(*)
+  FROM fluxion.discovered_assets d
+  JOIN fluxion.connector_connections c ON c.id = d.connection_id
+ WHERE c.organization_id <> d.organization_id
+UNION ALL
+SELECT 'ai_incidents → ai_systems', count(*)
+  FROM fluxion.ai_incident_systems x
+  JOIN fluxion.ai_incidents i  ON i.id = x.incident_id
+  JOIN fluxion.ai_systems   sy ON sy.id = x.ai_system_id
+ WHERE sy.organization_id <> i.organization_id
+    OR x.organization_id  <> i.organization_id
+UNION ALL
+SELECT 'channel_deliveries → channels', count(*)
+  FROM fluxion.channel_deliveries d
+  JOIN fluxion.notification_channels c ON c.id = d.channel_id
+ WHERE c.organization_id <> d.organization_id
+UNION ALL
+SELECT 'tasks → ai_systems', count(*)
+  FROM fluxion.tasks t
+  JOIN fluxion.ai_systems sy ON sy.id = t.system_id
+ WHERE sy.organization_id <> t.organization_id
+UNION ALL
+SELECT 'profiles sin organización', count(*)
+  FROM fluxion.profiles WHERE organization_id IS NULL;
+```
+
+Y el reparto, para saber en qué organización se está trabajando antes de crear
+credenciales:
+
+```sql
+SELECT o.name,
+       (SELECT count(*) FROM fluxion.profiles     p WHERE p.organization_id = o.id) AS perfiles,
+       (SELECT count(*) FROM fluxion.ai_systems   s WHERE s.organization_id = o.id) AS sistemas,
+       (SELECT count(*) FROM fluxion.api_keys     k WHERE k.organization_id = o.id AND k.revoked_at IS NULL) AS claves,
+       (SELECT count(*) FROM fluxion.ai_incidents i WHERE i.organization_id = o.id) AS incidentes
+  FROM fluxion.organizations o ORDER BY o.name;
+```
+
+Añadir aquí una línea `UNION ALL` por cada tabla nueva con `organization_id`.
+
 ---
 
 ## 7 · Reinicio del servidor
