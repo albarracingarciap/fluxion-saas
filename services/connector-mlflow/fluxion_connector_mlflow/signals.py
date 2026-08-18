@@ -1,14 +1,23 @@
-"""Traducción de entidades de MLflow a señales de Fluxion."""
+"""Traducción de entidades de MLflow a señales y descubrimientos de Fluxion.
+
+La regla que evita ruido duplicado:
+
+  · El modelo ESTÁ vinculado a un sistema del inventario → señales. Aparecen en
+    la cronología de ese sistema, que es donde tienen sentido.
+  · El modelo NO está vinculado → un descubrimiento, uno por modelo (no por
+    versión), a la espera de que alguien decida qué es.
+
+Nunca las dos cosas para el mismo modelo.
+"""
 
 from datetime import datetime, timezone
 from typing import Any
 
 from .mlflow_client import tag_value
 
-# Etiqueta con la que un modelo de MLflow declara a qué sistema del inventario
-# corresponde. Mientras no exista la pantalla de conciliación (Fase 3), este es
-# el puente: se pone la etiqueta en MLflow y las señales aparecen en la
-# cronología de ese sistema.
+# Etiqueta con la que un modelo de MLflow puede declarar directamente a qué
+# sistema corresponde. Sigue funcionando y tiene prioridad, pero ya no es la vía
+# principal: lo normal es conciliar desde la pantalla de Descubrimientos.
 SYSTEM_ID_TAG = "fluxion.system_id"
 
 # Alias que en MLflow 3 marcan la versión que está sirviendo en producción.
@@ -32,8 +41,7 @@ def _is_production(model: dict[str, Any], version: dict[str, Any]) -> bool:
 
     Los alias se guardan en el MODELO REGISTRADO, no en la versión:
     `registered-models/search` devuelve [{"alias": "champion", "version": "1"}]
-    mientras que `model-versions/search` no los incluye. Buscarlos en la versión
-    —como hacía la primera implementación— no encuentra nunca nada.
+    mientras que `model-versions/search` no los incluye.
     """
     number = str(version.get("version") or "")
 
@@ -42,7 +50,6 @@ def _is_production(model: dict[str, Any], version: dict[str, Any]) -> bool:
         if alias in PRODUCTION_ALIASES and str(entry.get("version") or "") == number:
             return True
 
-    # Algunas versiones de MLflow sí los devuelven en la versión.
     if {a.lower() for a in (version.get("aliases") or [])} & PRODUCTION_ALIASES:
         return True
 
@@ -50,13 +57,31 @@ def _is_production(model: dict[str, Any], version: dict[str, Any]) -> bool:
     return (version.get("current_stage") or "").lower() == "production"
 
 
-def _system_id(model: dict[str, Any], version: dict[str, Any]) -> str | None:
-    """La etiqueta de la versión manda sobre la del modelo."""
-    return tag_value(version, SYSTEM_ID_TAG) or tag_value(model, SYSTEM_ID_TAG)
+def resolve_system_id(
+    model: dict[str, Any],
+    versions: list[dict[str, Any]],
+    links: dict[str, str],
+) -> str | None:
+    """Sistema del inventario al que pertenece este modelo, si se sabe.
+
+    Prioridad: etiqueta en la versión → etiqueta en el modelo → conciliación
+    hecha desde la aplicación. La etiqueta gana porque es una declaración
+    explícita de quien administra MLflow.
+    """
+    for version in versions:
+        tagged = tag_value(version, SYSTEM_ID_TAG)
+        if tagged:
+            return tagged
+
+    return tag_value(model, SYSTEM_ID_TAG) or links.get(model.get("name") or "")
 
 
-def build_signals(model: dict[str, Any], version: dict[str, Any]) -> list[dict[str, Any]]:
-    """Señales que corresponden a una versión de modelo.
+def build_signals(
+    model: dict[str, Any],
+    version: dict[str, Any],
+    system_id: str,
+) -> list[dict[str, Any]]:
+    """Señales que corresponden a una versión de un modelo YA vinculado.
 
     Una versión siempre genera la señal de registro. Si además está sirviendo en
     producción, genera una segunda de promoción — que es la que importa desde el
@@ -68,7 +93,6 @@ def build_signals(model: dict[str, Any], version: dict[str, Any]) -> list[dict[s
     """
     name = model.get("name") or version.get("name") or "(sin nombre)"
     number = version.get("version")
-    system_id = _system_id(model, version)
     created = _iso(version.get("creation_timestamp"))
 
     payload = {
@@ -117,3 +141,45 @@ def build_signals(model: dict[str, Any], version: dict[str, Any]) -> list[dict[s
         )
 
     return signals
+
+
+def build_discovery(
+    model: dict[str, Any],
+    versions: list[dict[str, Any]],
+    *,
+    connection_id: str | None,
+    base_url: str,
+) -> dict[str, Any]:
+    """Descubrimiento de un modelo que aún no está en el inventario.
+
+    Uno por modelo, no por versión: lo que hay que decidir es si ese modelo es
+    un sistema de IA de la organización, no cada una de sus versiones.
+    """
+    name = model.get("name") or "(sin nombre)"
+
+    production = [
+        str(v.get("version"))
+        for v in versions
+        if _is_production(model, v)
+    ]
+
+    return {
+        "connection_id": connection_id,
+        "source_module": SOURCE_MODULE,
+        "asset_type": "model",
+        "external_id": name,
+        "external_url": f"{base_url.rstrip('/')}/#/models/{name}",
+        "name": name,
+        "description": model.get("description") or None,
+        "metadata": {
+            "versions": len(versions),
+            "latest_version": max(
+                (int(v["version"]) for v in versions if str(v.get("version", "")).isdigit()),
+                default=None,
+            ),
+            "production_versions": production,
+            "created_at": _iso(model.get("creation_timestamp")),
+            "last_updated_at": _iso(model.get("last_updated_timestamp")),
+            "tags": {t.get("key"): t.get("value") for t in (model.get("tags") or [])},
+        },
+    }

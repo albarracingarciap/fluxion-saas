@@ -35,7 +35,7 @@ from fluxion_common import (
 )
 
 from .mlflow_client import MLflowClient, MLflowError
-from .signals import build_signals
+from .signals import build_discovery, build_signals, resolve_system_id
 
 logger = setup_logging("fluxion_connector_mlflow")
 
@@ -66,6 +66,7 @@ def _connections_from_env() -> list[Connection]:
 
 def sync_connection(
     connection: Connection,
+    links: dict[str, str],
     signals_client: SignalsClient,
     connector_client: ConnectorClient,
 ) -> None:
@@ -80,24 +81,44 @@ def sync_connection(
     )
 
     models = 0
-    versions = 0
-    pending: list[dict] = []
+    versions_total = 0
+    pending_signals: list[dict] = []
+    pending_discoveries: list[dict] = []
 
     try:
         for model in mlflow.registered_models():
             models += 1
-            for version in mlflow.model_versions(model["name"]):
-                versions += 1
-                pending.extend(build_signals(model, version))
+            versions = list(mlflow.model_versions(model["name"]))
+            versions_total += len(versions)
+
+            system_id = resolve_system_id(model, versions, links)
+
+            if system_id:
+                # Vinculado: sus versiones son eventos del expediente del sistema.
+                for version in versions:
+                    pending_signals.extend(build_signals(model, version, system_id))
+            else:
+                # Sin vincular: uno solo, a la cola de conciliación.
+                pending_discoveries.append(
+                    build_discovery(
+                        model, versions,
+                        connection_id=connection.id or None,
+                        base_url=connection.base_url,
+                    )
+                )
 
         logger.info(
-            "«%s»: %s modelos, %s versiones → %s senales",
-            connection.name, models, versions, len(pending),
+            "«%s»: %s modelos, %s versiones → %s senales, %s descubrimientos",
+            connection.name, models, versions_total,
+            len(pending_signals), len(pending_discoveries),
         )
 
+        if pending_discoveries:
+            connector_client.publish_discoveries(pending_discoveries)
+
         totals = (
-            signals_client.publish(pending)
-            if pending
+            signals_client.publish(pending_signals)
+            if pending_signals
             else {"accepted": 0, "duplicates": 0, "rejected": 0}
         )
 
@@ -110,7 +131,10 @@ def sync_connection(
             signals_published=totals["accepted"],
             signals_duplicated=totals["duplicates"],
             signals_rejected=totals["rejected"],
-            details={"versions_seen": versions},
+            details={
+                "versions_seen": versions_total,
+                "discoveries_reported": len(pending_discoveries),
+            },
         )
 
     except MLflowError as exc:
@@ -118,6 +142,20 @@ def sync_connection(
         # fallida —para que se vea en la aplicación— y se reintenta en la
         # siguiente.
         logger.error("«%s» no responde: %s", connection.name, exc)
+        connector_client.report_run(
+            connector_type=CONNECTOR_TYPE,
+            connection_id=connection.id or None,
+            started_at=started_at,
+            status="error",
+            objects_seen=models,
+            error_message=str(exc)[:2000],
+        )
+
+    except CoreApiError as exc:
+        # Fallo publicando en Fluxion: típicamente un permiso que falta en la
+        # clave, o el Core no disponible. Tampoco debe tumbar el conector — se
+        # deja constancia y se reintenta en la siguiente pasada.
+        logger.error("no se pudo publicar en Fluxion desde «%s»: %s", connection.name, exc)
         connector_client.report_run(
             connector_type=CONNECTOR_TYPE,
             connection_id=connection.id or None,
@@ -141,8 +179,9 @@ def main() -> int:
     signals_client.ping()
 
     while True:
+        links: dict[str, str] = {}
         try:
-            connections = connector_client.fetch_connections(CONNECTOR_TYPE)
+            connections, links = connector_client.fetch_config(CONNECTOR_TYPE)
         except CoreApiError as exc:
             # Lo más habitual: la clave no tiene el permiso connectors:sync.
             logger.warning("no se pudo leer la configuracion (%s); uso variables de entorno", exc)
@@ -158,7 +197,7 @@ def main() -> int:
             )
         else:
             for connection in connections:
-                sync_connection(connection, signals_client, connector_client)
+                sync_connection(connection, links, signals_client, connector_client)
 
         if run_once_only:
             return 0

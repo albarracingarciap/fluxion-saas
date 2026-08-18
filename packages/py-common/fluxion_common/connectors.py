@@ -1,4 +1,4 @@
-"""Cliente para conectores: configuración y reporte de sincronizaciones.
+"""Cliente para conectores: configuración, descubrimientos y reporte de pasadas.
 
 Un conector no lleva su configuración en variables de entorno más allá de las
 credenciales de arranque. La pide al Core, que es donde el cliente la gestiona
@@ -35,11 +35,16 @@ class Connection:
 
 
 class ConnectorClient(CoreApiClient):
-    def fetch_connections(self, connector_type: str) -> list[Connection]:
-        """Conexiones activas de este tipo para la organización de la clave.
+    def fetch_config(self, connector_type: str) -> tuple[list[Connection], dict[str, str]]:
+        """Configuración del conector: conexiones activas y vínculos resueltos.
 
-        Devuelve varias a propósito: un solo contenedor atiende todas las
-        instancias que tenga configuradas la organización.
+        Devuelve varias conexiones a propósito: un solo contenedor atiende todas
+        las instancias que tenga configuradas la organización.
+
+        El segundo elemento mapea `external_id` -> id del sistema del inventario
+        para los activos ya conciliados. Es lo que permite al conector decidir
+        entre publicar una señal (el activo pertenece a un sistema conocido) o
+        reportar un descubrimiento (nadie ha decidido todavía qué es).
         """
         data = self._request(
             "GET", "/api/ingest/v1/connectors/config", params={"type": connector_type}
@@ -58,8 +63,36 @@ class ConnectorClient(CoreApiClient):
             for c in data.get("connections", [])
         ]
 
-        logger.info("configuracion recibida · %s conexiones activas", len(connections))
-        return connections
+        links: dict[str, str] = data.get("links") or {}
+
+        logger.info(
+            "configuracion recibida · %s conexiones activas, %s activos ya vinculados",
+            len(connections), len(links),
+        )
+        return connections, links
+
+    def publish_discoveries(self, discoveries: list[dict[str, Any]]) -> dict[str, int]:
+        """Reporta activos encontrados que aún no están conciliados.
+
+        Idempotente en el Core por (organización, módulo, external_id): se puede
+        reenviar todo en cada pasada sin duplicar ni pisar decisiones ya tomadas.
+        """
+        if not discoveries:
+            return {"received": 0, "accepted": 0, "rejected": 0}
+
+        data = self._request("POST", "/api/ingest/v1/discoveries", json=discoveries).json()
+
+        for item in data.get("results", []):
+            if item.get("error"):
+                logger.error(
+                    "descubrimiento rechazado (posicion %s): %s", item.get("index"), item["error"]
+                )
+
+        logger.info(
+            "reportados %s descubrimientos · %s aceptados, %s rechazados",
+            data.get("received"), data.get("accepted"), data.get("rejected"),
+        )
+        return data
 
     def report_run(
         self,

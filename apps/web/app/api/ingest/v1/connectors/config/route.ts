@@ -62,6 +62,27 @@ export async function GET(request: NextRequest) {
 
   const rows = (data ?? []) as ConnectionRow[]
 
+  // Vínculos ya conciliados: external_id → id del sistema del inventario.
+  // Con esto el conector sabe, sin heurísticas ni etiquetas en el origen, qué
+  // activos publican señal (van al expediente de un sistema) y cuáles siguen
+  // siendo un descubrimiento pendiente de decisión.
+  const links: Record<string, string> = {}
+
+  const { data: linked, error: linksErr } = await admin
+    .from('discovered_assets')
+    .select('external_id, linked_system_id')
+    .eq('organization_id', auth.organizationId)
+    .eq('status', 'linked')
+    .not('linked_system_id', 'is', null)
+
+  if (linksErr) {
+    console.error('[connectors/config] vinculos:', linksErr)
+  } else {
+    for (const row of (linked ?? []) as { external_id: string; linked_system_id: string }[]) {
+      links[row.external_id] = row.linked_system_id
+    }
+  }
+
   // El secreto se descifra de uno en uno mediante la función envoltorio, que
   // solo puede devolver el que pertenece a esa conexión concreta.
   const connections = await Promise.all(
@@ -91,5 +112,5 @@ export async function GET(request: NextRequest) {
     })
   )
 
-  return NextResponse.json({ type, connections })
+  return NextResponse.json({ type, connections, links })
 }

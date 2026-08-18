@@ -45,7 +45,7 @@ function StatusPill({ status, at }: { status: string | null; at: string | null }
 
   return (
     <span className={`inline-flex items-center gap-1.5 font-sora text-[12px] ${s.cls}`}>
-      {s.icon} {s.text} · <span className="text-lttm">hace {formatRelative(at)}</span>
+      {s.icon} {s.text} · <span className="text-lttm">{formatRelative(at)}</span>
     </span>
   )
 }
@@ -75,7 +75,7 @@ function RunHistory({ connectionId }: { connectionId: string }) {
     <div className="flex flex-col gap-1">
       {runs.map((run) => (
         <div key={run.id} className="flex items-start gap-3 font-plex text-[11.5px] py-1 border-b border-ltb last:border-0">
-          <span className="text-lttm w-28 shrink-0">hace {formatRelative(run.started_at)}</span>
+          <span className="text-lttm w-28 shrink-0">{formatRelative(run.started_at)}</span>
           <span className={`w-24 shrink-0 uppercase tracking-[0.4px] ${
             run.status === 'ok' ? 'text-gr' : run.status === 'partial' ? 'text-or' : 'text-re'
           }`}>{run.status}</span>
