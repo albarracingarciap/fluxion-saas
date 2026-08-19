@@ -17,7 +17,9 @@ from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Header
-from openai import OpenAI
+from openai import AsyncOpenAI
+
+from fluxion_agents.models import CLASSIFICATION_MODEL
 from pydantic import BaseModel
 from supabase import Client
 
@@ -799,7 +801,7 @@ def register_classification_routes(
         authorization: str = Header(None),
     ):
         """
-        Reclasifica un sistema usando el agente IA (gpt-5.4).
+        Reclasifica un sistema usando el agente IA.
         El agente produce risk_level + obligations_set; el motor de reglas
         actúa como referencia para detectar divergencias.
         Si hay diferencias respecto a la clasificación activa, crea un evento
@@ -838,9 +840,9 @@ def register_classification_routes(
 
         # Llamada sincrónica al agente (no streaming)
         try:
-            with llm_span("chat", "openai", "gpt-5.4") as call:
-                response = openai_client.chat.completions.create(
-                    model="gpt-5.4",
+            with llm_span("chat", "openai", CLASSIFICATION_MODEL) as call:
+                response = await openai_client.chat.completions.create(
+                    model=CLASSIFICATION_MODEL,
                     max_completion_tokens=4000,
                     messages=[
                         {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},

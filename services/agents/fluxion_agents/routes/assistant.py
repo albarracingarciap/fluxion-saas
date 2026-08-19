@@ -16,7 +16,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from openai import OpenAI
+from openai import AsyncOpenAI
+
+from fluxion_agents.models import ASSISTANT_MODEL
 from pydantic import BaseModel
 from supabase import Client
 
@@ -272,7 +274,7 @@ def build_tenant_context(
 # ENDPOINT: chat (SSE)
 # ═══════════════════════════════════════════════════════════
 
-def make_chat_endpoint(sb: Client, openai_client: OpenAI, verify_token, get_user_profile):
+def make_chat_endpoint(sb: Client, openai_client: AsyncOpenAI, verify_token, get_user_profile):
 
     async def chat(
         request: AssistantRequest,
@@ -359,10 +361,10 @@ def make_chat_endpoint(sb: Client, openai_client: OpenAI, verify_token, get_user
         async def stream_response():
             full_response = ""
             try:
-                with llm_span("chat", "openai", "gpt-5.4",
+                with llm_span("chat", "openai", ASSISTANT_MODEL,
                               conversation_id=conv_id, stream=True) as call:
-                    stream = openai_client.chat.completions.create(
-                        model="gpt-5.4",
+                    stream = await openai_client.chat.completions.create(
+                        model=ASSISTANT_MODEL,
                         max_completion_tokens=2000,
                         stream=True,
                         # Sin esto no hay forma de saber cuantos tokens costo una
@@ -374,7 +376,7 @@ def make_chat_endpoint(sb: Client, openai_client: OpenAI, verify_token, get_user
                         ],
                     )
 
-                    for chunk in stream:
+                    async for chunk in stream:
                         # El fragmento final con el uso llega SIN choices.
                         # Acceder a choices[0] aqui lanzaria IndexError.
                         if not chunk.choices:
@@ -516,7 +518,7 @@ def make_delete_conversation(sb: Client, verify_token, get_user_profile):
 # REGISTRO DE RUTAS
 # ═══════════════════════════════════════════════════════════
 
-def register_assistant_routes(app, sb: Client, openai_client: OpenAI, verify_token, get_user_profile):
+def register_assistant_routes(app, sb: Client, openai_client: AsyncOpenAI, verify_token, get_user_profile):
     """Registra todos los endpoints del Agente 4 en la app FastAPI."""
 
     app.add_api_route(

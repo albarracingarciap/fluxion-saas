@@ -17,7 +17,9 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from openai import OpenAI
+from openai import AsyncOpenAI
+
+from fluxion_agents.models import CLASSIFICATION_MODEL
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from pathlib import Path
@@ -42,7 +44,11 @@ logging.basicConfig(
 logger = logging.getLogger("fluxion_agents")
 
 # ─── Clientes globales ──────────────────────────────────────
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# AsyncOpenAI y no OpenAI: el cliente sincrono dentro de un manejador async
+# bloquea el bucle de eventos, y mientras una llamada al modelo avanza
+# ninguna otra peticion del servicio progresa. Con un usuario no se nota;
+# con dos, los tiempos se triplican sin motivo aparente.
+openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Telemetria de las llamadas al modelo. Si OTEL_EXPORTER_OTLP_ENDPOINT no esta
 # definida no hace nada: la telemetria nunca puede ser el motivo de que el
@@ -210,10 +216,10 @@ async def classify_system(
 
         try:
             # Llamada a OpenAI con stream=True
-            with llm_span("chat", "openai", "gpt-5.4",
+            with llm_span("chat", "openai", CLASSIFICATION_MODEL,
                           conversation_id=str(session_id), stream=True) as call:
-                stream = openai_client.chat.completions.create(
-                    model="gpt-5.4",
+                stream = await openai_client.chat.completions.create(
+                    model=CLASSIFICATION_MODEL,
                     max_completion_tokens=4000,
                     stream=True,
                     # Sin include_usage no hay tokens en streaming, y la
@@ -225,7 +231,7 @@ async def classify_system(
                     ]
                 )
 
-                for chunk in stream:
+                async for chunk in stream:
                     # El fragmento con el uso llega sin choices.
                     if not chunk.choices:
                         call.from_openai(chunk)
@@ -274,7 +280,7 @@ async def classify_system(
             sb.schema("fluxion").table("agent_sessions").update({
                 "status":        "completed",
                 "output":        proposal,
-                "model":         "gpt-5.4",
+                "model":         CLASSIFICATION_MODEL,
                 "completed_at":  datetime.utcnow().isoformat(),
             }).eq("id", session_id).execute()
 
