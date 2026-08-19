@@ -57,6 +57,21 @@ Sin `fluxion.system_id`, los tramos entran sin sistema asignado y aparecen en la
 bandeja de telemetría sin adscribir. Igual que con los modelos de MLflow: nada
 entra al inventario solo.
 
+### ⚠️ El espacio de `Bearer` hay que codificarlo
+
+`OTEL_EXPORTER_OTLP_HEADERS` se parsea como pares `clave=valor` separados por
+comas, y **el espacio de `Bearer flx_...` rompe ese parseo**: varias versiones
+del SDK descartan la cabecera entera en silencio y la petición sale sin
+credencial. El síntoma es un 401 con `falta la credencial` en el log del
+exportador, que despista porque parece un problema de la clave.
+
+```
+OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20flx_xxx
+```
+
+A la vista, la variable sin codificar parece correcta. Es el primer sitio donde
+mirar cuando un cliente diga que su telemetría no llega.
+
 ## Variables del servicio
 
 ```
