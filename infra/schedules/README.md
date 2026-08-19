@@ -74,6 +74,29 @@ Si prefieres usar **Schedules de Dokploy** en lugar de cron del sistema, el coma
 a programar es el mismo (`/opt/fluxion/app-cron.sh /api/cron/...`) y ganas los logs
 en el panel. Es indiferente para la app.
 
+## Comprobar que están programados
+
+**Escribir este fichero en el repositorio no instala nada.** Pasó: los cuatro
+trabajos estuvieron documentados y sin programar desde el 11 hasta el 23 de
+agosto de 2026, funcionando solo cuando se lanzaban a mano para probarlos. El
+`crontab -` que los instalaba nunca llegó a ejecutarse, y un aviso que no salta
+es indistinguible de un aviso que no hacía falta.
+
+```bash
+# ¿Están los cuatro?
+crontab -l | grep -c 'app-cron.sh'      # 4
+
+# ¿Cuándo corrió cada uno por última vez?
+for e in evidence-expiry review-reminders incident-deadlines cost-budgets; do
+  printf '%-20s ' "$e"
+  grep "$e" /var/log/fluxion-cron.log | tail -1 | cut -c1-25 || echo "NUNCA"
+done
+```
+
+Los tres horarios deben tener una marca de hace menos de una hora. Si alguno
+dice `NUNCA` o lleva días sin aparecer, no está corriendo por mucho que la línea
+figure en el `crontab`.
+
 ## Verificación
 
 ```bash
