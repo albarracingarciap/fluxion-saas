@@ -73,6 +73,7 @@ class LlmSpan:
     finish_reasons: list[str] | None = None
     error_type: str | None = None
     is_stream: bool | None = None
+    ttft_ms: int | None = None
     ai_system_id: str | None = None
     service_name: str | None = None
     environment: str | None = None
@@ -209,7 +210,7 @@ def _build_span(
         "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
         "gen_ai.usage.cached_input_tokens", "gen_ai.usage.reasoning_tokens",
         "gen_ai.conversation.id", "gen_ai.response.id", "gen_ai.response.finish_reasons",
-        "error.type", "gen_ai.request.stream",
+        "error.type", "gen_ai.request.stream", "gen_ai.server.time_to_first_token",
     }
 
     return LlmSpan(
@@ -234,6 +235,13 @@ def _build_span(
         ] or None,
         error_type=attrs.get("error.type"),
         is_stream=attrs.get("gen_ai.request.stream"),
+        # El semconv lo expresa en segundos; aqui se guarda en milisegundos,
+        # como el resto de duraciones.
+        ttft_ms=(
+            int(float(attrs["gen_ai.server.time_to_first_token"]) * 1000)
+            if attrs.get("gen_ai.server.time_to_first_token") is not None
+            else None
+        ),
         ai_system_id=resource.get("fluxion.system_id"),
         service_name=resource.get("service.name"),
         environment=resource.get("deployment.environment.name"),

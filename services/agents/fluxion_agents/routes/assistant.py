@@ -388,6 +388,9 @@ def make_chat_endpoint(sb: Client, openai_client: OpenAI, verify_token, get_user
                         text = delta.content if delta.content is not None else ""
                         if not text:
                             continue
+                        # Primer fragmento con contenido: es la latencia que nota el
+                        # usuario, frente a la duracion total del tramo.
+                        call.first_token()
                         full_response += text
                         yield f"data: {json.dumps({'delta': text, 'conversation_id': conv_id})}\n\n"
 

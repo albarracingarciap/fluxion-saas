@@ -213,12 +213,12 @@ INSERT INTO telemetry.llm_spans (
   started_at, ended_at, duration_ms,
   operation_name, provider_name, request_model, response_model,
   input_tokens, output_tokens, cached_tokens, reasoning_tokens,
-  conversation_id, response_id, finish_reasons, error_type, is_stream,
+  conversation_id, response_id, finish_reasons, error_type, is_stream, ttft_ms,
   cost_input, cost_output, cost_total, currency, price_id, cost_status,
   ai_system_id, service_name, environment, attributes
 ) VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-  $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb
+  $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb
 )
 ON CONFLICT (organization_id, started_at, trace_id, span_id) DO NOTHING
 """

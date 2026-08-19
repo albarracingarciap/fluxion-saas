@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -76,8 +77,27 @@ def init_telemetry(
 class LlmCall:
     """Recolector de metadatos de una llamada. No admite contenido."""
 
-    def __init__(self, span) -> None:
+    def __init__(self, span, started: float | None = None) -> None:
         self._span = span
+        self._started = started
+        self._ttft_done = False
+
+    def first_token(self) -> None:
+        """Marca la llegada del primer token con contenido.
+
+        En streaming, la duracion del tramo mide la llamada entera, que no es lo
+        que percibe el usuario: la primera palabra aparece mucho antes. Llamar a
+        esto convierte un "6 segundos" alarmante en dos cifras interpretables.
+
+        Es idempotente: se invoca dentro del bucle y solo cuenta la primera vez.
+        """
+        if self._span is None or self._started is None or self._ttft_done:
+            return
+        self._ttft_done = True
+        self._span.set_attribute(
+            "gen_ai.server.time_to_first_token",
+            round(time.monotonic() - self._started, 4),
+        )
 
     def usage(
         self,
@@ -150,6 +170,8 @@ def llm_span(
         yield LlmCall(None)
         return
 
+    started = time.monotonic()
+
     from opentelemetry.trace import Status, StatusCode
 
     with _tracer.start_as_current_span(f"{operation} {model}") as span:
@@ -161,7 +183,7 @@ def llm_span(
             span.set_attribute("gen_ai.conversation.id", conversation_id)
 
         try:
-            yield LlmCall(span)
+            yield LlmCall(span, started)
         except Exception as e:  # noqa: BLE001
             span.set_attribute("error.type", type(e).__name__)
             span.set_status(Status(StatusCode.ERROR))

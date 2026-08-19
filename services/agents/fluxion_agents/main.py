@@ -241,6 +241,9 @@ async def classify_system(
                     if not text:
                         continue
 
+                    # Primer fragmento con contenido: es la latencia que nota el
+                    # usuario, frente a la duracion total del tramo.
+                    call.first_token()
                     full_response += text
 
                     # Solo SSE al frontend - sin INSERT por token

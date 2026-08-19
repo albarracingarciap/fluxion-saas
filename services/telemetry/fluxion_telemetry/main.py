@@ -115,7 +115,7 @@ async def ingest_traces(
             span.operation_name, span.provider_name, span.request_model, span.response_model,
             span.input_tokens, span.output_tokens, span.cached_tokens, span.reasoning_tokens,
             span.conversation_id, span.response_id, span.finish_reasons, span.error_type,
-            span.is_stream,
+            span.is_stream, span.ttft_ms,
             cost["cost_input"], cost["cost_output"], cost["cost_total"],
             cost["currency"], cost["price_id"], cost["cost_status"],
             span.ai_system_id, span.service_name, span.environment,

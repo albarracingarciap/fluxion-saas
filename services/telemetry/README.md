@@ -57,6 +57,18 @@ Sin `fluxion.system_id`, los tramos entran sin sistema asignado y aparecen en la
 bandeja de telemetría sin adscribir. Igual que con los modelos de MLflow: nada
 entra al inventario solo.
 
+### Latencia percibida
+
+Si la llamada va en streaming, conviene enviar además
+`gen_ai.server.time_to_first_token` (en segundos). Se guarda en `ttft_ms`.
+
+La duración del tramo mide la llamada entera, que **no es lo que percibe el
+usuario**: la primera palabra aparece mucho antes de que la respuesta termine.
+Sin esta métrica, un panel que dice "6 segundos" suena a servicio lento cuando
+puede que el usuario esté leyendo desde el segundo 0,8.
+
+`fluxion_common.telemetry` lo hace con `call.first_token()` dentro del bucle.
+
 ### ⚠️ El espacio de `Bearer` hay que codificarlo
 
 `OTEL_EXPORTER_OTLP_HEADERS` se parsea como pares `clave=valor` separados por
