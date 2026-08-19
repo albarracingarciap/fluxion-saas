@@ -3,8 +3,11 @@
 Especificación a nivel de migraciones y contratos. Módulo `doc-engine` del
 registro de entitlements.
 
-**Estado**: almacenamiento en MinIO y plantilla del Anexo IV hechos (pasos 1-3).
-Pendiente: `documents`, pantalla de cumplimentación y renderizador (pasos 4-6).
+**Estado**: pasos 1-4 hechos y en producción — MinIO, plantilla del Anexo IV
+verificada, `documents` y la pantalla de cumplimentación en
+`/inventario/[id]/anexo-iv`.
+Pendiente: renderizador y `document_renders` (paso 5); `model_card`, `fria` y
+`dpia` (paso 6).
 
 ---
 
