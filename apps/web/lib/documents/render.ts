@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { createHash, randomUUID } from 'node:crypto'
+
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { BUCKET_DOCUMENTS, objectKey, putObject, s3Configured } from '@/lib/storage/objects'
 import { composeDocument } from './compose'
@@ -91,6 +93,16 @@ export async function generateRender(input: {
 
   const generatedAt = new Date()
 
+  // El identificador se genera aquí y no lo pone la base de datos, porque tiene
+  // que ir impreso dentro del documento: es lo que permite casar un PDF suelto
+  // con la fila que guarda la huella del fichero.
+  const renderId = randomUUID()
+
+  // Hash de los datos, no del fichero. El del fichero no puede ir dentro del
+  // fichero, así que este es el que el documento puede declarar de sí mismo.
+  const payload = JSON.stringify(composed)
+  const contentChecksum = createHash('sha256').update(payload).digest('hex')
+
   // 1 · Congelar el estado. Es lo que da sentido a la huella del PDF: sin esto,
   // dentro de un año nadie podría decir con qué datos se generó.
   const { data: snapshot } = await admin
@@ -113,8 +125,10 @@ export async function generateRender(input: {
       organizationName: org?.name ?? '—',
       generatedBy: input.profileName,
       generatedAt,
+      renderId,
+      contentChecksum,
     })
-    pdf = await renderPdf(html, buildFooterHtml(composed))
+    pdf = await renderPdf(html, buildFooterHtml(composed, renderId))
   } catch (e) {
     console.error('generateRender · renderizado:', e)
     return { error: e instanceof Error ? e.message : 'No se pudo generar el PDF.' }
@@ -177,6 +191,7 @@ export async function generateRender(input: {
   const { data: render, error: renderErr } = await admin
     .from('document_renders')
     .insert({
+      id: renderId,
       organization_id: doc.organization_id,
       document_id: doc.id,
       format: 'pdf',
@@ -187,6 +202,7 @@ export async function generateRender(input: {
       storage_bucket: BUCKET_DOCUMENTS,
       storage_path: key,
       checksum_sha256: stored.checksum,
+      content_sha256: contentChecksum,
       byte_size: stored.size,
       gaps: composed.gaps,
       document_status: composed.document.status,

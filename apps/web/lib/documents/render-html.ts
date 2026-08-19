@@ -49,6 +49,8 @@ const CSS = `
   .cover dl { display: grid; grid-template-columns: auto 1fr; gap: 2pt 12pt; margin: 12pt 0 0; }
   .cover dt { color: #5b6b7f; font-size: 9pt; }
   .cover dd { margin: 0; font-size: 9pt; }
+  .cover dd.mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 7.5pt; word-break: break-all; }
+  .verify { margin: 10pt 0 0; font-size: 7.5pt; color: #5b6b7f; line-height: 1.4; }
   .section { margin-bottom: 12pt; break-inside: avoid-page; page-break-inside: avoid; }
   .guidance { color: #5b6b7f; font-size: 8.5pt; font-style: italic; margin-bottom: 4pt; }
   .label {
@@ -71,7 +73,10 @@ export type RenderContext = {
   organizationName: string
   generatedBy: string
   generatedAt: Date
-  checksumNote?: string
+  /** Referencia del render: lo que permite casar este papel con su fila. */
+  renderId: string
+  /** Hash de los datos con los que se compuso. El del fichero no cabe aquí. */
+  contentChecksum: string
 }
 
 export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): string {
@@ -131,7 +136,15 @@ export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): st
       <dt>Plantilla</dt><dd>Anexo IV, versión ${doc.document.template_version}</dd>
       <dt>Cobertura</dt><dd>${Math.round(doc.completeness * 100)} % de los apartados obligatorios</dd>
       <dt>Generado</dt><dd>${esc(fecha)} por ${esc(ctx.generatedBy)}</dd>
+      <dt>Referencia</dt><dd class="mono">${esc(ctx.renderId)}</dd>
+      <dt>Huella del contenido</dt><dd class="mono">${esc(ctx.contentChecksum)}</dd>
     </dl>
+    <p class="verify">
+      La huella corresponde a los datos con los que se compuso este documento, no
+      al fichero: el hash del PDF no puede figurar dentro del propio PDF. Fluxion
+      conserva ambos, junto al estado congelado del sistema en el momento de
+      generarlo, bajo la referencia indicada.
+    </p>
   </div>
   ${aviso}
   ${cuerpo}
@@ -139,10 +152,10 @@ export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): st
 }
 
 /** Pie con la paginación y la referencia del expediente. */
-export function buildFooterHtml(doc: ComposedDocument): string {
+export function buildFooterHtml(doc: ComposedDocument, renderId: string): string {
   return `<div style="font-size:7pt;color:#5b6b7f;width:100%;padding:0 16mm;
     display:flex;justify-content:space-between;font-family:sans-serif;">
-    <span>${esc(doc.document.title)} · Anexo IV</span>
+    <span>${esc(doc.document.title)} · Anexo IV · ${esc(renderId.slice(0, 8))}</span>
     <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
   </div>`
 }
