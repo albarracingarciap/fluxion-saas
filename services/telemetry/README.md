@@ -162,6 +162,15 @@ SELECT provider_name, request_model, input_tokens, output_tokens,
   FROM telemetry.llm_spans ORDER BY started_at DESC LIMIT 5;
 ```
 
+**Las tarifas se cachean cinco minutos.** Tras insertar o cambiar un precio en
+`telemetry.model_prices`, los tramos siguen entrando con la tarifa anterior
+—o sin ninguna— hasta que expire la caché. Consultarlas por tramo multiplicaría
+las consultas por mil, así que es un compromiso deliberado; si hay prisa, se
+reinicia el contenedor.
+
+Y el coste se congela **al ingerir**: meter una tarifa no recalcula los tramos
+ya guardados. Es lo que evita que el informe de marzo cambie en junio.
+
 `cost_status = 'unknown'` y `cost_total` nulo es lo esperado mientras
 `telemetry.model_prices` esté vacía. Los modelos pendientes de tarifa salen en:
 
