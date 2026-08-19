@@ -70,11 +70,11 @@ DB_POOL_MAX=8
 
 Aplicación de tipo Docker en el proyecto `fluxion`:
 
-| Campo | Valor |
-|---|---|
-| Contexto de build | **raíz del monorepo** |
-| Dockerfile | `services/telemetry/Dockerfile` |
-| Dominio | `otel.fluxion-ai.es`, puerto 9000→**8000**, HTTPS |
+| Campo             | Valor                                             |
+| ----------------- | ------------------------------------------------- |
+| Contexto de build | **raíz del monorepo**                             |
+| Dockerfile        | `services/telemetry/Dockerfile`                   |
+| Dominio           | `otel.fluxion-ai.es`, puerto 9000→**8000**, HTTPS |
 
 Este servicio **sí lleva dominio**, al revés que el renderizador: lo llaman los
 clientes desde fuera.
@@ -107,8 +107,8 @@ Crea antes una clave de API con el scope **Enviar telemetría** en Ajustes.
 
 ```bash
 NOW=$(date +%s)
-curl -i -X POST https://otel.fluxion-ai.es/v1/traces \
-  -H "Authorization: Bearer flx_xxx" \
+curl -ik -X POST https://otel.fluxion-ai.es/v1/traces \
+  -H "Authorization: Bearer flx_fa7af9d3758232e4a7f315311493e2d2a9417cf00a3bc804690038674f0aa286" \
   -H "Content-Type: application/json" \
   -d '{
     "resourceSpans": [{

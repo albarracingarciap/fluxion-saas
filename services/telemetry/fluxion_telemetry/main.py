@@ -44,7 +44,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Fluxion · telemetría", version="1.0.0", lifespan=lifespan)
 
 
-@app.get("/health")
+# HEAD además de GET: muchos monitores de disponibilidad usan HEAD por omisión,
+# y un 405 ahí se interpreta como servicio caído.
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health() -> dict[str, object]:
     try:
         async with (await store.pool()).acquire() as conn:
