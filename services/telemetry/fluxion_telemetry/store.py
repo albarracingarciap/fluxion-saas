@@ -108,17 +108,24 @@ class Price:
     currency: str
 
 
-_price_cache: dict[tuple[str, str, str], tuple[float, Price | None]] = {}
+_price_cache: dict[tuple[str, str, str, str], tuple[float, Price | None]] = {}
 _PRICE_TTL = 300.0
 
 
-async def price_for(provider: str, model: str | None, when: date) -> Price | None:
-    """Tarifa vigente. Se cachea cinco minutos: los precios no cambian a media
-    tarde, y consultarlos por tramo multiplicaría las consultas por mil."""
+async def price_for(
+    provider: str, model: str | None, when: date, organization_id: str
+) -> Price | None:
+    """Tarifa aplicable. Se cachea cinco minutos: los precios no cambian a media
+    tarde, y consultarlos por tramo multiplicaria las consultas por mil.
+
+    La organizacion forma parte de la clave de cache porque una tarifa propia
+    prevalece sobre el catalogo: sin ella, el primer cliente en pasar por aqui
+    fijaria el precio de los demas durante cinco minutos.
+    """
     if not model:
         return None
 
-    key = (provider, model, when.isoformat())
+    key = (provider, model, when.isoformat(), organization_id)
     hit = _price_cache.get(key)
     if hit and time.monotonic() - hit[0] < _PRICE_TTL:
         return hit[1]
@@ -130,10 +137,12 @@ async def price_for(provider: str, model: str | None, when: date) -> Price | Non
                    cached_input_per_million, reasoning_per_million, currency
               FROM telemetry.model_prices
              WHERE provider = $1 AND model = $2 AND effective_from <= $3
-             ORDER BY effective_from DESC
+               AND (organization_id = $4 OR organization_id IS NULL)
+             -- La tarifa propia gana sobre la del catalogo.
+             ORDER BY organization_id NULLS LAST, effective_from DESC
              LIMIT 1
             """,
-            provider, model, when,
+            provider, model, when, organization_id,
         )
 
     price = (

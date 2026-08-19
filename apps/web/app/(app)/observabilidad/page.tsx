@@ -71,6 +71,12 @@ export default async function ObservabilidadPage({
 
         <div className="flex gap-1.5 shrink-0 items-center">
           <Link
+            href="/observabilidad/tarifas"
+            className="px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border border-ltb text-lttm hover:text-ltt"
+          >
+            Tarifas
+          </Link>
+          <Link
             href="/observabilidad/presupuestos"
             className="px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border border-ltb text-lttm hover:text-ltt mr-1"
           >
@@ -121,6 +127,8 @@ export default async function ObservabilidadPage({
                 <p className="font-sora text-[12px] text-lttm mt-2">
                   Sin tarifa:{' '}
                   {s.missingPrices.map((m) => `${m.provider}/${m.model} (${miles(m.calls)})`).join(' · ')}
+                  {' — '}
+                  <Link href="/observabilidad/tarifas" className="text-brand-cyan">ponles precio</Link>
                 </p>
               )}
             </div>

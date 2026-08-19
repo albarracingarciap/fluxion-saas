@@ -106,7 +106,10 @@ async def ingest_traces(
 
     rows = []
     for span in result.spans:
-        price = await store.price_for(span.provider_name, span.request_model, span.started_at.date())
+        price = await store.price_for(
+            span.provider_name, span.request_model, span.started_at.date(),
+            key.organization_id,
+        )
         cost = store.compute_cost(span, price)
 
         rows.append((
