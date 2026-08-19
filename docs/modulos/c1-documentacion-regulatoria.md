@@ -3,7 +3,8 @@
 Especificación a nivel de migraciones y contratos. Módulo `doc-engine` del
 registro de entitlements.
 
-**Estado**: diseñado, no implementado.
+**Estado**: almacenamiento en MinIO y plantilla del Anexo IV hechos (pasos 1-3).
+Pendiente: `documents`, pantalla de cumplimentación y renderizador (pasos 4-6).
 
 ---
 
@@ -338,10 +339,24 @@ de un aviso que la pantalla puede dar sola.
 Los pasos 3 y 4 ya aportan valor **sin el renderizador**: una pantalla que dice
 "del Anexo IV te faltan los puntos 2(g), 5 y 9" es vendible tal cual.
 
-## 6 · Antes de sembrar la plantilla del Anexo IV
+## 6 · Verificación del Anexo IV
 
-Verificar la estructura contra el **texto oficial** del Reglamento (UE) 2024/1689,
-no contra el corpus RAG. Ya sabemos cómo acabó eso con los plazos del artículo 73:
-el corpus tenía un apartado ausente y las referencias de sección no eran números
-de apartado. Una plantilla mal numerada propaga el error a todos los expedientes
-que genere.
+Hecha contra el **AI Act Service Desk de la Comisión Europea**
+(`ai-act-service-desk.ec.europa.eu/en/ai-act/annex-4`), no contra el corpus RAG.
+Motivo: el corpus ya nos dio mal los plazos del artículo 73 —le faltaba el
+apartado 73(4) y sus `section_ref` son índices de fragmento, no números de
+apartado—, y una plantilla mal numerada propaga el error a todos los
+expedientes que genere.
+
+Resultado: 9 puntos, 25 secciones contando subapartados.
+
+**El punto 1(h) repite la interfaz de usuario que ya pide 1(g).** Está así en el
+texto oficial; se ha comprobado en dos fuentes independientes. Se conserva la
+duplicidad en vez de "arreglarla" porque un auditor busca por número de
+apartado, y una plantilla que unifica dos epígrafes deja un hueco donde él
+espera encontrar una respuesta.
+
+**Cinco apartados van con `required = false`**: 1(b), 1(f), 1(h), 2(d) y 2(f).
+Son los que el propio Reglamento condiciona con *"where applicable"* o *"where
+relevant"*. Exigirle a un sistema de software puro las fotografías del producto
+(1.f) no es rigor: es ruido que entierra los huecos de verdad.
