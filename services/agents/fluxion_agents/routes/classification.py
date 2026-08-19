@@ -346,7 +346,7 @@ def register_classification_routes(
     sb: Client,
     verify_token,
     get_user_profile,
-    openai_client: Optional[OpenAI] = None,
+    openai_client: Optional[AsyncOpenAI] = None,
 ):
 
     # ─── POST /classify ───────────────────────────────────────────
