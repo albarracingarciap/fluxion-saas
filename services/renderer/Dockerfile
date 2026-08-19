@@ -6,7 +6,11 @@
 # No copia packages/py-common a propósito: este servicio no habla con el Core.
 # Recibe HTML y devuelve PDF. Cuanto menos sepa, menos puede filtrar.
 
-FROM python:3.11-slim
+# La etiqueta lleva la distribución fijada a propósito. `python:3.11-slim` pasó
+# a Debian 13 (trixie), que Playwright 1.49 no reconoce: cae a las dependencias
+# de Ubuntu 20.04 e intenta instalar ttf-unifont y ttf-ubuntu-font-family, que
+# en trixie ya no existen. El build muere con exit 100.
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 

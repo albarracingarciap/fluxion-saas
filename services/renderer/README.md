@@ -47,12 +47,22 @@ Aplicación de tipo Docker, en el proyecto `fluxion`:
 |---|---|
 | Contexto de build | **raíz del monorepo** |
 | Dockerfile | `services/renderer/Dockerfile` |
-| Puerto | 8000 |
 | Dominio | **ninguno** |
 
-**No le pongas dominio.** Solo lo llama la aplicación web por la red interna. Un
+**No hay campo de puerto que rellenar.** En Dokploy el puerto solo aparece
+dentro de la pestaña *Domains* ("Container Port"), y este servicio no lleva
+dominio. El puerto lo fija el contenedor: `EXPOSE 8000` y `uvicorn --port 8000`.
+
+**No uses *Advanced → Ports***: eso publica el puerto en la IP del VPS. Un
 renderizador accesible desde fuera es una fábrica de PDF gratuita para
 cualquiera y un consumidor de memoria a demanda.
+
+El nombre del contenedor, que hace falta para `RENDERER_URL`, sale tras el
+primer despliegue:
+
+```bash
+docker ps --format '{{.Names}}' | grep -i render
+```
 
 Variables:
 
@@ -73,6 +83,13 @@ Ambos servicios tienen que compartir red. Si no se ven, es lo mismo que pasó co
 MinIO: hay que unirlos a `dokploy-network` declarándola como `external: true`.
 
 ## Notas de operación
+
+**La imagen base va fijada a `bookworm`.** `python:3.11-slim` a secas pasó a
+Debian 13 (trixie) y Playwright 1.49 no lo reconoce: cae a las dependencias de
+Ubuntu 20.04 e intenta instalar `ttf-unifont`, que en trixie se llama
+`fonts-unifont`. El build muere con `exit code 100` en `playwright install`.
+Si algún día hay que subir de Playwright, se revisa a la vez qué distribuciones
+soporta esa versión.
 
 **La imagen pesa alrededor de 1 GB.** Es Chromium con sus dependencias del
 sistema, y no hay forma de evitarlo si se quiere que el PDF tenga el mismo
