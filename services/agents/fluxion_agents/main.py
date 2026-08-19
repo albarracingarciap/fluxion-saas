@@ -29,6 +29,7 @@ from fluxion_agents.prompts.classification import (
 from fluxion_agents.rag.retriever import retrieve_for_classification
 from fluxion_agents.routes.assistant import register_assistant_routes
 from fluxion_agents.routes.classification import register_classification_routes
+from fluxion_common.telemetry import init_telemetry, llm_span
 
 
 load_dotenv(Path(__file__).parent.parent / '.env.local')
@@ -42,6 +43,15 @@ logger = logging.getLogger("fluxion_agents")
 
 # ─── Clientes globales ──────────────────────────────────────
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Telemetria de las llamadas al modelo. Si OTEL_EXPORTER_OTLP_ENDPOINT no esta
+# definida no hace nada: la telemetria nunca puede ser el motivo de que el
+# servicio falle. FLUXION_SYSTEM_ID adscribe los tramos a un sistema del
+# inventario; sin el aparecen en la bandeja de telemetria sin adscribir.
+init_telemetry(
+    service_name="fluxion-agents",
+    system_id=os.getenv("FLUXION_SYSTEM_ID"),
+)
 sb: Client = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_SERVICE_KEY")
@@ -200,30 +210,41 @@ async def classify_system(
 
         try:
             # Llamada a OpenAI con stream=True
-            stream = openai_client.chat.completions.create(
-                model="gpt-5.4",
-                max_completion_tokens=4000,
-                stream=True,
-                messages=[
-                    {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
-                    {"role": "user",   "content": user_prompt},
-                ]
-            )
+            with llm_span("chat", "openai", "gpt-5.4",
+                          conversation_id=str(session_id), stream=True) as call:
+                stream = openai_client.chat.completions.create(
+                    model="gpt-5.4",
+                    max_completion_tokens=4000,
+                    stream=True,
+                    # Sin include_usage no hay tokens en streaming, y la
+                    # clasificacion es la llamada mas cara del servicio.
+                    stream_options={"include_usage": True},
+                    messages=[
+                        {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
+                        {"role": "user",   "content": user_prompt},
+                    ]
+                )
 
-            for chunk in stream:
-                if chunk.choices[0].finish_reason == "stop":
-                    break
+                for chunk in stream:
+                    # El fragmento con el uso llega sin choices.
+                    if not chunk.choices:
+                        call.from_openai(chunk)
+                        continue
+                    # `continue` y no `break`: cortar al ver "stop" dejaria el
+                    # fragmento del uso sin leer y el coste sin registrar.
+                    if chunk.choices[0].finish_reason == "stop":
+                        continue
 
-                delta = chunk.choices[0].delta
-                text = delta.content if delta.content is not None else ""
+                    delta = chunk.choices[0].delta
+                    text = delta.content if delta.content is not None else ""
 
-                if not text:
-                    continue
+                    if not text:
+                        continue
 
-                full_response += text
+                    full_response += text
 
-                # Solo SSE al frontend — sin INSERT por token
-                yield f"data: {json.dumps({'delta': text, 'session_id': session_id})}\n\n"
+                    # Solo SSE al frontend - sin INSERT por token
+                    yield f"data: {json.dumps({'delta': text, 'session_id': session_id})}\n\n"
 
             # Guardar mensaje completo UNA vez al terminar el stream
             sb.schema("fluxion").table("agent_messages").insert({

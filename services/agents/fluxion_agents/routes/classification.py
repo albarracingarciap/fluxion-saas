@@ -26,6 +26,7 @@ from fluxion_agents.prompts.classification import (
     build_classification_user_prompt,
 )
 from fluxion_agents.rag.retriever import retrieve_for_classification
+from fluxion_common.telemetry import llm_span
 
 logger = logging.getLogger("fluxion_agents.classification")
 
@@ -837,14 +838,16 @@ def register_classification_routes(
 
         # Llamada sincrónica al agente (no streaming)
         try:
-            response = openai_client.chat.completions.create(
-                model="gpt-5.4",
-                max_completion_tokens=4000,
-                messages=[
-                    {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
-                    {"role": "user",   "content": user_prompt},
-                ],
-            )
+            with llm_span("chat", "openai", "gpt-5.4") as call:
+                response = openai_client.chat.completions.create(
+                    model="gpt-5.4",
+                    max_completion_tokens=4000,
+                    messages=[
+                        {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
+                        {"role": "user",   "content": user_prompt},
+                    ],
+                )
+                call.from_openai(response)
         except Exception as e:
             logger.error(f"Error llamando a OpenAI: {e}", exc_info=True)
             raise HTTPException(502, f"Error del agente IA: {e}")

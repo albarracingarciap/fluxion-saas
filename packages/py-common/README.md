@@ -44,3 +44,35 @@ especulativo.
 
 Aquí solo entra lo que usan **dos o más** servicios. Lo que necesita uno solo
 vive en ese servicio.
+
+## `telemetry` — instrumentacion de llamadas a modelos
+
+Instrumentacion **manual**, no automatica. Las librerias de instrumentacion
+automatica de LLM capturan por omision el contenido de prompts y respuestas;
+aunque el ingestor de Fluxion lo descarta al recibirlo, enviarlo por la red ya
+es una decision que no queremos tomar por el cliente. Aqui no hay ninguna
+funcion para adjuntar contenido.
+
+```python
+from fluxion_common.telemetry import init_telemetry, llm_span
+
+init_telemetry(service_name="mi-servicio", system_id=os.getenv("FLUXION_SYSTEM_ID"))
+
+with llm_span("chat", "openai", "gpt-4o") as call:
+    response = client.chat.completions.create(...)
+    call.from_openai(response)
+```
+
+En streaming hay que pedir `stream_options={"include_usage": True}` y tratar el
+fragmento final, que llega **sin `choices`**:
+
+```python
+for chunk in stream:
+    if not chunk.choices:
+        call.from_openai(chunk)
+        continue
+    ...
+```
+
+Sin `OTEL_EXPORTER_OTLP_ENDPOINT` no hace nada. Es deliberado: la telemetria
+nunca puede ser el motivo de que un servicio falle.

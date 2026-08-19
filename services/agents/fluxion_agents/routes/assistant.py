@@ -22,6 +22,7 @@ from supabase import Client
 
 from fluxion_agents.prompts.assistant import ASSISTANT_SYSTEM_PROMPT
 from fluxion_agents.rag.retriever import retrieve_chunks
+from fluxion_common.telemetry import llm_span
 
 logger = logging.getLogger("agent4")
 
@@ -358,25 +359,37 @@ def make_chat_endpoint(sb: Client, openai_client: OpenAI, verify_token, get_user
         async def stream_response():
             full_response = ""
             try:
-                stream = openai_client.chat.completions.create(
-                    model="gpt-5.4",
-                    max_completion_tokens=2000,
-                    stream=True,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        *messages,
-                    ],
-                )
+                with llm_span("chat", "openai", "gpt-5.4",
+                              conversation_id=conv_id, stream=True) as call:
+                    stream = openai_client.chat.completions.create(
+                        model="gpt-5.4",
+                        max_completion_tokens=2000,
+                        stream=True,
+                        # Sin esto no hay forma de saber cuantos tokens costo una
+                        # respuesta en streaming, que es la mayor parte del gasto.
+                        stream_options={"include_usage": True},
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            *messages,
+                        ],
+                    )
 
-                for chunk in stream:
-                    if chunk.choices[0].finish_reason == "stop":
-                        break
-                    delta = chunk.choices[0].delta
-                    text = delta.content if delta.content is not None else ""
-                    if not text:
-                        continue
-                    full_response += text
-                    yield f"data: {json.dumps({'delta': text, 'conversation_id': conv_id})}\n\n"
+                    for chunk in stream:
+                        # El fragmento final con el uso llega SIN choices.
+                        # Acceder a choices[0] aqui lanzaria IndexError.
+                        if not chunk.choices:
+                            call.from_openai(chunk)
+                            continue
+                        # `continue` y no `break`: cortar al ver "stop" dejaria
+                        # el fragmento del uso sin leer y el coste sin registrar.
+                        if chunk.choices[0].finish_reason == "stop":
+                            continue
+                        delta = chunk.choices[0].delta
+                        text = delta.content if delta.content is not None else ""
+                        if not text:
+                            continue
+                        full_response += text
+                        yield f"data: {json.dumps({'delta': text, 'conversation_id': conv_id})}\n\n"
 
                 # ── 6. Persistir historial ──────────────────
                 now_iso = datetime.now(timezone.utc).isoformat()
