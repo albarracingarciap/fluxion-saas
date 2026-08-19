@@ -4,3 +4,5 @@
 0 8 * * 1  /opt/fluxion/app-cron.sh /api/cron/review-reminders
 # Minuto 17 y no en punto: reparte la carga frente a los dos de arriba.
 17 * * * * /opt/fluxion/app-cron.sh /api/cron/incident-deadlines
+# Minuto 40: reparte la carga frente a los otros tres.
+40 * * * * /opt/fluxion/app-cron.sh /api/cron/cost-budgets

@@ -69,7 +69,13 @@ export default async function ObservabilidadPage({
           </p>
         </div>
 
-        <div className="flex gap-1.5 shrink-0">
+        <div className="flex gap-1.5 shrink-0 items-center">
+          <Link
+            href="/observabilidad/presupuestos"
+            className="px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border border-ltb text-lttm hover:text-ltt mr-1"
+          >
+            Presupuestos
+          </Link>
           {RANGOS.map((r) => (
             <Link
               key={r}

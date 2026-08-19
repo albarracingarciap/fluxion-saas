@@ -17,6 +17,16 @@ cosas que vivían fuera del código y que un cambio de plataforma se llevó por 
 | `GET /api/cron/evidence-expiry` | Diario, 07:00 UTC | Evidencias que caducan en ≤30 y ≤7 días → notificaciones |
 | `GET /api/cron/review-reminders` | Lunes, 08:00 UTC | Revisiones periódicas vencidas o próximas → resumen por organización |
 | `GET /api/cron/incident-deadlines` | **Cada hora**, minuto 17 | Plazos del art. 73 al 50 %, al 80 % y vencidos → campana y canales |
+| `GET /api/cron/cost-budgets` | **Cada hora**, minuto 40 | Presupuestos de gasto en IA al cruzar cada umbral → señal y canales |
+
+### Por qué el de presupuestos también es horario
+
+El gasto en modelos no crece despacio cuando algo va mal: un bucle de
+reintentos mal puesto o un agente que se llama a sí mismo queman el presupuesto
+de un mes en una tarde. Enterarse a la mañana siguiente es enterarse tarde.
+
+Es idempotente igual que el de incidentes: `cost_budget_alerts` guarda qué
+umbral se avisó de cada presupuesto y periodo.
 
 ### Por qué el de incidentes es horario
 
