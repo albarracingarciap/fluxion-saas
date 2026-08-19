@@ -15,6 +15,7 @@ export type ApiScope =
   | 'inventory:read'
   | 'inventory:write'
   | 'connectors:sync'
+  | 'telemetry:write'
 
 export const API_SCOPES: ReadonlyArray<{
   value: ApiScope
@@ -27,6 +28,12 @@ export const API_SCOPES: ReadonlyArray<{
     group: 'Señales',
     label: 'Publicar señales',
     desc: 'Enviar eventos de monitorización. Es el permiso de los módulos de drift, telemetría y conectores.',
+  },
+  {
+    value: 'telemetry:write',
+    group: 'Telemetría',
+    label: 'Enviar telemetría',
+    desc: 'Publicar trazas de llamadas a modelos (OTLP). Solo metadatos: modelo, tokens, latencia y error. Nunca el contenido de los prompts.',
   },
   {
     value: 'signals:read',

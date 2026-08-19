@@ -1,0 +1,35 @@
+# Servicio de telemetría, desplegado como Compose y no como Application.
+#
+# El motivo es la red: necesita estar en DOS a la vez.
+#
+#   · dokploy-network            — para que Traefik le dé el dominio público
+#   · supabase-b235d9_default    — para alcanzar supabase-db
+#
+# La alternativa era meter supabase-db en dokploy-network, pero eso abre
+# PostgreSQL a todos los contenedores del servidor (WordPress, Moodle, n8n) y
+# obliga a reiniciar la base de datos. Es más estrecho que entre el servicio.
+
+services:
+  telemetry:
+    build:
+      # El contexto es la raíz del monorepo, como en todos los servicios.
+      context: ../..
+      dockerfile: services/telemetry/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-8388608}
+      DB_POOL_MAX: ${DB_POOL_MAX:-8}
+    expose:
+      - "8000"
+    networks:
+      - dokploy-network
+      - supabase
+    restart: unless-stopped
+
+networks:
+  dokploy-network:
+    external: true
+  supabase:
+    external: true
+    name: supabase-b235d9_default
