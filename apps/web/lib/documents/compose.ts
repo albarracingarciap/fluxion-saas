@@ -132,6 +132,113 @@ function deriveFromSystem(ref: string, s: SystemRow): string | null {
         line('Registro de eventos', s.has_logging),
         line('Riesgo residual declarado', s.residual_risk),
       )
+    // ── FRIA · art. 27 ──────────────────────────────────────────────────────
+    case '27.1.a':
+      return block(
+        line('Finalidad prevista', s.intended_use),
+        line('Equipo responsable', s.responsible_team),
+        line('Ámbito geográfico', s.geo_scope),
+        line('Entornos activos', s.active_environments),
+      )
+    case '27.1.c':
+      return block(
+        line('Afecta a personas', s.affects_persons),
+        line('Usuarios destinatarios', s.target_users),
+        line('Grupos vulnerables', s.vulnerable_groups),
+        line('Implica a menores', s.involves_minors),
+        line('Escala de uso', s.usage_scale),
+      )
+    case '27.1.e':
+      return block(
+        line('Vigilancia humana implantada', s.has_human_oversight),
+        line('Tipo de vigilancia', s.oversight_type),
+        line('Totalmente automatizado', s.fully_automated),
+        line('Explicabilidad', s.has_explainability),
+      )
+    case '27.1.f':
+      return block(
+        line('Mecanismo de reclamación', s.has_complaint_mechanism),
+        line('Contacto para incidentes', s.incident_contact),
+        line('Notas de mitigación', s.mitigation_notes),
+        line('Propietario funcional', s.ai_owner),
+      )
+    case '27.4':
+      return block(line('DPIA realizada', s.dpia_completed))
+
+    // ── DPIA · art. 35 RGPD ─────────────────────────────────────────────────
+    case '35.2':
+      return block(line('Delegado de protección de datos implicado', s.dpo_involved))
+    case '35.7.a':
+      return block(
+        line('Trata datos personales', s.processes_personal_data),
+        line('Finalidad prevista', s.intended_use),
+        line('Categorías de datos', s.data_categories),
+        line('Categorías especiales', s.special_categories),
+        line('Bases jurídicas', s.legal_bases),
+        line('Bases del art. 9', s.legal_bases_art9),
+        line('Fuentes de datos', s.data_sources),
+        line('Conservación', s.data_retention),
+        line('Transferencias internacionales', s.intl_data_transfers),
+      )
+    case '35.7.d':
+      return block(
+        line('Notas de mitigación', s.mitigation_notes),
+        line('Registro de eventos', s.has_logging),
+        line('Vigilancia humana', s.has_human_oversight),
+        line('Mecanismo de reclamación', s.has_complaint_mechanism),
+        line('Riesgo residual', s.residual_risk),
+      )
+
+    // ── Ficha de modelo · anexo XII ─────────────────────────────────────────
+    case 'XII.1.a':
+      return block(
+        line('Tareas previstas', s.intended_use),
+        line('Tipo de sistema', s.ai_system_type),
+        line('Tipo de salida', s.output_type),
+      )
+    case 'XII.1.b':
+      return block(
+        line('Usos prohibidos declarados', s.prohibited_uses),
+        line('Práctica prohibida', s.prohibited_practice),
+      )
+    case 'XII.1.c':
+      return block(
+        line('Puesta en servicio', s.deployed_at),
+        line('Estado', s.status),
+        line('Entornos activos', s.active_environments),
+      )
+    case 'XII.1.d':
+      return block(
+        line('Herramientas externas', s.has_external_tools),
+        line('Integración MLOps', s.mlops_integration),
+      )
+    case 'XII.1.e':
+      return block(
+        line('Versión', s.version),
+        line('Marcos y librerías', s.frameworks),
+      )
+    case 'XII.1.f':
+      return block(
+        line('Modelo base', s.base_model),
+        line('Modelo externo', s.external_model),
+        line('Proveedor externo', s.external_provider),
+        line('Modelo abierto', s.oss_model_name),
+        line('Ajuste fino', s.has_fine_tuning),
+      )
+    case 'XII.1.g':
+      return block(line('Tipo de salida', s.output_type))
+    case 'XII.1.h':
+      return block(
+        line('Licencia', s.oss_license),
+        line('Origen del proveedor', s.provider_origin),
+      )
+    case 'XII.2.c':
+      return block(
+        line('Fuentes de datos', s.data_sources),
+        line('Documentación de entrenamiento', s.training_data_doc),
+        line('Volumen', s.data_volume),
+      )
+
     default:
       return null
   }
@@ -144,7 +251,9 @@ function deriveFromFmea(
 ): string | null {
   if (!evaluation && !plan) return null
 
-  if (ref === 'IV.3') {
+  // Los mismos riesgos, leídos desde tres normas distintas. La fuente es una:
+  // duplicar el análisis por documento sería garantizar que se contradigan.
+  if (ref === 'IV.3' || ref === '27.1.d' || ref === '35.7.c') {
     return block(
       line('Zona de riesgo de la evaluación', evaluation?.cached_zone),
       line('Modos de fallo identificados', plan?.modes_count_total),

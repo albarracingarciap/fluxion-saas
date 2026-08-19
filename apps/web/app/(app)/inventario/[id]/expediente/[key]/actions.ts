@@ -5,15 +5,18 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { composeDocument, type ComposedDocument } from '@/lib/documents/compose'
+import type { TemplateOption } from '@/lib/documents/templates'
 import { generateRender } from '@/lib/documents/render'
 
 /**
- * Expediente técnico del Anexo IV, por sistema.
+ * Expedientes regulatorios por sistema: Anexo IV, FRIA, DPIA y ficha de modelo.
  *
  * El documento se crea la primera vez que alguien lo abre. No hay botón de
- * "crear expediente": la obligación del artículo 11 existe desde que el sistema
- * es de alto riesgo, no desde que a alguien se le ocurre pulsar un botón.
+ * "crear expediente": la obligación existe desde que el sistema entra en el
+ * supuesto que la activa, no desde que a alguien se le ocurre pulsar un botón.
  */
+
+
 
 async function ctx() {
   const supabase = createClient()
@@ -32,8 +35,45 @@ async function ctx() {
   return { error: null, profile, fluxion }
 }
 
-export async function getOrCreateAnnexIvDocument(
+/** Las plantillas del catálogo y si el sistema ya tiene expediente de cada una. */
+export async function listTemplatesForSystem(aiSystemId: string): Promise<TemplateOption[]> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return []
+
+  const { data: templates } = await fluxion
+    .from('document_templates')
+    .select('key, title, description, framework, version')
+    .eq('is_active', true)
+    .order('version', { ascending: false })
+
+  const { data: docs } = await fluxion
+    .from('documents')
+    .select('template_key')
+    .eq('ai_system_id', aiSystemId)
+    .neq('status', 'superseded')
+
+  const existentes = new Set((docs ?? []).map((d) => String(d.template_key)))
+  const vistos = new Set<string>()
+
+  return ((templates ?? []) as Array<Record<string, unknown>>)
+    .filter((t) => {
+      const k = String(t.key)
+      if (vistos.has(k)) return false   // solo la versión más alta de cada clave
+      vistos.add(k)
+      return true
+    })
+    .map((t) => ({
+      key: String(t.key),
+      title: String(t.title),
+      description: (t.description as string | null) ?? null,
+      framework: String(t.framework),
+      hasDocument: existentes.has(String(t.key)),
+    }))
+}
+
+export async function getOrCreateDocument(
   aiSystemId: string,
+  templateKey: string,
 ): Promise<ComposedDocument | { error: string }> {
   const { error, profile, fluxion } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
@@ -52,7 +92,7 @@ export async function getOrCreateAnnexIvDocument(
     .from('documents')
     .select('id')
     .eq('ai_system_id', aiSystemId)
-    .eq('template_key', 'annex_iv')
+    .eq('template_key', templateKey)
     .neq('status', 'superseded')
     .maybeSingle()
 
@@ -63,15 +103,15 @@ export async function getOrCreateAnnexIvDocument(
     // organización si la hubiera.
     const { data: template } = await fluxion
       .from('document_templates')
-      .select('version')
-      .eq('key', 'annex_iv')
+      .select('version, title')
+      .eq('key', templateKey)
       .eq('is_active', true)
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (!template) {
-      return { error: 'No hay ninguna plantilla del Anexo IV activa. Revisa las migraciones.' }
+      return { error: `No hay ninguna plantilla activa para "${templateKey}". Revisa las migraciones.` }
     }
 
     const { data: created, error: insErr } = await fluxion
@@ -79,9 +119,9 @@ export async function getOrCreateAnnexIvDocument(
       .insert({
         organization_id: system.organization_id,
         ai_system_id: aiSystemId,
-        template_key: 'annex_iv',
+        template_key: templateKey,
         template_version: template.version,
-        title: `Documentación técnica · ${system.name}`,
+        title: `${template.title} · ${system.name}`,
         created_by: profile.id,
       })
       .select('id')
@@ -106,6 +146,7 @@ export async function saveDocumentSection(input: {
   ref: string
   text: string
   aiSystemId: string
+  templateKey: string
 }): Promise<{ ok: true } | { error: string }> {
   const { error, profile, fluxion } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
@@ -159,7 +200,7 @@ export async function saveDocumentSection(input: {
     return { error: 'No se pudo guardar el apartado.' }
   }
 
-  revalidatePath(`/inventario/${input.aiSystemId}/anexo-iv`)
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { ok: true }
 }
 
@@ -167,6 +208,7 @@ export async function setDocumentStatus(input: {
   documentId: string
   status: 'draft' | 'in_review' | 'approved'
   aiSystemId: string
+  templateKey: string
 }): Promise<{ ok: true } | { error: string }> {
   const { error, profile, fluxion } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
@@ -205,7 +247,7 @@ export async function setDocumentStatus(input: {
     return { error: 'No se pudo cambiar el estado del expediente.' }
   }
 
-  revalidatePath(`/inventario/${input.aiSystemId}/anexo-iv`)
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { ok: true }
 }
 
@@ -244,6 +286,7 @@ export async function listDocumentRenders(documentId: string): Promise<RenderRow
 export async function generateDocumentRender(input: {
   documentId: string
   aiSystemId: string
+  templateKey: string
 }): Promise<{ renderId: string; gaps: number } | { error: string }> {
   const { error, profile } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
@@ -257,6 +300,6 @@ export async function generateDocumentRender(input: {
   if (res.error) return { error: res.error }
   if (!res.renderId) return { error: 'No se pudo generar el entregable.' }
 
-  revalidatePath(`/inventario/${input.aiSystemId}/anexo-iv`)
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { renderId: res.renderId, gaps: res.gaps ?? 0 }
 }

@@ -10,6 +10,7 @@ import {
 
 import type { ComposedDocument, ComposedSection } from '@/lib/documents/compose'
 import { saveDocumentSection, setDocumentStatus, generateDocumentRender, type RenderRow } from './actions'
+import type { TemplateOption } from '@/lib/documents/templates'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   'derived:system':  { label: 'Ficha del sistema',  icon: <Database size={11} /> },
@@ -25,10 +26,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Una sección ───────────────────────────────────────────────────────────────
 
-function Section({ section, documentId, aiSystemId, readOnly }: {
+function Section({ section, documentId, aiSystemId, templateKey, readOnly }: {
   section: ComposedSection
   documentId: string
   aiSystemId: string
+  templateKey: string
   readOnly: boolean
 }) {
   const router = useRouter()
@@ -49,7 +51,7 @@ function Section({ section, documentId, aiSystemId, readOnly }: {
   function save() {
     setError(null)
     start(async () => {
-      const res = await saveDocumentSection({ documentId, ref: section.ref, text, aiSystemId })
+      const res = await saveDocumentSection({ documentId, ref: section.ref, text, aiSystemId, templateKey })
       if ('error' in res) setError(res.error)
       else { setEditing(false); router.refresh() }
     })
@@ -172,9 +174,15 @@ function formatBytes(b: number): string {
   return `${(b / 1048576).toFixed(1)} MB`
 }
 
-export function AnexoIvClient({ doc, renders, aiSystemId }: {
+const FRAMEWORK_LABEL: Record<string, string> = {
+  ai_act: 'AI Act', gdpr: 'RGPD', iso42001: 'ISO 42001',
+}
+
+export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId }: {
   doc: ComposedDocument
   renders: RenderRow[]
+  templates: TemplateOption[]
+  templateKey: string
   aiSystemId: string
 }) {
   const router = useRouter()
@@ -185,12 +193,13 @@ export function AnexoIvClient({ doc, renders, aiSystemId }: {
   function generate() {
     setError(null)
     startRender(async () => {
-      const res = await generateDocumentRender({ documentId: doc.document.id, aiSystemId })
+      const res = await generateDocumentRender({ documentId: doc.document.id, aiSystemId, templateKey })
       if ('error' in res) setError(res.error)
       else router.refresh()
     })
   }
 
+  const actual = templates.find((t) => t.key === templateKey)
   const readOnly = doc.document.status === 'approved'
   const pct = Math.round(doc.completeness * 100)
   const barColor = pct === 100 ? 'bg-gr' : pct >= 60 ? 'bg-or' : 'bg-re'
@@ -198,7 +207,7 @@ export function AnexoIvClient({ doc, renders, aiSystemId }: {
   function changeStatus(status: 'draft' | 'in_review' | 'approved') {
     setError(null)
     start(async () => {
-      const res = await setDocumentStatus({ documentId: doc.document.id, status, aiSystemId })
+      const res = await setDocumentStatus({ documentId: doc.document.id, status, aiSystemId, templateKey })
       if ('error' in res) setError(res.error)
       else router.refresh()
     })
@@ -215,15 +224,36 @@ export function AnexoIvClient({ doc, renders, aiSystemId }: {
 
       <div>
         <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm flex items-center gap-1.5">
-          <FileText size={12} /> Reglamento (UE) 2024/1689 · Artículo 11.1
+          <FileText size={12} /> {FRAMEWORK_LABEL[actual?.framework ?? ''] ?? 'Cumplimiento'} · Expediente regulatorio
         </p>
-        <h1 className="font-fraunces text-[26px] text-ltt mt-1">Documentación técnica · Anexo IV</h1>
-        <p className="font-sora text-[13px] text-lttm mt-2 max-w-2xl">
-          El expediente que hay que poder entregar a una autoridad o a un organismo
-          notificado. Está organizado por los epígrafes del Anexo IV, no por las
-          pantallas de Fluxion, para que lo que falte se pueda citar por su número.
+        <h1 className="font-fraunces text-[26px] text-ltt mt-1">{actual?.title ?? doc.document.title}</h1>
+        {actual?.description && (
+          <p className="font-sora text-[13px] text-lttm mt-2 max-w-2xl">{actual.description}</p>
+        )}
+        <p className="font-sora text-[12.5px] text-lttm mt-2 max-w-2xl">
+          Está organizado por los epígrafes de la norma, no por las pantallas de
+          Fluxion, para que lo que falte se pueda citar por su número.
         </p>
       </div>
+
+      {templates.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap border-b border-ltb pb-3">
+          {templates.map((t) => (
+            <Link
+              key={t.key}
+              href={`/inventario/${aiSystemId}/expediente/${t.key}`}
+              className={`px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border transition-colors ${
+                t.key === templateKey
+                  ? 'border-brand-cyan text-brand-cyan bg-ltcard'
+                  : 'border-ltb text-lttm hover:text-ltt'
+              }`}
+            >
+              {t.title.split('·')[0]!.trim()}
+              {t.hasDocument && t.key !== templateKey && <span className="ml-1.5 text-gr">•</span>}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Estado y cobertura */}
       <div className="border border-ltb rounded-[12px] bg-ltcard p-4 flex flex-col gap-3">
@@ -389,6 +419,7 @@ export function AnexoIvClient({ doc, renders, aiSystemId }: {
             section={s}
             documentId={doc.document.id}
             aiSystemId={aiSystemId}
+            templateKey={templateKey}
             readOnly={readOnly}
           />
         ))}
