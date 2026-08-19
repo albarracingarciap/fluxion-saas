@@ -4220,7 +4220,8 @@ export function SystemDetailClient({
               <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3">Acciones rápidas</div>
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { icon: <FileText className="w-4 h-4 text-lttm" />, label: 'Generar doc.', sub: 'Borrador Anexo IV', href: `/inventario/${system.id}/technical-dossier` },
+                  { icon: <FileText className="w-4 h-4 text-brand-cyan" />, label: 'Anexo IV', sub: 'Art. 11 · Expediente', href: `/inventario/${system.id}/anexo-iv` },
+                  { icon: <FileText className="w-4 h-4 text-lttm" />, label: 'Dossier técnico', sub: 'Vista e instantánea', href: `/inventario/${system.id}/technical-dossier` },
                   { icon: <ShieldAlert className="w-4 h-4 text-re" />, label: 'Eval. riesgos', sub: 'Art. 9 · FMEA', href: `/inventario/${system.id}/fmea` },
                   { icon: <ArrowUpRight className="w-4 h-4 text-brand-blue" />, label: 'Registro EU', sub: 'Art. 71 · Form.', href: `/inventario/${system.id}/eu-registry` },
                   { icon: <Download className="w-4 h-4 text-lttm" />, label: 'Gap report', sub: 'Exportar en PDF', href: `/inventario/${system.id}/gap-report` },
