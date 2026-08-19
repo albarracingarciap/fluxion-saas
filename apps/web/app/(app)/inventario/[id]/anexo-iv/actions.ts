@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { composeDocument, type ComposedDocument } from '@/lib/documents/compose'
+import { generateRender } from '@/lib/documents/render'
 
 /**
  * Expediente técnico del Anexo IV, por sistema.
@@ -23,7 +24,7 @@ async function ctx() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id')
+    .select('id, organization_id, full_name')
     .eq('user_id', user.id)
     .single()
 
@@ -206,4 +207,56 @@ export async function setDocumentStatus(input: {
 
   revalidatePath(`/inventario/${input.aiSystemId}/anexo-iv`)
   return { ok: true }
+}
+
+export type RenderRow = {
+  id: string
+  rendered_at: string
+  byte_size: number
+  checksum_sha256: string
+  gaps: Array<{ ref: string; title: string }>
+  document_status: string
+  rendered_by_name: string | null
+}
+
+export async function listDocumentRenders(documentId: string): Promise<RenderRow[]> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return []
+
+  const { data } = await fluxion
+    .from('document_renders')
+    .select('id, rendered_at, byte_size, checksum_sha256, gaps, document_status, profiles:rendered_by(full_name)')
+    .eq('document_id', documentId)
+    .order('rendered_at', { ascending: false })
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    id: String(r.id),
+    rendered_at: String(r.rendered_at),
+    byte_size: Number(r.byte_size ?? 0),
+    checksum_sha256: String(r.checksum_sha256 ?? ''),
+    gaps: (r.gaps ?? []) as Array<{ ref: string; title: string }>,
+    document_status: String(r.document_status ?? ''),
+    rendered_by_name:
+      (r.profiles as { full_name?: string } | null)?.full_name ?? null,
+  }))
+}
+
+export async function generateDocumentRender(input: {
+  documentId: string
+  aiSystemId: string
+}): Promise<{ renderId: string; gaps: number } | { error: string }> {
+  const { error, profile } = await ctx()
+  if (error || !profile) return { error: error ?? 'No autenticado' }
+
+  const res = await generateRender({
+    documentId: input.documentId,
+    profileId: profile.id,
+    profileName: profile.full_name ?? 'Fluxion',
+  })
+
+  if (res.error) return { error: res.error }
+  if (!res.renderId) return { error: 'No se pudo generar el entregable.' }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/anexo-iv`)
+  return { renderId: res.renderId, gaps: res.gaps ?? 0 }
 }

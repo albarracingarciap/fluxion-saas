@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { AlertCircle } from 'lucide-react'
 
-import { getOrCreateAnnexIvDocument } from './actions'
+import { getOrCreateAnnexIvDocument, listDocumentRenders } from './actions'
 import { AnexoIvClient } from './anexo-iv-client'
 
 export const dynamic = 'force-dynamic'
@@ -29,5 +29,7 @@ export default async function AnexoIvPage({ params }: { params: { id: string } }
     )
   }
 
-  return <AnexoIvClient doc={result} aiSystemId={params.id} />
+  const renders = await listDocumentRenders(result.document.id)
+
+  return <AnexoIvClient doc={result} renders={renders} aiSystemId={params.id} />
 }
