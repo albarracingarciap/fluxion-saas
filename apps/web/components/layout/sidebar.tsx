@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useSidebarStore } from "@/lib/store/sidebarStore"
-import {
+import { Activity,
   LayoutDashboard, ChevronDown, List, FileCheck,
   Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList,
   ShieldCheck, ShieldAlert, CheckSquare, LayoutGrid,
@@ -48,6 +48,7 @@ const NAV: NavSection[] = [
   {
     group: "Seguimiento",
     items: [
+      { label: "Observabilidad", href: "/observabilidad", icon: <Activity size={15} /> },
       { label: "Tareas", href: "/tareas", icon: <CheckSquare size={15} /> },
       { label: "Kanban", href: "/kanban", icon: <LayoutGrid size={15} /> },
     ],

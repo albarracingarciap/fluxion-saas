@@ -56,3 +56,41 @@ export function createAdminFluxionClient() {
     }
   )
 }
+
+/**
+ * Cliente apuntando al esquema `telemetry`.
+ *
+ * Esquema aparte del resto a propósito: es el volumen que no debe compartir
+ * destino con los datos de cumplimiento. Requiere que `telemetry` esté en
+ * PGRST_DB_SCHEMAS del servicio supabase-rest.
+ */
+export function createTelemetryClient() {
+  const cookieStore = cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      db: { schema: 'telemetry' },
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch {
+            // Server Component
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch {
+            // Server Component
+          }
+        },
+      },
+    }
+  )
+}
