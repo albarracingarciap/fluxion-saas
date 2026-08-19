@@ -16,6 +16,7 @@ export type ApiScope =
   | 'inventory:write'
   | 'connectors:sync'
   | 'telemetry:write'
+  | 'hitl:write'
 
 export const API_SCOPES: ReadonlyArray<{
   value: ApiScope
@@ -34,6 +35,12 @@ export const API_SCOPES: ReadonlyArray<{
     group: 'Telemetría',
     label: 'Enviar telemetría',
     desc: 'Publicar trazas de llamadas a modelos (OTLP). Solo metadatos: modelo, tokens, latencia y error. Nunca el contenido de los prompts.',
+  },
+  {
+    value: 'hitl:write',
+    group: 'Supervisión humana',
+    label: 'Registrar decisiones humanas',
+    desc: 'Publicar decisiones de revisión sobre sugerencias de IA. Solo referencias seudonimizadas: nunca el contenido del caso.',
   },
   {
     value: 'signals:read',
