@@ -102,11 +102,15 @@ export function EvidenceSection({ action, aiSystemId, evaluationId, readOnly }: 
           <FileUp className="w-4 h-4 text-lttm" />
           <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Evidencia</span>
         </div>
-        {action.evidence_description && (
+        {action.evidence_description ? (
           <span className="font-sora text-[11px] text-lttm truncate max-w-[260px]">
             {action.evidence_description}
           </span>
-        )}
+        ) : !action.option ? (
+          <span className="font-sora text-[11px] text-lttm truncate max-w-[300px]">
+            Al elegir la opción de tratamiento se indicará qué evidencia se espera
+          </span>
+        ) : null}
       </div>
 
       {hasEvidence ? (

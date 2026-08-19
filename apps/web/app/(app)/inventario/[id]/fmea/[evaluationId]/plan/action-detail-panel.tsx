@@ -370,14 +370,17 @@ export function ActionDetailPanel({
         </div>
       )}
 
-      {(action.option || action.evidence_id) && (
-        <EvidenceSection
-          action={action}
-          aiSystemId={aiSystemId}
-          evaluationId={evaluationId}
-          readOnly={readOnly}
-        />
-      )}
+      {/* La sección se muestra siempre, también antes de elegir la opción de
+          tratamiento: la evidencia suele existir antes que la decisión formal
+          —alguien tiene ya el certificado o el informe— y hacerle esperar es la
+          forma más segura de que ese documento no se adjunte nunca. El proceso
+          lo sigue validando el guardado de la opción. */}
+      <EvidenceSection
+        action={action}
+        aiSystemId={aiSystemId}
+        evaluationId={evaluationId}
+        readOnly={readOnly}
+      />
     </div>
   )
 }
