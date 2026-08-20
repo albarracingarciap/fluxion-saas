@@ -3,11 +3,16 @@
 # El motivo es la red: necesita estar en DOS a la vez.
 #
 #   · dokploy-network            — para que Traefik le dé el dominio público
-#   · supabase-b235d9_default    — para alcanzar supabase-db
+#   · red del stack propio       — para alcanzar la base de datos
 #
-# La alternativa era meter supabase-db en dokploy-network, pero eso abre
-# PostgreSQL a todos los contenedores del servidor (WordPress, Moodle, n8n) y
-# obliga a reiniciar la base de datos. Es más estrecho que entre el servicio.
+# La alternativa era meter la base de datos en dokploy-network, pero eso la abre
+# a todos los contenedores del servidor (WordPress, Moodle, n8n). Es más
+# estrecho que entre el servicio de telemetría.
+#
+# El nombre de la red lleva el sufijo del proyecto de Dokploy, así que cambia si
+# el stack se recrea. Si un día la telemetría deja de escribir con un 503,
+# comprobar esto primero:
+#   docker inspect fluxion-sb-db --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 
 services:
   telemetry:
@@ -32,4 +37,4 @@ networks:
     external: true
   supabase:
     external: true
-    name: supabase-b235d9_default
+    name: fluxion-saas-supabase-0mity8_default

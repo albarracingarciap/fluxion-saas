@@ -87,7 +87,7 @@ mirar cuando un cliente diga que su telemetría no llega.
 ## Variables del servicio
 
 ```
-DATABASE_URL=postgresql://postgres:<contraseña>@supabase-db:5432/postgres
+DATABASE_URL=postgresql://postgres:<contraseña>@fluxion-sb-db:5432/postgres
 LOG_LEVEL=INFO
 MAX_BODY_BYTES=8388608
 DB_POOL_MAX=8
@@ -115,7 +115,7 @@ al revés.
 Comprobar en qué red está la base de datos:
 
 ```bash
-docker inspect supabase-db --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+docker inspect fluxion-sb-db --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
 ```
 
 Y que el contenedor de telemetría esté también en ella. Como parche inmediato:
