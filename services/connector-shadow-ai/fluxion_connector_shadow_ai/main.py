@@ -155,7 +155,11 @@ def sync_connection(
             if parece_ia(hallazgos):
                 hallazgos_por_repo[repo.external_id] = hallazgos
 
-        core.publish_discoveries(descubrimientos)
+        # Sin recoger el resultado, un descubrimiento rechazado por el Core no
+        # aparecia en ninguna parte y la pasada se reportaba como `ok`.
+        publicados = core.publish_discoveries(descubrimientos)
+        if publicados.get("rejected"):
+            parcial = True
 
         for external_id, hallazgos in hallazgos_por_repo.items():
             try:
@@ -163,17 +167,30 @@ def sync_connection(
             except CoreApiError as e:
                 logger.error("hallazgos de %s rechazados: %s", external_id, e)
 
-        if senales:
+        # `len(senales)` es lo que se INTENTO publicar, no lo que el Core acepto.
+        # Reportar lo intentado convierte un rechazo masivo en una pasada
+        # aparentemente correcta, que es justo lo que no puede pasar.
+        totales = (
             signals.publish(senales)
+            if senales
+            else {"accepted": 0, "duplicates": 0, "rejected": 0}
+        )
+        if totales.get("rejected"):
+            parcial = True
 
         core.report_run(
             connector_type=connector_type, connection_id=connection.id or None,
             started_at=started_at, status="partial" if parcial else "ok",
-            objects_seen=repos_vistos, signals_published=len(senales),
+            objects_seen=repos_vistos,
+            signals_published=totales.get("accepted", 0),
+            signals_duplicated=totales.get("duplicates", 0),
+            signals_rejected=totales.get("rejected", 0),
             details={
                 "repositorios_con_ia": con_hallazgos,
                 "peticiones_restantes": getattr(cliente, "restantes", None),
                 "parcial": parcial,
+                "descubrimientos_aceptados": publicados.get("accepted", 0),
+                "descubrimientos_rechazados": publicados.get("rejected", 0),
             },
         )
         logger.info(

@@ -113,8 +113,15 @@ def sync_connection(
             len(pending_signals), len(pending_discoveries),
         )
 
-        if pending_discoveries:
+        # El resultado NO se descarta: un descubrimiento rechazado por el Core
+        # es un fallo del conector (formato, longitud, conexion inexistente) y
+        # tiene que verse en el historial de la pasada. Descartarlo dejaba
+        # pasadas reportadas como `ok` que no habian reportado nada.
+        discoveries = (
             connector_client.publish_discoveries(pending_discoveries)
+            if pending_discoveries
+            else {"received": 0, "accepted": 0, "rejected": 0}
+        )
 
         totals = (
             signals_client.publish(pending_signals)
@@ -126,7 +133,7 @@ def sync_connection(
             connector_type=CONNECTOR_TYPE,
             connection_id=connection.id or None,
             started_at=started_at,
-            status="partial" if totals["rejected"] else "ok",
+            status="partial" if totals["rejected"] or discoveries.get("rejected") else "ok",
             objects_seen=models,
             signals_published=totals["accepted"],
             signals_duplicated=totals["duplicates"],
@@ -134,6 +141,8 @@ def sync_connection(
             details={
                 "versions_seen": versions_total,
                 "discoveries_reported": len(pending_discoveries),
+                "discoveries_accepted": discoveries.get("accepted", 0),
+                "discoveries_rejected": discoveries.get("rejected", 0),
             },
         )
 
