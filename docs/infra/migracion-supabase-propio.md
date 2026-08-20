@@ -173,6 +173,41 @@ Sin eso, los disparadores de la propia aplicación se ejecutan durante la carga 
 generan notificaciones, entradas de historial y estados derivados que no
 corresponden a lo que se está restaurando.
 
+### Lo que apareció al hacerlo
+
+Tres cosas que la fase 1 no había previsto, y que volverán a aparecer en
+cualquier cambio de instancia futuro.
+
+**Hay vínculos guardados FUERA de Supabase.** El conector de MLflow resuelve a
+qué sistema del inventario pertenece un modelo leyendo la etiqueta
+`fluxion.system_id` **dentro de MLflow**. Esa etiqueta sobrevivió a la
+migración porque nunca estuvo en la base de datos, y apuntaba a un sistema de
+la instancia vieja: el Core rechazaba el 100 % de las señales con «system_id no
+pertenece a la organización de esta clave». Se borra con la API de MLflow
+(`DELETE /api/2.0/mlflow/registered-models/delete-tag`, con el cuerpo en JSON) y
+el modelo vuelve a la cola de conciliación.
+
+**Hay URL absolutas guardadas en filas.** `organizations.logo_url` y
+`profiles.avatar_url` contienen el dominio completo del Storage. Al mover el
+dominio en la fase 7 hay que reescribirlas:
+
+```sql
+UPDATE fluxion.organizations SET logo_url = replace(logo_url, 'supabase2.', 'supabase.')
+ WHERE logo_url LIKE '%supabase2.%';
+UPDATE fluxion.profiles      SET avatar_url = replace(avatar_url, 'supabase2.', 'supabase.')
+ WHERE avatar_url LIKE '%supabase2.%';
+```
+
+Y el host de `next/image` se deriva de `NEXT_PUBLIC_SUPABASE_URL`, que es de
+compilación: **cambiar la variable exige reconstruir**, no solo reiniciar.
+
+**Los permisos que no están en una migración no existen.** Cuatro vistas
+concedían `SELECT` solo a `authenticated` y el cliente de servicio recibía
+42501. Funcionaba en la instancia compartida por permisos dados a mano hace
+meses. Ojo también a que las `ALTER DEFAULT PRIVILEGES` de la línea base están
+declaradas `FOR ROLE postgres`, mientras que `migrate.sh` aplica como
+`supabase_admin`: no cubren los objetos nuevos.
+
 ## Fase 5 · Secretos y ficheros
 
 - Reintroducir cada secreto del Vault **y leerlo** para comprobarlo
