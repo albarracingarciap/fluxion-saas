@@ -60,17 +60,30 @@ Un día de intervalo, no quince minutos como MLflow: el código de una
 organización no cambia tanto, y cada pasada consume presupuesto de peticiones
 del proveedor.
 
-## Topes por repositorio
+## Topes y presupuesto de peticiones
 
 - Manifiestos: todos
-- Código: **300 ficheros**, los más pequeños primero, hasta 200 KB cada uno
+- Código: `MAX_FICHEROS_CODIGO` ficheros (120 por omisión), los más pequeños
+  primero, hasta `MAX_BYTES_FICHERO`
 - Ficheros de modelo: por extensión, sin abrirlos
 
-Un monorepo con veinte mil ficheros agotaría el límite de peticiones y tardaría
-horas para no decir nada nuevo. Se priorizan los ficheros pequeños porque es
-donde suele estar la configuración y las claves.
+Se priorizan los ficheros pequeños porque es donde suele estar la configuración
+y las claves.
 
-Cuando el escaneo es parcial, queda en el log del servicio.
+**GitHub limita a 5.000 peticiones por hora** y cada fichero leído es una. El
+escáner lleva la cuenta con la cabecera `x-ratelimit-remaining` y **para cuando
+quedan menos de `RESERVA_PETICIONES`** (500 por omisión), reportando la pasada
+como `partial` en vez de estrellarse.
+
+La reserva existe porque agotar el límite no solo rompe la pasada: deja sin API
+a cualquier otra cosa que use ese token durante el resto de la hora.
+
+Lo que quede sin revisar entra en la siguiente pasada.
+
+⚠️ **No reinicies el contenedor con `docker restart`.** Es una tarea de Swarm
+gestionada por Dokploy: reiniciarla a mano hace que Swarm cree reemplazos y deja
+las anteriores vivas, con varias copias escaneando a la vez y agotando el límite
+entre todas. Usa **Redeploy** en el panel.
 
 ## Despliegue en Dokploy
 

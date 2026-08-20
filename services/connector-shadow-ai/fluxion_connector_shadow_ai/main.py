@@ -34,7 +34,7 @@ from fluxion_common import (
 )
 
 from .providers import ProviderError, build_client
-from .scanner import escanear_repo, parece_ia
+from .scanner import escanear_repo, parece_ia, presupuesto_agotado
 
 logger = setup_logging("fluxion_connector_shadow_ai")
 
@@ -106,9 +106,22 @@ def sync_connection(
         repos = cliente.repos()
         logger.info("%s: %s repositorios en %s", connection.name, len(repos), owner)
 
+        parcial = False
+
         for repo in repos:
             if repo.archived:
                 continue
+
+            if presupuesto_agotado(cliente):
+                # Se para y se dice. Seguir hasta estrellarse contra el limite
+                # deja la pasada en error y sin distinguir "fallo" de "no cabia".
+                logger.warning(
+                    "presupuesto de peticiones agotado tras %s repositorios; "
+                    "el resto se revisara en la proxima pasada", repos_vistos,
+                )
+                parcial = True
+                break
+
             repos_vistos += 1
 
             hallazgos = escanear_repo(cliente, repo)
@@ -155,9 +168,13 @@ def sync_connection(
 
         core.report_run(
             connector_type=connector_type, connection_id=connection.id or None,
-            started_at=started_at, status="ok",
+            started_at=started_at, status="partial" if parcial else "ok",
             objects_seen=repos_vistos, signals_published=len(senales),
-            details={"repositorios_con_ia": con_hallazgos},
+            details={
+                "repositorios_con_ia": con_hallazgos,
+                "peticiones_restantes": getattr(cliente, "restantes", None),
+                "parcial": parcial,
+            },
         )
         logger.info(
             "%s: %s repositorios revisados, %s con indicios de IA, %s con credenciales",

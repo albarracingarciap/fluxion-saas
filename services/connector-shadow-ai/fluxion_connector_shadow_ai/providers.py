@@ -48,6 +48,9 @@ class GitHubClient:
     def __init__(self, base_url: str, token: str, owner: str) -> None:
         self.base = base_url.rstrip("/") or "https://api.github.com"
         self.owner = owner
+        # Peticiones que quedan segun la ultima respuesta. GitHub lo manda en
+        # cada cabecera, asi que no hace falta preguntarlo aparte.
+        self.restantes: int | None = None
         self.http = httpx.Client(
             timeout=TIMEOUT,
             headers={
@@ -59,7 +62,15 @@ class GitHubClient:
 
     def _get(self, path: str, **kwargs) -> httpx.Response:
         r = self.http.get(f"{self.base}{path}", **kwargs)
-        if r.status_code == 403 and "rate limit" in r.text.lower():
+
+        cabecera = r.headers.get("x-ratelimit-remaining")
+        if cabecera is not None:
+            try:
+                self.restantes = int(cabecera)
+            except ValueError:
+                pass
+
+        if r.status_code in (403, 429) and "rate limit" in r.text.lower():
             raise ProviderError("limite de peticiones de GitHub alcanzado")
         if r.status_code >= 400:
             raise ProviderError(f"GitHub {r.status_code} en {path}: {r.text[:200]}")
@@ -161,6 +172,7 @@ class GitLabClient:
     def __init__(self, base_url: str, token: str, owner: str) -> None:
         self.base = (base_url.rstrip("/") or "https://gitlab.com") + "/api/v4"
         self.owner = owner
+        self.restantes: int | None = None   # GitLab no lo publica igual
         self.http = httpx.Client(timeout=TIMEOUT, headers={"PRIVATE-TOKEN": token})
 
     def _get(self, path: str, **kwargs) -> httpx.Response:

@@ -26,7 +26,14 @@ for r in "${RUTAS[@]}"; do
   [[ -d "$r" ]] || continue
   # Solo los nombres indefinidos: las importaciones sin usar son ruido heredado
   # y no rompen nada en ejecucion.
-  if python -m pyflakes "$r" 2>&1 | grep -E "undefined name|redefinition of unused"; then
+  #
+  # La salida se captura ANTES de evaluarla. Con `pipefail`, poner el pipe
+  # directamente en el `if` hace que el codigo de salida sea el de pyflakes
+  # —que devuelve 1 cuando ENCUENTRA algo— y la condicion se lee al reves: el
+  # script imprimia el error y terminaba diciendo que todo estaba bien.
+  salida=$(python -m pyflakes "$r" 2>&1 | grep -E "undefined name|redefinition of unused" || true)
+  if [[ -n "$salida" ]]; then
+    echo "$salida"
     fallos=1
   fi
 done

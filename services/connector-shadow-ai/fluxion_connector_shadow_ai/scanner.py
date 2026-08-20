@@ -8,6 +8,7 @@ en un almacen de trozos de codigo ajeno con claves dentro.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -19,8 +20,13 @@ log = logging.getLogger("fluxion_connector_shadow_ai.scanner")
 # Topes por repositorio. Un monorepo con veinte mil ficheros agotaria el limite
 # de peticiones del proveedor y tardaria horas para no decir nada nuevo: los
 # manifiestos ya delatan la mayor parte.
-MAX_FICHEROS_CODIGO = 300
-MAX_BYTES_FICHERO = 200_000
+MAX_FICHEROS_CODIGO = int(os.getenv("MAX_FICHEROS_CODIGO", "120"))
+MAX_BYTES_FICHERO = int(os.getenv("MAX_BYTES_FICHERO", "200000"))
+
+# Peticiones que se dejan sin gastar. Agotar el limite del proveedor no solo
+# rompe la pasada: deja sin API a cualquier otra cosa que use ese token durante
+# el resto de la hora.
+RESERVA_PETICIONES = int(os.getenv("RESERVA_PETICIONES", "500"))
 
 
 def _lineas_con(texto: str, aguja: str) -> list[int]:
@@ -92,6 +98,11 @@ def _escanear_codigo(ruta: str, texto: str) -> list[dict[str, Any]]:
     return hallazgos
 
 
+def presupuesto_agotado(cliente) -> bool:
+    restantes = getattr(cliente, "restantes", None)
+    return restantes is not None and restantes <= RESERVA_PETICIONES
+
+
 def escanear_repo(cliente, repo: Repo) -> list[dict[str, Any]]:
     """Una pasada completa sobre un repositorio."""
     try:
@@ -140,6 +151,15 @@ def escanear_repo(cliente, repo: Repo) -> list[dict[str, Any]]:
         )
 
     for f in candidatos[:MAX_FICHEROS_CODIGO]:
+        # Se comprueba dentro del bucle: un repositorio grande puede agotar el
+        # presupuesto a mitad, y seguir solo consigue que fallen las peticiones
+        # y se pierda tambien lo ya escaneado de los siguientes.
+        if presupuesto_agotado(cliente):
+            log.warning(
+                "presupuesto de peticiones casi agotado: %s escaneado parcialmente",
+                repo.name,
+            )
+            break
         texto = cliente.contenido(repo, f.path)
         if texto:
             hallazgos.extend(_escanear_codigo(f.path, texto))
