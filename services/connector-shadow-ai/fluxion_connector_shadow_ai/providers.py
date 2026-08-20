@@ -65,34 +65,66 @@ class GitHubClient:
             raise ProviderError(f"GitHub {r.status_code} en {path}: {r.text[:200]}")
         return r
 
+    def _mapear(self, x: dict) -> Repo:
+        return Repo(
+            external_id=f"github:{x['full_name']}",
+            name=x["name"],
+            full_name=x["full_name"],
+            url=x["html_url"],
+            default_branch=x.get("default_branch") or "main",
+            private=bool(x.get("private")),
+            description=x.get("description"),
+            updated_at=x.get("pushed_at"),
+            archived=bool(x.get("archived")),
+        )
+
+    def _paginar(self, endpoint: str, params: dict) -> list[dict]:
+        salida: list[dict] = []
+        for pagina in range(1, MAX_PAGINAS + 1):
+            lote = self._get(endpoint, params={**params, "per_page": 100, "page": pagina}).json()
+            if not lote:
+                break
+            salida.extend(lote)
+        return salida
+
     def repos(self) -> list[Repo]:
-        """Repositorios de la organizacion, o del usuario si no es una."""
-        salida: list[Repo] = []
-        for endpoint in (f"/orgs/{self.owner}/repos", f"/users/{self.owner}/repos"):
-            try:
-                for pagina in range(1, MAX_PAGINAS + 1):
-                    r = self._get(endpoint, params={"per_page": 100, "page": pagina})
-                    lote = r.json()
-                    if not lote:
-                        break
-                    salida.extend(
-                        Repo(
-                            external_id=f"github:{x['full_name']}",
-                            name=x["name"],
-                            full_name=x["full_name"],
-                            url=x["html_url"],
-                            default_branch=x.get("default_branch") or "main",
-                            private=bool(x.get("private")),
-                            description=x.get("description"),
-                            updated_at=x.get("pushed_at"),
-                            archived=bool(x.get("archived")),
-                        )
-                        for x in lote
-                    )
-                return salida
-            except ProviderError as e:
-                log.debug("%s no sirvio (%s), se prueba la siguiente forma", endpoint, e)
-                salida.clear()
+        """Repositorios de la organizacion, o de la cuenta autenticada.
+
+        Ojo con `/users/{owner}/repos`: devuelve SOLO los publicos aunque la
+        peticion vaya autenticada. Con una cuenta personal, usarlo dejaria los
+        repositorios privados fuera del escaneo y el modulo diria que todo esta
+        bien. Por eso, cuando el owner coincide con la cuenta del token, se usa
+        `/user/repos`, que si los incluye.
+        """
+        # 1 - Organizacion
+        try:
+            crudos = self._paginar(f"/orgs/{self.owner}/repos", {"type": "all"})
+            if crudos:
+                return [self._mapear(x) for x in crudos]
+        except ProviderError as e:
+            log.debug("%s no es una organizacion (%s)", self.owner, e)
+
+        # 2 - Cuenta propia del token
+        try:
+            yo = self._get("/user").json().get("login")
+        except ProviderError:
+            yo = None
+
+        if yo and yo.lower() == self.owner.lower():
+            crudos = self._paginar(
+                "/user/repos", {"affiliation": "owner,collaborator", "visibility": "all"}
+            )
+            return [self._mapear(x) for x in crudos]
+
+        # 3 - Otra cuenta: solo se veran sus repositorios publicos, y se dice.
+        crudos = self._paginar(f"/users/{self.owner}/repos", {"type": "all"})
+        if crudos:
+            log.warning(
+                "%s no es la cuenta del token: solo se escanean sus repositorios publicos",
+                self.owner,
+            )
+            return [self._mapear(x) for x in crudos]
+
         raise ProviderError(f"no se pudieron listar los repositorios de {self.owner}")
 
     def arbol(self, repo: Repo) -> list[Fichero]:
