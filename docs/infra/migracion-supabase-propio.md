@@ -3,7 +3,8 @@
 Guion de la separación. Se escribe antes de tocar nada porque el paso donde uno
 improvisa es el paso donde se pierde algo.
 
-**Estado**: fase 0, mediciones previas.
+**Estado**: fase 2. Mediciones hechas, compose recortado y plantilla de
+variables preparada.
 
 ---
 
@@ -87,12 +88,29 @@ Tres categorías, y la tercera es una decisión.
   filas se restauran con buen aspecto y al descifrar devuelven basura. Se
   reintroducen a mano con `connector_secret_set` y `channel_secret_set`.
 
-**Lo que hay que decidir:** el resto de datos de Fluxion —sistemas, FMEA, planes
-de tratamiento, incidentes, expedientes, telemetría, decisiones humanas—.
+### Decidido tras las mediciones
 
-Recomendación: **llevárselo todo**. Es un `pg_dump --data-only` de cuatro
-esquemas y evita reconstruir a mano meses de escenarios de prueba. La
-alternativa —empezar limpio— solo compensa si esos datos estorban.
+**Solo viaja el corpus RAG global**: `rag.documents` (22) y `rag.chunks` (3.129),
+78 MB. Es lo único que costó dinero.
+
+**`compliance` NO se migra.** Los recuentos de las 15 tablas coinciden
+exactamente con los de la semilla `00000000000005_seed_compliance.sql`, así que
+el catálogo no se ha tocado desde la línea base y se reconstruye solo. Además no
+tiene ninguna referencia a `fluxion` ni columna de organización.
+
+**`fluxion` y `auth` se dejan atrás**, y con ellos los escenarios de prueba. La
+decisión es coherente: llevarse `auth.users` sin `profiles` reproduce el fallo
+de agosto —sesión válida, `getCtx()` nulo, «No autenticado»—. O van juntos o no
+va ninguno.
+
+**Sin `fluxion` no hay secretos del Vault que reintroducir**: las conexiones y
+los canales se crean de nuevo desde Ajustes.
+
+**Los cinco ficheros de Storage tampoco viajan**: son avatares, logos y dos
+adjuntos de tareas que pertenecen a perfiles y tareas que van a desaparecer.
+
+Y el corpus por organización (`rag.organization_chunks`) está vacío, así que no
+plantea el conflicto de claves ajenas con una instancia limpia.
 
 ## Fase 2 · Levantar el stack vacío
 
