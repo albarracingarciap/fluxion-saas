@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useSidebarStore } from "@/lib/store/sidebarStore"
-import { Activity,
+import { Eye, Activity,
   LayoutDashboard, ChevronDown, List, FileCheck,
   Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList,
   ShieldCheck, ShieldAlert, CheckSquare, LayoutGrid,
@@ -43,6 +43,7 @@ const NAV: NavSection[] = [
       { label: "Evaluaciones", href: "/evaluaciones", icon: <FileCheck size={15} /> },
       { label: "Planes de tratamiento", href: "/planes", icon: <ShieldCheck size={15} /> },
       { label: "Incidentes", href: "/incidentes", icon: <ShieldAlert size={15} /> },
+      { label: "Supervisión humana", href: "/supervision", icon: <Eye size={15} /> },
     ],
   },
   {
