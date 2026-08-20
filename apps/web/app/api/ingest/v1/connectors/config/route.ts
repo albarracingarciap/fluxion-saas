@@ -4,7 +4,7 @@ import { requireApiKey } from '@/lib/auth/api-key'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 
 /**
- * GET /api/ingest/v1/connectors/config?type=mlflow
+ * GET /api/ingest/v1/connectors/config?type=mlflow|github|gitlab
  *
  * Devuelve las conexiones activas de ese tipo para la organización de la clave,
  * con las credenciales descifradas. Un único contenedor conector atiende así
@@ -18,13 +18,16 @@ import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const SUPPORTED_TYPES = ['mlflow']
+// Debe ir a la par con el CHECK de connector_connections.connector_type.
+// Ampliar uno sin el otro deja el conector nuevo pidiendo una configuracion que
+// el Core rechaza con un 400, que es justo lo que paso con shadow-ai.
+const SUPPORTED_TYPES = ['mlflow', 'github', 'gitlab']
 
 type ConnectionRow = {
   id: string
   name: string
   base_url: string
-  auth_type: 'none' | 'basic'
+  auth_type: 'none' | 'basic' | 'token'
   username: string | null
   secret_id: string | null
   poll_interval_seconds: number
@@ -89,7 +92,11 @@ export async function GET(request: NextRequest) {
     rows.map(async (row) => {
       let password: string | null = null
 
-      if (row.auth_type === 'basic' && row.secret_id) {
+      // 'token' comparte columna con 'basic': el valor cifrado es el mismo
+      // campo y lo distingue auth_type. Sin incluirlo aquí, un conector de
+      // GitHub recibiría la conexión sin credencial y fallaría con un 401
+      // sin ninguna pista de por qué.
+      if ((row.auth_type === 'basic' || row.auth_type === 'token') && row.secret_id) {
         const { data: secret, error: secretErr } = await admin.rpc('connector_secret_get', {
           p_connection_id: row.id,
         })
