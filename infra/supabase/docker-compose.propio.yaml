@@ -16,6 +16,12 @@
 # quitados: studio ya no depende de analytics, y storage ya no depende de
 # imgproxy.
 #
+# Y con el servicio hay que quitar TAMBIEN sus scripts de inicializacion de la
+# base de datos: realtime.sql y logs.sql (este creaba el esquema _analytics).
+# Si se quedan montados y el fichero no existe, Docker crea un directorio vacio
+# en su lugar y el contenedor no arranca con un error de montaje que no explica
+# nada. Se mantienen _supabase.sql y pooler.sql, que los necesita supavisor.
+#
 # `vector` NO tiene nada que ver con pgvector: es Vector.dev, un recolector de
 # logs. Los embeddings del RAG los da la extension `vector` de PostgreSQL, que
 # instala la migracion de extensiones.
@@ -398,7 +404,6 @@ services:
       # Changes required for internal supabase data such as _analytics
       - ../files/volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
       # Changes required for Analytics support
-      - ../files/volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
       # Changes required for Pooler support
       - ../files/volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
