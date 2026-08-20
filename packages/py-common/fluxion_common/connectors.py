@@ -33,6 +33,16 @@ class Connection:
             return (self.username, self.password)
         return None
 
+    @property
+    def token(self) -> str | None:
+        """Credencial de tipo token (GitHub, GitLab).
+
+        Reutiliza la columna `password` de la conexion: el secreto vive cifrado
+        en el Vault igual que el resto, y distinguir por `auth_type` evita una
+        columna mas para guardar lo mismo.
+        """
+        return self.password if self.auth_type == "token" else None
+
 
 class ConnectorClient(CoreApiClient):
     def fetch_config(self, connector_type: str) -> tuple[list[Connection], dict[str, str]]:
@@ -130,3 +140,25 @@ class ConnectorClient(CoreApiClient):
             self._request("POST", "/api/ingest/v1/connectors/runs", json=payload)
         except CoreApiError as exc:
             logger.warning("no se pudo reportar la pasada: %s", exc)
+
+    def publish_findings(
+        self, asset_external_id: str, findings: list[dict[str, Any]]
+    ) -> dict[str, int]:
+        """Hallazgos de Shadow AI para un repositorio ya publicado.
+
+        Es una FOTO COMPLETA de la pasada, no un incremento: lo que no venga
+        aqui el Core lo marca como resuelto. Asi el escaner no tiene que
+        recordar lo que envio la vez anterior, y un despiste no deja
+        credenciales marcadas como abiertas para siempre.
+        """
+        data = self._request(
+            "POST",
+            "/api/ingest/v1/shadow-ai/findings",
+            json={"asset_external_id": asset_external_id, "findings": findings},
+        ).json()
+
+        logger.info(
+            "hallazgos de %s · %s escritos, %s resueltos",
+            asset_external_id, data.get("written"), data.get("resolved"),
+        )
+        return data

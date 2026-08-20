@@ -17,6 +17,7 @@ RUTAS=(
   services/telemetry/fluxion_telemetry
   services/renderer/fluxion_renderer
   services/connector-mlflow/fluxion_connector_mlflow
+  services/connector-shadow-ai/fluxion_connector_shadow_ai
   packages/py-common/fluxion_common
 )
 
