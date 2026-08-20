@@ -3,8 +3,7 @@
 Especificación a nivel de migraciones y contratos. Módulo `shadow-ai` del
 registro de entitlements.
 
-**Estado**: pasos 1, 2 y 3 hechos. Pendientes: los hallazgos en la bandeja
-de descubrimientos (4) y el alta de conexiones desde Ajustes (5).
+**Estado**: completo.
 
 ---
 
@@ -143,5 +142,5 @@ contrato aguanta.
 | 1 | Migración: tipos de conector, `shadow_ai_findings`, endpoint de hallazgos ✔ |
 | 2 | `services/connector-shadow-ai`: listar repositorios y escanear manifiestos ✔ |
 | 3 | Detección de credenciales expuestas + señal crítica ✔ |
-| 4 | Los hallazgos, visibles en la bandeja de descubrimientos |
-| 5 | Alta de conexiones de GitHub/GitLab desde Ajustes |
+| 4 | Los hallazgos, visibles en la bandeja de descubrimientos ✔ |
+| 5 | Alta de conexiones de GitHub/GitLab desde Ajustes ✔ |

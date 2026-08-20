@@ -690,7 +690,7 @@ export type ConnectorConnectionRow = {
   connector_type:        string
   name:                  string
   base_url:              string
-  auth_type:             'none' | 'basic'
+  auth_type:             'none' | 'basic' | 'token'
   username:              string | null
   has_secret:            boolean
   poll_interval_seconds: number
@@ -772,7 +772,7 @@ export async function saveConnectorConnection(input: {
   connector_type:         string
   name:                   string
   base_url:               string
-  auth_type:              'none' | 'basic'
+  auth_type:              'none' | 'basic' | 'token'
   username?:              string | null
   password?:              string | null   // vacío = no tocar la existente
   poll_interval_seconds:  number
@@ -786,6 +786,12 @@ export async function saveConnectorConnection(input: {
   const baseUrl = input.base_url.trim().replace(/\/+$/, '')
   if (!name) return { error: 'El nombre es obligatorio.' }
   if (!/^https?:\/\//i.test(baseUrl)) return { error: 'La URL debe empezar por http:// o https://' }
+  // En github y gitlab, `username` guarda la ORGANIZACION o grupo a escanear,
+  // no un usuario. Es un compromiso: la tabla no tenia columna para esto.
+  if (input.auth_type === 'token' && !input.username?.trim()) {
+    return { error: 'Indica la organización o grupo a escanear.' }
+  }
+
   if (input.auth_type === 'basic' && !input.username?.trim()) {
     return { error: 'Con autenticación básica el usuario es obligatorio.' }
   }
@@ -798,7 +804,7 @@ export async function saveConnectorConnection(input: {
     name,
     base_url:              baseUrl,
     auth_type:             input.auth_type,
-    username:              input.auth_type === 'basic' ? (input.username?.trim() ?? null) : null,
+    username:              input.auth_type === 'none' ? null : (input.username?.trim() ?? null),
     poll_interval_seconds: Math.max(60, input.poll_interval_seconds),
     is_active:             input.is_active,
   }
@@ -823,7 +829,7 @@ export async function saveConnectorConnection(input: {
   }
 
   // La contraseña solo se toca si el formulario trae una nueva.
-  if (input.auth_type === 'basic' && input.password) {
+  if ((input.auth_type === 'basic' || input.auth_type === 'token') && input.password) {
     const { error: secretErr } = await admin.rpc('connector_secret_set', {
       p_connection_id: connectionId,
       p_value:         input.password,

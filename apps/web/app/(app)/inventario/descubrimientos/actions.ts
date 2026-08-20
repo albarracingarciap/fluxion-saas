@@ -40,6 +40,36 @@ export type DiscoveryRow = {
 
 export type SystemOption = { id: string; name: string }
 
+export type ShadowFinding = {
+  finding_type: 'library' | 'endpoint' | 'credential' | 'model_file'
+  category:     string
+  pattern:      string
+  file_path:    string
+  line_number:  number | null
+  severity:     string
+}
+
+/**
+ * Los hallazgos que explican por qué el escáner cree que un repositorio
+ * contiene IA.
+ *
+ * Sin ellos la bandeja solo puede afirmar; con ellos, quien concilia ve
+ * «usa openai en requirements.txt:3» y decide en diez segundos.
+ */
+export async function getShadowFindings(discoveryId: string): Promise<ShadowFinding[]> {
+  const fluxion = createFluxionClient()
+
+  const { data } = await fluxion
+    .from('shadow_ai_findings')
+    .select('finding_type, category, pattern, file_path, line_number, severity')
+    .eq('discovered_asset_id', discoveryId)
+    .is('resolved_at', null)
+    .order('severity', { ascending: false })
+    .limit(50)
+
+  return ((data ?? []) as ShadowFinding[])
+}
+
 async function requireResolver() {
   const supabase = createClient()
   const fluxion  = createFluxionClient()

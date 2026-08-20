@@ -10,7 +10,8 @@ import {
 
 import {
   linkDiscovery, ignoreDiscovery, reopenDiscovery, createSystemFromDiscovery,
-  type DiscoveryRow, type SystemOption,
+  getShadowFindings,
+  type DiscoveryRow, type SystemOption, type ShadowFinding,
 } from './actions';
 
 const DOMAINS = [
@@ -62,6 +63,22 @@ function DiscoveryCard({
   const [newStatus, setNewStatus] = useState('desarrollo')
 
   const meta = row.metadata as { versions?: number; latest_version?: number; production_versions?: string[] }
+
+  // Hallazgos de Shadow AI: por qué el escáner cree que esto contiene IA.
+  // Se piden al desplegar y no al cargar la lista: con veinte repositorios
+  // serían veinte consultas para algo que casi nadie abre.
+  const esRepo = row.source_module === 'shadow-ai'
+  const [findings, setFindings] = useState<ShadowFinding[] | null>(null)
+  const [loadingFindings, setLoadingFindings] = useState(false)
+
+  function toggleFindings() {
+    if (findings) { setFindings(null); return }
+    setLoadingFindings(true)
+    getShadowFindings(row.id).then((f) => {
+      setFindings(f)
+      setLoadingFindings(false)
+    })
+  }
 
   function run(fn: () => Promise<{ error?: string } | { systemId: string }>) {
     setError(null)
@@ -130,6 +147,59 @@ function DiscoveryCard({
           </a>
         )}
       </div>
+
+      {/* ── Por qué se propone ── */}
+      {esRepo && (
+        <div className="border-t border-ltb pt-3">
+          <button
+            onClick={toggleFindings}
+            className="font-sora text-[12.5px] text-brand-cyan hover:underline"
+          >
+            {findings ? 'Ocultar los indicios' : '¿Por qué se propone este repositorio?'}
+          </button>
+
+          {loadingFindings && (
+            <p className="font-sora text-[12px] text-lttm mt-2">Buscando…</p>
+          )}
+
+          {findings && findings.length === 0 && (
+            <p className="font-sora text-[12px] text-lttm mt-2">
+              Ya no quedan indicios abiertos: lo que se encontró ha desaparecido del
+              repositorio.
+            </p>
+          )}
+
+          {findings && findings.length > 0 && (
+            <div className="mt-2.5 flex flex-col gap-1.5">
+              {findings.map((f, i) => (
+                <div key={i} className="flex items-baseline gap-2 flex-wrap">
+                  <span className={`font-plex text-[9.5px] uppercase tracking-[0.4px] px-1.5 py-0.5 rounded-[4px] border ${
+                    f.severity === 'critical' ? 'border-reb text-re'
+                    : f.severity === 'high'   ? 'border-orb text-or'
+                    : 'border-ltb text-lttm'
+                  }`}>
+                    {f.finding_type === 'credential' ? 'credencial'
+                     : f.finding_type === 'library'   ? 'librería'
+                     : f.finding_type === 'endpoint'  ? 'proveedor'
+                     : 'modelo'}
+                  </span>
+                  <span className="font-sora text-[12.5px] text-ltt">{f.pattern}</span>
+                  <span className="font-plex text-[11px] text-lttm">
+                    {f.file_path}{f.line_number ? `:${f.line_number}` : ''}
+                  </span>
+                </div>
+              ))}
+              {findings.some((f) => f.finding_type === 'credential') && (
+                <p className="font-sora text-[11.5px] text-re mt-1.5">
+                  Hay credenciales en el código. Fluxion no guarda su valor, pero
+                  conviene rotarlas: el historial de Git conserva lo borrado aunque
+                  se quiten hoy.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Acciones ── */}
       {row.status === 'pending' && mode === 'idle' && (

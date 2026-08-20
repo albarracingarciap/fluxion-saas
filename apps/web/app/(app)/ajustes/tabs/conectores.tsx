@@ -14,8 +14,18 @@ import {
 import { FieldLabel, inputCls, selectCls, SelectArrow, formatRelative } from './shared';
 
 const CONNECTOR_TYPES = [
-  { value: 'mlflow', label: 'MLflow', hint: 'Registro de modelos: publica cada versión como señal.' },
+  { value: 'mlflow', label: 'MLflow',
+    hint: 'Registro de modelos: publica cada versión como señal.',
+    urlPlaceholder: 'https://mlflow.tu-dominio.com', auth: 'basic' as const },
+  { value: 'github', label: 'GitHub',
+    hint: 'Busca IA no declarada en el código: librerías, llamadas a proveedores y credenciales expuestas.',
+    urlPlaceholder: 'https://api.github.com', auth: 'token' as const },
+  { value: 'gitlab', label: 'GitLab',
+    hint: 'Igual que GitHub, sobre grupos de GitLab.',
+    urlPlaceholder: 'https://gitlab.com', auth: 'token' as const },
 ]
+
+const ES_REPOSITORIO = (t: string) => t === 'github' || t === 'gitlab'
 
 const INTERVALS = [
   { value: 300,   label: 'Cada 5 minutos' },
@@ -101,7 +111,7 @@ type FormState = {
   connector_type:        string
   name:                  string
   base_url:              string
-  auth_type:             'none' | 'basic'
+  auth_type:             'none' | 'basic' | 'token'
   username:              string
   password:              string
   poll_interval_seconds: number
@@ -168,7 +178,17 @@ function ConnectionForm({
           <div className="relative">
             <select
               value={form.connector_type}
-              onChange={(e) => setForm({ ...form, connector_type: e.target.value })}
+              onChange={(e) => {
+                const tipo = CONNECTOR_TYPES.find((t) => t.value === e.target.value)
+                setForm({
+                  ...form,
+                  connector_type: e.target.value,
+                  // Cada tipo tiene su forma de autenticarse. Dejar la anterior
+                  // era la puerta a guardar un token en el campo de usuario.
+                  auth_type: tipo?.auth ?? 'basic',
+                  base_url: form.base_url || tipo?.urlPlaceholder || '',
+                })
+              }}
               className={selectCls}
               disabled={Boolean(form.id)}
             >
@@ -194,7 +214,7 @@ function ConnectionForm({
         <input
           type="text" value={form.base_url}
           onChange={(e) => setForm({ ...form, base_url: e.target.value })}
-          placeholder="https://mlflow.tu-dominio.com" className={inputCls}
+          placeholder={typeInfo?.urlPlaceholder ?? 'https://…'} className={inputCls}
         />
       </div>
 
@@ -217,15 +237,48 @@ function ConnectionForm({
             <div className="relative">
               <select
                 value={form.auth_type}
-                onChange={(e) => setForm({ ...form, auth_type: e.target.value as 'none' | 'basic' })}
+                onChange={(e) => setForm({ ...form, auth_type: e.target.value as 'none' | 'basic' | 'token' })}
                 className={selectCls}
+                disabled={ES_REPOSITORIO(form.connector_type)}
               >
-                <option value="basic">Usuario y contraseña</option>
-                <option value="none">Sin autenticación</option>
+                {ES_REPOSITORIO(form.connector_type)
+                  ? <option value="token">Token de acceso</option>
+                  : <>
+                      <option value="basic">Usuario y contraseña</option>
+                      <option value="none">Sin autenticación</option>
+                    </>}
               </select>
               <SelectArrow />
             </div>
           </div>
+
+          {form.auth_type === 'token' && (
+            <>
+              <div>
+                <FieldLabel>Organización o grupo <span className="text-re">*</span></FieldLabel>
+                <input
+                  type="text" value={form.username} autoComplete="off"
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  placeholder="mi-organizacion" className={inputCls}
+                />
+                <p className="font-sora text-[11px] text-lttm mt-1">
+                  Cuya cuenta se escanea. Si es tu cuenta personal, tu propio usuario.
+                </p>
+              </div>
+              <div>
+                <FieldLabel>Token de solo lectura <span className="text-re">*</span></FieldLabel>
+                <input
+                  type="password" value={form.password} autoComplete="new-password"
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder={form.has_secret ? '•••••••• (sin cambios)' : 'ghp_… o github_pat_…'}
+                  className={inputCls}
+                />
+                <p className="font-sora text-[11px] text-lttm mt-1">
+                  Solo lectura de contenidos. Nunca uno con permiso de escritura.
+                </p>
+              </div>
+            </>
+          )}
 
           {form.auth_type === 'basic' && (
             <>
