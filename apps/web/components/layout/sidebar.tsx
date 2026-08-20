@@ -348,7 +348,11 @@ function NavGroup({ group, items, collapsed }: NavSection & { collapsed: boolean
 // ── Sidebar ──────────────────────────────────────────────────
 export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initialOrgState?: SidebarOrgState }) {
   const { collapsed, toggle } = useSidebarStore()
-  const [orgState] = useState<SidebarOrgState>(initialOrgState)
+  // Sin useState: `useState(prop)` congela el valor en el primer montaje y no
+  // vuelve a mirar la prop nunca mas. El logo y el contador de descubrimientos
+  // llegan del layout en cada render del servidor, y quedaban ignorados hasta
+  // recargar la pagina entera.
+  const orgState = initialOrgState
 
   const navSections = useMemo(() => {
     const pending = orgState.pendingDiscoveries ?? 0

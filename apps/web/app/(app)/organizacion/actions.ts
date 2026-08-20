@@ -141,6 +141,9 @@ export async function updateOrganizationProfile(formData: {
   });
 
   revalidatePath('/organizacion');
+  // El nombre y el logo se pintan en el sidebar, que vive en el layout. Sin
+  // esto la pagina se refrescaba y la barra lateral seguia con el valor viejo.
+  revalidatePath('/', 'layout');
   return { success: true };
 }
 

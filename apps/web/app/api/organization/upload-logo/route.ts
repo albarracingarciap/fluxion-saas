@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { revalidatePath } from 'next/cache'
 
 const BUCKET = 'organization-logos'
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -52,6 +53,24 @@ export async function POST(req: NextRequest) {
 
   // Cache-bust añadiendo timestamp para que el navegador refresque la imagen
   const url = `${publicUrl}?t=${Date.now()}`
+
+  // La URL se guarda AQUI, no en quien llame. Antes se devolvia y cada
+  // pantalla decidia si persistirla: el formulario de organizacion lo hacia y
+  // el onboarding no, asi que el logo se subia a Storage y la referencia se
+  // perdia. Subir un fichero y no dejar constancia de donde esta es media
+  // operacion.
+  const { error: updateError } = await fluxion
+    .from('organizations')
+    .update({ logo_url: url })
+    .eq('id', profile.organization_id)
+
+  if (updateError) {
+    console.error('[upload-logo] fichero subido pero no referenciado:', updateError)
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  // El sidebar se pinta desde el layout, no desde la pagina que sube el logo.
+  revalidatePath('/', 'layout')
 
   return NextResponse.json({ url })
 }
