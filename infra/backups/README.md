@@ -10,11 +10,11 @@ auditor viene a comprobar.
 
 ## Qué hace
 
-| Pieza | Dónde | Retención |
-|---|---|---|
-| Espejo incremental de los dos buckets | `/var/backups/minio/<bucket>/` | Permanente |
-| Instantánea diaria comprimida | `/var/backups/minio/archive/minio_<fecha>.tar.gz` | 14 días |
-| Registro | `/var/log/fluxion-minio-backup.log` | — |
+| Pieza                                 | Dónde                                             | Retención  |
+| ------------------------------------- | ------------------------------------------------- | ---------- |
+| Espejo incremental de los dos buckets | `/var/backups/minio/<bucket>/`                    | Permanente |
+| Instantánea diaria comprimida         | `/var/backups/minio/archive/minio_<fecha>.tar.gz` | 14 días    |
+| Registro                              | `/var/log/fluxion-minio-backup.log`               | —          |
 
 **El espejo se hace sin `--remove`.** Un espejo que replica borrados no es una
 copia de seguridad: es una segunda copia del mismo error. Si alguien borra un
@@ -147,10 +147,10 @@ regulatorio no se sobrescribe—; para reemplazarlo hay que usar un usuario con
 Lo anterior protege contra un borrado accidental y contra la corrupcion. Esto
 protege contra perder la maquina.
 
-| Pieza | Cuando | Que hace |
-|---|---|---|
-| `offsite-backup.sh` | Diario, tras la copia local | Sube cifrado a B2 y comprueba que llego |
-| `offsite-verify.sh` | Semanal | Baja el ultimo volcado, lo descifra y lo abre con `pg_restore -l` |
+| Pieza               | Cuando                      | Que hace                                                          |
+| ------------------- | --------------------------- | ----------------------------------------------------------------- |
+| `offsite-backup.sh` | Diario, tras la copia local | Sube cifrado a B2 y comprueba que llego                           |
+| `offsite-verify.sh` | Semanal                     | Baja el ultimo volcado, lo descifra y lo abre con `pg_restore -l` |
 
 ### La contrasena de cifrado
 
@@ -182,8 +182,8 @@ OBS_SALT=$(docker run --rm rclone/rclone:latest obscure "$SALT")
 cat > /etc/fluxion/rclone.conf <<EOF
 [b2]
 type = b2
-account = <keyID>
-key = <applicationKey>
+account = 003777e9116d8f40000000001
+key = K003la4q/n3xJj1Qqsju130YIxyQb20
 hard_delete = false
 
 [b2crypt]
@@ -226,11 +226,11 @@ anterior. Y sin punto en el nombre, que `run-parts` los ignora.
 
 **4 · Ciclo de vida del bucket**
 
-En B2 → *Configuracion del ciclo de vida*, borrar ficheros pasados 180 dias. Sin
+En B2 → _Configuracion del ciclo de vida_, borrar ficheros pasados 180 dias. Sin
 esa regla, el bucket crece para siempre — hoy son centimos, pero es la clase de
 gasto que se descubre a los dos anos.
 
-Y en *Object Lock*, una retencion por defecto de 30 dias en modo **governance**:
+Y en _Object Lock_, una retencion por defecto de 30 dias en modo **governance**:
 protege contra ransomware sin dejarte sin salida si algun dia hay que corregir
 algo con la clave maestra.
 

@@ -204,12 +204,10 @@ La comprobación que importa no es que el cron corriera, sino que haya un
 grep "VERIFICACION" /var/log/fluxion-offsite.log | tail -5
 ```
 
-⚠️ **Pendiente y más urgente desde MinIO**: el volumen de objetos
-(`/etc/dokploy/compose/fluxion-saas-minio-*/files/minio`) **no entra en este
-plan**, que solo cubre PostgreSQL. Desde que una evidencia vive ahí, un volcado
-de la base de datos deja de ser un punto de recuperación: son metadatos
-apuntando a ficheros que no vuelven. Añadir ese directorio antes de que haya
-evidencias de un cliente real.
+Los objetos de MinIO los cubre `minio-backup.sh` (espejo + instantánea diaria)
+y sus instantáneas viajan también a B2. Un volcado de PostgreSQL por sí solo
+**no** es un punto de recuperación desde que las evidencias viven en MinIO: son
+metadatos apuntando a ficheros. Hay que restaurar los dos.
 
 ---
 
