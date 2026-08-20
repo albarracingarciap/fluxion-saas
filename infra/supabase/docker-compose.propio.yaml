@@ -20,6 +20,17 @@
 # logs. Los embeddings del RAG los da la extension `vector` de PostgreSQL, que
 # instala la migracion de extensiones.
 #
+# CONTAINER_PREFIX: los nombres de contenedor venian fijos (supabase-db,
+# supabase-kong...) y Docker los exige unicos en la maquina, asi que el stack
+# nuevo NO podia arrancar mientras el viejo estuviera en marcha — que es
+# justamente lo que hace falta para probar antes de cambiar. Ahora los prefija
+# esa variable.
+#
+# Ojo al cambiar: los servicios se hablan entre si por el nombre de SERVICIO
+# (db, rest, kong), que no cambia. Lo que si cambia es como se les llama desde
+# fuera: `docker exec supabase-db psql` y el DATABASE_URL del servicio de
+# telemetria apuntan al nombre del CONTENEDOR.
+#
 # Usage
 #   Start:              docker compose up -d
 #   Stop:               docker compose down
@@ -34,7 +45,7 @@ name: supabase
 
 services:
   studio:
-    container_name: supabase-studio
+    container_name: ${CONTAINER_PREFIX:-supabase}-studio
     image: supabase/studio:2026.04.08-sha-205cbe7
     restart: unless-stopped
     healthcheck:
@@ -86,7 +97,7 @@ services:
       - ../files/volumes/snippets:/app/snippets:Z
 
   kong:
-    container_name: supabase-kong
+    container_name: ${CONTAINER_PREFIX:-supabase}-kong
     image: kong/kong:3.9.1
     restart: unless-stopped
     networks:
@@ -134,7 +145,7 @@ services:
     entrypoint: /home/kong/kong-entrypoint.sh
 
   auth:
-    container_name: supabase-auth
+    container_name: ${CONTAINER_PREFIX:-supabase}-auth
     image: supabase/gotrue:v2.186.0
     restart: unless-stopped
     healthcheck:
@@ -270,7 +281,7 @@ services:
       # GOTRUE_HOOK_SEND_EMAIL_SECRETS: "v1,whsec_VGhpcyBpcyBhbiBleGFtcGxlIG9mIGEgc2hvcnRlciBCYXNlNjQgc3RyaW5n"
 
   rest:
-    container_name: supabase-rest
+    container_name: ${CONTAINER_PREFIX:-supabase}-rest
     image: postgrest/postgrest:v14.8
     restart: unless-stopped
     depends_on:
@@ -295,7 +306,7 @@ services:
     command: ["postgrest"]
 
   storage:
-    container_name: supabase-storage
+    container_name: ${CONTAINER_PREFIX:-supabase}-storage
     image: supabase/storage-api:v1.48.26
     restart: unless-stopped
     depends_on:
@@ -355,7 +366,7 @@ services:
       - ../files/volumes/storage:/var/lib/storage:z
 
   meta:
-    container_name: supabase-meta
+    container_name: ${CONTAINER_PREFIX:-supabase}-meta
     image: supabase/postgres-meta:v0.96.3
     restart: unless-stopped
     depends_on:
@@ -372,7 +383,7 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   db:
-    container_name: supabase-db
+    container_name: ${CONTAINER_PREFIX:-supabase}-db
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
@@ -416,7 +427,7 @@ services:
       ]
 
   supavisor:
-    container_name: supabase-pooler
+    container_name: ${CONTAINER_PREFIX:-supabase}-pooler
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
     ports:
