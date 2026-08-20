@@ -27,6 +27,22 @@ fi
 # shellcheck source=/dev/null
 source "$CONF"   # REMOTO, ORIGEN_PG, ORIGEN_MINIO
 
+# ── Aviso solo cuando falla ──────────────────────────────────────────────────
+#
+# El silencio significa que todo va bien. Avisar tambien de los exitos
+# entrenaria a ignorar el canal, y entonces el fallo pasaria igual de
+# desapercibido que sin aviso.
+avisar() {
+  [[ -n "${SLACK_WEBHOOK_INFRA:-}" ]] || return 0
+  local texto="$1"
+  local carga
+  carga=$(printf '{"text": ":rotating_light: *Fluxion . copias* %s\\n%s"}' "$(hostname)" "$texto")
+  curl -s -m 10 -X POST \
+       -H "Content-Type: application/json" \
+       --data "$carga" "$SLACK_WEBHOOK_INFRA" >/dev/null 2>&1 \
+    || log "AVISO: no se pudo notificar a Slack"
+}
+
 rclone() {
   docker run --rm \
     -v "$RCLONE_CONF":/config/rclone/rclone.conf:ro \
@@ -80,6 +96,10 @@ if [[ "$remotos" -ge 1 ]]; then
 else
   log "ERROR: el volcado de $HOY NO aparece en el destino"
   estado=1
+fi
+
+if [[ "$estado" -ne 0 ]]; then
+  avisar "La subida de copias a Backblaze ha fallado. Revisa /var/log/fluxion-offsite.log"
 fi
 
 log "fin (estado $estado)"

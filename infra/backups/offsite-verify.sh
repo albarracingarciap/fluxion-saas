@@ -23,6 +23,22 @@ log() { printf '%s  %s\n' "$(date -Is)" "$*" >> "$LOG"; }
 # shellcheck source=/dev/null
 source "$CONF"
 
+# ── Aviso solo cuando falla ──────────────────────────────────────────────────
+#
+# El silencio significa que todo va bien. Avisar tambien de los exitos
+# entrenaria a ignorar el canal, y entonces el fallo pasaria igual de
+# desapercibido que sin aviso.
+avisar() {
+  [[ -n "${SLACK_WEBHOOK_INFRA:-}" ]] || return 0
+  local texto="$1"
+  local carga
+  carga=$(printf '{"text": ":rotating_light: *Fluxion . copias* %s\\n%s"}' "$(hostname)" "$texto")
+  curl -s -m 10 -X POST \
+       -H "Content-Type: application/json" \
+       --data "$carga" "$SLACK_WEBHOOK_INFRA" >/dev/null 2>&1 \
+    || log "AVISO: no se pudo notificar a Slack"
+}
+
 mkdir -p "$TRABAJO"
 rm -f "$TRABAJO"/*.dump
 
@@ -35,6 +51,7 @@ ultimo=$(docker run --rm \
 
 if [[ -z "$ultimo" ]]; then
   log "VERIFICACION FALLIDA: no hay ningun volcado en el destino"
+  avisar "No hay ningun volcado en Backblaze. La copia externa NO existe."
   exit 1
 fi
 
@@ -47,12 +64,14 @@ if ! docker run --rm \
       "$IMAGEN" copy "${REMOTO}:supabase/${ultimo}" /restore \
       >> "$LOG" 2>&1; then
   log "VERIFICACION FALLIDA: no se pudo descargar o descifrar $ultimo"
+  avisar "No se pudo descargar o descifrar \`$ultimo\`. Revisa la contrasena de cifrado."
   exit 1
 fi
 
 tam=$(stat -c%s "$TRABAJO/$ultimo" 2>/dev/null || echo 0)
 if [[ "$tam" -lt 1000 ]]; then
   log "VERIFICACION FALLIDA: $ultimo bajo con $tam bytes"
+  avisar "El volcado \`$ultimo\` bajo con solo $tam bytes."
   exit 1
 fi
 
@@ -72,4 +91,5 @@ if docker run --rm -v "$TRABAJO":/restore \
 fi
 
 log "VERIFICACION FALLIDA: $ultimo se descargo pero pg_restore no lo reconoce"
+avisar "El volcado \`$ultimo\` se descargo pero pg_restore no lo reconoce: la copia NO es restaurable."
 exit 1

@@ -200,8 +200,39 @@ cat > /etc/fluxion/offsite.env <<'EOF'
 REMOTO=b2crypt
 ORIGEN_PG=/var/backups/supabase
 ORIGEN_MINIO=/var/backups/minio/archive
+SLACK_WEBHOOK_INFRA=https://hooks.slack.com/services/...
 EOF
 chmod 600 /etc/fluxion/offsite.env
+```
+
+### Aviso cuando falla
+
+`SLACK_WEBHOOK_INFRA` es opcional: sin el, los scripts funcionan igual y solo
+escriben en el log.
+
+**Solo se avisa de los fallos.** El silencio significa que todo va bien. Avisar
+tambien de los exitos entrenaria a ignorar el canal, y entonces el fallo pasaria
+igual de desapercibido que sin aviso.
+
+Conviene un canal distinto del de incidentes: los incidentes los mira quien
+gobierna el sistema de gestion; esto lo miras tu.
+
+Como se crea el webhook:
+
+1. `api.slack.com/apps` -> **Create New App** -> *From scratch*
+2. Nombre (`Fluxion Infra`) y espacio de trabajo
+3. Menu izquierdo -> **Incoming Webhooks** -> activarlo
+4. **Add New Webhook to Workspace** -> elegir el canal
+5. Copiar la URL `https://hooks.slack.com/services/...`
+
+Esa URL **es la credencial**: quien la tenga puede publicar en ese canal. Por eso
+va en un fichero con permisos 600 y no en el repositorio.
+
+Prueba rapida:
+
+```bash
+source /etc/fluxion/offsite.env
+curl -s -X POST -H 'Content-Type: application/json'   --data '{"text":"prueba de avisos de copias"}' "$SLACK_WEBHOOK_INFRA"
 ```
 
 `filename_encryption = standard` cifra tambien los nombres: sin eso, quien vea
