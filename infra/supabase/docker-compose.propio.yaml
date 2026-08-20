@@ -435,9 +435,18 @@ services:
     container_name: ${CONTAINER_PREFIX:-supabase}-pooler
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
-    ports:
-      - ${POSTGRES_PORT}:5432
-      - ${POOLER_PROXY_PORT_TRANSACTION}:6543
+    # Sin publicar en el host, a proposito:
+    #
+    #   - El puerto salia de ${POSTGRES_PORT}, que ES TAMBIEN el puerto interno
+    #     con el que auth y rest hablan con la base de datos. No se puede
+    #     cambiar uno sin romper el otro, y el stack compartido ya ocupa el
+    #     5432 del host.
+    #   - Nadie los necesita: la telemetria se conecta a db:5432 por la red de
+    #     Docker y la administracion se hace con `docker exec ... psql`.
+    #   - Publicar PostgreSQL en 0.0.0.0 es exponerlo a internet salvo que el
+    #     cortafuegos lo tape, y ya sabemos lo delicado que es DOCKER-USER.
+    #
+    # Si algun dia hace falta acceso directo, un tunel SSH.
     volumes:
       - ../files/volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
     healthcheck:
