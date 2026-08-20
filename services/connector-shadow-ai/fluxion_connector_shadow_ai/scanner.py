@@ -28,6 +28,16 @@ MAX_BYTES_FICHERO = int(os.getenv("MAX_BYTES_FICHERO", "200000"))
 # el resto de la hora.
 RESERVA_PETICIONES = int(os.getenv("RESERVA_PETICIONES", "500"))
 
+# A partir de cuantos proveedores distintos en un mismo fichero se considera que
+# es una LISTA y no una integracion.
+#
+# Una aplicacion real habla con uno o dos proveedores. Un fichero con diez
+# dominios distintos es un catalogo: un analizador de seguridad, una lista de
+# bloqueo, documentacion comparando modelos... o el propio catalogo de este
+# escaner, que fue lo que delato el problema al escanear el repositorio de
+# Fluxion y encontrarse a si mismo.
+UMBRAL_CATALOGO = int(os.getenv("UMBRAL_CATALOGO", "4"))
+
 
 def _lineas_con(texto: str, aguja: str) -> list[int]:
     return [i for i, linea in enumerate(texto.splitlines(), 1) if aguja in linea]
@@ -64,8 +74,27 @@ def _escanear_codigo(ruta: str, texto: str) -> list[dict[str, Any]]:
     hallazgos: list[dict[str, Any]] = []
     ejemplo = P.es_ejemplo(ruta)
 
-    for host, (categoria, severidad) in P.ENDPOINTS.items():
-        if host in texto:
+    encontrados = [(h, v) for h, v in P.ENDPOINTS.items() if h in texto]
+
+    if len(encontrados) >= UMBRAL_CATALOGO:
+        # Un solo hallazgo informativo en vez de diez de severidad alta. No se
+        # descarta en silencio: si es un catalogo legitimo, quien lo revise lo
+        # descarta en dos segundos; y si resulta que la aplicacion habla de
+        # verdad con diez proveedores, el hallazgo sigue ahi para verlo.
+        hallazgos.append({
+            "finding_type": "endpoint",
+            "category": "provider",
+            "pattern": "catalogo_de_proveedores",
+            "file_path": ruta,
+            "line_number": None,
+            "severity": "info",
+            "metadata": {
+                "proveedores": len(encontrados),
+                "motivo": "el fichero enumera varios proveedores: parece una lista, no una integracion",
+            },
+        })
+    else:
+        for host, (categoria, severidad) in encontrados:
             lineas = _lineas_con(texto, host)
             hallazgos.append({
                 "finding_type": "endpoint",
@@ -174,4 +203,8 @@ def parece_ia(hallazgos: list[dict[str, Any]]) -> bool:
     que no es IA. Hace falta una libreria o un punto final de proveedor, que es
     lo que convierte el repositorio en candidato a sistema de IA.
     """
-    return any(h["finding_type"] in ("library", "endpoint", "model_file") for h in hallazgos)
+    return any(
+        h["finding_type"] in ("library", "endpoint", "model_file")
+        and h["pattern"] != "catalogo_de_proveedores"
+        for h in hallazgos
+    )

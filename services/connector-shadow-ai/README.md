@@ -27,6 +27,24 @@ Las librerías declaradas son la señal más fiable: una dependencia declarada n
 es una sospecha, es un hecho. Por eso los manifiestos se leen siempre y el
 código se escanea con tope.
 
+## Ficheros que enumeran proveedores
+
+Si un fichero menciona **cuatro o más** proveedores distintos, el escáner lo
+trata como una lista y no como una integración: emite un único hallazgo
+informativo en lugar de uno de severidad alta por cada dominio.
+
+Una aplicación real habla con uno o dos proveedores. Diez dominios en el mismo
+fichero son un analizador de seguridad, una lista de bloqueo, documentación
+comparando modelos… o el catálogo de este mismo escáner, que fue lo que delató
+el problema: al escanear el repositorio de Fluxion se encontró a sí mismo y
+generó diez hallazgos de severidad alta sobre `patterns.py`.
+
+No se descarta en silencio. Si es un catálogo legítimo, quien lo revise lo
+descarta en dos segundos; y si la aplicación de verdad habla con diez
+proveedores, el hallazgo sigue ahí.
+
+Se ajusta con `UMBRAL_CATALOGO`.
+
 ## Configuración de la conexión
 
 En **Ajustes → Conectores**, tipo `github` o `gitlab`:
