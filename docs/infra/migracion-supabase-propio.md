@@ -126,9 +126,17 @@ actual.
 
 ## Fase 3 · Esquema desde el repositorio
 
+El runner vive en `infra/db/migrate.sh` y elige instancia con `CT`:
+
 ```bash
-/root/migrate.sh   # apuntando a la instancia nueva
+cp infra/db/migrate.sh /root/migrate.sh && chmod +x /root/migrate.sh
+
+CT=fluxion-sb-db /root/migrate.sh
 ```
+
+Crea la tabla de control si no existe, porque sobre una base virgen la primera
+consulta fallaba con «schema does not exist» y `set -e` cortaba antes de aplicar
+nada — justo en el momento en que más falta hace.
 
 Y las dos cosas que no están en las migraciones:
 
