@@ -279,6 +279,41 @@ function deriveFromFmea(
   return null
 }
 
+/**
+ * Supervisión humana EFECTIVA, con cifras.
+ *
+ * El apartado 2(e) del anexo IV y el 27.1.e del FRIA piden describir las
+ * medidas de vigilancia humana. Sin datos, eso se redacta como una afirmación
+ * —"las decisiones son revisadas por un profesional"— que no demuestra nada.
+ *
+ * Con el módulo C2 en marcha, la misma sección se responde con la tasa de
+ * discordancia y el tiempo de decisión. Es la diferencia entre decir que hay
+ * supervisión y poder enseñarla.
+ */
+function deriveHitl(h: Record<string, unknown> | null): string | null {
+  if (!h || Number(h.decisiones ?? 0) === 0) return null
+
+  const total = Number(h.decisiones)
+  const conformes = Number(h.conformes ?? 0)
+  const discordancia = total ? Math.round(((total - conformes) / total) * 100) : 0
+  const mediana = h.mediana_ms != null ? Number(h.mediana_ms) : null
+
+  return block(
+    line('Decisiones revisadas por personas (últimos 180 días)', total),
+    line('Tasa de discordancia', `${discordancia} %`),
+    line('Revisores distintos', h.revisores),
+    line(
+      'Tiempo mediano de decisión',
+      mediana != null
+        ? mediana >= 60000
+          ? `${Math.round(mediana / 60000)} min`
+          : `${(mediana / 1000).toFixed(1)} s`
+        : null,
+    ),
+    line('Veces que se decidió no utilizar el sistema', h.no_usadas),
+  )
+}
+
 function deriveFromHistory(ref: string, events: Array<Record<string, unknown>>): string | null {
   if (ref !== 'IV.6' || events.length === 0) return null
   return events
@@ -320,6 +355,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   let evaluation: Record<string, unknown> | null = null
   let plan: Record<string, unknown> | null = null
   let history: Array<Record<string, unknown>> = []
+  let hitl: Record<string, unknown> | null = null
 
   if (doc.ai_system_id) {
     const { data: sys } = await fluxion
@@ -349,6 +385,29 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       .maybeSingle()
     plan = planRow ?? null
 
+    // 180 días: el art. 26.6 obliga a conservar los registros al menos seis
+    // meses, así que es la ventana que un auditor puede exigir siempre.
+    const { data: hitlRows } = await fluxion
+      .from('hitl_decisions')
+      .select('agreement, decision, reviewer_ref, decided_in_ms')
+      .eq('ai_system_id', doc.ai_system_id)
+      .gte('occurred_at', new Date(Date.now() - 180 * 86400000).toISOString())
+
+    if (hitlRows && hitlRows.length) {
+      const tiempos = hitlRows
+        .map((r) => r.decided_in_ms as number | null)
+        .filter((x): x is number => x != null)
+        .sort((a, b) => a - b)
+
+      hitl = {
+        decisiones: hitlRows.length,
+        conformes: hitlRows.filter((r) => r.agreement).length,
+        no_usadas: hitlRows.filter((r) => r.decision === 'not_used').length,
+        revisores: new Set(hitlRows.map((r) => r.reviewer_ref).filter(Boolean)).size,
+        mediana_ms: tiempos.length ? tiempos[Math.floor(tiempos.length / 2)] : null,
+      }
+    }
+
     const { data: events } = await fluxion
       .from('ai_system_history')
       .select('event_title, event_summary, created_at')
@@ -363,6 +422,22 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
     if (def.source === 'derived:system' && system) derived = deriveFromSystem(def.ref, system)
     else if (def.source === 'derived:fmea') derived = deriveFromFmea(def.ref, evaluation, plan)
     else if (def.source === 'derived:history') derived = deriveFromHistory(def.ref, history)
+
+    // Anexo IV 2(e) y FRIA 27.1.e piden las medidas de vigilancia humana. Si
+    // hay decisiones registradas, se añaden a lo que ya diga la ficha: una
+    // afirmación respaldada por cifras, en vez de solo la afirmación.
+    if (def.ref === 'IV.2.e' || def.ref === '27.1.e') {
+      const evidencia = deriveHitl(hitl)
+      if (evidencia) {
+        derived = derived
+          ? `${derived}
+
+Supervisión humana efectiva registrada:
+${evidencia}`
+          : `Supervisión humana efectiva registrada:
+${evidencia}`
+      }
+    }
 
     const manual = content[def.ref]?.text?.trim() || null
 

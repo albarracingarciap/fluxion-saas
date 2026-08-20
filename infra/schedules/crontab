@@ -6,3 +6,6 @@
 17 * * * * /opt/fluxion/app-cron.sh /api/cron/incident-deadlines
 # Minuto 40: reparte la carga frente a los otros tres.
 40 * * * * /opt/fluxion/app-cron.sh /api/cron/cost-budgets
+# Diario: la discordancia es una senal lenta; una pasada horaria repetiria
+# el mismo aviso veinticuatro veces.
+30 6 * * *  /opt/fluxion/app-cron.sh /api/cron/hitl-discordance

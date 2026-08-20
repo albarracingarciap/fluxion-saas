@@ -3,7 +3,7 @@
 Especificación a nivel de migraciones y contratos. Módulo `hitl` del registro de
 entitlements.
 
-**Estado**: diseñado, implementación en curso.
+**Estado**: pasos 1, 2, 3, 4 y 6 hechos. Pendiente el componente web (paso 5).
 
 ---
 
@@ -184,12 +184,12 @@ con no pedirlo.
 
 | # | Paso |
 |---|---|
-| 1 | Tablas, taxonomía semilla y disparador de `agreement` |
-| 2 | Endpoint de ingesta + scope `hitl:write` |
-| 3 | Panel: tasa de concordancia y tiempo de decisión por sistema, revisor y motivo |
-| 4 | Señal por discordancia sostenida |
+| 1 | Tablas, taxonomía semilla y disparador de `agreement` ✔ |
+| 2 | Endpoint de ingesta + scope `hitl:write` ✔ |
+| 3 | Panel: tasa de concordancia y tiempo de decisión por sistema, revisor y motivo ✔ |
+| 4 | Señal por discordancia sostenida ✔ |
 | 5 | Componente web de referencia |
-| 6 | El dato entra en el expediente del Anexo IV (apartado 2.e, vigilancia humana) |
+| 6 | El dato entra en el expediente del Anexo IV (apartado 2.e) y en la FRIA (27.1.e) ✔ |
 
 El paso 6 es el que cierra el círculo: la evidencia de supervisión humana deja
 de ser una afirmación en el expediente y pasa a ser una cifra con su serie
