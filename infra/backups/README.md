@@ -142,6 +142,117 @@ GOVERNANCE si el objeto ya existe. Es el comportamiento correcto —un documento
 regulatorio no se sobrescribe—; para reemplazarlo hay que usar un usuario con
 `s3:BypassGovernanceRetention`, que hoy no tiene nadie.
 
+## Copia externa cifrada (Backblaze B2)
+
+Lo anterior protege contra un borrado accidental y contra la corrupcion. Esto
+protege contra perder la maquina.
+
+| Pieza | Cuando | Que hace |
+|---|---|---|
+| `offsite-backup.sh` | Diario, tras la copia local | Sube cifrado a B2 y comprueba que llego |
+| `offsite-verify.sh` | Semanal | Baja el ultimo volcado, lo descifra y lo abre con `pg_restore -l` |
+
+### La contrasena de cifrado
+
+El cifrado es **del lado del cliente**: Backblaze guarda bloques que no puede
+abrir. Eso simplifica mucho la conversacion cuando un cliente pregunte donde
+acaban sus evidencias.
+
+**Si pierdes la contrasena, las copias son irrecuperables.** Ni Backblaze ni
+nadie puede leerlas. Guardala en el gestor de contrasenas y en un sitio fisico:
+es el unico dato de esta infraestructura cuya perdida no tiene arreglo.
+
+### Instalacion
+
+**1 · Clave de aplicacion en B2**, acotada al bucket, con lectura y escritura y
+**sin permiso de borrado**. Una credencial robada del VPS no debe poder vaciar
+las copias; el script solo sube y lista.
+
+**2 · Configuracion**
+
+```bash
+mkdir -p /etc/fluxion
+PASS=$(openssl rand -base64 32 | tr -d '/+=')
+SALT=$(openssl rand -base64 24 | tr -d '/+=')
+echo "GUARDA ESTO EN SITIO SEGURO:"; echo "  pass: $PASS"; echo "  salt: $SALT"
+
+OBS_PASS=$(docker run --rm rclone/rclone:latest obscure "$PASS")
+OBS_SALT=$(docker run --rm rclone/rclone:latest obscure "$SALT")
+
+cat > /etc/fluxion/rclone.conf <<EOF
+[b2]
+type = b2
+account = <keyID>
+key = <applicationKey>
+hard_delete = false
+
+[b2crypt]
+type = crypt
+remote = b2:fluxion-backups-3f7a/fluxion
+filename_encryption = standard
+directory_name_encryption = true
+password = $OBS_PASS
+password2 = $OBS_SALT
+EOF
+chmod 600 /etc/fluxion/rclone.conf
+
+cat > /etc/fluxion/offsite.env <<'EOF'
+REMOTO=b2crypt
+ORIGEN_PG=/var/backups/supabase
+ORIGEN_MINIO=/var/backups/minio/archive
+EOF
+chmod 600 /etc/fluxion/offsite.env
+```
+
+`filename_encryption = standard` cifra tambien los nombres: sin eso, quien vea
+el bucket sabria que hay un volcado de PostgreSQL de cada dia y de que tamano.
+
+**3 · Scripts y programacion**
+
+```bash
+cp infra/backups/offsite-backup.sh infra/backups/offsite-verify.sh /usr/local/bin/
+chmod +x /usr/local/bin/offsite-*.sh
+
+/usr/local/bin/offsite-backup.sh
+tail -10 /var/log/fluxion-offsite.log
+
+ln -s /usr/local/bin/offsite-backup.sh /etc/cron.daily/zz-offsite-backup
+ln -s /usr/local/bin/offsite-verify.sh /etc/cron.weekly/offsite-verify
+```
+
+El prefijo `zz-` no es capricho: `run-parts` ejecuta por orden alfabetico y la
+copia externa tiene que ir **despues** de las locales, o subira la del dia
+anterior. Y sin punto en el nombre, que `run-parts` los ignora.
+
+**4 · Ciclo de vida del bucket**
+
+En B2 → *Configuracion del ciclo de vida*, borrar ficheros pasados 180 dias. Sin
+esa regla, el bucket crece para siempre — hoy son centimos, pero es la clase de
+gasto que se descubre a los dos anos.
+
+Y en *Object Lock*, una retencion por defecto de 30 dias en modo **governance**:
+protege contra ransomware sin dejarte sin salida si algun dia hay que corregir
+algo con la clave maestra.
+
+### Verificacion
+
+```bash
+grep "VERIFICACION" /var/log/fluxion-offsite.log | tail -5
+```
+
+Debe haber un `VERIFICACION OK` de la ultima semana. **Ese es el unico mensaje
+del log que demuestra que hay copia**: los demas solo dicen que se subieron
+ficheros.
+
+### Restauracion
+
+```bash
+docker run --rm -v /etc/fluxion/rclone.conf:/config/rclone/rclone.conf:ro   -v /tmp/restore:/restore rclone/rclone:latest   copy b2crypt:supabase/full_20260820.dump /restore
+```
+
+`rclone` descifra al vuelo. A partir de ahi, el volcado se restaura como
+cualquier otro (ver `recursos/db/README.md`).
+
 ## Pendiente
 
 Todo esto sigue **en el mismo servidor**. Protege contra borrado accidental y

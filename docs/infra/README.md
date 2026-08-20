@@ -188,8 +188,21 @@ Verificar que un volcado es válido:
 pg_restore -l /var/backups/supabase/full_$(date +%Y%m%d).dump | head -20
 ```
 
-⚠️ **Pendiente**: los backups siguen en el mismo servidor. Dokploy trae función
-propia de copias a proveedor externo (Settings → Backups); es lo que falta.
+**Copia externa**: `offsite-backup.sh` sube a diario a Backblaze B2
+(`fluxion-backups-3f7a`, región `eu-central-003`) **cifrado en el cliente**, y
+`offsite-verify.sh` baja el último volcado cada semana, lo descifra y lo abre
+con `pg_restore -l`. Ver [`infra/backups/README.md`](../../infra/backups/README.md).
+
+La contraseña de cifrado vive solo en `/etc/fluxion/rclone.conf` y en el gestor
+de contraseñas. **Perderla es perder las copias**: Backblaze guarda bloques que
+no puede abrir.
+
+La comprobación que importa no es que el cron corriera, sino que haya un
+`VERIFICACION OK` reciente:
+
+```bash
+grep "VERIFICACION" /var/log/fluxion-offsite.log | tail -5
+```
 
 ⚠️ **Pendiente y más urgente desde MinIO**: el volumen de objetos
 (`/etc/dokploy/compose/fluxion-saas-minio-*/files/minio`) **no entra en este
