@@ -31,6 +31,7 @@ type ConnectionRow = {
   username: string | null
   secret_id: string | null
   poll_interval_seconds: number
+  sync_requested_at: string | null
 }
 
 export async function GET(request: NextRequest) {
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await admin
     .from('connector_connections')
-    .select('id, name, base_url, auth_type, username, secret_id, poll_interval_seconds')
+    .select('id, name, base_url, auth_type, username, secret_id, poll_interval_seconds, sync_requested_at')
     .eq('organization_id', auth.organizationId)
     .eq('connector_type', type)
     .eq('is_active', true)
@@ -115,6 +116,8 @@ export async function GET(request: NextRequest) {
         username: row.username,
         password,
         poll_interval_seconds: row.poll_interval_seconds,
+        // Marca de sincronizacion manual: el conector adelanta el ciclo.
+        sync_requested_at: row.sync_requested_at,
       }
     })
   )

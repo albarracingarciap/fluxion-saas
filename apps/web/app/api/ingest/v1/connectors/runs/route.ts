@@ -106,6 +106,16 @@ export async function POST(request: NextRequest) {
       .from('connector_connections')
       .update({ last_sync_at: new Date().toISOString(), last_sync_status: run.status })
       .eq('id', run.connection_id)
+
+    // Una petición manual queda atendida por esta pasada solo si la pasada
+    // empezó DESPUÉS de pedirla. Si se pidió con la pasada ya en curso, la
+    // marca sobrevive y la atenderá la siguiente — que es lo correcto: esa
+    // pasada no vio los cambios que motivaron la petición.
+    await admin
+      .from('connector_connections')
+      .update({ sync_requested_at: null })
+      .eq('id', run.connection_id)
+      .lte('sync_requested_at', run.started_at)
   }
 
   return NextResponse.json({ ok: true, run_id: inserted.id })

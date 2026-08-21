@@ -41,6 +41,7 @@ export type AuditAction =
   | 'connector.created'
   | 'connector.updated'
   | 'connector.deleted'
+  | 'connector.sync_requested'
   | 'webhook.tested'
   // Seguridad
   | 'org.security_updated'

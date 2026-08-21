@@ -212,7 +212,7 @@ def main() -> int:
             return 0
 
         interval = connections[0].poll_interval_seconds if connections else default_interval
-        time.sleep(interval)
+        connector_client.esperar(interval, [CONNECTOR_TYPE])
 
 
 if __name__ == "__main__":

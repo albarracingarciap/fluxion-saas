@@ -236,7 +236,10 @@ def main() -> int:
             return 0
 
         logger.info("siguiente pasada en %s segundos", intervalo)
-        time.sleep(intervalo)
+        # Espera troceada: se adelanta si alguien pide una sincronizacion desde
+        # Ajustes. Con un ciclo diario, sin esto una conexion recien creada no
+        # se puede validar hasta manana.
+        core.esperar(intervalo, TIPOS)
 
 
 if __name__ == "__main__":

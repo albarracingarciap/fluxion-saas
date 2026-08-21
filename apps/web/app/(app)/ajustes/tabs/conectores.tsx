@@ -3,12 +3,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Plug, Plus, Trash2, Loader2, AlertCircle, CheckCircle2, XCircle,
-  AlertTriangle, RefreshCw, X,
+  AlertTriangle, RefreshCw, X, Play,
 } from 'lucide-react';
 
 import {
   getConnectorConnections, getConnectorRuns, saveConnectorConnection,
-  deleteConnectorConnection,
+  deleteConnectorConnection, requestConnectorSync,
   type ConnectorConnectionRow, type ConnectorRunRow,
 } from '../actions';
 import { FieldLabel, inputCls, selectCls, SelectArrow, formatRelative } from './shared';
@@ -371,6 +371,19 @@ export function ConectoresTab() {
 
   useEffect(() => { load() }, [load])
 
+  const [pidiendo, setPidiendo] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  async function handleSync(row: ConnectorConnectionRow) {
+    setPidiendo(row.id)
+    setAviso(null)
+    const r = await requestConnectorSync(row.id)
+    setPidiendo(null)
+    // «Solicitada», no «hecha»: el conector la ejecuta en su siguiente sondeo.
+    setAviso(r.error ?? `Sincronización solicitada para «${row.name}». El conector la ejecutará en su próximo sondeo.`)
+    load()
+  }
+
   async function handleDelete(row: ConnectorConnectionRow) {
     if (!confirm(`¿Eliminar la conexión «${row.name}»? También se borrará su credencial guardada.`)) return
     await deleteConnectorConnection(row.id)
@@ -379,6 +392,15 @@ export function ConectoresTab() {
 
   return (
     <div className="flex flex-col gap-5">
+      {aviso && (
+        <div className="rounded-[9px] border border-ltb bg-ltcard2 px-4 py-2.5 flex items-start justify-between gap-3">
+          <span className="font-sora text-[12.5px] text-ltt2">{aviso}</span>
+          <button onClick={() => setAviso(null)} className="text-lttm hover:text-ltt shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm flex items-center gap-1.5">
@@ -442,6 +464,14 @@ export function ConectoresTab() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => handleSync(row)}
+                disabled={pidiendo === row.id || !row.is_active}
+                title="Sincronizar ahora"
+                className="p-1.5 rounded-[6px] text-lttm hover:text-brand-cyan hover:bg-ltbg disabled:opacity-40"
+              >
+                {pidiendo === row.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+              </button>
               <button
                 onClick={() => setExpanded(expanded === row.id ? null : row.id)}
                 title="Historial de sincronizaciones"

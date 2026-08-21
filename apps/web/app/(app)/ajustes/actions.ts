@@ -877,6 +877,48 @@ export async function deleteConnectorConnection(id: string): Promise<{ success?:
   return { success: true }
 }
 
+/**
+ * Pide una sincronización manual de una conexión.
+ *
+ * No llama al conector: no tiene puerto expuesto ni ingress. Deja una marca que
+ * el conector ve en su consulta de configuración y que le hace adelantar el
+ * ciclo. La marca la borra el propio conector al reportar la pasada.
+ *
+ * De ahí que la respuesta hable de «solicitada» y no de «hecha»: entre pedirla
+ * y ejecutarla pasa, como mucho, el intervalo de sondeo del conector. Decir
+ * «sincronizado» sería mentir sobre algo que aún no ha ocurrido.
+ */
+export async function requestConnectorSync(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+
+  const admin = createConnectorAdminClient()
+
+  const { data, error: updErr } = await admin
+    .from('connector_connections')
+    .update({ sync_requested_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .eq('is_active', true)
+    .select('id')
+    .maybeSingle()
+
+  if (updErr) return { error: 'Error al solicitar: ' + updErr.message }
+  if (!data) return { error: 'La conexión no existe o está desactivada.' }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'connector.sync_requested',
+    target_type:     'organization',
+    target_id:       id,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
+
 // ── Canales de aviso ────────────────────────────────────────────────────────────
 // La URL de un webhook de Slack o Teams es una credencial: se guarda cifrada en
 // Vault y nunca vuelve al navegador. La interfaz solo sabe si existe o no.

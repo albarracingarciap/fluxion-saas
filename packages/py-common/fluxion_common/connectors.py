@@ -6,6 +6,7 @@ desde la interfaz.
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -26,6 +27,10 @@ class Connection:
     username: str | None
     password: str | None
     poll_interval_seconds: int
+    # Marca de sincronizacion manual puesta desde Ajustes. El Core no puede
+    # llamar al conector —no tiene puerto expuesto—, asi que el conector la ve
+    # aqui y adelanta el ciclo.
+    sync_requested_at: str | None = None
 
     @property
     def credentials(self) -> tuple[str, str] | None:
@@ -69,6 +74,7 @@ class ConnectorClient(CoreApiClient):
                 username=c.get("username"),
                 password=c.get("password"),
                 poll_interval_seconds=int(c.get("poll_interval_seconds") or 900),
+                sync_requested_at=c.get("sync_requested_at"),
             )
             for c in data.get("connections", [])
         ]
@@ -162,3 +168,42 @@ class ConnectorClient(CoreApiClient):
             asset_external_id, data.get("written"), data.get("resolved"),
         )
         return data
+
+
+    def sync_pendiente(self, connector_types: list[str]) -> bool:
+        """¿Hay alguna conexion con una sincronizacion manual pedida?
+
+        Un fallo al preguntar devuelve False, no una excepcion: esto se llama
+        dentro del bucle de espera y no debe tumbar el conector. La pasada
+        normal llegara igual cuando venza el intervalo.
+        """
+        for tipo in connector_types:
+            try:
+                conexiones, _ = self.fetch_config(tipo)
+            except CoreApiError as exc:
+                logger.debug("no se pudo comprobar peticiones de sincronizacion: %s", exc)
+                continue
+            if any(c.sync_requested_at for c in conexiones):
+                return True
+        return False
+
+    def esperar(self, segundos: int, connector_types: list[str], paso: int = 30) -> None:
+        """Espera hasta el siguiente ciclo, despertando si alguien lo pide.
+
+        Trocea la espera para poder mirar si hay una peticion manual. Sin esto,
+        un conector con intervalo de un dia hace que una conexion recien creada
+        no se pueda validar hasta manana.
+
+        El coste es una consulta ligera cada `paso` segundos contra el propio
+        Core; a cambio, el boton responde en menos de medio minuto en lugar de
+        en un dia.
+        """
+        restante = segundos
+        while restante > 0:
+            espera = min(paso, restante)
+            time.sleep(espera)
+            restante -= espera
+
+            if self.sync_pendiente(connector_types):
+                logger.info("sincronizacion solicitada: se adelanta la pasada")
+                return
