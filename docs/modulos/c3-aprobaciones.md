@@ -3,7 +3,8 @@
 Especificación a nivel de migraciones y contratos. Módulo `approvals` del
 registro de entitlements.
 
-**Estado**: plan. Sin código.
+**Estado**: paso 1 hecho — nucleo y motor en la base, probado por SQL.
+Pendientes los pasos 2 a 6.
 
 ---
 
