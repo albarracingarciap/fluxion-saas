@@ -12,6 +12,20 @@
 -- Reutiliza el motor documental de C1 —plantilla, compositor, renderizador,
 -- MinIO— en lugar de montar una segunda via para generar PDFs.
 
+-- ── La lista de plantillas admitidas ───────────────────────────────────────
+--
+-- `key` lleva un CHECK con la lista cerrada de plantillas. Es deliberado —una
+-- clave inventada generaria documentos que el compositor no sabe rellenar— pero
+-- hay que abrirlo para cada plantilla nueva.
+
+ALTER TABLE fluxion.document_templates
+  DROP CONSTRAINT IF EXISTS document_templates_key_check;
+
+ALTER TABLE fluxion.document_templates
+  ADD CONSTRAINT document_templates_key_check
+  CHECK (key IN ('annex_iv', 'model_card', 'fria', 'dpia', 'approval_minutes'));
+
+
 -- ── El documento sabe de que solicitud sale ─────────────────────────────────
 --
 -- El compositor esta centrado en el sistema: todo su contexto derivado cuelga
