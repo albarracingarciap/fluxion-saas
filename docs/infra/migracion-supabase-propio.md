@@ -233,9 +233,55 @@ Un despliegue de prueba de la aplicación contra la instancia nueva, y recorrer:
 sirve sin tocar la base de datos. Está escrito en la sección 7 de
 `docs/infra/README.md` y sigue siendo verdad.
 
-## Fase 7 · Cambio y marcha atrás
+## Fase 7 · Nombre definitivo
 
-Variables de entorno en los servicios, y `supabase.fluxion-ai.es` al Kong nuevo.
+Esta fase decía «mover `supabase.fluxion-ai.es` al Kong nuevo». **Estaba mal**, y
+conviene dejar escrito por qué para no repetir el razonamiento.
 
-**La instancia antigua se queda parada, no se borra**, un par de semanas. Es la
-marcha atrás, y no cuesta nada tenerla ahí.
+Ese dominio es el de la instancia **compartida**, y la instancia compartida no
+se apaga: sigue sirviendo a Directus, WordPress, Moodle, n8n y los proyectos de
+aprendizaje. Solo se muda Fluxion. Mover el dominio los tumbaría a los cuatro —
+justo lo contrario de aislar, que era el motivo de todo esto.
+
+Así que no hay cambio de dominio que hacer, y tampoco hay instancia vieja que
+apagar: la marcha atrás de la fase anterior no consiste en volver a encenderla,
+sino en devolver las variables de los servicios a `supabase.fluxion-ai.es`, que
+sigue en pie con los datos tal y como se dejaron.
+
+Lo único que queda es cosmético: `supabase2` se lee como «la segunda, la
+provisional», y es la definitiva. **Se renombra a `db.fluxion-ai.es`.**
+
+Cambiar el nombre cuesta lo mismo ahora que dentro de un año, así que hacerlo
+una vez y ya. Si se decidiera dejarlo en `supabase2`, esta fase entera se salta
+sin ninguna consecuencia técnica.
+
+### Orden
+
+1. Entrada `A` en el DNS de `db.fluxion-ai.es` → IP del VPS.
+2. Dominio en Dokploy sobre el servicio de Kong, y **redesplegar**: las
+   etiquetas de Traefik solo se aplican al desplegar.
+3. Las tres variables del stack: `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL` y
+   `SUPABASE_HOST`.
+4. `SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_URL` en `fluxion-saas`, y la URL en
+   agent1, los conectores, el servicio de telemetría y el `.env.local` de
+   desarrollo.
+5. **Reconstruir** `fluxion-saas`. `NEXT_PUBLIC_*` se incrusta al compilar: con
+   la imagen antigua, la aplicación seguiría hablando con el dominio viejo por
+   mucho que la variable diga otra cosa. Y `next.config.mjs` deriva de ahí el
+   host permitido de `next/image`, así que sin reconstruir el logo deja de
+   cargar.
+6. Reescribir las URL absolutas guardadas en filas:
+
+   ```sql
+   UPDATE fluxion.organizations SET logo_url = replace(logo_url, 'supabase2.', 'db.')
+    WHERE logo_url LIKE '%supabase2.%';
+   UPDATE fluxion.profiles SET avatar_url = replace(avatar_url, 'supabase2.', 'db.')
+    WHERE avatar_url LIKE '%supabase2.%';
+   ```
+
+7. Mantener `supabase2.fluxion-ai.es` apuntando al mismo Kong un par de
+   semanas. No cuesta nada y cubre cualquier referencia que se haya escapado.
+
+`API_EXTERNAL_URL` es la base de los enlaces de confirmación de correo: los
+mensajes ya enviados y sin abrir apuntarán al dominio anterior. De ahí el punto
+7.
