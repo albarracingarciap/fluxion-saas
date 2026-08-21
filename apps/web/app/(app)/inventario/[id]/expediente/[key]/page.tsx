@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AlertCircle } from 'lucide-react'
 
-import { getOrCreateDocument, listDocumentRenders, listTemplatesForSystem } from './actions'
+import {
+  getOrCreateDocument, listDocumentRenders, listTemplatesForSystem,
+  listGeneratedDocuments,
+} from './actions'
 import { isTemplateKey } from '@/lib/documents/templates'
 import { ExpedienteClient } from './expediente-client'
 
@@ -41,12 +44,16 @@ export default async function ExpedientePage({
     )
   }
 
-  const renders = await listDocumentRenders(result.document.id)
+  const [renders, generados] = await Promise.all([
+    listDocumentRenders(result.document.id),
+    listGeneratedDocuments(params.id),
+  ])
 
   return (
     <ExpedienteClient
       doc={result}
       renders={renders}
+      generados={generados}
       templates={templates}
       templateKey={params.key}
       aiSystemId={params.id}

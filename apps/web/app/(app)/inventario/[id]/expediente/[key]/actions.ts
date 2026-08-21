@@ -310,3 +310,74 @@ export async function generateDocumentRender(input: {
   revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { renderId: res.renderId, gaps: res.gaps ?? 0 }
 }
+
+// ── Documentos generados ────────────────────────────────────────────────────
+// Actas y demás registros que produce la plataforma sola. No son expedientes
+// que alguien componga: no se editan, no tienen apartados pendientes y no
+// aparecen en el selector de plantillas.
+//
+// Se listan aquí porque es donde un auditor los busca. Que existan en la base y
+// solo se puedan alcanzar desde la bandeja de aprobaciones es tenerlos y no
+// tenerlos.
+
+export type GeneratedDocRow = {
+  id:           string
+  title:        string
+  templateKey:  string
+  templateName: string
+  createdAt:    string
+  renderId:     string | null
+  byteSize:     number | null
+  /** Solicitud de la que sale, para poder enlazarla. */
+  approvalRequestId: string | null
+}
+
+export async function listGeneratedDocuments(aiSystemId: string): Promise<GeneratedDocRow[]> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return []
+
+  const { data: docs } = await fluxion
+    .from('documents')
+    .select('id, title, template_key, created_at, approval_request_id')
+    .eq('ai_system_id', aiSystemId)
+    .neq('status', 'superseded')
+    .not('approval_request_id', 'is', null)
+    .order('created_at', { ascending: false })
+
+  if (!docs?.length) return []
+
+  const [{ data: renders }, { data: templates }] = await Promise.all([
+    fluxion
+      .from('document_renders')
+      .select('id, document_id, byte_size, rendered_at')
+      .in('document_id', docs.map((d: { id: string }) => d.id))
+      .order('rendered_at', { ascending: false }),
+    fluxion
+      .from('document_templates')
+      .select('key, title')
+      .in('key', docs.map((d: { template_key: string }) => d.template_key)),
+  ])
+
+  // El primero de cada documento es el más reciente, por el orden de la consulta.
+  const ultimoRender: Record<string, { id: string; byte_size: number }> = {}
+  for (const r of (renders ?? []) as Array<{ id: string; document_id: string; byte_size: number }>) {
+    if (!ultimoRender[r.document_id]) ultimoRender[r.document_id] = { id: r.id, byte_size: r.byte_size }
+  }
+
+  const nombreTemplate = (k: string) =>
+    ((templates ?? []) as Array<{ key: string; title: string }>).find((t) => t.key === k)?.title ?? k
+
+  return (docs as Array<{
+    id: string; title: string; template_key: string
+    created_at: string; approval_request_id: string | null
+  }>).map((d) => ({
+    id:                d.id,
+    title:             d.title,
+    templateKey:       d.template_key,
+    templateName:      nombreTemplate(d.template_key),
+    createdAt:         d.created_at,
+    renderId:          ultimoRender[d.id]?.id ?? null,
+    byteSize:          ultimoRender[d.id]?.byte_size ?? null,
+    approvalRequestId: d.approval_request_id,
+  }))
+}

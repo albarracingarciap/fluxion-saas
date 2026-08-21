@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, FileText, AlertTriangle, CheckCircle2, Circle, Loader2,
-  Pencil, Database, History, ShieldAlert, Info, FileDown, Download, Hash,
+  Pencil, Database, History, ShieldAlert, Info, FileDown, Download, Hash, Stamp,
 } from 'lucide-react'
 
 import type { ComposedDocument, ComposedSection } from '@/lib/documents/compose'
-import { saveDocumentSection, setDocumentStatus, generateDocumentRender, type RenderRow } from './actions'
+import {
+  saveDocumentSection, setDocumentStatus, generateDocumentRender,
+  type RenderRow, type GeneratedDocRow,
+} from './actions'
 import type { TemplateOption } from '@/lib/documents/templates'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -178,9 +181,10 @@ const FRAMEWORK_LABEL: Record<string, string> = {
   ai_act: 'AI Act', gdpr: 'RGPD', iso42001: 'ISO 42001',
 }
 
-export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId }: {
+export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados }: {
   doc: ComposedDocument
   renders: RenderRow[]
+  generados: GeneratedDocRow[]
   templates: TemplateOption[]
   templateKey: string
   aiSystemId: string
@@ -412,6 +416,8 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
         )}
       </div>
 
+      <DocumentosGenerados docs={generados} />
+
       <div className="flex flex-col gap-3">
         {doc.sections.map((s) => (
           <Section
@@ -422,6 +428,69 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
             templateKey={templateKey}
             readOnly={readOnly}
           />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Registros generados por la plataforma ───────────────────────────────────
+
+function tamano(bytes: number | null) {
+  if (!bytes) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export function DocumentosGenerados({ docs }: { docs: GeneratedDocRow[] }) {
+  if (!docs.length) return null
+
+  return (
+    <div className="border border-ltb rounded-[12px] bg-ltcard p-5">
+      <div className="mb-3">
+        <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm flex items-center gap-1.5">
+          <Stamp size={12} /> Registros generados
+        </p>
+        <p className="font-sora text-[12px] text-lttm mt-1 max-w-2xl">
+          Documentos que produce la plataforma a partir de lo que ya ocurrió: no se
+          redactan ni se editan. Un acta de aprobación sale de los votos registrados,
+          así que no puede decir algo distinto de lo que pasó.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {docs.map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center justify-between gap-4 rounded-[9px] border border-ltb bg-ltcard2 px-4 py-2.5"
+          >
+            <div className="min-w-0">
+              <p className="font-sora text-[12.5px] text-ltt">{d.title}</p>
+              <p className="font-sora text-[11.5px] text-lttm mt-0.5">
+                {d.templateName}
+                {' · '}
+                {new Date(d.createdAt).toLocaleString('es-ES', {
+                  day: '2-digit', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+                {tamano(d.byteSize) ? ` · ${tamano(d.byteSize)}` : ''}
+              </p>
+            </div>
+
+            {d.renderId ? (
+              <a
+                href={`/api/documents/v1/renders/${d.renderId}/download`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12px] text-lttm hover:text-ltt shrink-0"
+              >
+                <FileDown size={13} /> Descargar
+              </a>
+            ) : (
+              // El documento existe pero su PDF no llegó a generarse. Se dice, en
+              // lugar de enseñar un botón que no lleva a ninguna parte.
+              <span className="font-sora text-[11.5px] text-or shrink-0">Sin PDF generado</span>
+            )}
+          </div>
         ))}
       </div>
     </div>
