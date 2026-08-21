@@ -7,6 +7,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { composeDocument, type ComposedDocument } from '@/lib/documents/compose'
 import type { TemplateOption } from '@/lib/documents/templates'
 import { generateRender } from '@/lib/documents/render'
+import { isTemplateKey } from '@/lib/documents/templates'
 
 /**
  * Expedientes regulatorios por sistema: Anexo IV, FRIA, DPIA y ficha de modelo.
@@ -58,6 +59,12 @@ export async function listTemplatesForSystem(aiSystemId: string): Promise<Templa
   return ((templates ?? []) as Array<Record<string, unknown>>)
     .filter((t) => {
       const k = String(t.key)
+      // Solo las plantillas que esta pantalla sabe abrir. `document_templates`
+      // tambien guarda el acta de aprobacion, que no es un expediente que se
+      // componga sino el registro de algo que ya paso: aparecia como pestana y
+      // su enlace daba 404, porque la ruta rechaza las claves que no son
+      // editables. El acta se descarga desde la solicitud.
+      if (!isTemplateKey(k)) return false
       if (vistos.has(k)) return false   // solo la versión más alta de cada clave
       vistos.add(k)
       return true
