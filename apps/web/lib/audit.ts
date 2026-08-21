@@ -44,6 +44,8 @@ export type AuditAction =
   | 'connector.sync_requested'
   | 'approval_policy.saved'
   | 'approval_policy.deleted'
+  | 'approval.decided'
+  | 'approval.cancelled'
   | 'webhook.tested'
   // Seguridad
   | 'org.security_updated'

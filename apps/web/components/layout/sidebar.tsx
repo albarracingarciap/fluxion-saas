@@ -8,7 +8,7 @@ import { useSidebarStore } from "@/lib/store/sidebarStore"
 import { Eye, Activity,
   LayoutDashboard, ChevronDown, List, FileCheck,
   Database, Building2, Users, Settings, PanelLeftClose, PanelLeftOpen, ClipboardList,
-  ShieldCheck, ShieldAlert, CheckSquare, LayoutGrid,
+  ShieldCheck, ShieldAlert, CheckSquare, LayoutGrid, GitBranch,
 } from "lucide-react"
 
 type Child = { label: string; href: string; disabled?: boolean; hint?: string; activeOn?: string[]; exact?: boolean }
@@ -44,6 +44,7 @@ const NAV: NavSection[] = [
       { label: "Planes de tratamiento", href: "/planes", icon: <ShieldCheck size={15} /> },
       { label: "Incidentes", href: "/incidentes", icon: <ShieldAlert size={15} /> },
       { label: "Supervisión humana", href: "/supervision", icon: <Eye size={15} /> },
+      { label: "Aprobaciones", href: "/aprobaciones", icon: <GitBranch size={15} /> },
     ],
   },
   {
