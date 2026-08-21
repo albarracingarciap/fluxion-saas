@@ -117,3 +117,21 @@ export const MODULE_CATALOG: ReadonlyArray<{
 export function isModuleKey(value: string): value is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(value)
 }
+
+
+/**
+ * Duraciones de prueba ofrecidas en la ficha de la organización.
+ *
+ * Vive aquí y no en las acciones de servidor: un fichero `'use server'` solo
+ * puede exportar funciones asíncronas. Exportar una constante desde allí
+ * compila sin quejarse y llega al cliente como `undefined`, que es un fallo en
+ * tiempo de ejecución y no de compilación.
+ */
+export const TRIAL_DAYS_OPTIONS = [30, 60, 90, 120] as const
+export type TrialDays = (typeof TRIAL_DAYS_OPTIONS)[number]
+
+export interface OrganizationModuleRow {
+  module_key:     string
+  status:         ModuleStatus
+  licensed_until: string | null
+}

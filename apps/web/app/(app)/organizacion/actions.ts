@@ -5,7 +5,10 @@ import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { revalidatePath } from 'next/cache';
 import { logAuditEvent } from '@/lib/audit';
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion';
-import { MODULE_CATALOG, isModuleKey, type ModuleStatus } from '@/lib/modules/registry';
+import {
+  MODULE_CATALOG, isModuleKey, TRIAL_DAYS_OPTIONS,
+  type OrganizationModuleRow, type TrialDays,
+} from '@/lib/modules/registry';
 
 import type { RiskAppetite } from '@/lib/organization/options';
 
@@ -354,15 +357,6 @@ export async function removeCommitteeMember(memberId: string) {
 // en toda la aplicación y los módulos se concedían por SQL a mano. Una
 // organización recién creada entraba sin nada activado, con media aplicación
 // invisible y sin ningún mensaje que lo explicara.
-
-export const TRIAL_DAYS_OPTIONS = [30, 60, 90, 120] as const
-export type TrialDays = (typeof TRIAL_DAYS_OPTIONS)[number]
-
-export interface OrganizationModuleRow {
-  module_key:     string
-  status:         ModuleStatus
-  licensed_until: string | null
-}
 
 export async function getOrganizationModules(): Promise<
   { modules: OrganizationModuleRow[] } | { error: string }

@@ -3,14 +3,11 @@
 import { useEffect, useState, useTransition } from 'react'
 import { LayoutGrid, Check, Clock, Lock } from 'lucide-react'
 
-import { MODULE_CATALOG } from '@/lib/modules/registry'
 import {
-  getOrganizationModules,
-  setOrganizationModule,
-  TRIAL_DAYS_OPTIONS,
-  type OrganizationModuleRow,
-  type TrialDays,
-} from '../actions'
+  MODULE_CATALOG, TRIAL_DAYS_OPTIONS,
+  type OrganizationModuleRow, type TrialDays,
+} from '@/lib/modules/registry'
+import { getOrganizationModules, setOrganizationModule } from '../actions'
 import { SectionHeader } from './shared'
 
 const GRUPOS = ['Integración', 'Supervisión', 'Cumplimiento'] as const
