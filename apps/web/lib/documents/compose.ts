@@ -1,4 +1,5 @@
 import 'server-only'
+import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
@@ -16,7 +17,10 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
  * se corrige, el inventado es una declaración falsa ante una autoridad.
  */
 
-export type SectionSource = 'manual' | 'derived:system' | 'derived:fmea' | 'derived:history'
+export type SectionSource =
+  | 'manual' | 'derived:system' | 'derived:fmea' | 'derived:history'
+  // Actas de aprobacion: todo sale de la politica congelada y de los votos.
+  | 'derived:approval'
 
 export type TemplateSection = {
   ref: string
@@ -331,7 +335,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
 
   const { data: doc } = await fluxion
     .from('documents')
-    .select('id, title, status, template_key, template_version, content, ai_system_id, updated_at')
+    .select('id, title, status, template_key, template_version, content, ai_system_id, approval_request_id, updated_at')
     .eq('id', documentId)
     .maybeSingle()
 
@@ -417,11 +421,19 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
     history = events ?? []
   }
 
+  // Contexto del acta. Solo se pide si el documento sale de una solicitud, que
+  // es el unico caso en que hay secciones 'derived:approval'.
+  let aprobacion: ApprovalContext | null = null
+  if (doc.approval_request_id) {
+    aprobacion = await cargarContextoAprobacion(doc.approval_request_id)
+  }
+
   const sections: ComposedSection[] = sectionsDef.map((def) => {
     let derived: string | null = null
     if (def.source === 'derived:system' && system) derived = deriveFromSystem(def.ref, system)
     else if (def.source === 'derived:fmea') derived = deriveFromFmea(def.ref, evaluation, plan)
     else if (def.source === 'derived:history') derived = deriveFromHistory(def.ref, history)
+    else if (def.source === 'derived:approval') derived = deriveFromApproval(def.ref, aprobacion)
 
     // Anexo IV 2(e) y FRIA 27.1.e piden las medidas de vigilancia humana. Si
     // hay decisiones registradas, se añaden a lo que ya diga la ficha: una
@@ -473,5 +485,78 @@ ${evidencia}`
     gaps,
     completeness: obligatorias.length ? cubiertas.length / obligatorias.length : 1,
     staleSince,
+  }
+}
+
+
+/**
+ * Contexto de un acta: la solicitud, sus votos y —si el objeto es un plan— sus
+ * datos de riesgo.
+ *
+ * Con el cliente del usuario: un acta la lee quien puede leer la solicitud, y
+ * la RLS ya lo resuelve. No hace falta rol de servicio para componer.
+ */
+async function cargarContextoAprobacion(requestId: string): Promise<ApprovalContext | null> {
+  const fluxion = createFluxionClient()
+
+  const { data: request } = await fluxion
+    .from('v_approval_requests')
+    .select('id, object_type, object_id, object_label, status, requested_at, closed_at, closed_reason, requested_by_name')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (!request) return null
+
+  const { data: snapshot } = await fluxion
+    .from('approval_requests')
+    .select('policy_snapshot')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  const { data: decisiones } = await fluxion
+    .from('approval_decisions')
+    .select('position, decision, reason, decided_at, actor_profile_id, on_behalf_of')
+    .eq('request_id', requestId)
+    .order('position')
+    .order('decided_at')
+
+  const ids = (decisiones ?? [])
+    .flatMap((d) => [d.actor_profile_id, d.on_behalf_of].filter(Boolean) as string[])
+    .filter((id, i, todos) => todos.indexOf(id) === i)
+
+  const { data: perfiles } = ids.length
+    ? await fluxion.from('profiles').select('id, full_name, email').in('id', ids)
+    : { data: [] as Array<{ id: string; full_name: string | null; email: string | null }> }
+
+  const nombre = (id: string | null) => {
+    if (!id) return null
+    const p = (perfiles ?? []).find((x) => x.id === id)
+    return p?.full_name || p?.email || null
+  }
+
+  let plan: ApprovalContext['plan'] = null
+  if (request.object_type === 'treatment_plan') {
+    const { data: fila } = await fluxion
+      .from('treatment_plans')
+      .select('code, approval_level, accepted_risk_count')
+      .eq('id', request.object_id)
+      .maybeSingle()
+    plan = fila ?? null
+  }
+
+  return {
+    request: {
+      ...request,
+      policy_snapshot: (snapshot?.policy_snapshot ?? {}) as Record<string, unknown>,
+    },
+    decisions: (decisiones ?? []).map((d) => ({
+      position:       d.position,
+      decision:       d.decision,
+      reason:         d.reason,
+      decided_at:     d.decided_at,
+      actor_name:     nombre(d.actor_profile_id),
+      on_behalf_name: nombre(d.on_behalf_of),
+    })),
+    plan,
   }
 }

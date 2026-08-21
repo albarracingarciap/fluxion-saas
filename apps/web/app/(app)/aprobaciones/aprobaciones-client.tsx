@@ -87,6 +87,9 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
     startTransition(async () => {
       const r = await decideApproval({ requestId: row.id, decision, reason: motivo || undefined })
       if ('error' in r) { setError(r.error); return }
+      // El voto ya esta registrado aunque algo posterior falle —el acta, el
+      // cambio de estado del objeto—. Se enseña el aviso sin deshacer nada.
+      if (r.aviso) setError(r.aviso)
       setPidiendoMotivo(false)
       setMotivo('')
       router.refresh()

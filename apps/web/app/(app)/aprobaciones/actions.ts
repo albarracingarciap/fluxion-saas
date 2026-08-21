@@ -11,6 +11,7 @@ import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { logAuditEvent } from '@/lib/audit'
 import type { ApprovalObjectType } from '@/lib/approvals/catalog'
 import { applyApprovalOutcome } from '@/lib/approvals/effects'
+import { generateApprovalMinutes } from '@/lib/approvals/minutes'
 
 export type ApprovalRequestRow = {
   id:                 string
@@ -236,6 +237,12 @@ export async function decideApproval(input: {
       })
       aviso = efecto.aviso
     }
+
+    // Acta, solo si participo un comite. Va despues del efecto de dominio a
+    // proposito: el acta describe lo que quedo, y para eso el objeto ya tiene
+    // que haber cambiado de estado.
+    const acta = await generateApprovalMinutes(input.requestId)
+    if (acta.aviso) aviso = aviso ? `${aviso} ${acta.aviso}` : acta.aviso
   }
 
   void logAuditEvent({

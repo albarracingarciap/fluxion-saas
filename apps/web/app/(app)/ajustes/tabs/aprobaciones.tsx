@@ -279,6 +279,14 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                     </div>
                   </div>
 
+                  {s.approver_type === 'committee' && opciones.committees.length > 0 && (
+                    <p className="font-sora text-[11.5px] text-lttm mt-2">
+                      Solo votan los miembros del comité con cuenta en Fluxion. Los externos
+                      constan en el comité pero no pueden emitir voto, así que cuéntalos fuera
+                      al fijar el quórum.
+                    </p>
+                  )}
+
                   {s.approver_type === 'committee' && opciones.committees.length === 0 && (
                     <p className="font-sora text-[11.5px] text-amber-700 mt-2 flex items-center gap-1.5">
                       <AlertTriangle size={12} /> No hay comités activos. Créalos en la ficha de la organización.
