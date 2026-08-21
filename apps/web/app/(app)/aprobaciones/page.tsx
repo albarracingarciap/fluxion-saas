@@ -13,8 +13,8 @@ export default async function AprobacionesPage() {
   ])
 
   return (
-    <div className="p-7 max-w-5xl">
-      <div className="flex items-start gap-3 mb-6">
+    <div className="max-w-[1100px] w-full mx-auto flex flex-col gap-5 animate-fadein pb-16">
+      <div className="flex items-start gap-3">
         <div className="w-[34px] h-[34px] rounded-[9px] bg-ltcard2 border border-ltb flex items-center justify-center shrink-0 mt-0.5">
           <GitBranch size={16} className="text-ltt2" />
         </div>
