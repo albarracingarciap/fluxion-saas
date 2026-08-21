@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { requireCronSecret } from '@/lib/cron/auth'
 import { createClient } from '@supabase/supabase-js'
 
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
@@ -57,10 +58,8 @@ function severidad(umbral: number): 'medium' | 'high' | 'critical' {
 }
 
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const corte = requireCronSecret(request, 'cron/cost-budgets')
+  if (corte) return corte
 
   const telemetry = telemetryAdmin()
   const admin = createNoCacheAdminClient()

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { requireCronSecret } from '@/lib/cron/auth'
 
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { enqueueChannelMessage, deliverPending } from '@/lib/channels/send'
@@ -42,10 +43,8 @@ function semanaIso(d: Date): string {
 }
 
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const corte = requireCronSecret(request, 'cron/hitl-discordance')
+  if (corte) return corte
 
   const admin = createNoCacheAdminClient()
 

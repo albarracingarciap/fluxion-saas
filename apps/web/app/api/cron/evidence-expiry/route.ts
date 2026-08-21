@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronSecret } from '@/lib/cron/auth'
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
 
 // Invocado diariamente (07:00 UTC) por cron del VPS con el header
@@ -18,12 +19,8 @@ type EvidenceRow = {
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const corte = requireCronSecret(request, 'cron/evidence-expiry')
+  if (corte) return corte
 
   const fluxion = createAdminFluxionClient()
   const now = new Date()

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { requireCronSecret } from '@/lib/cron/auth'
 
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { createNotification } from '@/lib/notifications/sender'
@@ -96,11 +97,8 @@ function describe(incident: IncidentRow, threshold: Threshold, now: Date): {
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const corte = requireCronSecret(request, 'cron/incident-deadlines')
+  if (corte) return corte
 
   const admin = createNoCacheAdminClient()
   const now = new Date()
