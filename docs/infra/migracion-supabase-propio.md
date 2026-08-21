@@ -3,8 +3,10 @@
 Guion de la separación. Se escribe antes de tocar nada porque el paso donde uno
 improvisa es el paso donde se pierde algo.
 
-**Estado**: fase 2. Mediciones hechas, compose recortado y plantilla de
-variables preparada.
+**Estado**: fase 6. Stack levantado, esquema reconstruido desde el repositorio,
+corpus RAG traido, servicios repuntados y conectores sincronizando. Queda
+recorrer la lista de comprobacion de la fase 6 y decidir la fase 7, que es solo
+cosmetica.
 
 ---
 
