@@ -71,6 +71,9 @@ export function ModulosTab({ isAdmin }: { isAdmin: boolean }) {
           <span className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">
             Duración de la prueba
           </span>
+          {/* No es un ajuste que se guarde: es el parametro de la accion
+              siguiente. Sin decirlo, el selector parece un formulario al que
+              le falta el boton de guardar. */}
           <div className="flex gap-1.5">
             {TRIAL_DAYS_OPTIONS.map((d) => (
               <button
@@ -87,6 +90,9 @@ export function ModulosTab({ isAdmin }: { isAdmin: boolean }) {
               </button>
             ))}
           </div>
+          <span className="font-sora text-[11.5px] text-lttm">
+            Se aplica al activar o renovar. No hay nada que guardar.
+          </span>
         </div>
       )}
 
@@ -140,14 +146,28 @@ export function ModulosTab({ isAdmin }: { isAdmin: boolean }) {
                     {isAdmin && (
                       <div className="shrink-0">
                         {activo ? (
-                          <button
-                            type="button"
-                            disabled={pendiente}
-                            onClick={() => cambiar(m.key, 'disable')}
-                            className="px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard font-sora text-[12px] text-ltt2 hover:border-red-200 hover:text-red-700 disabled:opacity-50 transition-colors"
-                          >
-                            Desactivar
-                          </button>
+                          <div className="flex gap-1.5">
+                            {/* Renovar reescribe la fecha con la duracion
+                                elegida arriba. Sin esto, cambiar los dias de
+                                una prueba viva obligaba a desactivarla y
+                                volver a activarla. */}
+                            <button
+                              type="button"
+                              disabled={pendiente}
+                              onClick={() => cambiar(m.key, 'trial')}
+                              className="px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard font-sora text-[12px] text-ltt2 hover:border-cyan-border hover:text-cyan-700 disabled:opacity-50 transition-colors"
+                            >
+                              Renovar {dias} días
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pendiente}
+                              onClick={() => cambiar(m.key, 'disable')}
+                              className="px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard font-sora text-[12px] text-ltt2 hover:border-red-200 hover:text-red-700 disabled:opacity-50 transition-colors"
+                            >
+                              Desactivar
+                            </button>
+                          </div>
                         ) : (
                           <button
                             type="button"
