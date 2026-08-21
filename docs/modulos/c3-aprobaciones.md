@@ -33,25 +33,50 @@ que quien redactó el plan escriba ahí «Acta 2026-04» y lo apruebe él solo.
 Ese es el agujero. No falta una funcionalidad: la evidencia de aprobación no
 prueba lo que dice probar.
 
-## 1 · Anclaje legal
+## 1 · Anclaje legal, verificado
 
-⚠️ **Pendiente de verificar contra el texto oficial** antes de escribir código,
-como se hizo en C2 con el AI Act Service Desk. Lo que sigue es de dónde creo que
-cuelga, no una cita comprobada.
+Citas contrastadas contra el texto del Reglamento (UE) 2024/1689.
 
-**Art. 9.5** — las medidas de gestión del riesgo deben ser tales que el riesgo
-residual se juzgue aceptable. Juzgar es un acto de alguien: hace falta saber de
-quién y con qué autoridad.
+**Art. 9.5** — *«The risk management measures referred to in paragraph 2, point
+(d), shall be such that the relevant residual risk associated with each hazard,
+as well as the overall residual risk of the high-risk AI systems is judged to be
+acceptable.»*
 
-**Art. 17** — el sistema de gestión de la calidad incluye un marco de rendición
-de cuentas que fija las responsabilidades de la dirección. Una aprobación es
-justamente el punto donde esa responsabilidad se ejerce.
+Es el anclaje principal. **Juzgar** es un acto de alguien: si el riesgo residual
+«se juzga aceptable», tiene que constar quién lo juzgó y con qué autoridad. Hoy
+esa constancia es un campo de texto.
 
-**Art. 26.2** — la supervisión se encomienda a personas con la competencia, la
-formación y la autoridad necesarias. «Autoridad» es lo que un motor de
-aprobaciones modela.
+**Art. 17.1.m** — el sistema de gestión de la calidad incluye *«an
+accountability framework setting out the responsibilities of the management and
+other staff with regard to all the aspects listed in this paragraph»*.
 
-**ISO 42001 · 5.3 y A.3.2** — roles, responsabilidades y autoridades definidas.
+Un motor de aprobaciones es la forma ejecutable de ese marco: deja de ser un
+organigrama en un procedimiento y pasa a ser quién puede cerrar qué.
+
+**Art. 17.1.b** — *«techniques, procedures and systematic actions to be used for
+the design, design control and design verification»*. «Systematic» es la palabra
+que separa una cadena de aprobación configurada de una aprobación ad hoc.
+
+**Art. 26.2** — *«Deployers shall assign human oversight to natural persons who
+have the necessary competence, training and authority, as well as the necessary
+support.»* De ahí que un paso se resuelva por rol o por comité, y no por una
+lista de correos.
+
+**Anexo IV, punto 5** — la documentación técnica incluye *«a detailed
+description of the risk management system in accordance with Article 9»*. Ahí es
+donde entra el rastro de aprobaciones como evidencia.
+
+⚠️ **Corrección**: la primera versión de este plan citaba el punto 9 del Anexo
+IV. El punto 9 es el seguimiento posterior a la comercialización (Art. 72). El
+que corresponde es el 5.
+
+**ISO/IEC 42001 · cláusula 5.3** — roles, responsabilidades y autoridades
+asignadas y comunicadas por la dirección. Corroborado en fuentes secundarias; la
+norma es de pago y no se ha contrastado contra el texto original.
+
+⚠️ El control **A.3.2** del Anexo A aparece con dos títulos distintos según la
+fuente («AI roles and responsibilities» y «Role authorities»). **No citarlo**
+hasta comprobarlo contra la norma comprada.
 
 ## 2 · Decisiones tomadas antes de escribir código
 
@@ -98,8 +123,9 @@ C1, en lugar de escribirse a mano en un campo de texto.
 
 ### 2.5 · Una aprobación es evidencia
 
-El resultado se puede adjuntar al expediente como evidencia, con su huella. Que
-es lo que un auditor pide cuando pregunta por el punto 9 del Anexo IV.
+El resultado se puede adjuntar al expediente como evidencia, con su huella.
+Alimenta el punto 5 del Anexo IV: la descripción del sistema de gestión del
+riesgo tiene que poder enseñar quién aceptó el riesgo residual y cuándo.
 
 ### 2.6 · Delegar no es suplantar
 
