@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/authStore'
 import Link from 'next/link'
-import { ArrowLeft, Settings, User, Bell, Monitor, ClipboardList, Shield, Key, Webhook, Plug, MessageSquare, Loader2 } from 'lucide-react'
+import { ArrowLeft, Settings, User, Bell, Monitor, ClipboardList, Shield, Key, Webhook, Plug, MessageSquare, GitBranch, Loader2 } from 'lucide-react'
 import { MiCuentaTab }        from './tabs/mi-cuenta'
 import { NotificacionesTab }  from './tabs/notificaciones'
 import { SesionesTab }        from './tabs/sesiones'
@@ -13,6 +13,7 @@ import { ApiKeysTab }         from './tabs/api-keys'
 import { WebhooksTab }        from './tabs/webhooks'
 import { ConectoresTab }      from './tabs/conectores'
 import { CanalesTab }         from './tabs/canales'
+import { AprobacionesTab }   from './tabs/aprobaciones'
 import {
   DEFAULT_ACCOUNT_PREFS, DEFAULT_NOTIF_PREFS,
   type AccountPrefs, type NotificationPrefs,
@@ -20,7 +21,7 @@ import {
 
 // ── Tab config ──────────────────────────────────────────────────────────────────
 
-type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones' | 'auditoria' | 'seguridad' | 'api' | 'webhooks' | 'conectores' | 'canales'
+type TabKey = 'mi-cuenta' | 'notificaciones' | 'sesiones' | 'auditoria' | 'seguridad' | 'api' | 'webhooks' | 'conectores' | 'canales' | 'aprobaciones'
 
 const PERSONAL_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: 'mi-cuenta',      label: 'Mi cuenta',       icon: <User          size={14} /> },
@@ -35,6 +36,7 @@ const WORKSPACE_TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode 
   { key: 'webhooks',  label: 'Webhooks',            icon: <Webhook       size={14} /> },
   { key: 'conectores', label: 'Conectores',         icon: <Plug          size={14} /> },
   { key: 'canales',    label: 'Canales de aviso',   icon: <MessageSquare size={14} /> },
+  { key: 'aprobaciones', label: 'Aprobaciones',     icon: <GitBranch     size={14} /> },
 ]
 
 // ── Helpers: parse preferences from JSONB ───────────────────────────────────────
@@ -254,6 +256,7 @@ export default function AjustesPage() {
               {activeTab === 'webhooks'  && isAdmin && <WebhooksTab />}
               {activeTab === 'conectores' && isAdmin && <ConectoresTab />}
               {activeTab === 'canales'    && isAdmin && <CanalesTab />}
+              {activeTab === 'aprobaciones' && isAdmin && <AprobacionesTab />}
             </>
           )}
         </div>

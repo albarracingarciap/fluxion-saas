@@ -1093,3 +1093,255 @@ export async function testNotificationChannel(id: string): Promise<{ success?: t
   revalidatePath('/ajustes')
   return result.ok ? { success: true } : { error: result.error ?? 'El envío falló.' }
 }
+
+// ── Políticas de aprobación (C3) ────────────────────────────────────────────
+// Hasta aquí, la cadena de aprobación solo existía en SQL. Esto la hace
+// configurable sin tocar la base de datos.
+//
+// Nada de esto decide nada por sí solo: el motor vive en la base
+// (`fluxion.approval_*`) y es quien mantiene las invariantes. Estas acciones
+// solo editan la configuración que ese motor congela al abrir cada solicitud.
+
+export const APPROVAL_OBJECT_TYPES = [
+  { key: 'treatment_plan',   label: 'Plan de tratamiento' },
+  { key: 'aisia_assessment', label: 'Evaluación AISIA' },
+  { key: 'document',         label: 'Documento regulatorio' },
+  { key: 'soa',              label: 'Declaración de Aplicabilidad' },
+  { key: 'evidence',         label: 'Evidencia' },
+] as const
+
+export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']
+
+export type ApprovalStepRow = {
+  id?:               string
+  position:          number
+  approver_type:     'role' | 'profile' | 'committee'
+  approver_ref:      string
+  quorum:            number | null
+  allow_delegation:  boolean
+}
+
+export type ApprovalPolicyRow = {
+  id:                 string
+  object_type:        ApprovalObjectType
+  name:               string
+  conditions:         Record<string, string[]>
+  author_can_approve: boolean
+  is_active:          boolean
+  steps:              ApprovalStepRow[]
+}
+
+/** Perfiles y comités para elegir aprobador. Los roles son fijos. */
+export type ApprovalApproverOptions = {
+  profiles:   Array<{ id: string; label: string }>
+  committees: Array<{ id: string; label: string }>
+}
+
+export async function getApprovalApproverOptions(): Promise<ApprovalApproverOptions> {
+  const { profile } = await getCurrentUserProfile()
+  if (!profile) return { profiles: [], committees: [] }
+
+  const admin = createConnectorAdminClient()
+
+  const [{ data: perfiles }, { data: comites }] = await Promise.all([
+    admin.from('profiles')
+      .select('id, full_name, email')
+      .eq('organization_id', profile.organization_id)
+      .eq('is_active', true)
+      .order('full_name'),
+    admin.from('committees')
+      .select('id, name')
+      .eq('organization_id', profile.organization_id)
+      .eq('is_active', true)
+      .order('name'),
+  ])
+
+  return {
+    profiles: (perfiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => ({
+      id: p.id, label: p.full_name || p.email || p.id,
+    })),
+    committees: (comites ?? []).map((c: { id: string; name: string }) => ({
+      id: c.id, label: c.name,
+    })),
+  }
+}
+
+export async function getApprovalPolicies(): Promise<ApprovalPolicyRow[]> {
+  const { profile } = await getCurrentUserProfile()
+  if (!profile) return []
+
+  const admin = createConnectorAdminClient()
+
+  const { data: politicas, error } = await admin
+    .from('approval_policies')
+    .select('id, object_type, name, conditions, author_can_approve, is_active')
+    .eq('organization_id', profile.organization_id)
+    .order('object_type')
+
+  if (error || !politicas?.length) return []
+
+  const { data: pasos } = await admin
+    .from('approval_policy_steps')
+    .select('id, policy_id, position, approver_type, approver_ref, quorum, allow_delegation')
+    .in('policy_id', politicas.map((p: { id: string }) => p.id))
+    .order('position')
+
+  return politicas.map((p: Omit<ApprovalPolicyRow, 'steps'>) => ({
+    ...p,
+    steps: (pasos ?? []).filter((s: { policy_id: string }) => s.policy_id === p.id) as ApprovalStepRow[],
+  }))
+}
+
+/**
+ * Crea o reemplaza una política con su cadena completa.
+ *
+ * Los pasos se borran y se reinsertan en bloque: una cadena es una unidad, y
+ * conciliar altas, bajas y reordenaciones paso a paso deja huecos en
+ * `position` que rompen el avance del motor.
+ *
+ * Las solicitudes ya abiertas NO se ven afectadas: llevan la política congelada
+ * dentro. Es justo el motivo por el que se congela.
+ */
+export async function saveApprovalPolicy(input: {
+  id?:                string
+  object_type:        ApprovalObjectType
+  name:               string
+  conditions:         Record<string, string[]>
+  author_can_approve: boolean
+  is_active:          boolean
+  steps:              ApprovalStepRow[]
+}): Promise<{ id: string } | { error: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager', 'caio'].includes(profile.role)) {
+    return { error: 'Sin permisos.' }
+  }
+
+  const nombre = input.name.trim()
+  if (!nombre) return { error: 'El nombre es obligatorio.' }
+  if (!input.steps.length) {
+    return { error: 'Una política sin pasos no aprueba nada. Añade al menos uno.' }
+  }
+
+  for (let i = 0; i < input.steps.length; i++) {
+    const paso = input.steps[i]
+    if (!paso.approver_ref) {
+      return { error: `El paso ${i + 1} no tiene aprobador.` }
+    }
+    if (paso.approver_type === 'committee' && (!paso.quorum || paso.quorum < 1)) {
+      return { error: `El paso ${i + 1} es de comité y necesita un quórum de al menos 1.` }
+    }
+  }
+
+  const admin = createConnectorAdminClient()
+
+  const payload = {
+    organization_id:    profile.organization_id,
+    object_type:        input.object_type,
+    name:               nombre,
+    conditions:         input.conditions,
+    author_can_approve: input.author_can_approve,
+    is_active:          input.is_active,
+  }
+
+  let policyId = input.id
+
+  if (policyId) {
+    const { error: updErr } = await admin
+      .from('approval_policies')
+      .update(payload)
+      .eq('id', policyId)
+      .eq('organization_id', profile.organization_id)
+    if (updErr) return { error: 'Error al guardar: ' + updErr.message }
+  } else {
+    const { data: row, error: insErr } = await admin
+      .from('approval_policies')
+      .insert({ ...payload, created_by: profile.id })
+      .select('id')
+      .single()
+    // El índice único deja una sola política activa por tipo de objeto: con dos,
+    // cuál se aplicó dependería del orden de inserción.
+    if (insErr || !row) {
+      const dup = insErr?.code === '23505'
+      return {
+        error: dup
+          ? 'Ya hay una política activa para ese tipo de objeto. Desactívala primero.'
+          : 'Error al crear: ' + (insErr?.message ?? ''),
+      }
+    }
+    policyId = row.id
+  }
+
+  await admin.from('approval_policy_steps').delete().eq('policy_id', policyId)
+
+  const { error: stepsErr } = await admin.from('approval_policy_steps').insert(
+    input.steps.map((s, i) => ({
+      policy_id:        policyId,
+      position:         i + 1,
+      approver_type:    s.approver_type,
+      approver_ref:     s.approver_ref,
+      quorum:           s.approver_type === 'committee' ? s.quorum : null,
+      allow_delegation: s.allow_delegation,
+    }))
+  )
+
+  if (stepsErr) return { error: 'Error al guardar los pasos: ' + stepsErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'approval_policy.saved',
+    target_type:     'organization',
+    target_id:       policyId,
+    target_label:    nombre,
+    metadata:        {
+      object_type:        input.object_type,
+      steps:              input.steps.length,
+      author_can_approve: input.author_can_approve,
+    },
+  })
+
+  revalidatePath('/ajustes')
+  return { id: policyId! }
+}
+
+export async function deleteApprovalPolicy(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!['org_admin', 'sgai_manager', 'caio'].includes(profile.role)) {
+    return { error: 'Sin permisos.' }
+  }
+
+  const admin = createConnectorAdminClient()
+
+  // Una política con solicitudes vivas no se borra: dejarían de tener con qué
+  // explicarse en el historial. Se desactiva, que además conserva el rastro.
+  const { count } = await admin
+    .from('approval_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('policy_id', id)
+    .eq('status', 'pending')
+
+  if ((count ?? 0) > 0) {
+    return { error: 'Hay solicitudes en curso con esta política. Desactívala en vez de borrarla.' }
+  }
+
+  const { error: delErr } = await admin
+    .from('approval_policies')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+
+  if (delErr) return { error: 'Error al eliminar: ' + delErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'approval_policy.deleted',
+    target_type:     'organization',
+    target_id:       id,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}
