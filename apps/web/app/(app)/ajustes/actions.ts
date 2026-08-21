@@ -1102,39 +1102,16 @@ export async function testNotificationChannel(id: string): Promise<{ success?: t
 // (`fluxion.approval_*`) y es quien mantiene las invariantes. Estas acciones
 // solo editan la configuración que ese motor congela al abrir cada solicitud.
 
-export const APPROVAL_OBJECT_TYPES = [
-  { key: 'treatment_plan',   label: 'Plan de tratamiento' },
-  { key: 'aisia_assessment', label: 'Evaluación AISIA' },
-  { key: 'document',         label: 'Documento regulatorio' },
-  { key: 'soa',              label: 'Declaración de Aplicabilidad' },
-  { key: 'evidence',         label: 'Evidencia' },
-] as const
+import {
+  type ApprovalObjectType, type ApprovalStepRow,
+  type ApprovalPolicyRow, type ApprovalApproverOptions,
+} from '@/lib/approvals/catalog'
 
-export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']
-
-export type ApprovalStepRow = {
-  id?:               string
-  position:          number
-  approver_type:     'role' | 'profile' | 'committee'
-  approver_ref:      string
-  quorum:            number | null
-  allow_delegation:  boolean
-}
-
-export type ApprovalPolicyRow = {
-  id:                 string
-  object_type:        ApprovalObjectType
-  name:               string
-  conditions:         Record<string, string[]>
-  author_can_approve: boolean
-  is_active:          boolean
-  steps:              ApprovalStepRow[]
-}
-
-/** Perfiles y comités para elegir aprobador. Los roles son fijos. */
-export type ApprovalApproverOptions = {
-  profiles:   Array<{ id: string; label: string }>
-  committees: Array<{ id: string; label: string }>
+// Se reexportan los tipos para no romper a quien ya importaba de aqui. La
+// constante NO: exportarla desde un fichero 'use server' es lo que rompio la
+// pantalla.
+export type {
+  ApprovalObjectType, ApprovalStepRow, ApprovalPolicyRow, ApprovalApproverOptions,
 }
 
 export async function getApprovalApproverOptions(): Promise<ApprovalApproverOptions> {

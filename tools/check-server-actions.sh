@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#
+# Un fichero 'use server' solo puede exportar funciones asincronas.
+#
+# Exportar una constante desde ahi COMPILA, pasa `tsc --noEmit` y pasa
+# `next build`. El fallo aparece en el navegador: el valor llega como
+# `undefined` y la pantalla revienta al usarlo.
+#
+# Paso dos veces el mismo dia —TRIAL_DAYS_OPTIONS y APPROVAL_OBJECT_TYPES— asi
+# que deja de ser un descuido y pasa a ser algo que hay que comprobar.
+#
+#   ./tools/check-server-actions.sh
+#
+set -euo pipefail
+
+RAIZ=${1:-apps/web}
+fallos=0
+
+# Ficheros cuya primera linea no vacia es la directiva.
+mapfile -t ficheros < <(grep -rl --include='*.ts' --include='*.tsx' \
+  -e "^'use server'" -e '^"use server"' "$RAIZ" 2>/dev/null || true)
+
+for f in "${ficheros[@]:-}"; do
+  [ -n "$f" ] || continue
+
+  # Exportaciones de valor que no son funciones asincronas.
+  #   export const / let / var / class / enum
+  #   export function sin async
+  #   export default sin async
+  malas=$(grep -nE \
+    '^export[[:space:]]+(const|let|var|class|enum)[[:space:]]|^export[[:space:]]+function[[:space:]]|^export[[:space:]]+default[[:space:]]+(function[[:space:]]|[A-Za-z_])' \
+    "$f" || true)
+
+  if [ -n "$malas" ]; then
+    echo "ERROR: $f exporta valores que no son funciones asincronas:"
+    echo "$malas" | sed 's/^/    /'
+    fallos=$((fallos + 1))
+  fi
+done
+
+if [ "$fallos" -gt 0 ]; then
+  echo
+  echo "Muevelos a un modulo compartido (por ejemplo lib/<dominio>/catalog.ts)."
+  echo "Los 'export type' y 'export interface' no cuentan: desaparecen al compilar."
+  exit 1
+fi
+
+echo "Sin exportaciones de valor en ficheros 'use server' (${#ficheros[@]} revisados)."

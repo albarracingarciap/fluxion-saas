@@ -6,10 +6,12 @@ import { GitBranch, Plus, Trash2, X, ArrowUp, ArrowDown, AlertTriangle } from 'l
 import {
   getApprovalPolicies, getApprovalApproverOptions,
   saveApprovalPolicy, deleteApprovalPolicy,
+} from '../actions'
+import {
   APPROVAL_OBJECT_TYPES,
   type ApprovalPolicyRow, type ApprovalStepRow, type ApprovalObjectType,
   type ApprovalApproverOptions,
-} from '../actions'
+} from '@/lib/approvals/catalog'
 import { FieldLabel, inputCls, selectCls, SelectArrow } from './shared'
 
 const ROLE_LABELS: Record<string, string> = {
