@@ -417,6 +417,16 @@ type Props = {
 export function KanbanView({ tasks: initialTasks, members, systems, currentProfileId }: Props) {
   const router = useRouter()
   const [tasks,          setTasks]          = useState(initialTasks)
+
+  // `useState(prop)` congela el valor en el primer montaje. Sin esto,
+  // `router.refresh()` volvia a renderizar el servidor y entregaba la lista
+  // nueva, pero la vista seguia mostrando la de la primera carga: una tarea
+  // recien creada no aparecia hasta recargar la pagina entera.
+  //
+  // El estado no se puede quitar —lo usan las actualizaciones optimistas de
+  // estado, borrado y acciones en lote—, asi que se sincroniza con la prop.
+  useEffect(() => { setTasks(initialTasks) }, [initialTasks])
+
   const [search,         setSearch]         = useState('')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
