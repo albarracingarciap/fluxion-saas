@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X, MinusCircle, Clock, ChevronDown, ChevronRight, UserCheck } from 'lucide-react'
+import { Check, X, MinusCircle, Clock, ChevronDown, ChevronRight, UserCheck, FileText } from 'lucide-react'
 
 import { APPROVAL_OBJECT_TYPES } from '@/lib/approvals/catalog'
 import {
@@ -145,6 +145,15 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
 
           {row.closed_reason && (
             <p className="font-sora text-[11.5px] text-lttm mt-1.5">Motivo: «{row.closed_reason}»</p>
+          )}
+
+          {row.minutes_render_id && (
+            <a
+              href={`/api/documents/v1/renders/${row.minutes_render_id}/download`}
+              className="inline-flex items-center gap-1.5 font-sora text-[12px] text-cyan-700 hover:underline mt-2"
+            >
+              <FileText size={13} /> Descargar acta
+            </a>
           )}
 
           <button

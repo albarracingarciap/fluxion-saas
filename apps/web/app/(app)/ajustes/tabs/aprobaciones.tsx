@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { GitBranch, Plus, Trash2, X, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react'
+import { GitBranch, Plus, Trash2, X, ArrowUp, ArrowDown, AlertTriangle, UserCog } from 'lucide-react'
 
 import {
   getApprovalPolicies, getApprovalApproverOptions,
   saveApprovalPolicy, deleteApprovalPolicy,
+  getApprovalDelegations, saveApprovalDelegation, deleteApprovalDelegation,
+  type ApprovalDelegationRow,
 } from '../actions'
 import {
   APPROVAL_OBJECT_TYPES,
@@ -491,6 +493,8 @@ export function AprobacionesTab() {
         ))
       )}
 
+      <Delegaciones opciones={opciones} />
+
       {editando && (
         <Editor
           inicial={editando}
@@ -498,6 +502,189 @@ export function AprobacionesTab() {
           onClose={() => setEditando(null)}
           onSaved={load}
         />
+      )}
+    </div>
+  )
+}
+
+// ── Delegaciones ────────────────────────────────────────────────────────────
+
+function hoyISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function Delegaciones({ opciones }: { opciones: ApprovalApproverOptions }) {
+  const [filas, setFilas] = useState<ApprovalDelegationRow[] | null>(null)
+  const [abierto, setAbierto] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    toProfileId: '',
+    validFrom:   hoyISO(),
+    validUntil:  '',
+    objectTypes: [] as string[],
+  })
+
+  const load = useCallback(() => { getApprovalDelegations().then(setFilas) }, [])
+  useEffect(() => { load() }, [load])
+
+  async function guardar() {
+    setError(null)
+    const r = await saveApprovalDelegation(form)
+    if ('error' in r) { setError(r.error); return }
+    setAbierto(false)
+    setForm({ toProfileId: '', validFrom: hoyISO(), validUntil: '', objectTypes: [] })
+    load()
+  }
+
+  async function retirar(id: string) {
+    if (!confirm('¿Retirar esta delegación?')) return
+    const r = await deleteApprovalDelegation(id)
+    if (r.error) { setError(r.error); return }
+    load()
+  }
+
+  return (
+    <div className="border-t border-ltb pt-5 mt-2">
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm flex items-center gap-1.5">
+            <UserCog size={12} /> Delegaciones ({filas?.length ?? 0})
+          </p>
+          <p className="font-sora text-[12.5px] text-lttm mt-1 max-w-2xl">
+            Quién puede decidir en tu nombre mientras no estás. La decisión se registra
+            siempre a nombre de quien la toma, anotando por cuenta de quién: delegar no es
+            suplantar.
+          </p>
+        </div>
+        <button
+          onClick={() => setAbierto(!abierto)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-[7px] border border-ltb font-sora text-[12.5px] text-lttm hover:text-ltt shrink-0"
+        >
+          <Plus size={14} /> Delegar
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-3 rounded-[9px] border border-red-200 bg-red-50 px-4 py-2.5 font-sora text-[12.5px] text-red-700">
+          {error}
+        </div>
+      )}
+
+      {abierto && (
+        <div className="rounded-[9px] border border-ltb bg-ltcard2 p-4 mb-3 flex flex-col gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <FieldLabel>En quién delego</FieldLabel>
+              <div className="relative">
+                <select
+                  className={selectCls}
+                  value={form.toProfileId}
+                  onChange={(e) => setForm((f) => ({ ...f, toProfileId: e.target.value }))}
+                >
+                  <option value="">Elige a alguien…</option>
+                  {opciones.profiles.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                <SelectArrow />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Desde</FieldLabel>
+              <input
+                type="date" className={inputCls} value={form.validFrom}
+                onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>Hasta</FieldLabel>
+              <input
+                type="date" className={inputCls} value={form.validUntil}
+                onChange={(e) => setForm((f) => ({ ...f, validUntil: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel>Alcance</FieldLabel>
+            <div className="flex gap-1.5 flex-wrap">
+              {APPROVAL_OBJECT_TYPES.map((t) => {
+                const activo = form.objectTypes.includes(t.key)
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      objectTypes: activo
+                        ? f.objectTypes.filter((x) => x !== t.key)
+                        : [...f.objectTypes, t.key],
+                    }))}
+                    className={`px-2.5 py-1 rounded-[6px] border font-sora text-[12px] ${
+                      activo
+                        ? 'border-cyan-border bg-cyan-dim2 text-cyan-700'
+                        : 'border-ltb bg-ltcard text-lttm hover:border-ltb2'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+              Sin ninguno marcado, la delegación cubre todos los tipos.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setAbierto(false)}
+              className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12px] text-lttm"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={guardar}
+              disabled={!form.toProfileId || !form.validUntil}
+              className="px-3 py-1.5 rounded-[7px] bg-brand-cyan font-sora text-[12px] text-white disabled:opacity-50"
+            >
+              Delegar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {filas === null ? (
+        <p className="font-sora text-[12.5px] text-lttm">Cargando…</p>
+      ) : filas.length === 0 ? (
+        <p className="font-sora text-[12.5px] text-lttm">No hay ninguna delegación activa.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filas.map((d) => (
+            <div key={d.id} className="flex items-center justify-between gap-4 rounded-[9px] border border-ltb bg-ltcard2 px-4 py-2.5">
+              <div>
+                <p className="font-sora text-[12.5px] text-ltt">
+                  <strong>{d.from_name ?? 'Alguien'}</strong> → {d.to_name ?? 'alguien'}
+                  {!d.vigente && (
+                    <span className="ml-2 rounded-[5px] bg-ltcard px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-lttm">
+                      Fuera de vigencia
+                    </span>
+                  )}
+                </p>
+                <p className="font-sora text-[11.5px] text-lttm mt-0.5">
+                  Del {d.valid_from} al {d.valid_until}
+                  {' · '}
+                  {d.object_types.length
+                    ? d.object_types.map((t) => APPROVAL_OBJECT_TYPES.find((x) => x.key === t)?.label ?? t).join(', ')
+                    : 'todos los tipos'}
+                </p>
+              </div>
+              <button onClick={() => retirar(d.id)} className="p-1.5 rounded-[6px] text-lttm hover:text-red-600 shrink-0">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

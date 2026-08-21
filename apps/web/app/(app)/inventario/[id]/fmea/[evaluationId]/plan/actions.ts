@@ -33,6 +33,7 @@ import { createClient } from '@/lib/supabase/server';
 // Sin cache: se consulta si hay un circuito de aprobacion vivo, y eso decide
 // si esta accion puede cerrar el plan.
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
+import { notifyApprovalStep } from '@/lib/approvals/notify';
 import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
@@ -731,6 +732,18 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     if (aperturaError) {
       return { error: 'El plan quedó en revisión pero no se pudo abrir la aprobación: ' + aperturaError.message };
     }
+
+    // Aviso a quien le toca el primer paso. Sin esto, la aprobación depende de
+    // que alguien se acuerde de mirar la bandeja.
+    const { data: abierta } = await admin
+      .from('approval_requests')
+      .select('id')
+      .eq('object_type', 'treatment_plan')
+      .eq('object_id', plan.id)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (abierta) await notifyApprovalStep(abierta.id);
   }
 
   await captureSnapshot({

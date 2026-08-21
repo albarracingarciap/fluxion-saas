@@ -46,6 +46,8 @@ export type AuditAction =
   | 'approval_policy.deleted'
   | 'approval.decided'
   | 'approval.cancelled'
+  | 'approval_delegation.created'
+  | 'approval_delegation.revoked'
   | 'webhook.tested'
   // Seguridad
   | 'org.security_updated'

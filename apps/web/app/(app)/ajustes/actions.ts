@@ -1322,3 +1322,175 @@ export async function deleteApprovalPolicy(id: string): Promise<{ success?: true
   revalidatePath('/ajustes')
   return { success: true }
 }
+
+// ── Delegaciones ────────────────────────────────────────────────────────────
+// Delegar no es suplantar: la decisión se registra a nombre de quien decide,
+// con la anotación de por cuenta de quién. Y siempre con fecha de fin — una
+// delegación sin caducidad es una transferencia de autoridad disfrazada.
+
+export type ApprovalDelegationRow = {
+  id:            string
+  from_name:     string | null
+  to_name:       string | null
+  from_profile_id: string
+  to_profile_id: string
+  valid_from:    string
+  valid_until:   string
+  object_types:  string[]
+  vigente:       boolean
+}
+
+export async function getApprovalDelegations(): Promise<ApprovalDelegationRow[]> {
+  const { profile } = await getCurrentUserProfile()
+  if (!profile) return []
+
+  const admin = createConnectorAdminClient()
+
+  const { data } = await admin
+    .from('approval_delegations')
+    .select('id, from_profile_id, to_profile_id, valid_from, valid_until, object_types')
+    .eq('organization_id', profile.organization_id)
+    .order('valid_until', { ascending: false })
+
+  if (!data?.length) return []
+
+  const ids = data
+    .flatMap((d: { from_profile_id: string; to_profile_id: string }) => [d.from_profile_id, d.to_profile_id])
+    .filter((id: string, i: number, todos: string[]) => todos.indexOf(id) === i)
+
+  const { data: perfiles } = await admin
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', ids)
+
+  const nombre = (id: string) => {
+    const p = (perfiles ?? []).find((x: { id: string }) => x.id === id)
+    return p?.full_name || p?.email || null
+  }
+
+  const hoy = new Date().toISOString().slice(0, 10)
+
+  return data.map((d: {
+    id: string; from_profile_id: string; to_profile_id: string
+    valid_from: string; valid_until: string; object_types: string[]
+  }) => ({
+    id:              d.id,
+    from_profile_id: d.from_profile_id,
+    to_profile_id:   d.to_profile_id,
+    from_name:       nombre(d.from_profile_id),
+    to_name:         nombre(d.to_profile_id),
+    valid_from:      d.valid_from,
+    valid_until:     d.valid_until,
+    object_types:    d.object_types ?? [],
+    vigente:         d.valid_from <= hoy && hoy <= d.valid_until,
+  }))
+}
+
+export async function saveApprovalDelegation(input: {
+  toProfileId:  string
+  validFrom:    string
+  validUntil:   string
+  objectTypes:  string[]
+  /** Solo un administrador puede delegar en nombre de otra persona. */
+  fromProfileId?: string
+}): Promise<{ id: string } | { error: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+
+  const desde = input.fromProfileId ?? profile.id
+
+  // Delegar la autoridad de otro es un acto administrativo, no personal.
+  if (desde !== profile.id && !['org_admin', 'sgai_manager'].includes(profile.role)) {
+    return { error: 'Solo puedes delegar tu propia autoridad.' }
+  }
+
+  if (desde === input.toProfileId) {
+    return { error: 'No tiene sentido delegar en uno mismo.' }
+  }
+
+  if (!input.validUntil) {
+    return { error: 'La fecha de fin es obligatoria: una delegación sin caducidad no es una delegación.' }
+  }
+
+  if (input.validUntil < input.validFrom) {
+    return { error: 'La fecha de fin no puede ser anterior a la de inicio.' }
+  }
+
+  const admin = createConnectorAdminClient()
+
+  const { data, error: insErr } = await admin
+    .from('approval_delegations')
+    .insert({
+      organization_id: profile.organization_id,
+      from_profile_id: desde,
+      to_profile_id:   input.toProfileId,
+      valid_from:      input.validFrom,
+      valid_until:     input.validUntil,
+      object_types:    input.objectTypes,
+      created_by:      profile.id,
+    })
+    .select('id')
+    .single()
+
+  if (insErr || !data) return { error: 'Error al crear: ' + (insErr?.message ?? '') }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'approval_delegation.created',
+    target_type:     'member',
+    target_id:       input.toProfileId,
+    metadata:        {
+      from:         desde,
+      valid_from:   input.validFrom,
+      valid_until:  input.validUntil,
+      object_types: input.objectTypes,
+    },
+  })
+
+  revalidatePath('/ajustes')
+  return { id: data.id }
+}
+
+export async function deleteApprovalDelegation(id: string): Promise<{ success?: true; error?: string }> {
+  const { profile, error } = await getCurrentUserProfile()
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+
+  const admin = createConnectorAdminClient()
+
+  const { data: fila } = await admin
+    .from('approval_delegations')
+    .select('id, from_profile_id')
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle()
+
+  if (!fila) return { error: 'La delegación no existe.' }
+
+  const propia = fila.from_profile_id === profile.id
+  if (!propia && !['org_admin', 'sgai_manager'].includes(profile.role)) {
+    return { error: 'Solo puedes retirar tus propias delegaciones.' }
+  }
+
+  // Se borra, no se archiva: las decisiones ya tomadas por delegación conservan
+  // su rastro en `approval_decisions.on_behalf_of`, que es inmutable. El
+  // histórico no depende de que la delegación siga existiendo.
+  const { error: delErr } = await admin
+    .from('approval_delegations')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+
+  if (delErr) return { error: 'Error al retirar: ' + delErr.message }
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    action:          'approval_delegation.revoked',
+    target_type:     'member',
+    target_id:       fila.from_profile_id,
+  })
+
+  revalidatePath('/ajustes')
+  return { success: true }
+}

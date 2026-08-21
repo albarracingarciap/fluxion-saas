@@ -12,6 +12,7 @@ import { logAuditEvent } from '@/lib/audit'
 import type { ApprovalObjectType } from '@/lib/approvals/catalog'
 import { applyApprovalOutcome } from '@/lib/approvals/effects'
 import { generateApprovalMinutes } from '@/lib/approvals/minutes'
+import { notifyApprovalStep, notifyApprovalClosed } from '@/lib/approvals/notify'
 
 export type ApprovalRequestRow = {
   id:                 string
@@ -33,6 +34,8 @@ export type ApprovalRequestRow = {
   can_decide:         string | null
   /** Titular por cuenta de quien actúo, si llega por delegación. */
   on_behalf_of:       string | null
+  /** Render del acta, si se generó. Se descarga por la ruta de documentos. */
+  minutes_render_id:  string | null
 }
 
 export type ApprovalDecisionRow = {
@@ -94,13 +97,53 @@ export async function getMyPendingApprovals(): Promise<ApprovalRequestRow[]> {
       return {
         ...(r as unknown as ApprovalRequestRow),
         quorum: Number((r.current_step as { quorum?: number } | null)?.quorum ?? 1),
-        can_decide:   veredicto?.motivo ?? null,
-        on_behalf_of: veredicto?.on_behalf_of ?? null,
+        can_decide:        veredicto?.motivo ?? null,
+        on_behalf_of:      veredicto?.on_behalf_of ?? null,
+        minutes_render_id: null,
       }
     })
   )
 
-  return filas.filter((f) => f.can_decide !== null)
+  const visibles = filas.filter((f) => f.can_decide !== null)
+  const actas = await actasDe(visibles.map((f) => f.id))
+  return visibles.map((f) => ({ ...f, minutes_render_id: actas[f.id] ?? null }))
+}
+
+/**
+ * Render del acta de cada solicitud, si existe.
+ *
+ * Se resuelve en dos consultas para todo el listado en vez de una por fila: el
+ * acta es un extra de la tarjeta, no merece N+1.
+ */
+async function actasDe(requestIds: string[]): Promise<Record<string, string>> {
+  if (!requestIds.length) return {}
+  const admin = createNoCacheAdminClient()
+
+  const { data: docs } = await admin
+    .from('documents')
+    .select('id, approval_request_id')
+    .in('approval_request_id', requestIds)
+
+  if (!docs?.length) return {}
+
+  const { data: renders } = await admin
+    .from('document_renders')
+    .select('id, document_id, rendered_at')
+    .in('document_id', docs.map((d: { id: string }) => d.id))
+    .order('rendered_at', { ascending: false })
+
+  const porDocumento: Record<string, string> = {}
+  for (const r of renders ?? []) {
+    // El primero que llega es el mas reciente por el orden de la consulta.
+    if (!porDocumento[r.document_id]) porDocumento[r.document_id] = r.id
+  }
+
+  const salida: Record<string, string> = {}
+  for (const d of docs as Array<{ id: string; approval_request_id: string }>) {
+    const render = porDocumento[d.id]
+    if (render) salida[d.approval_request_id] = render
+  }
+  return salida
 }
 
 /** Todas las solicitudes de la organización, para el histórico. */
@@ -118,12 +161,15 @@ export async function getApprovalHistory(limite = 50): Promise<ApprovalRequestRo
     .order('closed_at', { ascending: false })
     .limit(limite)
 
-  return (data ?? []).map((r: Record<string, unknown>) => ({
+  const filas = (data ?? []).map((r: Record<string, unknown>) => ({
     ...(r as unknown as ApprovalRequestRow),
     quorum: Number((r.current_step as { quorum?: number } | null)?.quorum ?? 1),
     can_decide: null,
     on_behalf_of: null,
   }))
+
+  const actas = await actasDe(filas.map((f) => f.id))
+  return filas.map((f) => ({ ...f, minutes_render_id: actas[f.id] ?? null }))
 }
 
 export async function getApprovalDecisions(requestId: string): Promise<ApprovalDecisionRow[]> {
@@ -243,6 +289,13 @@ export async function decideApproval(input: {
     // que haber cambiado de estado.
     const acta = await generateApprovalMinutes(input.requestId)
     if (acta.aviso) aviso = aviso ? `${aviso} ${acta.aviso}` : acta.aviso
+
+    await notifyApprovalClosed(input.requestId)
+  } else if (resultado === 'pending') {
+    // Sigue viva: o falta quorum en este paso, o acaba de avanzar al siguiente.
+    // notifyApprovalStep resuelve quien queda por decidir y no repite a quien
+    // ya voto, asi que sirve para los dos casos.
+    await notifyApprovalStep(input.requestId)
   }
 
   void logAuditEvent({

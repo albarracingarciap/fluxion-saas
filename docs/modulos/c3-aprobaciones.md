@@ -3,8 +3,8 @@
 Especificación a nivel de migraciones y contratos. Módulo `approvals` del
 registro de entitlements.
 
-**Estado**: paso 1 hecho — nucleo y motor en la base, probado por SQL.
-Pendientes los pasos 2 a 6.
+**Estado**: los seis pasos hechos. Pendiente de probar el circuito completo
+con mas de un usuario.
 
 ---
 
