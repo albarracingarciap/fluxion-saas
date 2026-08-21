@@ -14,7 +14,7 @@
 import { cache } from 'react'
 import { NextResponse } from 'next/server'
 
-import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import type { ModuleKey, ModuleStatus } from './registry'
 
 const ACTIVE_STATUSES: ModuleStatus[] = ['enabled', 'trial']
@@ -26,7 +26,11 @@ const ACTIVE_STATUSES: ModuleStatus[] = ['enabled', 'trial']
  * petición: una página que consulta cinco módulos hace una sola consulta.
  */
 const getActiveModules = cache(async (organizationId: string): Promise<Set<string>> => {
-  const admin = createAdminFluxionClient()
+  // Sin cache: esto decide permisos. `createAdminFluxionClient` no desactiva
+  // la cache de fetch de Next, que es lo que mantuvo viva una clave API ya
+  // revocada. Un modulo recien activado tiene que verse en la peticion
+  // siguiente, no cuando venza una cache.
+  const admin = createNoCacheAdminClient()
 
   const { data, error } = await admin
     .from('organization_modules')

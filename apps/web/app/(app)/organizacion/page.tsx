@@ -11,16 +11,17 @@ import { PerfilRegulatoriTab } from './tabs/perfil-regulatorio';
 import { GobernanzaTab } from './tabs/gobernanza';
 import { OperacionesTab } from './tabs/operaciones';
 import { PlanTab } from './tabs/plan';
+import { ModulosTab } from './tabs/modulos';
 import { DEFAULT_ORG_FORM, type OrgFormData } from './tabs/shared';
 import {
   ArrowLeft, Save, Loader2, AlertCircle, CheckCircle2,
-  Building2, FileText, Globe, ShieldCheck, Settings2, Users2, CreditCard,
+  Building2, FileText, Globe, ShieldCheck, Settings2, Users2, CreditCard, LayoutGrid,
 } from 'lucide-react';
 import type { NormativeModule, RiskAppetite } from '@/lib/organization/options';
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
 
-type TabKey = 'identidad' | 'datos-legales' | 'perfil-regulatorio' | 'gobernanza' | 'operaciones' | 'comites' | 'plan'
+type TabKey = 'identidad' | 'datos-legales' | 'perfil-regulatorio' | 'gobernanza' | 'operaciones' | 'comites' | 'plan' | 'modulos'
 
 const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode; editable: boolean }> = [
   { key: 'identidad',          label: 'Identidad',          icon: <Building2 size={14} />,    editable: true  },
@@ -30,6 +31,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode; editable:
   { key: 'operaciones',        label: 'Operaciones',        icon: <Settings2 size={14} />,    editable: true  },
   { key: 'comites',            label: 'Comités',            icon: <Users2 size={14} />,       editable: false },
   { key: 'plan',               label: 'Plan',               icon: <CreditCard size={14} />,   editable: false },
+  { key: 'modulos',            label: 'Módulos',            icon: <LayoutGrid size={14} />,   editable: false },
 ]
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -257,6 +259,8 @@ export default function OrganizationPage() {
           )}
 
           {activeTab === 'comites' && <CommitteesTab />}
+
+          {activeTab === 'modulos' && <ModulosTab isAdmin={isAdmin} />}
 
           {activeTab === 'plan' && (
             <PlanTab

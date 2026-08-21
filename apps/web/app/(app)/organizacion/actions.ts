@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { revalidatePath } from 'next/cache';
 import { logAuditEvent } from '@/lib/audit';
+import { createAdminFluxionClient } from '@/lib/supabase/fluxion';
+import { MODULE_CATALOG, isModuleKey, type ModuleStatus } from '@/lib/modules/registry';
 
 import type { RiskAppetite } from '@/lib/organization/options';
 
@@ -344,4 +346,126 @@ export async function removeCommitteeMember(memberId: string) {
 
   revalidatePath('/organizacion');
   return { success: true };
+}
+
+// ─── Módulos ─────────────────────────────────────────────────────────────────
+//
+// Hasta ahora `organization_modules` solo se leía: no había una sola escritura
+// en toda la aplicación y los módulos se concedían por SQL a mano. Una
+// organización recién creada entraba sin nada activado, con media aplicación
+// invisible y sin ningún mensaje que lo explicara.
+
+export const TRIAL_DAYS_OPTIONS = [30, 60, 90, 120] as const
+export type TrialDays = (typeof TRIAL_DAYS_OPTIONS)[number]
+
+export interface OrganizationModuleRow {
+  module_key:     string
+  status:         ModuleStatus
+  licensed_until: string | null
+}
+
+export async function getOrganizationModules(): Promise<
+  { modules: OrganizationModuleRow[] } | { error: string }
+> {
+  const supabase = createClient()
+  const fluxion = createFluxionClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'No autenticado.' }
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile) return { error: 'No se encontró el perfil.' }
+
+  // Lectura con el cliente del usuario: la política de RLS ya limita las filas
+  // a su organización, así que no hace falta el rol de servicio para mirar.
+  const { data, error } = await fluxion
+    .from('organization_modules')
+    .select('module_key, status, licensed_until')
+    .eq('organization_id', profile.organization_id)
+
+  if (error) return { error: 'No se pudieron leer los módulos: ' + error.message }
+  return { modules: (data ?? []) as OrganizationModuleRow[] }
+}
+
+/**
+ * Concede un módulo en prueba o lo desactiva.
+ *
+ * Desactivar NO borra la fila: deja constancia de que estuvo activo y de hasta
+ * cuándo. El histórico de un permiso importa tanto como el permiso.
+ */
+export async function setOrganizationModule(input: {
+  moduleKey: string
+  action:    'trial' | 'disable'
+  trialDays?: TrialDays
+}): Promise<{ success: true } | { error: string }> {
+  const supabase = createClient()
+  const fluxion = createFluxionClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'No autenticado.' }
+
+  const { data: profile } = await fluxion
+    .from('profiles')
+    .select('id, organization_id, role, full_name, email')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile) return { error: 'No se encontró el perfil.' }
+  if (profile.role !== 'org_admin') return { error: 'Solo un administrador puede cambiar los módulos.' }
+
+  if (!isModuleKey(input.moduleKey)) return { error: 'Módulo desconocido.' }
+
+  const catalogo = MODULE_CATALOG.find((m) => m.key === input.moduleKey)!
+  if (input.action === 'trial' && !catalogo.available) {
+    return { error: 'Ese módulo aún no está disponible.' }
+  }
+
+  const dias = input.trialDays ?? 30
+  if (input.action === 'trial' && !TRIAL_DAYS_OPTIONS.includes(dias)) {
+    return { error: 'Duración de prueba no válida.' }
+  }
+
+  // Escritura con rol de servicio: la política de RLS solo concede SELECT a los
+  // miembros. La autorización la acabamos de hacer arriba, contra el rol.
+  const admin = createAdminFluxionClient()
+
+  const hasta = new Date()
+  hasta.setDate(hasta.getDate() + dias)
+  const licensedUntil = hasta.toISOString().slice(0, 10)
+
+  const { error } = await admin
+    .from('organization_modules')
+    .upsert(
+      {
+        organization_id: profile.organization_id,
+        module_key:      input.moduleKey,
+        status:          input.action === 'trial' ? 'trial' : 'disabled',
+        ...(input.action === 'trial' ? { licensed_until: licensedUntil } : {}),
+      },
+      { onConflict: 'organization_id,module_key' }
+    )
+
+  if (error) return { error: 'No se pudo guardar: ' + error.message }
+
+  await logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id:        profile.id,
+    actor_name:      profile.full_name,
+    actor_email:     profile.email,
+    action:          input.action === 'trial' ? 'org.module_granted' : 'org.module_revoked',
+    target_type:     'module',
+    target_id:       input.moduleKey,
+    target_label:    catalogo.name,
+    metadata:        input.action === 'trial' ? { trial_days: dias, licensed_until: licensedUntil } : {},
+  })
+
+  revalidatePath('/organizacion')
+  // El sidebar decide con esto qué entradas muestra, y vive en el layout.
+  revalidatePath('/', 'layout')
+  return { success: true }
 }

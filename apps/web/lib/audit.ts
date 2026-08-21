@@ -26,6 +26,8 @@ export type AuditAction =
   | 'org.committee_updated'
   | 'org.committee_member_added'
   | 'org.committee_member_removed'
+  | 'org.module_granted'
+  | 'org.module_revoked'
   // Sesiones
   | 'session.revoked'
   | 'session.all_revoked'
@@ -53,7 +55,7 @@ export interface AuditEvent {
   actor_name?:     string
   actor_email?:    string
   action:          AuditAction
-  target_type?:    'member' | 'invitation' | 'organization' | 'committee' | 'session'
+  target_type?:    'member' | 'invitation' | 'organization' | 'committee' | 'session' | 'module'
   target_id?:      string
   target_label?:   string                       // nombre legible: email, nombre, etc.
   metadata?:       Record<string, unknown>      // contexto extra: prev_role, new_role, count…
