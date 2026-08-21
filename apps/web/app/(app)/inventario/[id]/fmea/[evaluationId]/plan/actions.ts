@@ -30,6 +30,9 @@ import {
 } from '@/lib/treatment-plans/bulk-types';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
+// Sin cache: se consulta si hay un circuito de aprobacion vivo, y eso decide
+// si esta accion puede cerrar el plan.
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
@@ -659,7 +662,21 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
 
   const normalizedMinutesRef = input.approvalMinutesRef?.trim() || null;
 
-  if (plan.approval_level === 'level_3' && !normalizedMinutesRef) {
+  // ¿Gobierna este plan una política del motor de aprobaciones?
+  //
+  // Con política, la referencia de acta deja de pedirse: la genera el motor a
+  // partir de la solicitud real, con sus votos y sus nombres. Seguir exigiendo
+  // que alguien la teclee sería pedir la prueba de algo que aún no ha pasado.
+  const admin = createNoCacheAdminClient();
+  const { data: policyId } = await admin.rpc('approval_policy_for', {
+    p_organization_id: membership.organization_id,
+    p_object_type:     'treatment_plan',
+    p_context:         { approval_level: plan.approval_level },
+  });
+
+  const gobernado = Boolean(policyId);
+
+  if (!gobernado && plan.approval_level === 'level_3' && !normalizedMinutesRef) {
     return {
       error: 'Los planes de Zona I requieren una referencia de acta o comité antes de enviarse a alta dirección.',
     };
@@ -695,6 +712,25 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
 
   if (updateError) {
     return { error: updateError.message };
+  }
+
+  if (gobernado) {
+    const { data: perfil } = await fluxion
+      .from('profiles').select('id').eq('user_id', user.id).single();
+
+    const { error: aperturaError } = await admin.rpc('approval_open', {
+      p_organization_id: membership.organization_id,
+      p_object_type:     'treatment_plan',
+      p_object_id:       plan.id,
+      p_requested_by:    perfil?.id,
+      p_context:         { approval_level: plan.approval_level },
+    });
+
+    // Si la solicitud no se abre, el plan se queda en revisión sin circuito y
+    // nadie lo sabría. Se devuelve el error en lugar de continuar en silencio.
+    if (aperturaError) {
+      return { error: 'El plan quedó en revisión pero no se pudo abrir la aprobación: ' + aperturaError.message };
+    }
   }
 
   await captureSnapshot({
@@ -753,6 +789,29 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     success: true,
     summaryPath: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`,
   };
+}
+
+/**
+ * ¿Hay una solicitud de aprobación abierta para este plan?
+ *
+ * Ante un fallo de lectura devuelve `true`: si no se puede saber, se bloquea la
+ * vía antigua. Equivocarse hacia el bloqueo deja al usuario yendo a la bandeja;
+ * equivocarse hacia el paso libre deja cerrar un plan por detrás del circuito.
+ */
+async function tieneSolicitudViva(planId: string): Promise<boolean> {
+  const admin = createNoCacheAdminClient();
+  const { count, error } = await admin
+    .from('approval_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('object_type', 'treatment_plan')
+    .eq('object_id', planId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[plan/actions] no se pudo comprobar el circuito de aprobacion:', error);
+    return true;
+  }
+  return (count ?? 0) > 0;
 }
 
 async function requireActionOwnership(params: {
@@ -1006,6 +1065,17 @@ export async function approveTreatmentPlanAction(input: {
 
   if (!plan) return { error: 'Plan no encontrado.' };
   if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
+
+  // Con una solicitud viva, la decisión se toma en la bandeja de aprobaciones y
+  // no aquí. Dejar las dos vías abiertas permitiría cerrar el plan por un lado
+  // mientras el circuito sigue esperando votos por el otro, y el expediente
+  // diria dos cosas distintas sobre lo mismo.
+  if (await tieneSolicitudViva(plan.id)) {
+    return {
+      error: 'Este plan está en un circuito de aprobación. Decide desde Aprobaciones.',
+    };
+  }
+
   if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
 
   const { error } = await fluxion
@@ -1083,6 +1153,17 @@ export async function rejectTreatmentPlanAction(input: {
 
   if (!plan) return { error: 'Plan no encontrado.' };
   if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
+
+  // Con una solicitud viva, la decisión se toma en la bandeja de aprobaciones y
+  // no aquí. Dejar las dos vías abiertas permitiría cerrar el plan por un lado
+  // mientras el circuito sigue esperando votos por el otro, y el expediente
+  // diria dos cosas distintas sobre lo mismo.
+  if (await tieneSolicitudViva(plan.id)) {
+    return {
+      error: 'Este plan está en un circuito de aprobación. Decide desde Aprobaciones.',
+    };
+  }
+
   if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
 
   if (!input.rejectionReason.trim()) {

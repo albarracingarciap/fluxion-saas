@@ -87,6 +87,7 @@ export default async function AppLayout({
     // contenido.
     const activeModules = await listActiveModules(membership.organization_id)
     const showDiscoveries = DISCOVERY_MODULES.some((m) => activeModules.includes(m))
+    const showApprovals = activeModules.includes('approvals')
 
     let pendingDiscoveries = 0
     if (showDiscoveries) {
@@ -111,6 +112,7 @@ export default async function AppLayout({
       ...sidebarOrgState,
       hasSystems: (systemsRes.count ?? 0) > 0,
       showDiscoveries,
+      showApprovals,
       pendingDiscoveries,
       openIncidentDeadlines: deadlineCount ?? 0,
     }

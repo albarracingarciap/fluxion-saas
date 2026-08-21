@@ -10,6 +10,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { logAuditEvent } from '@/lib/audit'
 import type { ApprovalObjectType } from '@/lib/approvals/catalog'
+import { applyApprovalOutcome } from '@/lib/approvals/effects'
 
 export type ApprovalRequestRow = {
   id:                 string
@@ -193,7 +194,7 @@ export async function decideApproval(input: {
   requestId: string
   decision:  'approved' | 'rejected' | 'abstained'
   reason?:   string
-}): Promise<{ status: string } | { error: string }> {
+}): Promise<{ status: string; aviso?: string } | { error: string }> {
   const profile = await contexto()
   if (!profile) return { error: 'No autenticado.' }
 
@@ -212,6 +213,31 @@ export async function decideApproval(input: {
 
   if (error) return { error: error.message }
 
+  const resultado = String(data)
+
+  // El motor devuelve un veredicto; que el objeto reaccione es cosa del
+  // dominio. La costura vive en lib/approvals/effects.ts, no aqui: asi el
+  // motor sigue sin saber que es un plan de tratamiento.
+  let aviso: string | undefined
+  if (resultado === 'approved' || resultado === 'rejected') {
+    const { data: solicitud } = await admin
+      .from('approval_requests')
+      .select('object_type, object_id')
+      .eq('id', input.requestId)
+      .single()
+
+    if (solicitud) {
+      const efecto = await applyApprovalOutcome({
+        objectType: solicitud.object_type,
+        objectId:   solicitud.object_id,
+        requestId:  input.requestId,
+        outcome:    resultado,
+        reason:     input.reason?.trim() || null,
+      })
+      aviso = efecto.aviso
+    }
+  }
+
   void logAuditEvent({
     organization_id: profile.organization_id,
     actor_id:        profile.id,
@@ -225,7 +251,7 @@ export async function decideApproval(input: {
 
   revalidatePath('/aprobaciones')
   revalidatePath('/', 'layout')
-  return { status: String(data) }
+  return { status: resultado, aviso }
 }
 
 export async function cancelApproval(requestId: string, reason: string):

@@ -103,7 +103,7 @@ export const MODULE_CATALOG: ReadonlyArray<{
     name: 'Flujos de aprobación',
     group: 'Cumplimiento',
     desc: 'Aprobaciones multinivel configurables sobre planes y decisiones.',
-    available: false,
+    available: true,
   },
   {
     key: 'itsm',

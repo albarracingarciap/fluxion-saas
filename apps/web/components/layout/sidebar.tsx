@@ -44,7 +44,6 @@ const NAV: NavSection[] = [
       { label: "Planes de tratamiento", href: "/planes", icon: <ShieldCheck size={15} /> },
       { label: "Incidentes", href: "/incidentes", icon: <ShieldAlert size={15} /> },
       { label: "Supervisión humana", href: "/supervision", icon: <Eye size={15} /> },
-      { label: "Aprobaciones", href: "/aprobaciones", icon: <GitBranch size={15} /> },
     ],
   },
   {
@@ -107,6 +106,8 @@ export type SidebarOrgState = {
   // sidebar no consulta entitlements.
   showDiscoveries?: boolean
   pendingDiscoveries?: number
+  /** Aprobaciones aparece solo con el modulo `approvals` contratado. */
+  showApprovals?: boolean
   /** Incidentes con plazo de notificación vivo (Art. 73). */
   openIncidentDeadlines?: number
 }
@@ -120,6 +121,7 @@ const DEFAULT_SIDEBAR_ORG_STATE: SidebarOrgState = {
   logo_url: null,
   showDiscoveries: false,
   pendingDiscoveries: 0,
+  showApprovals: false,
   openIncidentDeadlines: 0,
 }
 
@@ -365,6 +367,12 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         }
       : null
 
+    // Aprobaciones solo con el modulo contratado, igual que Descubrimientos: sin
+    // el, la pantalla existe pero no la alimenta nada.
+    const approvalsChild: NavItem | null = orgState.showApprovals
+      ? { label: 'Aprobaciones', href: '/aprobaciones', icon: <GitBranch size={15} /> }
+      : null
+
     const deadlines = orgState.openIncidentDeadlines ?? 0
     const withIncidentBadge = (items: NavItem[]): NavItem[] =>
       deadlines > 0
@@ -384,16 +392,24 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
           )
         : items
 
+    // Se inserta detras de «Supervision humana», dentro de Evaluacion.
+    const withApprovals = (items: NavItem[]): NavItem[] => {
+      if (!approvalsChild) return items
+      const i = items.findIndex((x) => x.href === '/supervision')
+      if (i === -1) return items
+      return [...items.slice(0, i + 1), approvalsChild, ...items.slice(i + 1)]
+    }
+
     if (!orgState.hasSystems) {
       return NAV.map((section) => ({
         ...section,
-        items: withIncidentBadge(withDiscoveries(section.items)),
+        items: withIncidentBadge(withApprovals(withDiscoveries(section.items))),
       }))
     }
 
     return NAV.map((section) => ({
       ...section,
-      items: withIncidentBadge(withDiscoveries(section.items)).map((item) => ({
+      items: withIncidentBadge(withApprovals(withDiscoveries(section.items))).map((item) => ({
         ...item,
         disabled: false,
         children: item.children?.map((child) => ({
