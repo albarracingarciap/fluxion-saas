@@ -76,6 +76,25 @@ Está en **el paso 4**, y por tres motivos distintos:
 Los tres son de **información**, no de estructura. Y eso es una buena noticia:
 se arreglan enseñando lo que ya hay, no rehaciendo el circuito.
 
+## 3 bis · Medido
+
+Catalogo de 418 modos. En el sistema de prueba, 286 activados y 119 priorizados,
+que caen en 10 familias.
+
+El diagnostico del apartado anterior era **incorrecto**: no es un problema de
+informacion. 119 evaluaciones son 119, y a tres minutos por item son seis horas
+de trabajo experto para un solo sistema.
+
+Tampoco es de reglas: activar el 68 % del catalogo en un evaluador de fraude en
+tiempo real, alto riesgo y financiero, es defendible.
+
+Es de **granularidad**: se pide una estimacion individual donde la informacion se
+agrupa en diez bloques.
+
+Y aparecio otra cosa, que se trata aparte en
+[dos-universos-de-riesgo.md](dos-universos-de-riesgo.md): la dimension ROI activa
+48 modos y prioriza cero.
+
 ## 4 · Qué medir antes de decidir
 
 Con números, no con sensación.
