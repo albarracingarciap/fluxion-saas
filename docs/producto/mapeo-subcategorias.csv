@@ -1,0 +1,95 @@
+dimension_id,subcategoria,modos,marco,referencia,confianza,nota
+etica,Gobernanza y supervisión ética,6,iso_42001,"A.2 / A.3",media,"Política y roles de IA. El AI Act lo toca de refilón en el Art. 17.1.m."
+etica,Beneficencia y bien común,5,buena_practica,,alta,"Principio ético sin artículo vinculante."
+etica,Mandato y autorización en sistemas agénticos,2,buena_practica,,alta,"Va por delante de la norma. No hay artículo."
+etica,Diseño y desarrollo ético,6,iso_42001,A.6,media,"Ciclo de vida responsable."
+etica,Integridad creativa y derechos de autoría,1,otro_derecho,"Propiedad intelectual",alta,"También Art. 53.1.c del AI Act si el sistema es GPAI."
+etica,No maleficencia,6,buena_practica,,alta,"Principio ético. Sin artículo."
+etica,Participación de partes interesadas,3,ai_act,Art. 27,baja,"La FRIA prevé consulta. Revisar si encaja o es buena práctica."
+etica,Equidad y no discriminación,5,ai_act,"Art. 10.2.f-g",alta,"Sesgo en los datos. Anclaje sólido."
+etica,Privacidad y protección de datos — perspectiva ética,5,gdpr,"Art. 5, Art. 35",alta,
+etica,Responsabilidad y rendición de cuentas,6,ai_act,Art. 17.1.m,alta,"Marco de rendición de cuentas del SGC."
+etica,Transparencia de procesos,5,ai_act,Art. 13,alta,
+etica,Evaluación de impacto ético — ISO 42001 A.5,6,iso_42001,A.5,alta,"El propio nombre ya lleva el ancla."
+etica,Transparencia y explicabilidad — perspectiva del derecho a explicación,5,ai_act,Art. 86,alta,"Derecho a explicación de decisiones individuales. También RGPD Art. 22."
+etica,Autonomía y respeto a derechos humanos,6,buena_practica,,media,"Carta de Derechos Fundamentales, no artículo del Reglamento."
+etica,Sostenibilidad y responsabilidad social,4,buena_practica,,alta,"Sin artículo vinculante para alto riesgo."
+etica,Veracidad e identidad del contenido generado,2,ai_act,Art. 50,alta,"Marcado de contenido generado."
+gobernanza,Políticas y estándares,6,iso_42001,"5.2 / A.2",alta,
+gobernanza,Rendición de cuentas,6,ai_act,Art. 17.1.m,alta,
+gobernanza,Comunicación regulatoria y corporativa,6,ai_act,Art. 73,media,"Notificación de incidentes graves. Parte es comunicación corporativa sin artículo."
+gobernanza,Gestión de cambio,4,ai_act,Art. 17.1.a,alta,"Gestión de modificaciones del sistema."
+gobernanza,Capacitación y competencia,2,ai_act,Art. 26.2,alta,"Competencia, formación y autoridad. También ISO 7.2."
+gobernanza,Estructura de gobernanza,5,iso_42001,5.3,alta,
+gobernanza,Gobernanza de modelos fundacionales externos,3,ai_act,"Cap. V (Art. 53-55)",alta,"Modelos de propósito general."
+gobernanza,Gestión del ciclo de vida,6,iso_42001,A.6,alta,
+gobernanza,Monitorización y auditoría,5,ai_act,Art. 72,alta,"Vigilancia poscomercialización."
+gobernanza,Supervisión humana,8,ai_act,Art. 14,alta,"Anclaje sólido. Alimenta también el módulo HITL."
+gobernanza,Gestión de riesgos embebida,5,ai_act,Art. 9,alta,
+gobernanza,Trazabilidad,5,ai_act,Art. 12,alta,"Registros automáticos."
+gobernanza,Transparencia en gobernanza,4,iso_42001,,media,"Sin artículo directo del Reglamento."
+gobernanza,Gestión de proveedores,6,ai_act,Art. 25,media,"Responsabilidades en la cadena de valor. También ISO A.10."
+gobernanza,Calidad de gobierno del sistema,4,ai_act,Art. 17,alta,"Sistema de gestión de la calidad."
+legal_b,Due diligence — controles de proceso,4,otro_derecho,,alta,"Riesgo de litigio, no del Reglamento."
+legal_b,★  Responsabilidad por contenido generado,1,otro_derecho,,alta,
+legal_b,Discriminación — riesgo de litigio activo,2,otro_derecho,,alta,"El riesgo regulatorio equivalente está en ética / Art. 10."
+legal_b,Responsabilidad por productos y decisiones,4,otro_derecho,"Directiva de responsabilidad por productos",alta,
+legal_b,Jurisdicción,2,otro_derecho,,alta,
+legal_b,Contratación — representación y garantías,4,otro_derecho,,alta,
+legal_b,Propiedad intelectual,6,otro_derecho,,alta,"Art. 53.1.c del AI Act si es GPAI."
+legal_b,Responsabilidad agéntica,2,buena_practica,,alta,"Sin marco legal consolidado todavía."
+legal_b,Gestión de incidentes legales,3,otro_derecho,,alta,
+roi,Diferenciación competitiva,2,negocio,,alta,
+roi,Estimación de costes,6,negocio,,alta,
+roi,Tiempo al valor,2,negocio,,alta,
+roi,Adopción de usuarios,3,negocio,,alta,
+roi,Decisiones de inversión,3,negocio,,alta,
+roi,Gestión de proyectos,2,negocio,,alta,
+roi,Capacidades organizacionales,3,negocio,,alta,
+roi,Gobernanza de costes en ejecución,1,negocio,,alta,
+roi,Alineación estratégica,5,negocio,,alta,
+roi,Adaptabilidad al mercado,5,negocio,,alta,
+roi,Cuantificación de beneficios,5,negocio,,alta,
+roi,Eficacia del modelo,6,negocio,,media,"Revisar: si mide exactitud del modelo y no valor de negocio, sería Art. 15.1."
+roi,Costes operativos,7,negocio,,alta,
+roi,Escalabilidad del negocio,3,negocio,,alta,
+seguridad,Privacidad y fuga de información,5,ai_act,Art. 15.5,alta,"Confidentiality attacks. También RGPD."
+seguridad,Evaluación de seguridad,5,ai_act,Art. 15,alta,
+seguridad,Envenenamiento de datos,5,ai_act,Art. 15.5,alta,"★ El artículo nombra «data poisoning» literalmente."
+seguridad,Gestión de secretos,5,iso_27001,,alta,"Seguridad de la información, no específico de IA."
+seguridad,Gestión de actualizaciones,5,ai_act,"Art. 15 / Art. 72",alta,
+seguridad,Ataques adversariales,4,ai_act,Art. 15.5,alta,"★ El artículo nombra «adversarial examples» literalmente."
+seguridad,Seguridad en el ciclo de vida,4,iso_42001,A.6,alta,
+seguridad,Ataques de inyección contextual (IA generativa),2,buena_practica,,alta,"Prompt injection no aparece en la norma."
+seguridad,Respuesta a incidentes,5,ai_act,Art. 73,alta,
+seguridad,Seguridad del entorno de ejecución agéntico (sistemas agénticos),2,buena_practica,,alta,"Va por delante de la norma."
+seguridad,Monitorización de seguridad,5,ai_act,Art. 72,alta,
+seguridad,Elusión de controles,3,ai_act,Art. 15.5,alta,"★ El artículo nombra «model evasion» literalmente."
+seguridad,Control de acceso,5,iso_27001,,alta,
+seguridad,Compromiso del perímetro agéntico (sistemas agénticos),5,buena_practica,,alta,"Va por delante de la norma."
+seguridad,Ataques de infraestructura,4,iso_27001,,alta,
+seguridad,Integridad de la base de conocimiento (IA generativa),2,ai_act,Art. 10,baja,"Gobernanza de datos, pero el RAG no está contemplado. Podría ser buena práctica."
+seguridad,Manipulación del modelo,4,ai_act,Art. 15.5,alta,"★ El artículo nombra «model poisoning» literalmente."
+seguridad,Riesgos de confidencialidad,4,ai_act,Art. 15.5,alta,"★ El artículo nombra «confidentiality attacks» literalmente."
+tecnica,Despliegue,6,buena_practica,,media,"Ingeniería. Revisar si alguno toca el Art. 17.1.b."
+tecnica,Coordinación multi-agente,5,buena_practica,,alta,"Va por delante de la norma."
+tecnica,Dependencias,6,buena_practica,,media,"Cadena de suministro. Podría ser ISO A.10."
+tecnica,Rendimiento del modelo,4,ai_act,Art. 15.1,alta,"Exactitud."
+tecnica,Fiabilidad de outputs,5,ai_act,Art. 15.1,alta,
+tecnica,Escalabilidad,4,negocio,,media,"Ingeniería con impacto de coste."
+tecnica,Control del contexto,4,buena_practica,,alta,"Específico de generativa."
+tecnica,Evaluación,7,ai_act,Art. 17.1.d,alta,"Procedimientos de examen, prueba y validación."
+tecnica,Actualizaciones,7,ai_act,Art. 17.1.a,alta,
+tecnica,Calidad de datos,6,ai_act,Art. 10,alta,"Gobernanza de datos. Anclaje sólido."
+tecnica,Interpretabilidad,6,ai_act,Art. 13,alta,
+tecnica,Complejidad computacional,2,negocio,,alta,"El ejemplo que diste: no normativo, pero afecta a la viabilidad."
+tecnica,Calidad en sistemas RAG,6,buena_practica,,alta,
+tecnica,Contención y límites,6,buena_practica,,alta,"Va por delante de la norma."
+tecnica,Desarrollo,3,iso_42001,A.6,media,
+tecnica,Gestión de herramientas,5,buena_practica,,alta,"Específico de agéntica."
+tecnica,Latencia,5,negocio,,media,"Salvo que la latencia impida la supervisión humana — entonces Art. 14."
+tecnica,Control de acciones,6,buena_practica,,alta,"Va por delante de la norma."
+tecnica,Documentación,5,ai_act,"Art. 11 / Anexo IV",alta,
+tecnica,Robustez,4,ai_act,Art. 15.1,alta,
+tecnica,Manipulación de entrada,6,ai_act,Art. 15.5,media,"Solapa con ataques adversariales."
+tecnica,Monitorización,7,ai_act,Art. 72,alta,
