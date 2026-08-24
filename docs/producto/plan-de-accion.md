@@ -87,18 +87,6 @@ la norma**.
 
 **Coste**: un `UPDATE` y un `INSERT`. No depende de ninguna decisión.
 
-### Paso 1 bis · Declarar el rol en la cadena de valor
-
-**Qué**: campo de rol por sistema (proveedor, responsable del despliegue,
-importador, distribuidor, representante autorizado) y `applies_to_role` en las
-obligaciones.
-
-**Por qué**: sin esto, el inventario ampliado enseña a todo el mundo las
-obligaciones de todos los roles. Y el Art. 25 hace que el rol pueda cambiar,
-así que tiene que ser un dato revisable, no una suposición.
-
-**Depende de**: paso 1.
-
 ### Paso 1 · Completar el inventario de obligaciones
 
 **Qué**: añadir a `compliance.obligations` los artículos confirmados en D3.
@@ -110,6 +98,18 @@ respuesta — que era la pregunta de partida.
 sabrás si faltan modos, y cuáles.
 
 **Depende de**: D3.
+
+### Paso 1 bis · Declarar el rol en la cadena de valor
+
+**Qué**: campo de rol por sistema (proveedor, responsable del despliegue,
+importador, distribuidor, representante autorizado) y `applies_to_role` en las
+obligaciones.
+
+**Por qué**: sin esto, el inventario ampliado enseña a todo el mundo las
+obligaciones de todos los roles. Y el Art. 25 hace que el rol pueda cambiar,
+así que tiene que ser un dato revisable, no una suposición.
+
+**Depende de**: paso 1.
 
 ### Paso 2 · Marcar el origen normativo de los modos
 
