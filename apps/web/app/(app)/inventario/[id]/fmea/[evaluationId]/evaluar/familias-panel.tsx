@@ -227,11 +227,17 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, hayCambiosSinGuarda
   )
 }
 
-export function FamiliasPanel({ aiSystemId, evaluationId, readOnly, hayCambiosSinGuardar }: {
+export function FamiliasPanel({
+  aiSystemId, evaluationId, readOnly, hayCambiosSinGuardar, onFamilias,
+}: {
   aiSystemId:            string
   evaluationId:          string
   readOnly:              boolean
   hayCambiosSinGuardar:  boolean
+  /** Eleva que items cubre cada familia, para que la lista de abajo pueda
+   *  filtrarse por ellas. El panel ya tiene el dato: pedirlo dos veces seria
+   *  gastar una consulta por gusto. */
+  onFamilias?:           (f: Array<{ label: string; itemIds: string[] }>) => void
 }) {
   const [filas, setFilas] = useState<FamilyEstimateRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -240,7 +246,14 @@ export function FamiliasPanel({ aiSystemId, evaluationId, readOnly, hayCambiosSi
     getFamilyEstimates({ aiSystemId, evaluationId }).then((r) => {
       if ('error' in r) { setError(r.error); return }
       setFilas(r.familias)
+      onFamilias?.(r.familias.map((f) => ({
+        label: f.familyLabel,
+        itemIds: f.detalle.map((d) => d.itemId),
+      })))
     })
+    // onFamilias fuera de las dependencias a proposito: si el padre lo redefine
+    // en cada render, incluirlo aqui provoca un bucle de cargas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSystemId, evaluationId])
 
   useEffect(() => { load() }, [load])

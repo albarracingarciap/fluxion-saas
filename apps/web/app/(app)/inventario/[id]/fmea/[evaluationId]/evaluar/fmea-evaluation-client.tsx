@@ -620,6 +620,10 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     return 'all';
   });
   const [searchTerm, setSearchTerm] = useState('');
+  // Familias causales, elevadas desde el panel. La lista viene agrupada por
+  // dimension y la estimacion va por familia: sin poder filtrar por familia no
+  // hay forma de cruzar las dos vistas.
+  const [familias, setFamilias] = useState<Array<{ label: string; itemIds: string[] }>>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(() => {
     const requestedItemId = searchParams.get('item');
@@ -889,6 +893,10 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       if (activeFilter === 'skipped') return item.status === 'skipped';
       if (activeFilter === 'second_review') return item.requires_second_review;
       if (activeFilter === 'high_severity') return item.s_default_frozen >= 8;
+      if (activeFilter.startsWith('fam:')) {
+        const familia = familias.find((f) => `fam:${f.label}` === activeFilter);
+        return familia ? familia.itemIds.includes(item.id) : false;
+      }
       return item.dimension_id === activeFilter;
     }).filter((item) => {
       if (!normalizedSearch) return true;
@@ -1420,6 +1428,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           evaluationId={data.evaluation.id}
           readOnly={isReadOnly}
           hayCambiosSinGuardar={hasPendingLocalChanges}
+          onFamilias={setFamilias}
         />
       </div>
 
@@ -1479,6 +1488,35 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 </button>
               ))}
             </div>
+
+            {/* Fila propia: los nombres de familia son largos y mezclarlos con
+                las dimensiones convertia la barra en un muro. Y son dos cortes
+                distintos del mismo conjunto — dimension y familia causal—, asi
+                que separarlos tambien es mas honesto. */}
+            {familias.length > 0 && (
+              <div className="px-5 py-3 border-b border-ltb">
+                <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-2">
+                  Por familia causal
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {familias.map((f) => (
+                    <button
+                      key={f.label}
+                      type="button"
+                      onClick={() => setActiveFilter(`fam:${f.label}`)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border font-sora text-[12px] transition-colors ${
+                        activeFilter === `fam:${f.label}`
+                          ? 'bg-cyan-dim border-cyan-border text-brand-cyan'
+                          : 'bg-ltcard text-lttm border-ltb hover:text-ltt hover:border-cyan-border'
+                      }`}
+                    >
+                      {f.label}
+                      <span className="font-plex text-[10.5px] text-lttm">{f.itemIds.length}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="px-5 py-4 border-b border-ltb bg-ltcard2">
               <div className="max-w-[420px]">

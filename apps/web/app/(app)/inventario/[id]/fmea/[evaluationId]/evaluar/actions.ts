@@ -1120,25 +1120,10 @@ export async function getFamilyEstimates(input: {
 
   const { data: pertenencias, error: pErr } = await fluxion
     .from('v_fmea_item_families')
-    .select('item_id, failure_mode_id, family_label, estimate_source, status')
+    .select('item_id, failure_mode_id, family_label, estimate_source, status, failure_mode_code, failure_mode_name')
     .eq('evaluation_id', input.evaluationId)
 
   if (pErr) return { error: 'No se pudieron leer las familias: ' + pErr.message }
-
-  // Nombre y codigo de cada modo: la tarjeta tiene que poder enseñar QUE se
-  // esta estimando. Aplicar a 48 modos sin verlos es firmar a ciegas.
-  const modoIds = Array.from(new Set(
-    (pertenencias ?? []).map((p: { failure_mode_id: string }) => p.failure_mode_id)
-  ))
-
-  const { data: catalogo } = modoIds.length
-    ? await fluxion.from('failure_modes').select('id, code, name').in('id', modoIds)
-    : { data: [] as Array<{ id: string; code: string; name: string }> }
-
-  const porModo = new Map(
-    ((catalogo ?? []) as Array<{ id: string; code: string; name: string }>)
-      .map((m) => [m.id, m])
-  )
 
   const { data: estimaciones } = await fluxion
     .from('fmea_family_estimates')
@@ -1148,6 +1133,7 @@ export async function getFamilyEstimates(input: {
   type Pertenencia = {
     item_id: string; failure_mode_id: string; family_label: string
     estimate_source: string | null; status: string
+    failure_mode_code: string; failure_mode_name: string
   }
 
   const porFamilia = new Map<string, { modos: number; manuales: number; detalle: FamilyModeRow[] }>()
@@ -1155,11 +1141,10 @@ export async function getFamilyEstimates(input: {
     const acc = porFamilia.get(p.family_label) ?? { modos: 0, manuales: 0, detalle: [] }
     acc.modos += 1
     if (p.estimate_source === 'manual') acc.manuales += 1
-    const m = porModo.get(p.failure_mode_id)
     acc.detalle.push({
       itemId: p.item_id,
-      code:   m?.code ?? '',
-      name:   m?.name ?? 'Modo desconocido',
+      code:   p.failure_mode_code,
+      name:   p.failure_mode_name,
       status: p.status,
       fuente: p.estimate_source,
     })
