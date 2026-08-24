@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, TrendingUp, X } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, ChevronDown, ChevronRight, TrendingUp, X } from 'lucide-react'
 
 import { saveBusinessRisk, clearBusinessRisk, type BusinessRiskRow } from './actions'
 
@@ -201,6 +202,15 @@ export function RiesgosNegocioClient({ sistema, riesgos, aiSystemId }: {
 
   return (
     <div className="max-w-[1100px] w-full mx-auto flex flex-col gap-5 animate-fadein pb-16">
+      {/* Esta pantalla cuelga de un sistema y no esta en el menu lateral: sin
+          esto, la unica salida es el boton de atras del navegador. */}
+      <Link
+        href={`/inventario/${aiSystemId}`}
+        className="flex items-center gap-1.5 font-plex text-[12px] uppercase tracking-wider text-lttm hover:text-brand-cyan transition-colors w-fit"
+      >
+        <ArrowLeft size={14} /> Volver al sistema
+      </Link>
+
       <div className="flex items-start gap-3">
         <div className="w-[34px] h-[34px] rounded-[9px] bg-ltcard2 border border-ltb flex items-center justify-center shrink-0 mt-0.5">
           <TrendingUp size={16} className="text-ltt2" />
