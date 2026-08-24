@@ -7,7 +7,8 @@ ya_existe,AI-ACT-ART13,AI_ACT,Art. 13,Transparency and Provision of Information 
 ya_existe,AI-ACT-ART14,AI_ACT,Art. 14,Human Oversight,Supervisión humana,proveedor y responsable del despliegue,,
 ya_existe,AI-ACT-ART15,AI_ACT,Art. 15,"Accuracy, Robustness and Cybersecurity","Exactitud, solidez y ciberseguridad",proveedor,,
 ya_existe,AI-ACT-ART16,AI_ACT,Art. 16,Obligations of Providers of High-Risk AI Systems,Obligaciones de los proveedores,proveedor,,"Artículo índice: enumera las demás. No necesita modos propios."
-corregir,AI-ACT-ART72,AI_ACT,Art. 72,Post-Market Monitoring by Providers and Post-Market Monitoring Plan,Vigilancia poscomercialización y plan de vigilancia,proveedor,alta,"⚠️ HOY DICE «Evaluación de impacto de derechos fundamentales (FRIA)». Está mal: la FRIA es el Art. 27. Corregir el título."
+corregir,AI-ACT-ART72,AI_ACT,Art. 27,Fundamental Rights Impact Assessment for High-Risk AI Systems,Evaluación de impacto sobre los derechos fundamentales (FRIA),responsable del despliegue,alta,"⚠️ La fila ES el Art. 27: su titulo y su descripcion hablan de la FRIA. Lo equivocado es el code y el numero de articulo. Cambiar a AI-ACT-ART27 / Art. 27."
+anadir,AI-ACT-ART72,AI_ACT,Art. 72,Post-Market Monitoring by Providers and Post-Market Monitoring Plan,Vigilancia poscomercializacion y plan de vigilancia,proveedor,alta,"El 72 de verdad. Hoy no existe: su codigo lo ocupaba la FRIA."
 anadir,AI-ACT-ART4,AI_ACT,Art. 4,AI literacy,Alfabetización en materia de IA,proveedor y responsable del despliegue,alta,"En vigor desde feb-2025 y de las más olvidadas. Obliga a formar al personal."
 anadir,AI-ACT-ART5,AI_ACT,Art. 5,Prohibited AI Practices,Prácticas de IA prohibidas,todos,alta,"Un sistema en esta lista no se mitiga: no se despliega."
 anadir,AI-ACT-ART6,AI_ACT,Art. 6,Classification Rules for High-Risk AI Systems,Reglas de clasificación de alto riesgo,proveedor,alta,"Fluxion ya tiene pantalla de clasificación y el artículo no está declarado."
@@ -17,12 +18,11 @@ anadir,AI-ACT-ART18,AI_ACT,Art. 18,Documentation Keeping,Conservación de la doc
 anadir,AI-ACT-ART19,AI_ACT,Art. 19,Automatically Generated Logs,Conservación de los registros generados automáticamente,proveedor,alta,"Seis meses mínimo. Relacionado con el Art. 12."
 anadir,AI-ACT-ART20,AI_ACT,Art. 20,Corrective Actions and Duty of Information,Medidas correctivas y deber de información,proveedor,alta,
 anadir,AI-ACT-ART21,AI_ACT,Art. 21,Cooperation with Competent Authorities,Cooperación con las autoridades competentes,proveedor,media,
-anadir,AI-ACT-ART22,AI_ACT,Art. 22,Authorised Representatives of Providers of High-Risk AI Systems,Representantes autorizados,representante autorizado,baja,"Solo si el proveedor está fuera de la UE."
+anadir,AI-ACT-ART22,AI_ACT,Art. 22,Authorised Representatives of Providers of High-Risk AI Systems,Representantes autorizados,representante autorizado,baja,"Aplica segun el ROL, no segun el sector: solo si el proveedor esta fuera de la UE."
 anadir,AI-ACT-ART23,AI_ACT,Art. 23,Obligations of Importers,Obligaciones de los importadores,importador,baja,
 anadir,AI-ACT-ART24,AI_ACT,Art. 24,Obligations of Distributors,Obligaciones de los distribuidores,distribuidor,baja,
 anadir,AI-ACT-ART25,AI_ACT,Art. 25,Responsibilities Along the AI Value Chain,Responsabilidades a lo largo de la cadena de valor,"proveedor, importador, distribuidor y responsable del despliegue",alta,"6 modos lo citan. Clave cuando se integra un modelo de terceros."
 anadir,AI-ACT-ART26,AI_ACT,Art. 26,Obligations of Deployers of High-Risk AI Systems,Obligaciones de los responsables del despliegue,responsable del despliegue,alta,"★ La mayoría de clientes de Fluxion son responsables del despliegue, no proveedores."
-anadir,AI-ACT-ART27,AI_ACT,Art. 27,Fundamental Rights Impact Assessment for High-Risk AI Systems,Evaluación de impacto sobre los derechos fundamentales (FRIA),responsable del despliegue,alta,"★ Fluxion ya tiene la plantilla de FRIA y el artículo no está declarado."
 anadir,AI-ACT-ART40,AI_ACT,Art. 40,Harmonised Standards and Standardisation Deliverables,Normas armonizadas,proveedor,baja,"Presunción de conformidad."
 anadir,AI-ACT-ART43,AI_ACT,Art. 43,Conformity Assessment,Evaluación de la conformidad,proveedor,alta,
 anadir,AI-ACT-ART47,AI_ACT,Art. 47,EU Declaration of Conformity,Declaración UE de conformidad,proveedor,alta,"Trámite documental: no genera modos de fallo, pero sí obligación."
