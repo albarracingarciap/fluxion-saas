@@ -11,6 +11,7 @@ import {
 } from '@/lib/failure-modes/activation-engine';
 import {
   calculateFmeaZone,
+  calculateSuggestedSActual,
   requiresJustification,
   requiresSecondReview,
   type FmeaEditableItem,
@@ -113,7 +114,8 @@ async function requireEditableEvaluation(params: { aiSystemId: string; evaluatio
 
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
-    .select('organization_id, role, full_name')
+    // `id` lo necesita la estimacion por familia para registrar quien la firma.
+    .select('id, organization_id, role, full_name')
     .eq('user_id', user.id)
     .single();
 
@@ -1073,4 +1075,251 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
     secondReviewedAt: reviewedAt,
     secondReviewNotes: notes,
   };
+}
+
+// ── Estimación por familia ──────────────────────────────────────────────────
+//
+// Un sistema activa 286 modos y prioriza 119. Evaluar 119 ítems a mano son unas
+// seis horas por sistema. Los 119 caen en 10 familias causales: fijar O y D por
+// familia y ajustar después las excepciones convierte 119 decisiones en 10.
+//
+// La regla que deriva la S vive en `domain.ts` y se reutiliza aquí. No se
+// reimplementa en SQL: dos verdades sobre lo mismo terminan divergiendo, y el
+// día que lo hagan el expediente diría una cosa distinta según quién lo mire.
+
+export type FamilyEstimateRow = {
+  familyLabel:   string
+  modos:         number
+  /** Ítems de la familia ya ajustados a mano: la estimación no los toca. */
+  manuales:      number
+  oValue:        number | null
+  dValue:        number | null
+  justification: string | null
+  updatedAt:     string | null
+}
+
+export async function getFamilyEstimates(input: {
+  aiSystemId: string
+  evaluationId: string
+}): Promise<{ familias: FamilyEstimateRow[] } | { error: string }> {
+  const context = await requireEditableEvaluation(input)
+  if ('error' in context) return { error: context.error ?? 'No autorizado.' }
+  const { fluxion } = context
+
+  const { data: pertenencias, error: pErr } = await fluxion
+    .from('v_fmea_item_families')
+    .select('item_id, family_label, estimate_source')
+    .eq('evaluation_id', input.evaluationId)
+
+  if (pErr) return { error: 'No se pudieron leer las familias: ' + pErr.message }
+
+  const { data: estimaciones } = await fluxion
+    .from('fmea_family_estimates')
+    .select('family_label, o_value, d_value, justification, updated_at')
+    .eq('evaluation_id', input.evaluationId)
+
+  const porFamilia = new Map<string, { modos: number; manuales: number }>()
+  for (const p of (pertenencias ?? []) as Array<{ family_label: string; estimate_source: string | null }>) {
+    const acc = porFamilia.get(p.family_label) ?? { modos: 0, manuales: 0 }
+    acc.modos += 1
+    if (p.estimate_source === 'manual') acc.manuales += 1
+    porFamilia.set(p.family_label, acc)
+  }
+
+  const familias: FamilyEstimateRow[] = Array.from(porFamilia.entries())
+    .map(([familyLabel, acc]) => {
+      const est = (estimaciones ?? []).find(
+        (e: { family_label: string }) => e.family_label === familyLabel
+      )
+      return {
+        familyLabel,
+        modos:         acc.modos,
+        manuales:      acc.manuales,
+        oValue:        est?.o_value ?? null,
+        dValue:        est?.d_value ?? null,
+        justification: est?.justification ?? null,
+        updatedAt:     est?.updated_at ?? null,
+      }
+    })
+    // Las que más modos agrupan primero: es donde está el ahorro.
+    .sort((a, b) => b.modos - a.modos)
+
+  return { familias }
+}
+
+/**
+ * Recalcula los ítems que heredan de una familia.
+ *
+ * Se recalcula TODO el conjunto en cada cambio, no se aplica incrementalmente.
+ * Con solapamiento —un modo puede estar en varias familias— el resultado
+ * incremental dependería del orden en que se guardaron las estimaciones, y dos
+ * personas haciendo lo mismo en distinto orden obtendrían expedientes
+ * distintos.
+ *
+ * Ante varias familias manda el valor más severo en cada eje: en gestión de
+ * riesgos, ante dos estimaciones se toma la peor. Más O y más D suben la
+ * severidad, así que «más severo» es el mayor.
+ */
+async function recalcularFamilias(
+  fluxion: ReturnType<typeof createFluxionClient>,
+  evaluationId: string,
+): Promise<{ actualizados: number; error?: string }> {
+  const [{ data: estimaciones }, { data: pertenencias }, { data: items }] = await Promise.all([
+    fluxion.from('fmea_family_estimates')
+      .select('family_label, o_value, d_value, justification')
+      .eq('evaluation_id', evaluationId),
+    fluxion.from('v_fmea_item_families')
+      .select('item_id, family_label')
+      .eq('evaluation_id', evaluationId),
+    fluxion.from('fmea_items')
+      .select('id, s_default_frozen, estimate_source, status')
+      .eq('evaluation_id', evaluationId),
+  ])
+
+  type Estimacion = {
+    family_label: string; o_value: number; d_value: number; justification: string
+  }
+  const porFamilia = new Map<string, Estimacion>(
+    ((estimaciones ?? []) as Estimacion[]).map((e) => [e.family_label, e])
+  )
+
+  // item -> familias con estimación que lo cubren
+  const cubiertoPor = new Map<string, string[]>()
+  for (const p of (pertenencias ?? []) as Array<{ item_id: string; family_label: string }>) {
+    if (!porFamilia.has(p.family_label)) continue
+    cubiertoPor.set(p.item_id, [...(cubiertoPor.get(p.item_id) ?? []), p.family_label])
+  }
+
+  let actualizados = 0
+
+  for (const item of (items ?? []) as Array<{
+    id: string; s_default_frozen: number; estimate_source: string | null; status: string
+  }>) {
+    // Un ajuste manual no se pisa nunca.
+    if (item.estimate_source === 'manual') continue
+
+    const familias = cubiertoPor.get(item.id) ?? []
+
+    if (familias.length === 0) {
+      // Se retiró la estimación que lo cubría: vuelve a pendiente en lugar de
+      // quedarse con un valor huérfano que nadie sabría de dónde salió.
+      if (item.estimate_source === 'family') {
+        await fluxion.from('fmea_items').update({
+          o_value: null, d_real_value: null, s_actual: null,
+          narrative_justification: null,
+          status: 'pending', estimate_source: null, estimate_families: null,
+          requires_second_review: false,
+        }).eq('id', item.id)
+        actualizados += 1
+      }
+      continue
+    }
+
+    const oValue = Math.max(...familias.map((f) => porFamilia.get(f)!.o_value))
+    const dValue = Math.max(...familias.map((f) => porFamilia.get(f)!.d_value))
+
+    const sActual = calculateSuggestedSActual({
+      oValue, dRealValue: dValue, sDefault: item.s_default_frozen,
+    })
+
+    // La justificación de la familia se copia al ítem: sin esto, el expediente
+    // generado mostraría 48 apartados sin justificar aunque la decisión sí
+    // estuviera razonada.
+    const textos = familias.map(
+      (f) => `Estimación por familia «${f}»: ${porFamilia.get(f)!.justification}`
+    )
+
+    await fluxion.from('fmea_items').update({
+      o_value: oValue,
+      d_real_value: dValue,
+      s_actual: sActual,
+      narrative_justification: textos.join('\n\n'),
+      status: 'evaluated',
+      estimate_source: 'family',
+      estimate_families: familias,
+      requires_second_review: requiresSecondReview({
+        sDefault: item.s_default_frozen, sActual, manualMode: false,
+      }),
+    }).eq('id', item.id)
+
+    actualizados += 1
+  }
+
+  return { actualizados }
+}
+
+export async function saveFamilyEstimate(input: {
+  aiSystemId:    string
+  evaluationId:  string
+  familyLabel:   string
+  oValue:        number
+  dValue:        number
+  justification: string
+}): Promise<{ actualizados: number } | { error: string }> {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error ?? 'No autorizado.' }
+  const { fluxion, membership } = context
+
+  if (input.oValue < 1 || input.oValue > 5 || input.dValue < 1 || input.dValue > 5) {
+    return { error: 'O y D tienen que estar entre 1 y 5.' }
+  }
+
+  // El mismo mínimo que se le exige a la justificación de un ítem individual.
+  // Esta sustituye a todas las de la familia: rebajarle el listón sería cambiar
+  // rigor por comodidad.
+  if (input.justification.trim().length < 50) {
+    return {
+      error: 'La justificación es obligatoria y debe tener al menos 50 caracteres: '
+        + 'sustituye a la de cada modo de la familia.',
+    }
+  }
+
+  const { error: upErr } = await fluxion
+    .from('fmea_family_estimates')
+    .upsert({
+      evaluation_id: input.evaluationId,
+      family_label:  input.familyLabel,
+      o_value:       input.oValue,
+      d_value:       input.dValue,
+      justification: input.justification.trim(),
+      created_by:    membership.id,
+    }, { onConflict: 'evaluation_id,family_label' })
+
+  if (upErr) return { error: 'No se pudo guardar la estimación: ' + upErr.message }
+
+  const resultado = await recalcularFamilias(fluxion, input.evaluationId)
+  if (resultado.error) return { error: resultado.error }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`)
+  return { actualizados: resultado.actualizados }
+}
+
+export async function deleteFamilyEstimate(input: {
+  aiSystemId:   string
+  evaluationId: string
+  familyLabel:  string
+}): Promise<{ actualizados: number } | { error: string }> {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error ?? 'No autorizado.' }
+  const { fluxion } = context
+
+  const { error: delErr } = await fluxion
+    .from('fmea_family_estimates')
+    .delete()
+    .eq('evaluation_id', input.evaluationId)
+    .eq('family_label', input.familyLabel)
+
+  if (delErr) return { error: 'No se pudo retirar la estimación: ' + delErr.message }
+
+  const resultado = await recalcularFamilias(fluxion, input.evaluationId)
+  if (resultado.error) return { error: resultado.error }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`)
+  return { actualizados: resultado.actualizados }
 }
