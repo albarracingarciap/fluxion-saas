@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
@@ -74,6 +75,25 @@ const ITEM_STATUS_META: Record<
     pill: 'bg-[#f1ebff] border-[#d2c1ff] text-[#7c5cff]',
   },
 };
+
+/**
+ * Saca un nodo fuera del arbol de la pagina.
+ *
+ * `position: fixed` se posiciona respecto al viewport... salvo que algun
+ * ancestro tenga `transform`, y entonces lo hace respecto a ese ancestro. El
+ * contenedor de esta pagina lleva `animate-fadein`, cuya animacion termina en
+ * `transform: translateY(0)` — un transform al fin y al cabo—, asi que el modal
+ * se centraba respecto a una pagina de miles de pixeles y aparecia fuera de la
+ * pantalla.
+ *
+ * Montarlo en el body lo devuelve al viewport.
+ */
+function Portal({ children }: { children: React.ReactNode }) {
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+  if (!montado) return null;
+  return createPortal(children, document.body);
+}
 
 type FilterValue = 'all' | 'pending' | 'evaluated' | 'skipped' | 'high_severity' | string;
 
@@ -2169,6 +2189,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       </div>
 
       {pendingCausalConfirmation && (
+        <Portal>
         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadein">
           <div className="bg-ltcard w-full max-w-lg rounded-xl shadow-2xl border border-ltb flex flex-col overflow-hidden max-h-[90vh]">
             <div className="bg-ltcard2 px-5 py-4 border-b border-ltb flex justify-between items-start">
@@ -2178,7 +2199,9 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                   Advertencia de propagación causal
                 </h3>
                 <p className="font-sora text-[12.5px] text-lttm mt-1 text-balance">
-                  Esta evaluación (S_actual ≥ 4) puede desencadenar o agravar riesgos en modos conectados del sistema.
+                  Con esta severidad (S ≥ 4), el grafo causal indica que este modo puede
+                  desencadenar o agravar los que aparecen debajo. No autorizas nada: es
+                  información para que la confirmes sabiendo lo que arrastra.
                 </p>
               </div>
             </div>
@@ -2202,14 +2225,23 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                       </span>
                     </div>
                     <div className="font-sora text-[12px] text-ltt2 space-y-1">
-                      {impact.modeNames.map((modeName, mi) => (
-                        <div key={mi} className="flex gap-2">
-                          <span className={`font-medium ${impact.edgeType === 'amplifies' ? 'text-or' : 'text-re'}`}>
-                            {impact.edgeType === 'amplifies' ? 'Amplifica' : 'Causa'}:
-                          </span> 
-                          {modeName}
+                      {impact.modeNames.filter((n) => n.trim()).length === 0 ? (
+                        // Antes se pintaba «Causa:» sin nada detras cuando el
+                        // nombre no se resolvia. Decirlo es mejor que una etiqueta
+                        // huerfana que parece un fallo de maquetacion.
+                        <div className="text-lttm italic">
+                          Modos conectados sin nombre disponible.
                         </div>
-                      ))}
+                      ) : (
+                        impact.modeNames.filter((n) => n.trim()).map((modeName, mi) => (
+                          <div key={mi} className="flex gap-2">
+                            <span className={`font-medium ${impact.edgeType === 'amplifies' ? 'text-or' : 'text-re'}`}>
+                              {impact.edgeType === 'amplifies' ? 'Amplifica' : 'Causa'}:
+                            </span>
+                            {modeName}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2232,11 +2264,12 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 disabled={isSavingItem}
               >
                 {isSavingItem && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Confirmar y propagar riesgo
+                Confirmar la evaluación
               </button>
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Bulk action toolbar ───────────────────────────────────────────────── */}

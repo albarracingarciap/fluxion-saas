@@ -96,21 +96,34 @@ export async function buildSystemCausalGraph(
   }
   const activeFmIds = Array.from(activeFmScore.keys());
 
-  // Fetch catalog codes+names for active failure modes (sequential, small set)
-  const fmCatalogResult =
-    activeFmIds.length > 0
-      ? await compliance
-          .from('failure_modes')
-          .select('id, code, name')
-          .in('id', activeFmIds)
-      : { data: [] };
+  // Codigos y nombres del catalogo, POR LOTES.
+  //
+  // Un sistema puede tener casi 300 modos activos, y `.in()` los mete todos en
+  // la URL: mas de 12 KB, por encima del limite de cabecera de Kong. La
+  // peticion se rechazaba entera, el error no se miraba, y `fmInfo` quedaba
+  // vacio — con lo que cada nombre salia en blanco y el modal de propagacion
+  // causal mostraba «Causa:» sin nada detras.
+  const LOTE = 100;
+  const fmInfo = new Map<string, { code: string; name: string }>();
 
-  const fmInfo = new Map<string, { code: string; name: string }>(
-    ((fmCatalogResult.data ?? []) as FmCatRow[]).map((fm) => [
-      fm.id,
-      { code: fm.code, name: fm.name },
-    ])
-  );
+  for (let i = 0; i < activeFmIds.length; i += LOTE) {
+    const lote = activeFmIds.slice(i, i + LOTE);
+    const { data, error } = await compliance
+      .from('failure_modes')
+      .select('id, code, name')
+      .in('id', lote);
+
+    if (error) {
+      // Se registra en lugar de tragarselo: sin nombres, el grafo causal se
+      // pinta pero no dice nada, y eso es peor que no pintarlo.
+      console.error('[causal-graph] no se pudieron leer los nombres del catalogo:', error);
+      continue;
+    }
+
+    for (const fm of (data ?? []) as FmCatRow[]) {
+      fmInfo.set(fm.id, { code: fm.code, name: fm.name });
+    }
+  }
 
   // Build node_id → failure_mode_ids lookup
   const nodeToFms = new Map<string, string[]>();
