@@ -210,11 +210,41 @@ export async function ensureActiveFmeaEvaluation(params: {
 
   const { data: catalogRows, error: catalogError } = await compliance
     .from('failure_modes')
-    .select('id, s_default')
+    .select('id, s_default, origin')
     .in('id', failureModeIds);
 
   if (catalogError || !catalogRows || catalogRows.length === 0) {
     return { evaluationId: null, created: false, missingFailureModes: true };
+  }
+
+  // El riesgo de negocio no entra en el FMEA.
+  //
+  // La gravedad de un sobrecoste y la de una discriminacion no son
+  // conmensurables en la misma escala de 1 a 5: en el mismo FMEA, un riesgo
+  // presupuestario puede adelantar a uno de derechos fundamentales. Ademas el
+  // expediente que sale de aqui es evidencia regulatoria, y un riesgo de
+  // viabilidad no lo es.
+  //
+  // No se pierden: siguen en `system_failure_modes` con su origen marcado,
+  // esperando al registro de riesgos de negocio.
+  const regulatoryRows = catalogRows.filter(
+    (row) => (row as { origin?: string | null }).origin !== 'negocio'
+  );
+
+  const excludedBusiness = catalogRows.length - regulatoryRows.length;
+
+  if (regulatoryRows.length === 0) {
+    return {
+      evaluationId: null,
+      created: false,
+      missingFailureModes: false,
+      missingPrioritizedModes: true,
+      prioritizedCount: 0,
+      activatedCount: systemModes.length,
+      error:
+        'Los modos priorizados de este sistema son todos de riesgo de negocio, '
+        + 'que no forman parte del FMEA regulatorio.',
+    };
   }
 
   const { data: latestEvaluation } = await fluxion
@@ -249,7 +279,9 @@ export async function ensureActiveFmeaEvaluation(params: {
     };
   }
 
-  const sDefaultByMode = new Map(catalogRows.map((row) => [row.id, row.s_default]));
+  // Solo los regulatorios: el mapa es lo que decide que items se crean, asi que
+  // filtrar aqui es lo que deja fuera al riesgo de negocio de verdad.
+  const sDefaultByMode = new Map(regulatoryRows.map((row) => [row.id, row.s_default]));
 
   const itemPayload = failureModeIds
     .filter((failureModeId) => sDefaultByMode.has(failureModeId))
@@ -302,8 +334,12 @@ export async function ensureActiveFmeaEvaluation(params: {
     created: true,
     missingFailureModes: false,
     seedStrategy,
-    prioritizedCount: prioritizedModeIds.length,
+    // El recuento que se enseña es el de items creados, no el de modos
+    // priorizados: si se dejaran fuera 3 de negocio y siguiera diciendo 119,
+    // el numero no cuadraria con la lista y nadie sabria por que.
+    prioritizedCount: regulatoryRows.length,
     activatedCount: systemModes.length,
+    excludedBusiness,
   };
 }
 

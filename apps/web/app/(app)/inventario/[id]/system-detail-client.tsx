@@ -119,6 +119,8 @@ export type SystemFailureModeEntry = {
   subcategoria: string | null;
   tipo: string | null;
   s_default: number | null;
+  /** Universo del riesgo. `negocio` no entra en el FMEA regulatorio. */
+  origin?: string | null;
   activation_source: string;
   activation_reason: string | null;
   activation_family_ids: string[];
@@ -1993,6 +1995,10 @@ export function SystemDetailClient({
       dismissed: failureModes.filter((item) => item.priority_status === 'dismissed').length,
       pendingReview: failureModes.filter((item) => item.priority_status === 'pending_review').length,
       quotaDropped: failureModes.filter((item) => item.quota_dropped === true).length,
+      // Riesgos de negocio: se activan porque son riesgos reales, pero no entran
+      // en el FMEA. La gravedad de un sobrecoste y la de una discriminacion no
+      // son conmensurables en la misma escala.
+      negocio: failureModes.filter((item) => item.origin === 'negocio').length,
     };
   }, [failureModes]);
 
@@ -3740,6 +3746,25 @@ export function SystemDetailClient({
                           </div>
                         )}
                       </div>
+
+                      {failureModeSummary.negocio > 0 && (
+                        <div className="mx-5 mb-4 flex items-start gap-3 rounded-[10px] border border-ltb bg-ltbg px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-sora text-[12.5px] font-semibold text-ltt mb-0.5">
+                              {failureModeSummary.negocio} riesgos de negocio, fuera del FMEA
+                            </div>
+                            <div className="font-sora text-[12px] text-ltt2 leading-relaxed">
+                              {/* No es que se hayan descartado: es que no comparten escala.
+                                  Decirlo evita que alguien los busque en la evaluacion y
+                                  piense que se han perdido. */}
+                              Son riesgos reales de viabilidad —coste, adopción, capacidades— pero
+                              no salen de ningún artículo del Reglamento. No entran en la evaluación
+                              FMEA porque la gravedad de un sobrecoste y la de una discriminación no
+                              se miden en la misma escala. Siguen registrados aquí.
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {failureModeSummary.quotaDropped > 0 && (
                         <div className="mx-5 mb-4 flex items-start gap-3 rounded-[10px] border border-orb bg-ordim px-4 py-3">

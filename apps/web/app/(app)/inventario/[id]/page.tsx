@@ -460,14 +460,26 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       subcategoria: string | null;
       tipo: string | null;
       s_default: number | null;
+      origin: string | null;
     }
   >();
 
-  if (failureModeIds.length > 0) {
-    const { data: catalogRows } = await compliance
+  // Por lotes. Un sistema puede activar cerca de 300 modos, y `.in()` los mete
+  // todos en la URL: mas de 12 KB, por encima del limite de cabecera de Kong.
+  // La peticion se rechazaba entera y la lista de modos de la ficha se quedaba
+  // vacia, porque las filas sin catalogo se descartan mas abajo.
+  const LOTE_CATALOGO = 100;
+  for (let i = 0; i < failureModeIds.length; i += LOTE_CATALOGO) {
+    const lote = failureModeIds.slice(i, i + LOTE_CATALOGO);
+    const { data: catalogRows, error: catalogError } = await compliance
       .from('failure_modes')
-      .select('id, code, name, description, dimension_id, bloque, subcategoria, tipo, s_default')
-      .in('id', failureModeIds);
+      .select('id, code, name, description, dimension_id, bloque, subcategoria, tipo, s_default, origin')
+      .in('id', lote);
+
+    if (catalogError) {
+      console.error('[inventario] no se pudo leer el catalogo de modos:', catalogError);
+      continue;
+    }
 
     for (const row of catalogRows ?? []) {
       failureModeCatalog.set(row.id, row);
@@ -490,6 +502,8 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
         subcategoria: catalog.subcategoria,
         tipo: catalog.tipo,
         s_default: catalog.s_default,
+        // De que universo es el riesgo. `negocio` no entra en el FMEA.
+        origin: catalog.origin,
         activation_source: row.activation_source,
         activation_reason: row.activation_reason,
         activation_family_ids: row.activation_family_ids ?? [],
