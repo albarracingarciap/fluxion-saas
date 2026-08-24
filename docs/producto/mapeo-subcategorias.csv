@@ -50,7 +50,7 @@ roi,Gobernanza de costes en ejecución,1,negocio,,alta,
 roi,Alineación estratégica,5,negocio,,alta,
 roi,Adaptabilidad al mercado,5,negocio,,alta,
 roi,Cuantificación de beneficios,5,negocio,,alta,
-roi,Eficacia del modelo,6,negocio,,media,"Revisar: si mide exactitud del modelo y no valor de negocio, sería Art. 15.1."
+roi,Eficacia del modelo,6,negocio,,alta,"CONFIRMADO: miden el valor que aporta al negocio, no la exactitud del modelo."
 roi,Costes operativos,7,negocio,,alta,
 roi,Escalabilidad del negocio,3,negocio,,alta,
 seguridad,Privacidad y fuga de información,5,ai_act,Art. 15.5,alta,"Confidentiality attacks. También RGPD."
@@ -76,7 +76,7 @@ tecnica,Coordinación multi-agente,5,buena_practica,,alta,"Va por delante de la 
 tecnica,Dependencias,6,buena_practica,,media,"Cadena de suministro. Podría ser ISO A.10."
 tecnica,Rendimiento del modelo,4,ai_act,Art. 15.1,alta,"Exactitud."
 tecnica,Fiabilidad de outputs,5,ai_act,Art. 15.1,alta,
-tecnica,Escalabilidad,4,negocio,,media,"Ingeniería con impacto de coste."
+tecnica,Escalabilidad,4,ai_act,Art. 15.4,alta,"CONFIRMADO: fallo catastrófico ante condiciones de estrés. El Art. 15.4 exige resiliencia frente a errores y fallos, con planes de respaldo o a prueba de fallos. Si algún modo concreto es puramente comercial, se corrige con is_override."
 tecnica,Control del contexto,4,buena_practica,,alta,"Específico de generativa."
 tecnica,Evaluación,7,ai_act,Art. 17.1.d,alta,"Procedimientos de examen, prueba y validación."
 tecnica,Actualizaciones,7,ai_act,Art. 17.1.a,alta,
@@ -87,7 +87,7 @@ tecnica,Calidad en sistemas RAG,6,buena_practica,,alta,
 tecnica,Contención y límites,6,buena_practica,,alta,"Va por delante de la norma."
 tecnica,Desarrollo,3,iso_42001,A.6,media,
 tecnica,Gestión de herramientas,5,buena_practica,,alta,"Específico de agéntica."
-tecnica,Latencia,5,negocio,,media,"Salvo que la latencia impida la supervisión humana — entonces Art. 14."
+tecnica,Latencia,5,ai_act,Art. 14,alta,"CONFIRMADO: impiden supervisar a tiempo. En supervisión síncrona o casi en tiempo real, la latencia consume la ventana operativa y fuerza a decidir sin validar o sobre datos obsoletos. No es rendimiento: es supervisión humana no efectiva."
 tecnica,Control de acciones,6,buena_practica,,alta,"Va por delante de la norma."
 tecnica,Documentación,5,ai_act,"Art. 11 / Anexo IV",alta,
 tecnica,Robustez,4,ai_act,Art. 15.1,alta,
