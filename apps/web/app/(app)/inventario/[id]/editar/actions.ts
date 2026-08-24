@@ -150,6 +150,10 @@ export async function updateAISystem(formData: Record<string, any>) {
     has_explainability: normalizeDocStatus(formData.hasExplainability),
     frameworks: formData.frameworks || null,
     provider_origin: formData.origin || null,
+    // Rol en la cadena de valor: determina que articulos del Reglamento
+    // obligan a esta organizacion sobre ESTE sistema. Va por sistema y no por
+    // organizacion porque el Art. 25 puede cambiarlo sin que nadie lo note.
+    value_chain_roles: Array.isArray(formData.valueChainRoles) ? formData.valueChainRoles : [],
     has_fine_tuning: formData.hasFineTuning ?? false,
     has_external_tools: formData.hasExternalTools ?? false,
     active_environments: formData.environments ?? [],

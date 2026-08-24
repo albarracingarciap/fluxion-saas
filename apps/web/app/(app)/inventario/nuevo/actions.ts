@@ -150,6 +150,9 @@ export async function saveAISystem(formData: Record<string, any>) {
     has_explainability: normalizeDocStatus(formData.hasExplainability),
     frameworks: formData.frameworks || null,
     provider_origin: formData.origin || null,
+    // Igual que en la edicion: el rol determina que obligaciones aplican, y se
+    // declara por sistema porque el Art. 25 puede cambiarlo.
+    value_chain_roles: Array.isArray(formData.valueChainRoles) ? formData.valueChainRoles : [],
     has_fine_tuning: formData.hasFineTuning ?? false,
     has_external_tools: formData.hasExternalTools ?? false,
     active_environments: formData.environments ?? [],

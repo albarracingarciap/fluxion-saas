@@ -288,6 +288,17 @@ const AI_TYPES = [
   {v:"otro",l:"Otro",i:"◎",d:""},
 ];
 
+// El Reglamento reparte obligaciones por ROL en la cadena de valor, no por
+// sector ni por origen del sistema. Y no es excluyente: desarrollar algo y
+// usarlo internamente es ser proveedor Y responsable del despliegue.
+const VALUE_CHAIN_ROLES = [
+  {v:"provider",                 l:"Proveedor",                  h:"Lo desarrollas y lo pones en el mercado con tu nombre"},
+  {v:"deployer",                 l:"Responsable del despliegue", h:"Lo usas bajo tu autoridad"},
+  {v:"importer",                 l:"Importador",                 h:"Lo traes a la UE de un proveedor de fuera"},
+  {v:"distributor",              l:"Distribuidor",               h:"Lo comercializas sin ser ninguno de los anteriores"},
+  {v:"authorised_representative",l:"Representante autorizado",   h:"Actúas por un proveedor establecido fuera de la UE"},
+];
+
 const PROVIDERS = [
   {v:"interno",l:"Desarrollo interno",i:"🏠"},
   {v:"proveedor",l:"Proveedor externo",i:"🏢"},
@@ -456,7 +467,7 @@ export const INIT = {
   // Step 5
   aiSystemType:"",baseModel:"",externalModel:"",extProvider:"",
   ossModelName:"",ossLicense:"",
-  frameworks:"",origin:"",hasFineTuning:false,
+  frameworks:"",origin:"",hasFineTuning:false,valueChainRoles:[],
   hasExternalTools:false,environments:[],mlopsIntegration:"",
   hasExplainability:null,
   // Step 6
@@ -880,6 +891,30 @@ function Step5({f,set,cbToggle}){return(<>
             <div className="opt-lbl">{o.l}</div>
           </div>
         ))}
+      </div>
+    </div>
+  </div>
+  <div className="field-row">
+    <div className="field">
+      <Lbl req tags={["aiact"]}>Tu papel frente a este sistema</Lbl>
+      <div className="opts c2">
+        {VALUE_CHAIN_ROLES.map(o=>{
+          const sel=(f.valueChainRoles||[]).includes(o.v);
+          return (
+            <div key={o.v} className={`opt compact${sel?" sel":""}`}
+                 onClick={()=>set("valueChainRoles", sel
+                   ? (f.valueChainRoles||[]).filter(x=>x!==o.v)
+                   : [...(f.valueChainRoles||[]), o.v])}>
+              <div className="opt-lbl">{o.l}</div>
+              <div className="opt-desc">{o.h}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="helper">
+        Determina qué artículos del Reglamento te obligan. Puedes ser varios a la vez.
+        Y ojo al artículo 25: si le pones tu marca a un sistema de terceros, lo modificas
+        sustancialmente o le cambias la finalidad, pasas a ser proveedor.
       </div>
     </div>
   </div>
