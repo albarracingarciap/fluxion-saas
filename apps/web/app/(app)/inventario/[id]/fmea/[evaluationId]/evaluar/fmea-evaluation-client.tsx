@@ -1419,6 +1419,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           aiSystemId={data.system.id}
           evaluationId={data.evaluation.id}
           readOnly={isReadOnly}
+          hayCambiosSinGuardar={hasPendingLocalChanges}
         />
       </div>
 

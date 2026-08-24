@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { Layers, ChevronDown, ChevronRight, Check, X, AlertTriangle } from 'lucide-react'
+import { Layers, ChevronDown, ChevronRight, Check, X, AlertTriangle, Lock } from 'lucide-react'
 
 import {
   getFamilyEstimates, saveFamilyEstimate, deleteFamilyEstimate,
@@ -49,12 +48,13 @@ function Selector({ valor, onChange, labels, disabled }: {
   )
 }
 
-function Familia({ fila, aiSystemId, evaluationId, readOnly, onCambio }: {
-  fila:         FamilyEstimateRow
-  aiSystemId:   string
-  evaluationId: string
-  readOnly:     boolean
-  onCambio:     () => void
+function Familia({ fila, aiSystemId, evaluationId, readOnly, hayCambiosSinGuardar, onCambio }: {
+  fila:                  FamilyEstimateRow
+  aiSystemId:            string
+  evaluationId:          string
+  readOnly:              boolean
+  hayCambiosSinGuardar:  boolean
+  onCambio:              () => void
 }) {
   const [abierto, setAbierto] = useState(false)
   const [o, setO] = useState(fila.oValue ?? 3)
@@ -67,6 +67,12 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, onCambio }: {
   const heredan = fila.modos - fila.manuales
 
   function guardar() {
+    // La lista de items del padre mantiene ediciones locales sin guardar, y
+    // esta accion las machacaria al recargar. Mejor avisar que perder trabajo.
+    if (hayCambiosSinGuardar) {
+      setError('Tienes cambios sin guardar en la lista de modos. Guárdalos antes de aplicar una estimación de familia.')
+      return
+    }
     setError(null)
     startTransition(async () => {
       const r = await saveFamilyEstimate({
@@ -130,6 +136,28 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, onCambio }: {
               de familia no los toca: lo que se afinó a mano se respeta.
             </p>
           )}
+
+          {/* Que modos se estan estimando. Sin esta lista, aplicar un valor a 48
+              modos es firmar a ciegas — y ademas la lista de abajo esta agrupada
+              por dimension, no por familia, asi que no hay forma de cruzarlo. */}
+          <details className="rounded-[8px] border border-ltb bg-ltcard2">
+            <summary className="cursor-pointer px-3 py-2 font-sora text-[12px] text-ltt2">
+              Ver los {fila.modos} modos de esta familia
+            </summary>
+            <div className="px-3 pb-3 flex flex-col gap-1 max-h-64 overflow-y-auto">
+              {fila.detalle.map((m) => (
+                <div key={m.itemId} className="flex items-start gap-2 font-sora text-[12px]">
+                  <span className="font-plex text-[11px] text-lttm shrink-0 w-[64px]">{m.code}</span>
+                  <span className="text-ltt2 flex-1">{m.name}</span>
+                  {m.fuente === 'manual' && (
+                    <span className="flex items-center gap-1 text-or shrink-0" title="Ajustado a mano: la estimación de familia no lo toca">
+                      <Lock size={11} /> a mano
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
 
           <div className="grid grid-cols-2 gap-5">
             <div>
@@ -199,12 +227,12 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, onCambio }: {
   )
 }
 
-export function FamiliasPanel({ aiSystemId, evaluationId, readOnly }: {
-  aiSystemId:   string
-  evaluationId: string
-  readOnly:     boolean
+export function FamiliasPanel({ aiSystemId, evaluationId, readOnly, hayCambiosSinGuardar }: {
+  aiSystemId:            string
+  evaluationId:          string
+  readOnly:              boolean
+  hayCambiosSinGuardar:  boolean
 }) {
-  const router = useRouter()
   const [filas, setFilas] = useState<FamilyEstimateRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -218,10 +246,13 @@ export function FamiliasPanel({ aiSystemId, evaluationId, readOnly }: {
   useEffect(() => { load() }, [load])
 
   function onCambio() {
-    load()
-    // La lista de ítems vive en el componente padre y se sirve del servidor:
-    // sin esto, los valores propagados no se verían hasta recargar.
-    router.refresh()
+    // Recarga completa, no router.refresh(). El componente padre siembra su
+    // estado con `useState(props)` y no vuelve a mirar la prop, asi que un
+    // refresh del servidor no actualiza ni los contadores ni la lista: se
+    // quedaba en «0 / 119 evaluados» despues de estimar. Sincronizar ese estado
+    // desde fuera pisaria las ediciones locales sin guardar, y por eso se avisa
+    // antes en lugar de intentarlo.
+    window.location.reload()
   }
 
   if (error) {
@@ -264,6 +295,7 @@ export function FamiliasPanel({ aiSystemId, evaluationId, readOnly }: {
             aiSystemId={aiSystemId}
             evaluationId={evaluationId}
             readOnly={readOnly}
+            hayCambiosSinGuardar={hayCambiosSinGuardar}
             onCambio={onCambio}
           />
         ))}

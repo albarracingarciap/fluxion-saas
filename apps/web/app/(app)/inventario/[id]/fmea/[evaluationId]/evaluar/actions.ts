@@ -1087,9 +1087,21 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 // reimplementa en SQL: dos verdades sobre lo mismo terminan divergiendo, y el
 // día que lo hagan el expediente diría una cosa distinta según quién lo mire.
 
+export type FamilyModeRow = {
+  itemId:  string
+  code:    string
+  name:    string
+  status:  string
+  /** 'manual' = ajustado a mano; la estimación de familia no lo toca. */
+  fuente:  string | null
+}
+
 export type FamilyEstimateRow = {
   familyLabel:   string
   modos:         number
+  /** Los modos concretos que agrupa. Sin esto, aplicar una estimación a 48
+   *  modos es firmar a ciegas. */
+  detalle:       FamilyModeRow[]
   /** Ítems de la familia ya ajustados a mano: la estimación no los toca. */
   manuales:      number
   oValue:        number | null
@@ -1108,21 +1120,49 @@ export async function getFamilyEstimates(input: {
 
   const { data: pertenencias, error: pErr } = await fluxion
     .from('v_fmea_item_families')
-    .select('item_id, family_label, estimate_source')
+    .select('item_id, failure_mode_id, family_label, estimate_source, status')
     .eq('evaluation_id', input.evaluationId)
 
   if (pErr) return { error: 'No se pudieron leer las familias: ' + pErr.message }
+
+  // Nombre y codigo de cada modo: la tarjeta tiene que poder enseñar QUE se
+  // esta estimando. Aplicar a 48 modos sin verlos es firmar a ciegas.
+  const modoIds = Array.from(new Set(
+    (pertenencias ?? []).map((p: { failure_mode_id: string }) => p.failure_mode_id)
+  ))
+
+  const { data: catalogo } = modoIds.length
+    ? await fluxion.from('failure_modes').select('id, code, name').in('id', modoIds)
+    : { data: [] as Array<{ id: string; code: string; name: string }> }
+
+  const porModo = new Map(
+    ((catalogo ?? []) as Array<{ id: string; code: string; name: string }>)
+      .map((m) => [m.id, m])
+  )
 
   const { data: estimaciones } = await fluxion
     .from('fmea_family_estimates')
     .select('family_label, o_value, d_value, justification, updated_at')
     .eq('evaluation_id', input.evaluationId)
 
-  const porFamilia = new Map<string, { modos: number; manuales: number }>()
-  for (const p of (pertenencias ?? []) as Array<{ family_label: string; estimate_source: string | null }>) {
-    const acc = porFamilia.get(p.family_label) ?? { modos: 0, manuales: 0 }
+  type Pertenencia = {
+    item_id: string; failure_mode_id: string; family_label: string
+    estimate_source: string | null; status: string
+  }
+
+  const porFamilia = new Map<string, { modos: number; manuales: number; detalle: FamilyModeRow[] }>()
+  for (const p of (pertenencias ?? []) as Pertenencia[]) {
+    const acc = porFamilia.get(p.family_label) ?? { modos: 0, manuales: 0, detalle: [] }
     acc.modos += 1
     if (p.estimate_source === 'manual') acc.manuales += 1
+    const m = porModo.get(p.failure_mode_id)
+    acc.detalle.push({
+      itemId: p.item_id,
+      code:   m?.code ?? '',
+      name:   m?.name ?? 'Modo desconocido',
+      status: p.status,
+      fuente: p.estimate_source,
+    })
     porFamilia.set(p.family_label, acc)
   }
 
@@ -1134,6 +1174,7 @@ export async function getFamilyEstimates(input: {
       return {
         familyLabel,
         modos:         acc.modos,
+        detalle:       acc.detalle.sort((x, y) => x.code.localeCompare(y.code)),
         manuales:      acc.manuales,
         oValue:        est?.o_value ?? null,
         dValue:        est?.d_value ?? null,
