@@ -93,3 +93,10 @@ tecnica,Documentación,5,ai_act,"Art. 11 / Anexo IV",alta,
 tecnica,Robustez,4,ai_act,Art. 15.1,alta,
 tecnica,Manipulación de entrada,6,ai_act,Art. 15.5,media,"Solapa con ataques adversariales."
 tecnica,Monitorización,7,ai_act,Art. 72,alta,
+gobernanza,Practicas prohibidas,3,ai_act,Art. 5,alta,"Hueco cubierto: desplegar una practica prohibida no tenia ningun modo."
+gobernanza,Clasificacion de riesgo,3,ai_act,Art. 6,alta,"Hueco cubierto: clasificar mal invalida todo lo que venga despues."
+gobernanza,Alfabetizacion en IA,3,ai_act,Art. 4,alta,"Hueco cubierto. En vigor desde feb-2025."
+gobernanza,Registro en la UE,3,ai_act,Art. 49,alta,"Hueco cubierto. Obliga a proveedores y a desplegadores que sean autoridad publica: revisar activacion por rol."
+gobernanza,Conservacion de documentacion y registros,3,ai_act,"Art. 18 / Art. 19",alta,"Hueco cubierto: diez anos de documentacion y seis meses de registros."
+gobernanza,Respuesta y cooperacion,2,ai_act,"Art. 21 / Art. 73",alta,"Hueco cubierto. El de notificacion se anclo en el Art. 73, que ya tiene 11 modos: revisar duplicidad."
+tecnica,Parada y reversion,1,ai_act,Art. 20,alta,"Hueco cubierto. Subcategoria propia y no «Contencion y limites», que esta mapeada como buena practica."
