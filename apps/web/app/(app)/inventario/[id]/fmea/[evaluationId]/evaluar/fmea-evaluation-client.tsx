@@ -36,6 +36,7 @@ import {
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
 import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
+import { FamiliasPanel } from './familias-panel';
 
 const DIMENSION_META: Record<string, { label: string; badge: string }> = {
   tecnica: { label: 'Técnica', badge: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
@@ -1409,6 +1410,16 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
             <FmeaODHeatmap items={items} />
           </div>
         )}
+      </div>
+
+      {/* Antes de la lista: quien llega a evaluar 119 modos deberia ver primero
+          que puede hacerlo por familias, no descubrirlo al final. */}
+      <div className="mb-5">
+        <FamiliasPanel
+          aiSystemId={data.system.id}
+          evaluationId={data.evaluation.id}
+          readOnly={isReadOnly}
+        />
       </div>
 
       {globalError && (
