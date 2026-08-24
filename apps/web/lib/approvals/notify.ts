@@ -3,6 +3,7 @@ import 'server-only'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { createNotification } from '@/lib/notifications/sender'
 import { enqueueChannelMessage } from '@/lib/channels/send'
+import { emitEvent } from '@/lib/outbox/emit'
 
 /**
  * Avisa a quien le toca decidir el paso actual.
@@ -72,6 +73,22 @@ export async function notifyApprovalStep(requestId: string): Promise<void> {
       )
     )
 
+    // Al outbox tambien: los canales de aviso son para personas, los webhooks
+    // para sistemas del cliente. Hasta ahora los segundos no recibian nada.
+    await emitEvent({
+      organizationId: request.organization_id,
+      eventType:      'approval.pending',
+      subjectType:    'approval_request',
+      subjectId:      requestId,
+      payload: {
+        object_type:  request.object_type,
+        object_label: request.object_label,
+        step:         request.current_position,
+        total_steps:  request.total_steps,
+        candidates:   ids.length,
+      },
+    })
+
     await enqueueChannelMessage(admin, {
       organizationId: request.organization_id,
       eventType:      'approval.pending',
@@ -116,6 +133,18 @@ export async function notifyApprovalClosed(requestId: string): Promise<void> {
 
     const veredicto = request.status === 'approved' ? 'aprobada'
       : request.status === 'rejected' ? 'rechazada' : 'cancelada'
+
+    await emitEvent({
+      organizationId: request.organization_id,
+      eventType:      `approval.${request.status}`,
+      subjectType:    'approval_request',
+      subjectId:      requestId,
+      payload: {
+        object_label: request.object_label,
+        status:       request.status,
+        reason:       request.closed_reason,
+      },
+    })
 
     await createNotification({
       recipientProfileId: solicitante.id,

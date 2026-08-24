@@ -596,10 +596,16 @@ export async function testWebhook(webhookId: string): Promise<{ success?: true; 
     organization_id: profile.organization_id,
   })
 
-  // HMAC-SHA256 signature
-  const signature = createHash('sha256')
-    .update(`${webhook.secret}.${payload}`)
-    .digest('hex')
+  // HMAC de verdad.
+  //
+  // Antes era `sha256(secreto + "." + payload)`, que NO es HMAC aunque el
+  // comentario, la cabecera y la documentacion dijeran que si. Un hash con sal
+  // es vulnerable a extension de longitud y, sobre todo, es incompatible con lo
+  // que implementaria cualquier receptor siguiendo la convencion.
+  //
+  // La prueba tiene que firmar EXACTAMENTE igual que el envio real, o validaria
+  // algo que luego no funciona.
+  const signature = firmar(webhook.secret, payload)
 
   try {
     const res = await fetch(webhook.url, {
@@ -924,6 +930,7 @@ export async function requestConnectorSync(id: string): Promise<{ success?: true
 // Vault y nunca vuelve al navegador. La interfaz solo sabe si existe o no.
 
 import { sendToChannel } from '@/lib/channels/send'
+import { firmar } from '@/lib/outbox/dispatch'
 
 export type NotificationChannelRow = {
   id:              string

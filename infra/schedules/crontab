@@ -9,3 +9,7 @@
 # Diario: la discordancia es una senal lenta; una pasada horaria repetiria
 # el mismo aviso veinticuatro veces.
 30 6 * * *  /opt/fluxion/app-cron.sh /api/cron/hitl-discordance
+# Cada 5 minutos: la espera entre reintentos del outbox empieza en 1 minuto, asi
+# que una cadencia mayor haria que el primer reintento tardase mas de lo que
+# dice su propia politica.
+*/5 * * * * /opt/fluxion/app-cron.sh /api/cron/outbox
