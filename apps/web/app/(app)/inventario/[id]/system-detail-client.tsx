@@ -3760,8 +3760,14 @@ export function SystemDetailClient({
                               Son riesgos reales de viabilidad —coste, adopción, capacidades— pero
                               no salen de ningún artículo del Reglamento. No entran en la evaluación
                               FMEA porque la gravedad de un sobrecoste y la de una discriminación no
-                              se miden en la misma escala. Siguen registrados aquí.
+                              se miden en la misma escala.
                             </div>
+                            <a
+                              href={`/inventario/${system.id}/riesgos-negocio`}
+                              className="inline-block mt-2 font-sora text-[12px] text-brand-cyan hover:underline"
+                            >
+                              Valorarlos en el registro de riesgos de negocio →
+                            </a>
                           </div>
                         </div>
                       )}
