@@ -4,22 +4,11 @@ import { useEffect, useState } from 'react';
 import { Webhook, Plus, Copy, Check, Trash2, Loader2, AlertCircle, X, Zap, CheckCircle2 } from 'lucide-react';
 import { getWebhooks, createWebhook, deleteWebhook, testWebhook, type WebhookRow } from '../actions';
 import { FieldLabel, inputCls, formatRelative } from './shared';
+import { OUTBOX_EVENTS } from '@/lib/outbox/events';
 
-// ── Available events ──────────────────────────────────────────────────────────
-
-const WEBHOOK_EVENTS: Array<{ value: string; label: string; group: string }> = [
-  { value: 'member.invited',       label: 'Miembro invitado',          group: 'Miembros' },
-  { value: 'member.role_changed',  label: 'Rol cambiado',              group: 'Miembros' },
-  { value: 'member.deactivated',   label: 'Miembro desactivado',       group: 'Miembros' },
-  { value: 'member.removed',       label: 'Miembro eliminado',         group: 'Miembros' },
-  { value: 'evaluation.completed', label: 'Evaluación completada',     group: 'Evaluaciones' },
-  { value: 'evaluation.approved',  label: 'Evaluación aprobada',       group: 'Evaluaciones' },
-  { value: 'gap.created',          label: 'GAP creado',                group: 'Cumplimiento' },
-  { value: 'gap.closed',           label: 'GAP cerrado',               group: 'Cumplimiento' },
-  { value: 'task.completed',       label: 'Tarea completada',          group: 'Tareas' },
-  { value: 'system.created',       label: 'Sistema de IA creado',      group: 'Sistemas' },
-]
-
+// Los eventos salen del catálogo compartido, no de una lista propia. Antes esta
+// pantalla ofrecía diez que no emitía nadie.
+const WEBHOOK_EVENTS = OUTBOX_EVENTS
 const EVENT_GROUPS = Array.from(new Set(WEBHOOK_EVENTS.map((e) => e.group)))
 
 // ── Secret modal ──────────────────────────────────────────────────────────────
@@ -76,7 +65,10 @@ function NewWebhookForm({ onCreated }: { onCreated: (secret: string) => void }) 
     )
   }
 
-  function selectAll() { setEvents(WEBHOOK_EVENTS.map((e) => e.value)) }
+  // Solo los que se emiten: marcar todos incluiria los que no llegan nunca.
+  function selectAll() {
+    setEvents(WEBHOOK_EVENTS.filter((e) => e.implemented).map((e) => e.value))
+  }
   function selectNone() { setEvents([]) }
 
   async function handleCreate() {
@@ -136,6 +128,13 @@ function NewWebhookForm({ onCreated }: { onCreated: (secret: string) => void }) 
                     </div>
                     <span className="font-sora text-[12.5px] text-ltt2 group-hover:text-ltt transition-colors">
                       {ev.label}
+                      {/* Decirlo, en vez de dejar que alguien lo marque y espere
+                          indefinidamente algo que nadie emite. */}
+                      {!ev.implemented && (
+                        <span className="ml-2 rounded-[4px] bg-ltcard2 border border-ltb px-1.5 py-0.5 font-plex text-[9px] uppercase tracking-[0.5px] text-lttm">
+                          aún sin emisor
+                        </span>
+                      )}
                     </span>
                   </label>
                 )

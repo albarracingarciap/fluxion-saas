@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { emitEvent } from '@/lib/outbox/emit'
 
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
@@ -183,6 +184,23 @@ export async function updateTaskAction(
         field:    ch.field,
         oldValue: ch.old,
         newValue: ch.new,
+      })
+    }
+
+    // Al outbox: es el evento que los clientes van a querer enganchar a su
+    // gestor de tareas. Solo al COMPLETARSE, no en cada cambio de estado: pasar
+    // de «pendiente» a «en progreso» no le interesa a nadie de fuera.
+    if (input.status === 'done' && prev.status !== 'done') {
+      void emitEvent({
+        organizationId: ctx.organizationId,
+        eventType:      'task.completed',
+        subjectType:    'task',
+        subjectId:      taskId,
+        payload: {
+          title:         prev.title,
+          previo:        prev.status,
+          completada_por: ctx.displayName ?? null,
+        },
       })
     }
 
