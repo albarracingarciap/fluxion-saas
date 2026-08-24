@@ -305,11 +305,20 @@ export async function buildGapReportData(params: {
   const failureModeIds = failureModesSource.map((row) => row.failure_mode_id)
   const failureModeCatalog = new Map<string, { code: string; name: string; dimension_id: string }>()
 
-  if (failureModeIds.length > 0) {
-    const { data: catalogRows } = await compliance
+  // Por lotes, por el limite de longitud de URL: con cerca de 300 modos la
+  // peticion se rechazaba entera y el informe salia sin nombres.
+  const LOTE = 100
+  for (let i = 0; i < failureModeIds.length; i += LOTE) {
+    const lote = failureModeIds.slice(i, i + LOTE)
+    const { data: catalogRows, error } = await compliance
       .from('failure_modes')
       .select('id, code, name, dimension_id')
-      .in('id', failureModeIds)
+      .in('id', lote)
+
+    if (error) {
+      console.error('[gap-report] no se pudo leer el catalogo de modos:', error)
+      continue
+    }
 
     for (const row of (catalogRows ?? []) as GapReportCatalogModeRow[]) {
       failureModeCatalog.set(row.id, {

@@ -396,17 +396,29 @@ export async function buildDashboardData(organizationId: string) {
   };
 
   const failureModeIds = Array.from(new Set(failureModes.map((row) => row.failure_mode_id)));
-  const { data: failureModeCatalog } =
-    failureModeIds.length === 0
-      ? { data: [] }
-      : await compliance
-          .from('failure_modes')
-          .select('id, code, name, subcategoria')
-          .in('id', failureModeIds);
+  // Por lotes: un sistema activa cerca de 300 modos y varios sistemas suman
+  // mas. `.in()` los mete todos en la URL y por encima de ~8 KB Kong rechaza la
+  // peticion entera, dejando el dashboard sin nombres de modo y sin error
+  // visible. Mismo fallo que tenian el grafo causal y la ficha del sistema.
+  const LOTE = 100;
+  const failureModeMap = new Map<string, DashboardFailureModeCatalogRow>();
 
-  const failureModeMap = new Map(
-    ((failureModeCatalog ?? []) as DashboardFailureModeCatalogRow[]).map((row) => [row.id, row])
-  );
+  for (let i = 0; i < failureModeIds.length; i += LOTE) {
+    const lote = failureModeIds.slice(i, i + LOTE);
+    const { data, error } = await compliance
+      .from('failure_modes')
+      .select('id, code, name, subcategoria')
+      .in('id', lote);
+
+    if (error) {
+      console.error('[dashboard] no se pudo leer el catalogo de modos:', error);
+      continue;
+    }
+
+    for (const row of (data ?? []) as DashboardFailureModeCatalogRow[]) {
+      failureModeMap.set(row.id, row);
+    }
+  }
 
   const prioritizedModes = failureModes.filter((row) => row.priority_status === 'prioritized');
 
