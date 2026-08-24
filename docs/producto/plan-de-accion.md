@@ -5,8 +5,12 @@ Qué hacer, en qué orden y por qué. Junta lo que salió disperso en
 [mapeo-subcategorias.csv](mapeo-subcategorias.csv) y
 [obligaciones-ai-act.csv](obligaciones-ai-act.csv).
 
-**Nada de esto está aplicado.** Todo lo commiteado hasta ahora son documentos y
-análisis: no se ha tocado ni una línea de código ni una fila de la base.
+**Estado**: pasos 0, 1, 2 y 4 hechos y en producción. Pendientes el 1 bis, el 3
+y el 5.
+
+El paso 4 —el que resolvía las seis horas por sistema— está funcionando: se
+estima por familia, la tarjeta enseña qué modos agrupa, y la lista se puede
+filtrar por familia causal.
 
 ---
 
@@ -172,13 +176,26 @@ pero sin pantalla donde trabajarlos.
 
 | Paso | Depende de | Efecto |
 |---|---|---|
-| 0 · Corregir Art. 27 / 72 | — | Deja de mentir sobre la norma |
-| 1 · Completar obligaciones | D3 | Permite saber qué falta |
-| 1 bis · Declarar el rol | Paso 1 | Cada uno ve lo que le obliga |
-| 2 · Marcar el origen | D2, D4 | Trazabilidad y base para separar |
-| 3 · Sacar negocio del FMEA | Paso 2 | Coherencia de escala |
-| 4 · Evaluación por familia | D1 | **De 119 decisiones a 10** |
-| 5 · Registro de negocio | Paso 3 | Cierra el círculo |
+| | Paso | Estado |
+|---|---|---|
+| 0 | Corregir Art. 27 / 72 | ✔ hecho |
+| 1 | Completar obligaciones (27 artículos) | ✔ hecho |
+| — | 18 modos para los huecos normativos | ✔ hecho |
+| 2 | Marcar el origen normativo | ✔ hecho |
+| 4 | **Evaluación por familia** | ✔ hecho |
+| 1 bis | Declarar el rol en la cadena de valor | pendiente |
+| 3 | Sacar negocio del FMEA | pendiente |
+| 5 | Registro de riesgos de negocio | pendiente |
+
+### Cabos sueltos anotados
+
+- La **barra de acciones en lote** tiene el mismo fallo de posicionamiento que
+  tenía el modal causal: `fixed` dentro de un ancestro con `transform`.
+- **GOB-092** puede duplicar alguno de los 11 modos que ya cuelgan del Art. 73.
+- Los **43 modos de generativa y agéntica** marcados como buena práctica: revisar
+  si alguno debería citar el Art. 53.
+- El **grafo causal** llevaba tiempo mostrando nodos sin nombre por el límite de
+  URL de Kong. Arreglado, pero conviene mirar dónde más se notaba.
 
 Los pasos 0 y 1 se pueden hacer mañana y no rompen nada. El 4 es el que resuelve
 el problema que originó todo esto.
