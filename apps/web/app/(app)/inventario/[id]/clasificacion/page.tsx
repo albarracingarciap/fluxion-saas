@@ -5,13 +5,38 @@ import { useParams, useRouter } from 'next/navigation';
 import { BrainCircuit, ShieldAlert, Cpu, Bot, CheckCircle2, ChevronRight, Fingerprint, Network } from 'lucide-react';
 import { runClassificationEngine } from './actions';
 
+// La pantalla pintaba «Alto Riesgo» en rojo pasara lo que pasara, con una
+// «confianza del motor: 99.8 %» que nadie calculaba. Ahora el aspecto sale del
+// nivel real.
+const NIVEL: Record<string, { label: string; texto: string; borde: string }> = {
+  prohibited:     { label: 'Práctica prohibida', texto: 'text-re',   borde: 'border-re' },
+  high:           { label: 'Alto riesgo',        texto: 'text-re',   borde: 'border-re' },
+  gpai:           { label: 'Propósito general',  texto: 'text-or',   borde: 'border-orb' },
+  limited:        { label: 'Riesgo limitado',    texto: 'text-or',   borde: 'border-orb' },
+  minimal:        { label: 'Riesgo mínimo',      texto: 'text-gr',   borde: 'border-grb' },
+  pending:        { label: 'Sin determinar',     texto: 'text-lttm', borde: 'border-ltb' },
+  not_ai_system:  { label: 'No es un sistema de IA', texto: 'text-lttm', borde: 'border-ltb' },
+};
+
+const ROL: Record<string, string> = {
+  provider: 'Proveedor',
+  deployer: 'Responsable del despliegue',
+  importer: 'Importador',
+  distributor: 'Distribuidor',
+  authorised_representative: 'Representante autorizado',
+};
+
 type ClassificationEngineResult = {
   riskLevel: string;
   floorZone: string;
   baseRule: string;
+  reason?: string;
   appliedArticles: string[];
   extraObligations: string[];
   ambiguityDetected: boolean;
+  /** Por qué hace falta una revisión humana. Vacío si no hace falta. */
+  avisos?: string[];
+  rolesDeclarados?: string[];
 };
 
 export default function ClassificationPage() {
@@ -22,6 +47,9 @@ export default function ClassificationPage() {
   const [isProcessing, setIsProcessing] = useState(true);
   const [activeLayer, setActiveLayer] = useState(1);
   const [result, setResult] = useState<ClassificationEngineResult | null>(null);
+  // Antes no habia forma de fallar: la funcion devolvia siempre lo mismo. Ahora
+  // consulta datos reales y puede no encontrar el sistema.
+  const [error, setError] = useState<string | null>(null);
 
   // Simulador de cascada de las 3 capas del motor
   useEffect(() => {
@@ -32,10 +60,15 @@ export default function ClassificationPage() {
       await new Promise(r => setTimeout(r, 800));
       if(!unmounted) setActiveLayer(2);
       
-      // Llamada real (fake por ahora) a Capa 2 (FastAPI determinista)
+      // Capa 2: clasificación real con los datos del sistema.
       const data = await runClassificationEngine(systemId);
-      
+
       if(!unmounted) {
+        if(!data.result) {
+          setError(data.error ?? 'No se pudo clasificar el sistema.');
+          setIsProcessing(false);
+          return;
+        }
         if(data.result.ambiguityDetected) {
           setActiveLayer(3); 
           // Fake Capa 3 RAG delay
@@ -93,7 +126,17 @@ export default function ClassificationPage() {
         </div>
 
         {/* PROCESSING ENGINE STATE */}
-        {isProcessing ? (
+        {error ? (
+          <div className="bg-ltcard border border-reb rounded-[16px] p-8 max-w-[600px] mx-auto w-full">
+            <p className="font-sora text-[14px] text-re">{error}</p>
+            <button
+              onClick={() => router.push(`/inventario/${systemId}`)}
+              className="mt-4 px-4 py-2 rounded-[8px] border border-ltb font-sora text-[13px] text-lttm hover:text-ltt"
+            >
+              Volver al sistema
+            </button>
+          </div>
+        ) : isProcessing ? (
           <div className="bg-ltcard border border-ltb rounded-[16px] p-8 md:p-12 shadow-[0_4px_24px_rgba(0,0,0,0.06)] max-w-[600px] mx-auto w-full">
             <div className="relative flex justify-center mb-10">
               <div className="absolute inset-0 bg-brand-cyan opacity-20 blur-[40px] rounded-full animate-pulse" />
@@ -130,63 +173,96 @@ export default function ClassificationPage() {
           </div>
         ) : (
           /* RESULT STATE */
-          <div className="bg-ltcard border border-re rounded-[16px] shadow-[0_4px_30px_#f8514915] overflow-hidden animate-in fade-in zoom-in-95 duration-500 max-w-[800px] mx-auto w-full">
-            <div className="bg-gradient-to-br from-[#f8514908] to-ltcard p-8 md:p-10 border-b border-ltb grid grid-cols-1 md:grid-cols-[1fr_200px] gap-8">
+          <div className={`bg-ltcard border rounded-[16px] shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-500 max-w-[800px] mx-auto w-full ${NIVEL[result?.riskLevel ?? 'pending'].borde}`}>
+            <div className="p-8 md:p-10 border-b border-ltb grid grid-cols-1 md:grid-cols-[1fr_200px] gap-8">
               <div>
-                <div className="font-plex text-[11px] uppercase tracking-[1.5px] text-re font-semibold mb-2 flex items-center gap-2">
-                  <Fingerprint className="w-4 h-4" /> Resolución del Motor
+                <div className={`font-plex text-[11px] uppercase tracking-[1.5px] font-semibold mb-2 flex items-center gap-2 ${NIVEL[result?.riskLevel ?? 'pending'].texto}`}>
+                  <Fingerprint className="w-4 h-4" /> Resolución del motor
                 </div>
-                <h2 className="font-fraunces text-[36px] font-bold text-re mb-3 leading-none">Alto Riesgo</h2>
-                <div className="text-[14px] font-sora text-ltt2 leading-relaxed mb-5 border-l-2 border-re/30 pl-4">
-                  El sistema ha sido clasificado bajo el régimen de &quot;Alto Riesgo&quot; de la inteligencia artificial debido a que cumple las condiciones del <strong className="text-ltt font-semibold">{result?.baseRule}</strong>.
+                <h2 className={`font-fraunces text-[36px] font-bold mb-3 leading-none ${NIVEL[result?.riskLevel ?? 'pending'].texto}`}>
+                  {NIVEL[result?.riskLevel ?? 'pending'].label}
+                </h2>
+
+                <div className="text-[14px] font-sora text-ltt2 leading-relaxed mb-3 border-l-2 border-ltb pl-4">
+                  <strong className="text-ltt font-semibold">{result?.baseRule}</strong>
+                  {result?.reason && <span className="block mt-1">{result.reason}</span>}
                 </div>
+
                 <div className="flex gap-2 flex-wrap">
-                  <span className="inline-flex px-3 py-1 rounded-[6px] text-[11px] font-plex font-medium bg-ltbg border border-ltb text-lttm">
-                    Confianza del motor: 99.8%
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[6px] text-[11px] font-plex font-medium bg-ltbg border border-ltb text-lttm">
+                    <ShieldAlert className="w-3 h-3" /> Suelo mínimo FMEA: {result?.floorZone}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[6px] text-[11px] font-plex font-medium bg-red-dim border border-reb text-re">
-                    <ShieldAlert className="w-3 h-3" /> Suelo Mínimo: {result?.floorZone}
-                  </span>
+                  {(result?.rolesDeclarados?.length ?? 0) > 0 && (
+                    <span className="inline-flex px-3 py-1 rounded-[6px] text-[11px] font-plex font-medium bg-ltbg border border-ltb text-lttm">
+                      {result?.rolesDeclarados?.map((r) => ROL[r] ?? r).join(' · ')}
+                    </span>
+                  )}
                 </div>
               </div>
-              
+
               <div className="bg-ltbg border border-ltb rounded-[12px] p-5 flex flex-col justify-center">
-                <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-3 text-center">Obligaciones Detectadas</div>
+                <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-3 text-center">
+                  Obligaciones aplicables
+                </div>
                 <div className="flex flex-wrap gap-1.5 justify-center">
+                  {result?.appliedArticles.length === 0 && (
+                    <span className="font-sora text-[12px] text-lttm text-center">
+                      Ninguna específica más allá del Art. 4.
+                    </span>
+                  )}
                   {result?.appliedArticles.map((art: string) => (
                     <span key={art} className="px-2 py-1 rounded-[4px] bg-ltcard border border-ltb text-[10.5px] font-plex font-semibold text-ltt shadow-sm">
                       {art}
                     </span>
                   ))}
-                  {result?.extraObligations.includes('dora_art_28') && (
-                    <span className="px-2 py-1 rounded-[4px] bg-cyan-dim border border-cyan-border text-[10.5px] font-plex font-semibold text-brand-cyan shadow-sm w-full text-center mt-2">
-                      + DORA (Sector Financiero)
-                    </span>
-                  )}
                 </div>
+                {(result?.extraObligations?.length ?? 0) > 0 && (
+                  <div className="mt-3 pt-3 border-t border-ltb">
+                    <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1.5 text-center">
+                      Condicionales
+                    </div>
+                    {result?.extraObligations.map((o) => (
+                      <p key={o} className="font-sora text-[11px] text-lttm text-center leading-snug">{o}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="p-8 bg-ltcard flex flex-col items-center">
-              <div className="bg-ordim border border-orb rounded-[10px] p-4 text-[13px] font-sora text-or flex items-start gap-3 w-full max-w-[600px] mb-8">
-                <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-                <p>
-                  <strong>El suelo mínimo de riesgo es crítico:</strong> Un sistema clasificado como &quot;Alto Riesgo AI Act&quot; nunca podrá operar en Zona IV (Riesgo Bajo) durante la evaluación FMEA, incluso si los controles mitigadores arrojan resultados favorables.
-                </p>
-              </div>
+              {/* Avisos: por qué esto es una propuesta y no un veredicto. */}
+              {(result?.avisos?.length ?? 0) > 0 && (
+                <div className="bg-ordim border border-orb rounded-[10px] p-4 text-[13px] font-sora text-or flex items-start gap-3 w-full max-w-[600px] mb-5">
+                  <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-2">
+                    {result?.avisos?.map((a, i) => <p key={i}>{a}</p>)}
+                  </div>
+                </div>
+              )}
+
+              {result?.riskLevel === 'high' && (
+                <div className="bg-ltbg border border-ltb rounded-[10px] p-4 text-[13px] font-sora text-ltt2 flex items-start gap-3 w-full max-w-[600px] mb-8">
+                  <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5 text-lttm" />
+                  <p>
+                    <strong className="text-ltt">El suelo mínimo condiciona el FMEA:</strong> un sistema
+                    de alto riesgo no puede terminar en Zona IV por muy favorables que sean los
+                    controles. El nivel regulatorio pone un mínimo que la evaluación técnica no rebaja.
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-between items-center w-full max-w-[600px] pt-4 border-t border-ltb">
-                <button 
+                <button
                   onClick={() => router.push(`/inventario/${systemId}`)}
                   className="px-5 py-2.5 rounded-[8px] font-sora font-medium text-[13px] text-lttm hover:text-ltt hover:bg-ltbg transition-all"
                 >
-                  Volver al inventario
+                  Volver al sistema
                 </button>
-                <button 
-                  onClick={() => router.push(`/inventario/${systemId}`)} // En el futuro redirigirá idealmente a /compliance
-                  className="px-6 py-2.5 rounded-[8px] font-sora font-semibold text-[13px] text-white bg-gradient-to-r from-re to-[#c33b3b] shadow-[0_2px_12px_#f8514930] hover:shadow-[0_4px_16px_#f8514940] transition-all flex items-center gap-2"
+                <button
+                  onClick={() => router.push(`/inventario/${systemId}/fmea`)}
+                  className="px-6 py-2.5 rounded-[8px] font-sora font-semibold text-[13px] text-white bg-brand-cyan shadow-sm hover:shadow-md transition-all flex items-center gap-2"
                 >
-                  Aceptar y continuar a Compliance <ChevronRight className="w-4 h-4" />
+                  Continuar a la evaluación <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

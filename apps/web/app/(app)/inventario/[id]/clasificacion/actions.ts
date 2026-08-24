@@ -8,6 +8,17 @@ import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
+// Suelo de zona FMEA por nivel de riesgo. Un sistema de alto riesgo no puede
+// quedar por debajo de Zona II por muy bien que puntue: el nivel regulatorio
+// pone un minimo que la evaluacion tecnica no puede rebajar.
+const FLOOR_ZONE: Record<string, string> = {
+  prohibited: 'Zona I',
+  high:       'Zona II',
+  gpai:       'Zona III',
+  limited:    'Zona III',
+  minimal:    'Zona IV',
+};
+
 type ReviewClassificationInput = {
   aiSystemId: string;
   domain: string;
@@ -241,18 +252,135 @@ export async function reviewSystemClassification(input: ReviewClassificationInpu
 }
 
 // Conservamos este mock mientras exista la ruta /clasificacion heredada.
+
+/**
+ * Clasifica un sistema con sus datos reales.
+ *
+ * Antes esta función era un stub: esperaba 2,5 segundos y devolvía siempre lo
+ * mismo —riesgo alto, «Anexo III · 5(b)» y los mismos siete artículos— para
+ * cualquier sistema. La pantalla de tres capas era una animación sobre un valor
+ * fijo.
+ *
+ * El motor de verdad ya existía en `lib/ai-systems/scoring.ts` y lo usaba
+ * `reviewSystemClassification`. Lo único que faltaba era que esta pantalla lo
+ * llamara en lugar de al valor enlatado. No se escribe un clasificador nuevo:
+ * dos implementaciones de la misma regla legal terminan divergiendo, y el día
+ * que lo hagan el expediente dirá una cosa distinta según quién lo mire.
+ *
+ * Las obligaciones tampoco se inventan: salen de
+ * `compliance.v_system_obligations`, que cruza el rol de la organización en la
+ * cadena de valor con el alcance de cada artículo.
+ */
 export async function runClassificationEngine(systemId: string) {
-  await new Promise((resolve) => setTimeout(resolve, 2500));
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!membership) {
+    return { success: false, error: 'No se encontró la organización del usuario.' };
+  }
+
+  const { data: system } = await fluxion
+    .from('ai_systems')
+    // En una sola linea a proposito: partirla con `+` rompe la inferencia de
+    // tipos de supabase-js, que necesita un literal para deducir las columnas.
+    .select('id, domain, intended_use, output_type, interacts_persons, is_ai_system, is_gpai, prohibited_practice, affects_persons, vulnerable_groups, involves_minors, uses_biometric_data, manages_critical_infra, value_chain_roles')
+    .eq('organization_id', membership.organization_id)
+    .eq('id', systemId)
+    .maybeSingle();
+
+  if (!system) {
+    return { success: false, error: 'No se encontró el sistema.' };
+  }
+
+  const classification = classifyAIAct({
+    domain:             system.domain,
+    intendedUse:        system.intended_use,
+    outputType:         system.output_type,
+    interactsPersons:   system.interacts_persons,
+    isAISystem:         system.is_ai_system,
+    isGPAI:             system.is_gpai,
+    prohibitedPractice: system.prohibited_practice,
+    affectsPersons:     system.affects_persons,
+    vulnerableGroups:   system.vulnerable_groups,
+    hasMinors:          system.involves_minors,
+    biometric:          system.uses_biometric_data,
+    criticalInfra:      system.manages_critical_infra,
+  });
+
+  // `null` significa que el propio formulario declaró que esto no es un sistema
+  // de IA. No es un fallo: es una respuesta.
+  if (!classification) {
+    return {
+      success: true,
+      result: {
+        riskLevel: 'not_ai_system',
+        floorZone: '—',
+        baseRule: 'Declarado como no sistema de IA',
+        appliedArticles: [] as string[],
+        extraObligations: [] as string[],
+        ambiguityDetected: false,
+        rolesDeclarados: (system.value_chain_roles ?? []) as string[],
+        systemId,
+      },
+    };
+  }
+
+  // Obligaciones derivadas del rol y del alcance, no de una lista fija.
+  const { data: obligaciones } = await fluxion
+    .from('v_system_obligations')
+    .select('article, title, framework, condicional')
+    .eq('ai_system_id', systemId)
+    .eq('framework', 'AI_ACT');
+
+  const articulos = (obligaciones ?? [])
+    .filter((o: { condicional: boolean }) => !o.condicional)
+    .map((o: { article: string }) => o.article);
+
+  const condicionales = (obligaciones ?? [])
+    .filter((o: { condicional: boolean }) => o.condicional)
+    .map((o: { article: string; title: string }) => `${o.article} — ${o.title}`);
+
+  // El Anexo III clasifica por FINALIDAD PREVISTA, no por sector, y el Art. 6.3
+  // admite excepciones que exigen juicio humano. Un alto riesgo sin finalidad
+  // declarada es una presunción, no un veredicto: se marca como ambiguo para
+  // que alguien lo confirme.
+  const sinFinalidad = !system.intended_use?.trim();
+  const ambiguityDetected = classification.level === 'high' && sinFinalidad;
+
+  // El rol determina qué obligaciones aplican. Sin declararlo, la lista de
+  // arriba sale de la semilla y puede estar equivocada.
+  const sinRol = ((system.value_chain_roles ?? []) as string[]).length === 0;
 
   return {
     success: true,
     result: {
-      riskLevel: 'high_risk',
-      floorZone: 'Zona II',
-      baseRule: 'Anexo III · 5(b) — Evaluación de acceso a crédito',
-      appliedArticles: ['Art. 9', 'Art. 10', 'Art. 11', 'Art. 12', 'Art. 13', 'Art. 14', 'Art. 15'],
-      extraObligations: ['dora_art_28', 'gdpr_art_22'],
-      ambiguityDetected: false,
+      riskLevel: classification.level,
+      floorZone: FLOOR_ZONE[classification.level] ?? '—',
+      baseRule: classification.basis,
+      reason: classification.reason,
+      appliedArticles: articulos,
+      extraObligations: condicionales,
+      ambiguityDetected: ambiguityDetected || sinRol,
+      avisos: [
+        ambiguityDetected
+          ? 'Sin finalidad prevista declarada, el encaje en el Anexo III es una '
+            + 'presunción a partir del dominio. Confírmala antes de darla por buena.'
+          : null,
+        sinRol
+          ? 'Este sistema no tiene declarado tu papel en la cadena de valor, así '
+            + 'que las obligaciones salen de una suposición. Decláralo en la ficha.'
+          : null,
+      ].filter(Boolean) as string[],
+      rolesDeclarados: (system.value_chain_roles ?? []) as string[],
       systemId,
     },
   };
