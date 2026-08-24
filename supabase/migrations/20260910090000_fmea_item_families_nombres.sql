@@ -10,7 +10,14 @@
 -- en lugar de anadir un segundo cliente en la aplicacion solo para esto. Ademas
 -- evita una consulta extra por cada carga del panel.
 
-CREATE OR REPLACE VIEW fluxion.v_fmea_item_families
+-- DROP y no CREATE OR REPLACE: reemplazar una vista solo admite ANADIR columnas
+-- al final, y aqui el codigo y el nombre van antes de `family_label` para que el
+-- orden se lea como se usa. Postgres lo rechaza con «cannot change name of view
+-- column». Nada depende todavia de esta vista.
+
+DROP VIEW IF EXISTS fluxion.v_fmea_item_families;
+
+CREATE VIEW fluxion.v_fmea_item_families
 WITH (security_invoker = true) AS
 SELECT
   i.id            AS item_id,
