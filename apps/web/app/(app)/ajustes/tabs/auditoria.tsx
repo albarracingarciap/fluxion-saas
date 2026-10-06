@@ -18,6 +18,7 @@ const ACTION_CONFIG: Record<string, {
   group:  string
 }> = {
   'member.invited':        { label: 'Miembro invitado',         icon: <UserPlus  size={12} />, color: 'text-brand-cyan', group: 'Miembros' },
+  'member.created':        { label: 'Usuario creado',           icon: <UserPlus  size={12} />, color: 'text-gr',         group: 'Miembros' },
   'member.bulk_invited':   { label: 'Invitación masiva',        icon: <UserPlus  size={12} />, color: 'text-brand-cyan', group: 'Miembros' },
   'member.role_changed':   { label: 'Rol cambiado',             icon: <RefreshCw size={12} />, color: 'text-ye',         group: 'Miembros' },
   'member.deactivated':    { label: 'Miembro desactivado',      icon: <UserX     size={12} />, color: 'text-re',         group: 'Miembros' },

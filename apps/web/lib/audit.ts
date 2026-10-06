@@ -12,6 +12,7 @@ import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
 export type AuditAction =
   // Miembros
   | 'member.invited'
+  | 'member.created'
   | 'member.bulk_invited'
   | 'member.role_changed'
   | 'member.deactivated'

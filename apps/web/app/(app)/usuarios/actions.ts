@@ -1,7 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
+import { isInvitableRole } from '@/lib/users/roles';
 import { revalidatePath } from 'next/cache';
 import { logAuditEvent } from '@/lib/audit';
 
@@ -283,6 +284,131 @@ export async function inviteUser(email: string, role: string, message?: string) 
 
   revalidatePath('/usuarios');
   return { success: true, token: invite.token };
+}
+
+/**
+ * Alta directa de un usuario por un administrador, con contraseña inicial.
+ *
+ * El trigger `fluxion.handle_new_user` decide en qué organización cae el
+ * usuario nuevo: si hay una invitación pendiente para su correo, entra en esa
+ * organización con ese rol; si no, crea una organización propia y lo hace
+ * administrador. Por eso la invitación se inserta ANTES de crear el usuario y
+ * se comprueba después dónde ha caído el perfil.
+ */
+export async function createUser(input: {
+  email: string
+  firstName: string
+  lastName: string
+  role: string
+  password: string
+}) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autorizado' };
+
+  const actor = await getActorProfile(fluxion, user.id);
+  if (!actor || actor.role !== 'org_admin') {
+    return { error: 'Solo los administradores pueden dar de alta usuarios.' };
+  }
+
+  const email = input.email.toLowerCase().trim();
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'El correo electrónico no es válido.' };
+  if (!firstName) return { error: 'El nombre es obligatorio.' };
+  if (!isInvitableRole(input.role)) return { error: 'El rol seleccionado no es válido.' };
+  if (input.password.length < 8) return { error: 'La contraseña debe tener al menos 8 caracteres.' };
+
+  const admin = createAdminFluxionClient();
+
+  const { data: invite, error: inviteError } = await admin
+    .from('invitations')
+    .insert({
+      organization_id: actor.organization_id,
+      email,
+      role: input.role,
+      invited_by: actor.id,
+    })
+    .select('id')
+    .single();
+
+  if (inviteError) {
+    if (inviteError.code === '23505') {
+      return { error: 'Ya existe una invitación pendiente para este correo. Cancélala antes de crear el usuario.' };
+    }
+    return { error: 'No se pudo preparar el alta del usuario.' };
+  }
+
+  const revokeInvitation = () =>
+    admin.from('invitations').update({ status: 'revoked' }).eq('id', invite.id);
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { first_name: firstName, last_name: lastName },
+  });
+
+  if (createError || !created?.user) {
+    await revokeInvitation();
+    const taken = /already|registered|exists/i.test(createError?.message ?? '');
+    return {
+      error: taken
+        ? 'Ya existe un usuario con ese correo electrónico.'
+        : 'No se pudo crear el usuario: ' + (createError?.message ?? 'error desconocido'),
+    };
+  }
+
+  const newUserId = created.user.id;
+
+  // Comprobar dónde ha caído el perfil. Si no es esta organización, el trigger
+  // no ha encontrado la invitación: se deshace el alta en lugar de dejar una
+  // organización huérfana con un administrador que no debería existir.
+  const { data: newProfile } = await admin
+    .from('profiles')
+    .select('id, organization_id, role')
+    .eq('user_id', newUserId)
+    .maybeSingle();
+
+  if (!newProfile || newProfile.organization_id !== actor.organization_id || newProfile.role !== input.role) {
+    await admin.auth.admin.deleteUser(newUserId);
+    await revokeInvitation();
+    return { error: 'El usuario no quedó asociado a tu organización, así que se ha deshecho el alta.' };
+  }
+
+  // Sin esto, el usuario entra al asistente de onboarding, que reescribe los
+  // ajustes de toda la organización.
+  const { error: onboardingError } = await admin
+    .from('profiles')
+    .update({ onboarding_completed: true })
+    .eq('id', newProfile.id);
+
+  if (onboardingError) {
+    console.error('createUser: no se pudo marcar el onboarding como completado', onboardingError);
+  }
+
+  void logAuditEvent({
+    organization_id: actor.organization_id,
+    actor_id:     actor.id,
+    actor_name:   actor.full_name ?? undefined,
+    action:       'member.created',
+    target_type:  'member',
+    target_id:    newProfile.id,
+    target_label: email,
+    metadata:     { role: input.role },
+  });
+
+  revalidatePath('/usuarios');
+  return {
+    success: true,
+    email,
+    ...(onboardingError && {
+      warning: 'El usuario se ha creado, pero verá el asistente de onboarding en su primer acceso.',
+    }),
+  };
 }
 
 export async function inviteUserBulk(emails: string[], role: string, message?: string) {

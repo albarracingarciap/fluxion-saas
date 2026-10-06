@@ -67,10 +67,7 @@ export const ROLE_DESCRIPTIONS: Record<string, string> = {
   viewer:             'Acceso de consulta. Puede leer datos e informes pero no modificar registros.',
 }
 
-export const INVITABLE_ROLES = [
-  'viewer', 'auditor', 'executive', 'compliance_analyst',
-  'risk_analyst', 'system_owner', 'dpo', 'caio', 'sgai_manager',
-] as const
+export { INVITABLE_ROLES } from '@/lib/users/roles'
 
 // Badge styles using only CSS-variable-based classes (dark mode safe)
 export const ROLE_BADGE_CLS: Record<string, string> = {

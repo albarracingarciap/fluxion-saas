@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Users, UserPlus, Mail, Loader2, Copy, Check, X,
   AlertCircle, ClipboardList, Shield, ToggleLeft, ToggleRight,
-  MessageSquare,
+  MessageSquare, Eye, EyeOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
   getOrganizationMembersAndInvitations,
   inviteUser,
   inviteUserBulk,
+  createUser,
   resendInvitation,
   updateMemberRole,
   deactivateMember,
@@ -62,6 +63,12 @@ export default function UsersPage() {
     bulk?: Array<{ email: string; token?: string; error?: string }>
   } | null>(null)
   const [copiedToken, setCopiedToken]   = useState<string | null>(null)
+
+  const [isCreating, setIsCreating]     = useState(false)
+  const [createForm, setCreateForm]     = useState({ firstName: '', lastName: '', email: '', password: '', role: 'viewer' })
+  const [showPassword, setShowPassword] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createResult, setCreateResult] = useState<{ ok?: string; warning?: string; error?: string } | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
@@ -126,6 +133,23 @@ export default function UsersPage() {
     setInviteLoading(false)
   }
 
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault()
+    setCreateLoading(true)
+    setCreateResult(null)
+
+    const res = await createUser(createForm)
+    if ('error' in res) {
+      setCreateResult({ error: res.error })
+    } else {
+      setCreateResult({ ok: res.email, warning: 'warning' in res ? res.warning : undefined })
+      setCreateForm({ firstName: '', lastName: '', email: '', password: '', role: createForm.role })
+      setActiveTab('miembros')
+      loadData()
+    }
+    setCreateLoading(false)
+  }
+
   async function handleResend(invId: string) {
     const res = await resendInvitation(invId)
     loadData()
@@ -187,14 +211,23 @@ export default function UsersPage() {
               Gestiona el acceso al workspace, define roles y revisa invitaciones pendientes.
             </p>
           </div>
-          {isAdmin && !isInviting && (
-            <button
-              onClick={() => { setIsInviting(true); setInviteResult(null) }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all shrink-0"
-            >
-              <UserPlus size={15} />
-              Invitar miembro
-            </button>
+          {isAdmin && !isInviting && !isCreating && (
+            <div className="flex flex-wrap gap-3 shrink-0">
+              <button
+                onClick={() => { setIsCreating(true); setCreateResult(null) }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 border border-ltb text-ltt rounded-[9px] font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+              >
+                <UserPlus size={15} />
+                Crear usuario
+              </button>
+              <button
+                onClick={() => { setIsInviting(true); setInviteResult(null) }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
+              >
+                <Mail size={15} />
+                Invitar miembro
+              </button>
+            </div>
           )}
         </div>
       </section>
@@ -204,6 +237,139 @@ export default function UsersPage() {
         <div className="flex items-start gap-2 bg-red-dim border border-reb text-re text-[12px] font-sora p-3.5 rounded-[8px] mb-5">
           <AlertCircle size={14} className="mt-0.5 shrink-0" />
           <span>{pageError}</span>
+        </div>
+      )}
+
+      {/* Create user panel */}
+      {isCreating && (
+        <div className="bg-ltcard rounded-[12px] border border-[var(--cyan-border)] shadow-[0_8px_30px_rgba(0,173,239,0.06)] overflow-hidden mb-6 animate-fadein">
+          <div className="bg-ltcard2 px-5 py-4 border-b border-ltb flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-[8px] bg-cyan-dim flex items-center justify-center">
+                <UserPlus size={14} className="text-brand-cyan" />
+              </div>
+              <div>
+                <h3 className="font-sora text-[13px] font-semibold text-ltt">Crear usuario</h3>
+                <p className="font-sora text-[11.5px] text-lttm">El usuario podrá acceder de inmediato con la contraseña inicial que indiques.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setIsCreating(false); setCreateResult(null); setShowPassword(false) }}
+              className="p-1 text-lttm hover:text-ltt transition-colors rounded-[6px] hover:bg-ltb"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="p-5">
+            <form onSubmit={handleCreateUser} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Nombre <span className="text-re">*</span>
+                  </label>
+                  <input
+                    required
+                    value={createForm.firstName}
+                    onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Apellidos
+                  </label>
+                  <input
+                    value={createForm.lastName}
+                    onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Correo electrónico <span className="text-re">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                    className={inputCls}
+                    placeholder="colaborador@empresa.com"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Contraseña inicial <span className="text-re">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                      className={inputCls + ' pr-10'}
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-lttm hover:text-ltt transition-colors"
+                      title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-plex uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+                    Rol
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={createForm.role}
+                      onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                      className={selectCls}
+                    >
+                      {INVITABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      ))}
+                    </select>
+                    <SelectArrow />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="h-[43px] px-5 bg-ltt text-white rounded-[8px] font-sora text-[13px] font-medium transition-colors hover:bg-ltt/90 flex items-center gap-2 disabled:opacity-60 whitespace-nowrap"
+                >
+                  {createLoading && <Loader2 size={13} className="animate-spin" />}
+                  Crear usuario
+                </button>
+              </div>
+            </form>
+
+            {createResult?.error && (
+              <p className="mt-3 text-re text-[12px] font-sora">{createResult.error}</p>
+            )}
+
+            {createResult?.ok && (
+              <div className="mt-4 p-4 bg-grdim rounded-[9px] border border-grb">
+                <p className="text-gr text-[13px] font-sora font-medium mb-1">Usuario creado: {createResult.ok}</p>
+                <p className="text-gr text-[12px] font-sora opacity-80">
+                  Comunícale la contraseña inicial. No se puede volver a consultar.
+                </p>
+                {createResult.warning && (
+                  <p className="text-re text-[12px] font-sora mt-2">{createResult.warning}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
