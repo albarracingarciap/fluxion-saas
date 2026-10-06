@@ -187,27 +187,27 @@ function DashboardHero({
               : 'El acceso está operativo. Da de alta el primer sistema para empezar a consolidar métricas y gobierno de IA.'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-nowrap gap-3">
           <Link
             href="/inventario"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
           >
             <Boxes size={15} />
-            Ver inventario
+            Inventario
           </Link>
           <Link
             href="/cuestionario-preliminar"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
           >
             <ClipboardPen size={15} />
-            Cuestionario preliminar
+            Cuestionario
           </Link>
           <Link
             href="/inventario/nuevo"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
           >
             <Plus size={15} />
-            Registrar sistema
+            Sistema
           </Link>
         </div>
       </div>
