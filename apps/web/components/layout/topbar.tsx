@@ -53,6 +53,7 @@ export function Topbar() {
 
   // Obtener el título dinámico según la ruta
   const getPageTitle = () => {
+    if (pathname?.includes('/cuestionario-preliminar')) return "Cuestionario preliminar"
     if (pathname?.includes('/inventario/nuevo')) return "Nuevo Sistema IA"
     if (pathname?.match(/\/inventario\/.+/)) return "Detalle del Sistema"
     if (pathname?.includes('/inventario')) return "Inventario de Sistemas"

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
+  ClipboardPen,
   FileCheck2,
   FileText,
   GitFork,
@@ -193,6 +194,13 @@ function DashboardHero({
           >
             <Boxes size={15} />
             Ver inventario
+          </Link>
+          <Link
+            href="/cuestionario-preliminar"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors"
+          >
+            <ClipboardPen size={15} />
+            Cuestionario preliminar
           </Link>
           <Link
             href="/inventario/nuevo"
@@ -937,6 +945,13 @@ function EmptyDashboard({ organizationName, firstFocus }: { organizationName: st
               >
                 <Plus size={16} strokeWidth={2.5} />
                 Crear primer sistema
+              </Link>
+              <Link
+                href="/cuestionario-preliminar"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-[9px] font-sora font-medium text-[13.5px] text-ltt border border-ltb hover:bg-ltbg transition-colors"
+              >
+                <ClipboardPen size={16} />
+                Cuestionario preliminar
               </Link>
               <Link
                 href="/inventario"
