@@ -179,8 +179,8 @@ documento funcional.
 | Organización, usuarios, módulos | Administrador. Comités: también Responsable del SGAI y CAIO | — |
 | Políticas de aprobación | Administrador (la pestaña solo la ve él) | — |
 | Alta, clasificación y obligaciones | Cualquier miembro | — (la conciliación la decide cualquiera) |
-| Modos de fallo y FMEA | Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, analistas | Segunda revisión: **solo el DPO**, distinto del evaluador |
-| Plan de tratamiento | **Solo el DPO** puede editarlo y enviarlo | Aprobador asignado automáticamente, o el circuito de la política |
+| Modos de fallo y FMEA | Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, analistas | Segunda revisión: Responsable del SGAI, distinto del evaluador (B01) |
+| Plan de tratamiento | Analista de riesgos y Responsable del sistema (B01) | Sin política: Responsable del SGAI distinto de quien envía; con política, sus pasos |
 | Ejecución de acciones | Cualquier miembro | — |
 | AISIA | Cualquier miembro | Administrador, Responsable del SGAI, CAIO |
 | Expediente documental | Cualquier miembro | Cualquier miembro |
@@ -195,9 +195,9 @@ documento funcional.
 > IA, la AISIA y la FRIA. Quien prepara no aprueba, y el DPO es consultivo: emite dictamen, pero no
 > edita ni aprueba.
 
-> **ℹ Aclaración.** Por la comprobación de permisos actual, **la organización necesita al menos un miembro
-> con rol DPO** para editar el plan de tratamiento y resolver segundas revisiones, y otro miembro
-> distinto que evalúe. Sin DPO, el flujo se detiene en la fase 5.
+> **ℹ Aclaración (actualizada en B01).** Para recorrer el flujo, la organización necesita al menos un
+> **Analista de riesgos** o un **Responsable del sistema** (preparan el plan) y un **Responsable del SGAI**
+> distinto (resuelve segundas revisiones y aprueba el plan si no hay política). El DPO ya no es imprescindible.
 
 ---
 
@@ -270,7 +270,8 @@ flowchart LR
 - **Acciones:** **Crear usuario** (acceso inmediato, sin correo) o **Nueva invitación** (enlace
   `/register?invite=…` que hay que copiar y enviar a mano; caduca a los 7 días).
 - **Mínimo para recorrer el flujo completo hoy:**
-  - un **DPO** (edita el plan y resuelve segundas revisiones);
+  - un **Analista de riesgos** o un **Responsable del sistema** (preparan el plan de tratamiento);
+  - un **Responsable del SGAI** (resuelve segundas revisiones y aprueba el plan sin política);
   - un **Administrador**, **Responsable del SGAI** o **CAIO** distinto de quien redacta (aprueba la
     AISIA);
   - si se van a usar comités, sus miembros.
@@ -462,7 +463,7 @@ flowchart LR
   A[Activar modos<br/>de fallo] --> B[Priorización<br/>revisar cola]
   B --> C[Evaluar<br/>O · D_real · S_actual]
   C --> D{¿Baja ≥ 3<br/>a mano?}
-  D -->|Sí| E[Segunda revisión<br/>DPO no evaluador]
+  D -->|Sí| E[Segunda revisión<br/>Resp. SGAI no evaluador]
   D -->|No| F
   E --> F[Enviar a revisión]
   F --> G[Plan de tratamiento<br/>en borrador]
@@ -494,7 +495,7 @@ flowchart LR
 | IV · Aceptable | 1 · Responsable | 365 días | Anual |
 
 - **Aprobación:** la evaluación como tal no se aprueba. La segunda revisión es la única aprobación dentro
-  del FMEA y solo la resuelve un DPO distinto del evaluador.
+  del FMEA y la resuelve el Responsable del SGAI, distinto del evaluador.
 - **Evidencias:** ninguna obligatoria. Desde la ficha se pueden vincular evidencias a modos de fallo.
 - **Rastro:** historial del ítem y del sistema; **Exportar PDF** (página imprimible).
 
@@ -537,7 +538,8 @@ Se guarda con **Guardar decisión** o con el guardado automático (30 s).
 
 ### 7.2 Enviar a aprobación
 
-**Enviar a aprobación** (o **Enviar a alta dirección** en nivel 3). Solo el DPO puede hacerlo hoy.
+**Enviar a aprobación** (o **Enviar a alta dirección** en nivel 3). Lo hacen el Analista de riesgos o el
+Responsable del sistema.
 
 - ⛔ Todas las acciones decididas y completas.
 - En nivel 3 sin política, se exige la referencia de un acta o comité.
@@ -548,7 +550,7 @@ A partir de aquí hay **dos vías**, según exista o no una política de plan de
 ```mermaid
 sequenceDiagram
   autonumber
-  actor DPO as Editor del plan (DPO)
+  actor DPO as Analista o Resp. del sistema
   participant Plan as Plan de tratamiento
   participant Motor as Flujos de aprobación
   actor Apr as Aprobador(es)
@@ -571,16 +573,16 @@ sequenceDiagram
 
 | Aspecto | Sin política | Con política |
 |---|---|---|
-| Quién aprueba | Un aprobador elegido por la aplicación con roles que ya no existen: en la práctica, el DPO o el primer miembro distinto de quien envía | Los pasos de la política: rol, persona o comité con quórum, con delegaciones |
+| Quién aprueba | Un Responsable del SGAI activo distinto de quien envía (B01). Sin ninguno, el envío se rechaza | Los pasos de la política: rol, persona o comité con quórum, con delegaciones |
 | Dónde se decide | En la propia vista del plan: **Aprobar plan** / **Devolver al autor** | En [Aprobaciones](aprobaciones.md) |
 | Aviso | Ninguno | Al aprobador de cada paso y al solicitante del resultado |
-| Segregación | No garantizada | Por defecto, quien solicita no puede aprobar |
+| Segregación | Sí: el aprobador nunca es quien envía (B01) | Por defecto, quien solicita no puede aprobar |
 | Acta | Referencia de texto tecleada (obligatoria en nivel 3) | Generada en PDF si hay paso de comité |
 | Rastro | Instantánea y evento del plan | Decisiones inmutables y auditoría |
 
-> **⚠ GAP-14 · Aprobación sin aviso y con aprobador al azar.** Sin política, el aprobador se asigna con
-> una regla que usa roles inexistentes y no recibe ningún aviso: tiene que descubrir el plan por su
-> cuenta (en **Planes de tratamiento** o en **Evaluaciones**).
+> **⚠ GAP-14 · Aprobación sin aviso** (aprobador al azar resuelto en B01). Sin política, el aprobador es
+> ahora un Responsable del SGAI, pero sigue sin recibir aviso: tiene que descubrir el plan por su cuenta
+> (en **Planes de tratamiento** o en **Evaluaciones**).
 >
 > **Decidido (DP-01), pendiente de implementar.** Nivel 1: Responsable del SGAI · nivel 2: Comité de
 > Riesgos de IA · nivel 3: Revisión por la Dirección.
@@ -892,9 +894,9 @@ Resumen de todo lo que se aprueba en el recorrido:
 |---|---|---|---|---|---|---|---|
 | Clasificación AI Act | 3 | Ninguno (conciliación) | Cualquier miembro | No | No | No | Nueva clasificación vigente |
 | Exclusión de obligación | 3 | Ninguno | Cualquier miembro | No | No | No | Obligación excluida |
-| Segunda revisión FMEA | 4 | Propio del FMEA | DPO distinto del evaluador | Sí | No | No | Permite enviar el FMEA |
+| Segunda revisión FMEA | 4 | Propio del FMEA | Responsable del SGAI distinto del evaluador (B01) | Sí | No | No | Permite enviar el FMEA |
 | Evaluación FMEA | 4 | Ninguno | — | — | — | — | Queda «En revisión» |
-| Plan de tratamiento (sin política) | 5 | Propio del plan | Aprobador asignado por la aplicación | No garantizada | **No** | Referencia de texto (nivel 3) | Plan aprobado |
+| Plan de tratamiento (sin política) | 5 | Propio del plan | Responsable del SGAI asignado por la aplicación (B01) | Sí (B01) | **No** | Referencia de texto (nivel 3) | Plan aprobado |
 | Plan de tratamiento (con política) | 5 | **Flujos de aprobación** | Pasos de la política | Sí, por defecto | Sí | PDF si hay comité | Plan aprobado; rechazo lo devuelve a borrador |
 | Revisión de aceptación | 5 | Propio del plan | Cualquier miembro | No | No (escalar tampoco) | No | Nueva fecha u opción |
 | AISIA | 6 | Propio | Administrador, Resp. SGAI, CAIO (solo en pantalla) | No | No | Referencia opcional | AISIA aprobada; controles A.5.2-A.5.5 |
@@ -946,9 +948,9 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
 | GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |
 | GAP-13 | 4 | Evaluación FMEA sin estado final y vuelve a borrador al guardar | Corta | `R3`, `R4`, `R5` |
-| — | 5 | Sin un DPO no se edita el plan ni se resuelven segundas revisiones | Corta | `_inventario.md` §5.2 |
+| — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
-| GAP-14 | 5 | Plan sin política: aprobador al azar y sin aviso | Debilita | — |
+| GAP-14 | 5 | Plan sin política: sin aviso al aprobador (el aprobador al azar se resolvió en B01) | Debilita | — |
 | GAP-17 | 5 | Cancelación, caducidad y avisos del circuito de aprobación | Debilita | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
 | GAP-22 | 6 | AISIA aprobada sin segregación ni acta; toca la Declaración aprobada | Debilita | — |
@@ -999,7 +1001,7 @@ En orden de prioridad.
    avisar al aprobador asignado en la vía sin política.
 4. **Preparar el gobierno en el onboarding.** Añadir un paso que invite a los responsables con su rol
    (Responsable del SGAI, DPO, CAIO) y constituya los comités, y ligar **Gobernanza** a miembros reales.
-   Indicar que hace falta un DPO mientras dependa de él la edición del plan.
+   Indicar los roles mínimos para recorrer el flujo (ver la aclaración de la fase 1).
 5. **Lista de verificación por sistema.** Una tarjeta en la ficha con la etapa de
    [«totalmente evaluado»](#qué-significa-sistema-totalmente-evaluado) alcanzada y lo que falta, y extender el
    siguiente paso del Dashboard con los eslabones que faltan (GAP-34).

@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { canResolveFmeaSecondReview } from '@/lib/auth/roles-flujo';
 import type { FmeaEvaluationData, FmeaEvaluationItemRecord, FmeaItemHistoryEntry } from '@/lib/fmea/data';
 import type { TaskPriority } from '@/lib/tasks/types';
 import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '@/lib/tasks/types';
@@ -1668,7 +1669,8 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                             !isReadOnly &&
                             item.status === 'evaluated' &&
                             item.requires_second_review &&
-                            data.viewerUserId !== data.evaluation.evaluator_id;
+                            data.viewerUserId !== data.evaluation.evaluator_id &&
+                            canResolveFmeaSecondReview(data.viewerRole);
 
                           return (
                             <div
@@ -1939,7 +1941,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                         <div className="mt-2 font-sora text-[12px] text-ltt2">
                                           {data.viewerUserId === data.evaluation.evaluator_id
                                             ? 'Otro usuario debe validar esta segunda revisión.'
-                                            : 'Puedes resolver esta segunda revisión desde este panel.'}
+                                            : 'La segunda revisión la resuelve el Responsable del SGAI, distinto del evaluador.'}
                                         </div>
                                       )}
                                     </div>

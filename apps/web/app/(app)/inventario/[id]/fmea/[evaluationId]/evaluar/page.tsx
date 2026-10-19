@@ -21,6 +21,7 @@ export default async function FmeaEvaluationPage({ params }: FmeaEvaluationPageP
       aiSystemId: params.id,
       evaluationId: params.evaluationId,
       viewerUserId: user.id,
+      viewerRole: membership.role,
     }),
     buildSystemCausalGraph(params.id, membership.organization_id),
   ]);

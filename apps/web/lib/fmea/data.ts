@@ -110,6 +110,8 @@ export type FmeaEvaluationData = {
   evaluation: FmeaEvaluationRecord;
   items: FmeaEvaluationItemRecord[];
   viewerUserId: string;
+  /** Rol de quien mira: decide si puede resolver segundas revisiones (DP-01). */
+  viewerRole: string | null;
   activationSummary: {
     activatedCount: number;
     prioritizedCount: number;
@@ -348,8 +350,10 @@ export async function buildFmeaEvaluationData(params: {
   aiSystemId: string;
   evaluationId: string;
   viewerUserId: string;
+  viewerRole?: string | null;
 }) {
   const { organizationId, aiSystemId, evaluationId, viewerUserId } = params;
+  const viewerRole = params.viewerRole ?? null;
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
 
@@ -462,6 +466,7 @@ export async function buildFmeaEvaluationData(params: {
       evaluation,
       items: [],
       viewerUserId,
+      viewerRole,
       activationSummary: {
         activatedCount,
         prioritizedCount,
@@ -641,6 +646,7 @@ export async function buildFmeaEvaluationData(params: {
     evaluation,
     items,
     viewerUserId,
+    viewerRole,
     activationSummary: {
       activatedCount,
       prioritizedCount,

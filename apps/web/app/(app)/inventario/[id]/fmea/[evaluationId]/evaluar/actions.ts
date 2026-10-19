@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+import { canResolveFmeaSecondReview } from '@/lib/auth/roles-flujo';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import type { TaskPriority } from '@/lib/tasks/types';
 import {
@@ -19,7 +20,7 @@ import {
 } from '@/lib/fmea/domain';
 import {
   generateTreatmentPlanCode,
-  getApproverRolePriority,
+  resolvePlanApprover,
   getAiActFloorForSystem,
   getApprovalLevelForZone,
   getDefaultDeadlineForZone,
@@ -55,41 +56,6 @@ type SaveFmeaDraftInput = {
     requiresSecondReview?: boolean;
   }>;
 };
-
-async function resolvePlanApprover(params: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fluxion: any;
-  organizationId: string;
-  approvalLevel: ReturnType<typeof getApprovalLevelForZone>;
-  actorUserId: string;
-}) {
-  const { fluxion, organizationId, approvalLevel, actorUserId } = params;
-  const { data: members } = await fluxion
-    .from('profiles')
-    .select('user_id, role')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: true });
-
-  const candidates = members ?? [];
-  const priorities = getApproverRolePriority(approvalLevel);
-
-  for (const role of priorities) {
-    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role && member.user_id !== actorUserId);
-    if (match) {
-      return match.user_id as string;
-    }
-  }
-
-  for (const role of priorities) {
-    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role);
-    if (match) {
-      return match.user_id as string;
-    }
-  }
-
-  const fallback = candidates.find((member: { user_id: string; role: string }) => member.user_id !== actorUserId) ?? candidates[0];
-  return fallback?.user_id ?? null;
-}
 
 type ResolveFmeaSecondReviewInput = {
   aiSystemId: string;
@@ -533,9 +499,8 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       actorUserId: user.id,
     });
 
-    if (!approverId) {
-      return { error: 'No se encontró un aprobador disponible para esta zona FMEA. Revisa los roles de los miembros del equipo.' };
-    }
+    // Sin aprobador disponible el plan se crea igualmente: se exige al enviarlo
+    // a aprobación, salvo que lo gobierne una política (Flujos de aprobación).
 
     const pivotNodeIds = candidateItems
       .slice()
@@ -981,8 +946,10 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 
   const { fluxion, user, membership, evaluation } = context;
 
-  if (!['admin', 'editor', 'dpo', 'technical'].includes(membership.role)) {
-    return { error: 'No tienes permisos para realizar la segunda revisión.' };
+  // DP-01 (pendiente de confirmar): la segunda revisión la resuelve el
+  // Responsable del SGAI, distinto del evaluador.
+  if (!canResolveFmeaSecondReview(membership.role)) {
+    return { error: 'No tienes permisos para realizar la segunda revisión: la resuelve el Responsable del SGAI.' };
   }
 
   if (evaluation.evaluator_id && evaluation.evaluator_id === user.id) {

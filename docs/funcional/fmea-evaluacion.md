@@ -46,11 +46,14 @@ sistema de forma trazable y obtener las acciones que deben tratarse.
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Evaluar, guardar, enviar a revisión |
-| DPO | Ídem | Además, resolver segundas revisiones (no siendo el evaluador) |
+| Responsable del SGAI | Ídem | Además, resolver segundas revisiones (no siendo el evaluador) |
 | Directivo, Auditor, Lector | Sí, con los botones visibles | La base de datos rechaza los cambios |
 
-> **Pendiente de definir.** Qué roles pueden evaluar y resolver segundas revisiones. Hoy la segunda revisión
-> solo la puede resolver el DPO, porque el permiso se comprueba contra roles que ya no existen.
+La segunda revisión la resuelve el Responsable del SGAI, distinto del evaluador (bloque B01; DP-01, pendiente
+de confirmar). Para el resto de roles el botón no se muestra.
+
+> **Pendiente de implementar.** Restringir la evaluación a quien prepara según DP-01 (Analista de riesgos y
+> Responsable del sistema). Hoy la base de datos admite la edición de los roles de la tabla.
 
 ### Al entrar en el FMEA
 
@@ -177,7 +180,7 @@ Solo la puede resolver un usuario distinto del evaluador.
 | Confirmación con aviso de propagación | Ídem | Si la severidad es 4 o más y el modo puede causar o amplificar otros modos activos, muestra «Advertencia de propagación causal» con la lista | — |
 | **Guardar borrador** y guardado automático (2,5 s tras cada cambio) | Ídem | `saveFmeaDraft` | Guarda todos los ítems. Historial «Borrador FMEA guardado» |
 | **Delegar como tarea** | Ídem | Crea una [tarea](../glosario.md#tarea) con título, responsable, prioridad (Media por defecto) y fecha | Notifica al asignado |
-| **Aprobar 2ª revisión** / **Solicitar revisión de nuevo** | DPO no evaluador | `resolveFmeaSecondReview` | El rechazo exige una nota de al menos 50 caracteres. Historial «Segunda revisión aprobada» o «rechazada» |
+| **Aprobar 2ª revisión** / **Solicitar revisión de nuevo** | Responsable del SGAI no evaluador | `resolveFmeaSecondReview` | El rechazo exige una nota de al menos 50 caracteres. Historial «Segunda revisión aprobada» o «rechazada» |
 | **Aplicar a N modos** / **Retirar estimación** | Roles con permiso | Estimación por familia | Recarga la página |
 | **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
 | **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
@@ -214,7 +217,6 @@ Solo la puede resolver un usuario distinto del evaluador.
 | Envío con ítems sin resolver | «La evaluación todavía no puede enviarse: quedan N pendiente(s) y M pospuesto(s) por resolver.» |
 | Envío con justificaciones pendientes | «Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.» |
 | Envío con segundas revisiones pendientes | «Quedan N modo(s) pendientes de 2ª revisión antes del envío.» |
-| Sin aprobador para la zona | «No se encontró un aprobador disponible para esta zona FMEA. Revisa los roles de los miembros del equipo.» |
 | Segunda revisión por el evaluador | «La segunda revisión debe realizarla un usuario distinto del evaluador principal.» |
 | Segunda revisión sin permiso | «No tienes permisos para realizar la segunda revisión.» |
 | Estimación por familia con cambios sin guardar | «Tienes cambios sin guardar en la lista de modos. Guárdalos antes de aplicar una estimación de familia.» |
