@@ -78,7 +78,7 @@ export function BulkChangeOptionModal({
   const minChars = currentConfig.minChars
   const justLen = justification.trim().length
   const canSubmit =
-    justLen >= minChars && (option !== 'aceptar' || reviewDueDate.length > 0)
+    justLen >= minChars && ((option !== 'aceptar' && option !== 'diferir') || reviewDueDate.length > 0)
 
   function handleOptionChange(next: BulkOption) {
     setOption(next)
@@ -96,7 +96,7 @@ export function BulkChangeOptionModal({
         actionIds,
         option,
         justification: justification.trim(),
-        reviewDueDate: option === 'aceptar' ? reviewDueDate : null,
+        reviewDueDate: option === 'aceptar' || option === 'diferir' ? reviewDueDate : null,
       })
 
       if ('error' in res) {
@@ -217,8 +217,8 @@ export function BulkChangeOptionModal({
                   />
                 </div>
 
-                {/* Review date (only for aceptar) */}
-                {option === 'aceptar' && (
+                {/* Fecha de revisión: Aceptar y Diferir */}
+                {(option === 'aceptar' || option === 'diferir') && (
                   <div>
                     <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-1.5">
                       Fecha de revisión <span className="text-re">*</span>

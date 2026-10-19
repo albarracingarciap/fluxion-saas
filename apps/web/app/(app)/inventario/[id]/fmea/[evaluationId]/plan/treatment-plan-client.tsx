@@ -40,6 +40,25 @@ import {
   updateLinkedTaskStatusAction,
 } from './actions';
 
+/** Acciones con cambios respecto a lo guardado, en el formato del borrador por lotes. */
+function buildDirtyActionPayload(actions: EditableTreatmentAction[], savedActions: EditableTreatmentAction[]) {
+  const savedMap = new Map(savedActions.map((action) => [action.id, getComparableActionSignature(action)]));
+  return actions
+    .filter((action) => savedMap.get(action.id) !== getComparableActionSignature(action))
+    .map((action) => ({
+      actionId: action.id,
+      option: action.option,
+      ownerId: action.owner_id,
+      dueDate: action.due_date,
+      justification: action.justification,
+      sResidualTarget: action.s_residual_target,
+      controlTemplateId: action.control_template_id,
+      customControlTitle: action.control_template_id ? null : action.custom_control_title,
+      customControlDescription: action.control_template_id ? null : action.custom_control_description,
+      reviewDueDate: action.review_due_date,
+    }));
+}
+
 export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,6 +137,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         }
         if (['transferir', 'evitar', 'diferir'].includes(action.option)) {
           if ((action.justification?.trim().length ?? 0) < 50) return true;
+          if (action.option === 'diferir' && !action.review_due_date) return true;
           if (
             action.option === 'diferir' &&
             (getDaysFromToday(action.due_date) ?? 0) > 90 &&
@@ -267,27 +287,11 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
 
     autosaveTimerRef.current = setTimeout(() => {
       startSavingDraft(async () => {
-        const savedMap = new Map(savedActions.map((action) => [action.id, getComparableActionSignature(action)]));
-        const dirtyActions = actions.filter(
-          (action) => savedMap.get(action.id) !== getComparableActionSignature(action)
-        );
-
         const result = await saveTreatmentPlanBatchDraft({
           aiSystemId: data.system.id,
           evaluationId: data.evaluation.id,
           notes: planNotes,
-          actions: dirtyActions.map((action) => ({
-            actionId: action.id,
-            option: action.option,
-            ownerId: action.owner_id,
-            dueDate: action.due_date,
-            justification: action.justification,
-            sResidualTarget: action.s_residual_target,
-            controlTemplateId: action.control_template_id,
-            customControlTitle: action.control_template_id ? null : action.custom_control_title,
-            customControlDescription: action.control_template_id ? null : action.custom_control_description,
-            reviewDueDate: action.review_due_date,
-          })),
+          actions: buildDirtyActionPayload(actions, savedActions),
         });
 
         if (result?.error) {
@@ -401,7 +405,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
       custom_control_title: option === 'mitigar' ? current.custom_control_title : null,
       custom_control_description: option === 'mitigar' ? current.custom_control_description : null,
       control_id: option === 'mitigar' ? current.control_id : null,
-      review_due_date: option === 'aceptar' ? current.review_due_date : null,
+      review_due_date: option === 'aceptar' || option === 'diferir' ? current.review_due_date : null,
     }));
   }
 
@@ -409,6 +413,23 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
     setGlobalError(null);
 
     startSavingDraft(async () => {
+      // Antes este botón solo guardaba las notas y la zona, aunque la vista daba
+      // las decisiones por guardadas (R7). Ahora guarda también las acciones
+      // modificadas, igual que el autoguardado.
+      const dirty = buildDirtyActionPayload(actions, savedActions);
+      if (dirty.length > 0) {
+        const batch = await saveTreatmentPlanBatchDraft({
+          aiSystemId: data.system.id,
+          evaluationId: data.evaluation.id,
+          notes: planNotes,
+          actions: dirty,
+        });
+        if (batch?.error) {
+          setGlobalError(batch.error);
+          return;
+        }
+      }
+
       const result = await saveTreatmentPlanDraft({
         aiSystemId: data.system.id,
         evaluationId: data.evaluation.id,

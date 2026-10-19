@@ -944,7 +944,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-18 | 5 | ✔ Resuelto en B03: las acciones no se podían cerrar ni registrar residual | — | `R2` |
 | GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
 | GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |
-| GAP-13 | 4 | Evaluación FMEA sin estado final y vuelve a borrador al guardar | Corta | `R3`, `R4`, `R5` |
+| GAP-13 | 4 | Evaluación FMEA sin estado final (B07). Resuelto en B05: vuelta a borrador al guardar y severidad en pendientes | Corta | `R3` |
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
@@ -960,7 +960,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-30 | 9 | Exclusión de brechas sin aprobación | Debilita | `R13` |
 | GAP-33 | 4 a 9 | FMEA, AISIA y Declaración no se conservan como evidencia | Debilita | — |
 | GAP-20 | 5 | El plan nunca se cierra | Debilita | `R12` |
-| GAP-21 | 5 | Revisiones de «Diferir» y escalados sin aviso | Debilita | `R8`, `R11` |
+| GAP-21 | 5 | Escalados sin aviso y destinatario del recordatorio (la fecha de «Diferir» se resolvió en B05) | Debilita | `R11` |
 | GAP-25 | 7 | Registro UE no cubre el Anexo VIII | Debilita | `E12`, `E13` |
 | GAP-06 | 1 | Declaración (Core) depende de la AISIA (módulo) | Debilita (futuro) | — |
 | GAP-01 | 0 | ✔ Resuelto en B06: bandeja de Aprobaciones oculta en una organización nueva | — | — |
@@ -970,7 +970,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-05 | 1 | Comités sin sesiones ni actas | Fricción | — |
 | GAP-07 | 2 | Cuestionario preliminar desconectado del alta | Fricción | `E20` |
 | GAP-08 | 2 | Alta desde sistema detectado sin clasificar | Fricción | `I20` |
-| GAP-16 | 5 | «Guardar borrador» no guarda decisiones | Fricción | `R7` |
+| GAP-16 | 5 | ✔ Resuelto en B05: «Guardar borrador» no guardaba decisiones | — | `R7` |
 | GAP-23 | 6 | AISIA no actualizable; precarga no guardada | Fricción | `E19` |
 | GAP-27 | 8 | Caducidades sin aviso al responsable | Fricción | — |
 

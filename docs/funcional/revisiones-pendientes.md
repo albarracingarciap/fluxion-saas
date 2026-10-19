@@ -81,9 +81,6 @@ No envía correo.
 > TODO: confirmar el destinatario del recordatorio. Usa un identificador de usuario donde se espera el del
 > perfil, así que podría no llegar a la persona correcta.
 
-> TODO: confirmar el filtro «Diferir». Aparece en la vista, pero las acciones pospuestas no guardan fecha de
-> revisión (ver [Plan de tratamiento](plan-de-tratamiento.md#campos)), así que en la práctica solo aparecen
-> aceptaciones.
 
 ## Validaciones
 
