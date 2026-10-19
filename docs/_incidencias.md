@@ -137,7 +137,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | Id | Incidencia | Tipo | Prior. | Verif. | Ref. |
 |---|---|---|---|---|---|
 | R1 | **✔ Resuelta en B02.** **Controles sugeridos vacíos:** las consultas piden `control_templates.name`, que no existe (es `title`). Afecta a la evaluación FMEA, al plan de tratamiento y a las brechas | Error | Alta | Código | 177, 181, 184 |
-| R2 | **Las tareas no se crean desde las acciones del plan:** las acciones se insertan sin opción y la regla solo actúa al insertar con opción | Error | Alta | Código | 104, 116, 160 |
+| R2 | **✔ Resuelta en B03** (requiere la migración `20261019100000`). **Las tareas no se crean desde las acciones del plan:** las acciones se insertan sin opción y la regla solo actúa al insertar con opción | Error | Alta | Código | 104, 116, 160 |
 | R3 | Ninguna evaluación FMEA llega a «Aprobada» ni a «Sustituida»: la comparativa es inalcanzable | Error | Alta | Análisis | 31, 100 |
 | R4 | Guardar, también el guardado automático, devuelve a borrador una evaluación enviada y cambia el evaluador | Error | Alta | Análisis | 98 |
 | R5 | El guardado automático pone O = 3 y D = 3 en los ítems pendientes, y esos valores aparecen en informes | Error | Media | Análisis | 99, 96 |

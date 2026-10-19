@@ -622,6 +622,15 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
     return { error: updateError.message };
   }
 
+  // Al decidir la opción, la base de datos crea la tarea de la acción (B03).
+  const { data: actionAfter } = await fluxion
+    .from('treatment_actions')
+    .select('task_id')
+    .eq('id', input.actionId)
+    .eq('plan_id', plan.id)
+    .maybeSingle();
+  const taskId = (actionAfter?.task_id as string | null | undefined) ?? null;
+
   await recordTreatmentActionEvent({
     fluxion,
     actorUserId: user.id,
@@ -684,7 +693,7 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
 
-  return { success: true, controlId, controlResolution };
+  return { success: true, controlId, controlResolution, taskId };
 }
 
 export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanInput) {
@@ -1424,7 +1433,8 @@ export async function updateLinkedTaskStatusAction(
 }
 
 export async function recordMitigarResidualAction(input: {
-  taskId: string;
+  /** Tarea vinculada, si la hay. Sin tarea la acción se cierra igualmente (B03). */
+  taskId: string | null;
   actionId: string;
   sResidualAchieved: number | null;
   aiSystemId: string;
@@ -1453,14 +1463,23 @@ export async function recordMitigarResidualAction(input: {
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  const { error: taskError } = await fluxion
-    .from('tasks')
-    .update({ status: 'done', completed_at: now })
-    .eq('id', input.taskId)
-    .eq('organization_id', profile.organization_id);
+  if (!actionBefore) return { error: 'Acción no encontrada.' };
 
-  if (taskError) return { error: taskError.message };
+  // La severidad residual modifica el FMEA: solo se registra con el plan
+  // aprobado o en ejecución, nunca sobre un plan sin aprobar.
+  const { data: planRow } = await fluxion
+    .from('treatment_plans')
+    .select('status')
+    .eq('id', actionBefore.plan_id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+  if (!planRow || !['approved', 'in_progress'].includes(planRow.status)) {
+    return { error: 'Solo se pueden cerrar acciones de un plan aprobado.' };
+  }
 
+  // Primero la acción y después la tarea. Al revés, el trigger de la tarea
+  // completaba la acción antes de registrar la severidad residual y el trigger
+  // que la traslada al FMEA (trg_complete_action) ya no se disparaba.
   const { error: actionError } = await fluxion
     .from('treatment_actions')
     .update({
@@ -1472,6 +1491,16 @@ export async function recordMitigarResidualAction(input: {
     .eq('organization_id', profile.organization_id);
 
   if (actionError) return { error: actionError.message };
+
+  if (input.taskId) {
+    const { error: taskError } = await fluxion
+      .from('tasks')
+      .update({ status: 'done', completed_at: now })
+      .eq('id', input.taskId)
+      .eq('organization_id', profile.organization_id);
+
+    if (taskError) return { error: taskError.message };
+  }
 
   if (actionBefore) {
     const eventType = input.sResidualAchieved === null

@@ -108,9 +108,6 @@ stateDiagram-v2
    - Cada acción, salvo las aceptadas, está pensada para tener su tarea. Cuando la tarea se completa, la
      acción se cierra.
 
-     > TODO: confirmar la creación automática de tareas. La regla que las crea solo actúa cuando la acción
-     > nace con una opción decidida, y Fluxion crea las acciones sin opción. En la práctica no se crea
-     > ninguna tarea automáticamente.
    - En las mitigaciones se implanta el control, se adjunta la evidencia y se registra la severidad
      residual alcanzada.
    - El plan muestra el progreso, las advertencias (por ejemplo, plazos vencidos) y su historial.

@@ -34,7 +34,7 @@ export function RecordResidualModal({
     setError(null)
     startTransition(async () => {
       const res = await recordMitigarResidualAction({
-        taskId: action.task_id!,
+        taskId: action.task_id ?? null,
         actionId: action.id,
         sResidualAchieved: effectiveValue,
         aiSystemId,

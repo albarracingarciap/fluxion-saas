@@ -95,8 +95,7 @@ filtros».
 | Plan de tratamiento | Acción del [plan de tratamiento](plan-de-tratamiento.md) |
 | Evaluación de riesgos | — |
 
-> TODO: confirmar dos orígenes.
-> - **Plan de tratamiento:** en la práctica no se generan tareas, porque las acciones se crean sin opción.
+> TODO: confirmar un origen.
 > - **Evaluación de riesgos:** nada crea tareas con este origen.
 
 **Ficha de la tarea** (se abre al pulsar una tarea):

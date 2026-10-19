@@ -84,7 +84,7 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   const [reviewingActionId, setReviewingActionId] = useState<string | null>(null);
 
   const [pendingResidual, setPendingResidual] = useState<{
-    taskId: string
+    taskId: string | null
     action: EditableTreatmentAction
     previousStatus: TaskStatus
   } | null>(null);
@@ -457,8 +457,15 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         return;
       }
 
+      // La base de datos crea la tarea de la acción al decidir la opción (B03).
+      const createdTaskId = result && 'taskId' in result ? result.taskId ?? null : null;
+      if (createdTaskId) {
+        setTaskStatuses((prev) => (prev[createdTaskId] ? prev : { ...prev, [createdTaskId]: 'todo' }));
+      }
       patchAction(action.id, (current) => ({
         ...current,
+        task_id: createdTaskId ?? current.task_id,
+        task_status: createdTaskId && !current.task_id ? 'todo' : current.task_status,
         control_id: result?.controlId ?? current.control_id,
         control_refs: current.control_refs.map((ref) =>
           ref.control_template_id === current.control_template_id && result?.controlId
@@ -747,6 +754,10 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             onSelectOption={handleSelectOption}
             onSaveAction={handleSaveAction}
             onTaskStatusChange={handleTaskStatusChange}
+            canExecute={['approved', 'in_progress'].includes(data.plan.status)}
+            onCloseAction={(action) =>
+              setPendingResidual({ taskId: null, action, previousStatus: 'todo' })
+            }
             selectedActionIds={selectedActionIds}
             onToggleSelection={toggleActionSelection}
             onToggleGroupSelection={toggleGroupSelection}
@@ -829,10 +840,13 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           aiSystemId={data.system.id}
           evaluationId={data.evaluation.id}
           onClose={() => {
-            setTaskStatuses((prev) => ({
-              ...prev,
-              [pendingResidual.taskId]: pendingResidual.previousStatus,
-            }));
+            const taskId = pendingResidual.taskId;
+            if (taskId) {
+              setTaskStatuses((prev) => ({
+                ...prev,
+                [taskId]: pendingResidual.previousStatus,
+              }));
+            }
             setPendingResidual(null);
           }}
           onSuccess={(sResidualAchieved) => {
