@@ -87,7 +87,9 @@ export default async function AppLayout({
     // contenido.
     const activeModules = await listActiveModules(membership.organization_id)
     const showDiscoveries = DISCOVERY_MODULES.some((m) => activeModules.includes(m))
-    const showApprovals = activeModules.includes('approvals')
+    // Flujos de aprobación es Core en todos los planes (_inventario.md §14.2):
+    // la bandeja aparece siempre.
+    const showApprovals = true
 
     let pendingDiscoveries = 0
     if (showDiscoveries) {

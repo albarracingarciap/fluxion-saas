@@ -48,7 +48,7 @@ Un módulo está activo si su estado es `enabled` o `trial` y no ha vencido.
 | Sección | Entradas | Condición |
 |---|---|---|
 | **Principal** | Dashboard · Sistemas ▸ Inventario, Análisis de Gaps, Evidencias, **Descubrimientos (N)** | Descubrimientos solo si está activo `connector-mlflow` o `shadow-ai`; N = sistemas detectados pendientes |
-| **Evaluación** | Evaluaciones · Planes de tratamiento · **Incidentes (N)** · Supervisión humana · **Aprobaciones** | N = incidentes graves con notificación pendiente o solo inicial. Aprobaciones solo si está activo `approvals` |
+| **Evaluación** | Evaluaciones · Planes de tratamiento · **Incidentes (N)** · Supervisión humana · **Aprobaciones** | N = incidentes graves con notificación pendiente o solo inicial. Aprobaciones aparece siempre (Core) |
 | **Seguimiento** | Observabilidad · Tareas · Kanban | — |
 | **Cumplimiento** | ISO 42001 ▸ Declaración de Aplicabilidad | — |
 | **Datos** | Datos ▸ Base de datos, Modos de fallo, Medidas, Tipos de evidencia, Obligaciones, Obligación ↔ Evidencia, Modo ↔ Medida, Relaciones Causales, Grafo Causal | «Modos de fallo» aparece deshabilitado («Próximamente») mientras la organización no tiene sistemas |

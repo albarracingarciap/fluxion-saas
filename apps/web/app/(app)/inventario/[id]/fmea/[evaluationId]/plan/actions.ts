@@ -18,6 +18,7 @@ import {
   getEvidenceDescriptionForOption,
   resolvePlanApprover,
   NO_PLAN_APPROVER_MESSAGE,
+  getApprovalLevelLabel,
   type TreatmentOption,
   type ReviewDecision,
 } from '@/lib/fmea/treatment-plan';
@@ -35,6 +36,7 @@ import { createClient } from '@/lib/supabase/server';
 // si esta accion puede cerrar el plan.
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import { notifyApprovalStep } from '@/lib/approvals/notify';
+import { createNotification } from '@/lib/notifications/sender';
 import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 import type { TaskStatus } from '@/lib/tasks/types';
 
@@ -846,6 +848,28 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
       .maybeSingle();
 
     if (abierta) await notifyApprovalStep(abierta.id);
+  } else if (approverId) {
+    // Vía sin política: avisar al aprobador asignado. Antes no se avisaba y el
+    // plan dependía de que alguien lo encontrara en Planes o Evaluaciones.
+    const { data: approverProfile } = await admin
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('organization_id', membership.organization_id)
+      .eq('user_id', approverId)
+      .maybeSingle();
+
+    if (approverProfile) {
+      await createNotification({
+        recipientProfileId: approverProfile.id,
+        organizationId: membership.organization_id,
+        type: 'approval_pending',
+        title: `Aprobación pendiente: plan ${plan.code}`,
+        body: `Plan de tratamiento enviado a aprobación (${getApprovalLevelLabel(plan.approval_level)}).`,
+        linkUrl: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`,
+        recipientEmail: approverProfile.email ?? undefined,
+        recipientName: approverProfile.full_name ?? undefined,
+      });
+    }
   }
 
   await captureSnapshot({

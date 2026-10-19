@@ -30,7 +30,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
-| B06 · Aviso al aprobador y bandeja visible | Pendiente | — | — | — |
+| B06 · Aviso al aprobador y bandeja visible | Integrado en `main` | `fase0/b06-aviso-aprobaciones` | 2026-10-19 | No |
 | B03 · Cierre de acciones sin depender de tareas | Pendiente | — | — | — |
 | B05 · Correcciones del FMEA y del plan | Pendiente | — | — | — |
 
@@ -209,3 +209,38 @@ su aprobador; si era quien envió, al volver a enviarlo se asigna otro.
 
 **Pendiente.** Confirmar el rol de la segunda revisión (`_pendientes.md` 245). El aviso al aprobador en la
 vía sin política llega con B06; los comités de los niveles 2 y 3, con las políticas por defecto de B11.
+
+---
+
+## B06 · Aviso al aprobador y bandeja de Aprobaciones visible
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b06-aviso-aprobaciones` · **Migración:** no
+
+**Problema.**
+- Sin política en Flujos de aprobación, el aprobador asignado a un plan no recibía ningún aviso: tenía que
+  descubrir el plan por su cuenta (GAP-14).
+- La entrada **Aprobaciones** del menú solo aparecía con el módulo `approvals` activo, que la prueba
+  automática no concede. Una organización nueva no veía la bandeja (GAP-01). Flujos de aprobación es Core
+  desde la revisión v1.3 del inventario (§14.2), pero el código lo seguía tratando como módulo.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `plan/actions.ts` | Al enviar un plan sin política, aviso en la app al aprobador asignado: «Aprobación pendiente: plan {código}», con el nivel y enlace al plan |
+| `lib/fmea/treatment-plan.ts` | `getApprovalLevelLabel`: nombre de negocio del nivel (glosario) |
+| `lib/modules/registry.ts` | `approvals` sale del catálogo de módulos: deja de mostrarse en **Organización › Módulos** y no se puede activar ni desactivar |
+| `app/(app)/layout.tsx`, `components/layout/sidebar.tsx` | La entrada **Aprobaciones** aparece siempre |
+| `plan/treatment-plan-ui-constants.ts` | Descripción de los niveles 2 y 3 según DP-01 (Comité de Riesgos de IA, Revisión por la Dirección) |
+| Documentación | `funcional/aprobaciones.md`, `funcional/organizacion.md`, `funcional/navegacion.md`, `negocio/flujos-de-aprobacion.md`, `negocio/modulos-y-planes.md`, `funcional/flujo-completo-evaluacion.md` (GAP-01, GAP-14) |
+
+**Coherencia.** Las filas `approvals` que pueda haber en `organization_modules` quedan sin efecto (ya no se
+leen) y no hace falta borrarlas. El aviso usa el mismo tipo (`approval_pending`) y el mismo emisor
+(`createNotification`) que la vía con política. No envía correo: los avisos por correo de aprobaciones son
+la incidencia `S12` (bloque B11).
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos nuevos (queda uno previo de `useMemo`
+en `sidebar.tsx`); `check-server-actions.sh` correcto. No se ha probado contra la base de datos.
+
+**Qué mejora.** Los aprobadores se enteran de lo que tienen pendiente y encuentran la bandeja en el menú,
+también en organizaciones recién creadas. Cierra GAP-01 y GAP-14.

@@ -43,8 +43,8 @@ export const PLAN_STATUS_META: Record<string, { label: string; pill: string }> =
 
 export const APPROVAL_LEVEL_META: Record<string, { label: string; narrative: string }> = {
   level_1: { label: 'Nivel 1', narrative: 'Aprobación del responsable del SGAI' },
-  level_2: { label: 'Nivel 2', narrative: 'Aprobación SGAI + dirección de riesgos' },
-  level_3: { label: 'Nivel 3', narrative: 'Aprobación de alta dirección / comité' },
+  level_2: { label: 'Nivel 2', narrative: 'Aprobación del Comité de Riesgos de IA' },
+  level_3: { label: 'Nivel 3', narrative: 'Aprobación de la Revisión por la Dirección' },
 }
 
 export const DIMENSION_META: Record<string, string> = {
