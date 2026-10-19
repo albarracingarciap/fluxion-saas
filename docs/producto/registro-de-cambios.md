@@ -27,7 +27,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 |---|---|---|---|---|
 | B00a · Comprobaciones estáticas | Integrado en `main` | `fase0/b00-comprobaciones` | 2026-10-19 | No |
 | B00b · Tests de la lógica central | Pendiente (antes de la fase 1) | — | — | — |
-| B04 · Declaración de Aplicabilidad: rol y propietario | Pendiente | — | — | — |
+| B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Pendiente | — | — | — |
 | B01 · Permisos del plan y del FMEA (DP-01) | Pendiente | — | — | — |
 | B06 · Aviso al aprobador y bandeja visible | Pendiente | — | — | — |
@@ -78,3 +78,47 @@ bloques siguientes.
 
 **Pendiente.** Los tests de la lógica central (zonas FMEA, nivel de aprobación, clasificación) quedan para
 B00b, antes de la fase 1.
+
+---
+
+## B04 · Declaración de Aplicabilidad: rol, propietario e historial
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b04-declaracion-rol` · **Migración:** no
+
+**Problema.** Cuatro fallos con la misma causa (patrón `P1`: se confunde `profiles.id` con
+`auth.users.id`):
+
+| # | Fallo | Efecto |
+|---|---|---|
+| 1 | El rol se buscaba con `profiles.id = user.id` | Nadie veía **Enviar a revisión**, **Aprobar SoA** ni **Iniciar nueva revisión**, y el servidor rechazaba los cambios de estado (`E1`, GAP-28) |
+| 2 | El selector de propietario enviaba `profiles.id`, pero `owner_user_id` referencia `auth.users` | Asignar propietario fallaba con «No se pudo actualizar el control.» (`E2`) |
+| 3 | El historial de controles escribía `actor_user_id = user.id` (la FK espera `profiles.id`) con el cliente del usuario, y la tabla tiene RLS sin políticas | No se guardaba ningún cambio de control (`E3`, en parte) |
+| 4 | El registro del ciclo de vida escribía también `user.id` donde la FK espera `profiles.id` | Los cambios de estado no dejaban rastro |
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `plantillas/soa-iso42001/page.tsx` | El rol sale del perfil de la sesión (`getAppAuthState().profile`), que ya está filtrado por la organización activa. Sin consulta extra |
+| `plantillas/soa-iso42001/actions.ts` · `transitionSoAStatus` | Mismo origen del rol. «Aprobado por» se busca por `profile.id`. El registro del ciclo de vida guarda `profile.id` |
+| `plantillas/soa-iso42001/actions.ts` · `updateSoAControl` | Comprueba que el propietario es miembro de la organización (la escritura va con service role). El historial se escribe con `adminClient` y `actor_user_id = profile.id` |
+| `plantillas/soa-iso42001/actions.ts` · `getSoAHistory` | Lee con `adminClient` filtrado por organización, como ya hacía `getSoALifecycleLog` |
+| `lib/templates/data.ts` | `OrgMember` incluye `user_id`; el nombre del propietario se resuelve por `user_id` |
+| `plantillas/soa-iso42001/soa-client-view.tsx` | El selector de propietario envía `user_id` |
+| Documentación | `funcional/declaracion-aplicabilidad.md`, `negocio/declaracion-aplicabilidad.md`, `funcional/flujo-completo-evaluacion.md` (GAP-28), `_incidencias.md` (`E1`, `E2`, `E3` en parte), `_pendientes.md` (117, 118 en parte, 119 en parte, 141) |
+
+**Coherencia.** Se ha preferido el service role filtrado por organización a añadir políticas RLS para no
+requerir migración; es el mismo criterio que ya seguía el resto del módulo (`organization_soa_controls`,
+`organization_soa_metadata`, `soa_lifecycle_log`). No hay datos que corregir: las escrituras afectadas
+fallaban, así que no quedaron filas con identificadores erróneos.
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos en los ficheros cambiados;
+`check-server-actions.sh` correcto. No se ha probado contra la base de datos.
+
+**Qué mejora.** La Declaración de Aplicabilidad se puede enviar a revisión y aprobar; su aprobación deja
+rastro con autor; los controles admiten propietario e historial. Elimina uno de los cinco cortes del flujo
+(GAP-28).
+
+**Pendiente en el área.** Aplicar propuestas borra la justificación de los excluidos y la vista de
+impresión tiene textos fijos (`E3`); la vista Por sistema no usa los vínculos reales. La aprobación por
+Flujos de aprobación llega con B11.

@@ -15,6 +15,8 @@ export type SoAControlRecord = Iso42001Control & {
 
 export type OrgMember = {
   id: string
+  /** auth.users.id: es lo que guarda organization_soa_controls.owner_user_id */
+  user_id: string
   display_name: string
   role: string | null
 }
@@ -77,17 +79,19 @@ export async function buildSoAData(organizationId: string) {
   // 2.d Fetch org members for owner selector
   const { data: profileRows } = await fluxion
     .from('profiles')
-    .select('id, full_name, display_name, role')
+    .select('id, user_id, full_name, display_name, role')
     .eq('organization_id', organizationId)
     .order('full_name')
 
   const members: OrgMember[] = (profileRows ?? []).map((p) => ({
     id: p.id as string,
+    user_id: p.user_id as string,
     display_name: ((p.display_name || p.full_name || '') as string).trim() || 'Usuario',
     role: (p.role as string | null) ?? null,
   }))
 
-  const memberNameMap = new Map(members.map((m) => [m.id, m.display_name]))
+  // Indexado por user_id, que es lo que guarda owner_user_id.
+  const memberNameMap = new Map(members.map((m) => [m.user_id, m.display_name]))
 
   // 2.e Fetch latest AISIA assessment status per system
   const { data: aisiaRows } = await fluxion

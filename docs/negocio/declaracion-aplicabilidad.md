@@ -99,9 +99,6 @@ flowchart TD
    - Cada cambio de estado queda registrado con su autor y su fecha.
    - Hay un historial de los cambios por control.
 
-   > TODO: confirmar en una instalación real dos puntos.
-   > - **Botones de cambio de estado:** según el código, no se muestran a ningún rol.
-   > - **Historial por control:** no llega a guardarse.
 7. **Impresión.** La Declaración se puede imprimir o guardar en PDF desde el navegador.
 
 > TODO: confirmar el estado de implantación «Externalizado». Aparece en la interfaz, pero no se ha

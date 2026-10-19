@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { getAppAuthState } from '@/lib/auth/app-state'
-import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { buildSoAData } from '@/lib/templates/data'
 import { InitSoAButton } from './init-soa-button'
 import { SoAClientView } from './soa-client-view'
@@ -38,7 +37,7 @@ const LIFECYCLE_CONFIG = {
 }
 
 export default async function SoAPage() {
-  const { user, membership, onboardingCompleted } = await getAppAuthState()
+  const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) {
     redirect('/login')
@@ -48,13 +47,9 @@ export default async function SoAPage() {
     redirect('/onboarding')
   }
 
-  // Fetch user role for lifecycle gate
-  const fluxion = createFluxionClient()
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  // Rol del perfil de la sesión, en la organización activa. Antes se buscaba
+  // el perfil por `id = user.id` (identificador de auth.users) y nunca se
+  // encontraba: nadie veía los botones de ciclo de vida.
   const userRole: string = profile?.role ?? ''
 
   const data = await buildSoAData(membership.organization_id)

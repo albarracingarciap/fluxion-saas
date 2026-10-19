@@ -185,7 +185,7 @@ documento funcional.
 | AISIA | Cualquier miembro | Administrador, Responsable del SGAI, CAIO |
 | Expediente documental | Cualquier miembro | Cualquier miembro |
 | Evidencias | Roles de gobierno y analistas (otros roles ven los botones, pero no tienen efecto) | Los mismos roles |
-| Declaración de Aplicabilidad | Cualquier miembro edita | Nadie: el envío y la aprobación están bloqueados (`E1`) |
+| Declaración de Aplicabilidad | Cualquier miembro edita | Envía: Responsable del SGAI, CAIO, DPO, Analista de cumplimiento, Administrador. Aprueba: Administrador, Responsable del SGAI, CAIO (corregido en B04) |
 | Brechas | Cualquier miembro asigna y crea tareas | Excluir: roles de gobierno y analistas |
 
 > **Decisión DP-01 (2026-10-19), pendiente de implementar.** Quién prepara, revisa y aprueba cada
@@ -813,10 +813,9 @@ flowchart TD
    a los sistemas en alcance.
 5. **Enviar a revisión** y **Aprobar SoA**. ⛔ Todos los aplicables con justificación.
 
-> **⚠ GAP-28 · La Declaración no se puede aprobar.** Por un error al leer el rol del usuario, nadie ve
-> **Enviar a revisión**, **Aprobar SoA** ni **Iniciar nueva revisión**, y el servidor rechaza los cambios
-> de estado (`E1`). Asignar propietario a un control probablemente falla (`E2`) y el historial de cambios
-> de controles no se guarda (`E3`).
+> **✔ GAP-28 · Resuelto en B04** ([registro de cambios](../producto/registro-de-cambios.md)). El rol se
+> leía mal y nadie podía enviar ni aprobar la Declaración (`E1`); el propietario de un control no se
+> guardaba (`E2`) y el historial de controles tampoco (`E3`, en parte).
 >
 > **Pendiente de implementar.** Aprobación de la Declaración mediante Flujos de aprobación.
 
@@ -902,7 +901,7 @@ Resumen de todo lo que se aprueba en el recorrido:
 | Expediente documental | 7 | Propio | Cualquier miembro | No | No | No | Bloquea la edición |
 | Evidencia | 8 | Propio | Roles de gobierno y analistas | No | No | No | Evidencia válida |
 | Exclusión de brecha | 9 | Ninguno | Roles de gobierno y analistas | No | No | No | Brecha fuera de la cola |
-| Declaración de Aplicabilidad | 9 | Propio | **Nadie** (`E1`) | — | — | No | — |
+| Declaración de Aplicabilidad | 9 | Propio | Administrador, Resp. SGAI, CAIO (B04) | No | No | No | Declaración aprobada |
 
 > **ℹ Aclaración.** Según la decisión de `_inventario.md` §14.2, Flujos de aprobación es Core y debe
 > absorber la aprobación de los cinco tipos de objeto. Hoy solo el plan la usa, y solo si hay política.
@@ -944,7 +943,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 |---|---|---|---|---|
 | GAP-15 | 5 | No se puede mitigar: controles sugeridos vacíos | Corta | `R1`, `R9` |
 | GAP-18 | 5 | Las acciones no se pueden cerrar ni registrar residual (no hay tareas) | Corta | `R2` |
-| GAP-28 | 9 | La Declaración de Aplicabilidad no se puede enviar ni aprobar | Corta | `E1` |
+| GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
 | GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |
 | GAP-13 | 4 | Evaluación FMEA sin estado final y vuelve a borrador al guardar | Corta | `R3`, `R4`, `R5` |
 | — | 5 | Sin un DPO no se edita el plan ni se resuelven segundas revisiones | Corta | `_inventario.md` §5.2 |
