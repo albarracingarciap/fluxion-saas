@@ -46,7 +46,7 @@ cd apps/web && npm install && npm run dev   # http://localhost:3000
 cd apps/web && npm run build
 cd apps/web && npm run lint
 ./tools/check-server-actions.sh             # los ficheros 'use server' solo exportan funciones async
-./tools/check-python.sh                     # nombres indefinidos en Python (requiere pyflakes)
+./tools/check-python.sh                     # nombres indefinidos en Python (requiere pyflakes; PYTHON=… para otro intérprete)
 
 export PYTHONPATH="$PWD/packages/py-common:$PWD/services/agents"
 pip install -r services/agents/requirements.txt

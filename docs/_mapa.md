@@ -230,10 +230,11 @@ entre los de `CLAUDE.md`; se añadió a petición del responsable (2026-10-19).
 |---|---|---|---|---|---|---|
 | PRD-CUESTIONARIO-REGLAS | `docs/producto/cuestionario-preliminar-reglas.md` | especificacion | producto, tecnica | evaluacion-de-impacto | `lib/preliminary-questionnaire/schema.ts`, `(app)/cuestionario-preliminar/*`, `components/inventory/SystemWizard.jsx`, `lib/ai-systems/scoring.ts`, `(app)/inventario/nuevo/actions.ts`, `mig/20260915090000_cuestionario_preliminar.sql`, `mig/20260904090000_obligaciones_ai_act.sql`, `mig/20260911090000_rol_cadena_de_valor.sql` | borrador |
 | PRD-PLAN-GAPS | `docs/producto/plan-resolucion-gaps.md` | especificacion | producto, tecnica | transversal | `docs/funcional/flujo-completo-evaluacion.md`, `docs/producto/cuestionario-preliminar-reglas.md`, `docs/_incidencias.md`, `(app)/inventario/[id]/fmea/**/actions.ts`, `lib/fmea/*`, `lib/approvals/effects.ts`, `(app)/plantillas/soa-iso42001/*`, `(app)/inventario/[id]/aisia/actions.ts`, `lib/dashboard/data.ts`, `lib/evaluations/data.ts` | borrador |
+| PRD-REGISTRO-CAMBIOS | `docs/producto/registro-de-cambios.md` | especificacion | producto, tecnica | transversal | `docs/producto/plan-resolucion-gaps.md`, historial de git | borrador |
 
 ---
 
-**Total:** 110 documentos.
+**Total:** 111 documentos.
 
 | Grupo | Documentos |
 |---|---|
@@ -242,7 +243,7 @@ entre los de `CLAUDE.md`; se añadió a petición del responsable (2026-10-19).
 | Funcional | 59 |
 | Técnica | 18 |
 | A actualizar | 4 |
-| Producto | 2 |
+| Producto | 3 |
 
 ## Notas para validar
 

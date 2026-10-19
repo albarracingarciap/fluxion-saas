@@ -261,7 +261,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | T12 | `NEXT_PUBLIC_APP_URL` no se pasa en la compilación (P12) | Error | Media | Análisis | 215, 218 |
 | T13 | Ninguna imagen define `HEALTHCHECK`; las imágenes Python corren como root; dos no fijan la versión de Debian | Carencia | Media | Análisis | 222 |
 | T14 | Nombres distintos para la clave de servicio y la URL de Supabase según el componente; los conectores no admiten `LOG_LEVEL`; no hay `.env.example` de la web | Incongruencia | Baja | Análisis | 214, 216, 217 |
-| T15 | **Comprobaciones de `CLAUDE.md`:** los scripts no tienen permiso de ejecución; `check-server-actions.sh` no funciona en el bash de macOS; `check-python.sh` da por bueno el resultado si falta `pyflakes` | Error | Alta | Código | 226 |
+| T15 | **✔ Resuelta en B00a ([registro de cambios](producto/registro-de-cambios.md)).** **Comprobaciones de `CLAUDE.md`:** los scripts no tienen permiso de ejecución; `check-server-actions.sh` no funciona en el bash de macOS; `check-python.sh` da por bueno el resultado si falta `pyflakes` | Error | Alta | Código | 226 |
 | T16 | Scripts de `apps/web/scripts`: varios no cargan `.env.local`; `seed_causal_relations.ts` escribe en `public` | Error | Baja | Análisis | 227 |
 
 ## 10. Seguridad (para la Fase 2)

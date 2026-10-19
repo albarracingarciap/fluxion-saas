@@ -43,20 +43,17 @@ No hay scripts de test ni de comprobación de tipos.
 
 | Script | Qué comprueba | Por qué |
 |---|---|---|
-| `tools/check-server-actions.sh [raíz]` | En los ficheros `.ts`/`.tsx` versionados que empiezan por `'use server'`, que solo se exporten funciones `async`: marca `export const`, `let`, `var`, `class`, `enum`, `function` sin `async` y `export default` que no sea una función `async` | Una constante exportada desde un fichero `'use server'` compila, pero llega `undefined` al navegador. Ya ocurrió con `TRIAL_DAYS_OPTIONS` y `APPROVAL_OBJECT_TYPES`. Los valores deben ir a `lib/<dominio>/catalog.ts` |
+| `tools/check-server-actions.sh [raíz]` | En los ficheros `.ts`/`.tsx` versionados que empiezan por `'use server'`, que solo se exporten funciones `async`: marca `export const`, `let`, `var`, `class`, `enum`, `function` sin `async`, `export default` que no sea `async function`, y `export { … }` / `export * from` (no se puede saber si lo exportado es asíncrono) | Una constante exportada desde un fichero `'use server'` compila, pero llega `undefined` al navegador. Ya ocurrió con `TRIAL_DAYS_OPTIONS` y `APPROVAL_OBJECT_TYPES`. Los valores deben ir a `lib/<dominio>/catalog.ts` |
 | `tools/check-python.sh` | `pyflakes` sobre `services/*/fluxion_*` y `packages/py-common/fluxion_common`. Solo informa de nombres indefinidos y redefiniciones sin uso | Un nombre sin importar en una anotación pasa la sintaxis, pero el servicio falla al arrancar y Traefik responde 502 |
 
 `CLAUDE.md` indica pasar `check-server-actions.sh` después de tocar cualquier `actions.ts`, y
-`check-python.sh` después de tocar Python. Este último requiere `pip install pyflakes`.
+`check-python.sh` después de tocar Python. Este último requiere `pyflakes`
+(`python3 -m pip install pyflakes`); con `PYTHON=/ruta/a/python` se usa otro intérprete, por ejemplo el de
+un entorno virtual.
 
-> TODO: confirmar la ejecución de las comprobaciones.
-> - **Permisos:** no tienen permiso de ejecución en git, así que `./tools/…` falla y hay que usar
->   `bash tools/…`.
-> - **Bash en macOS:** `check-server-actions.sh` usa `mapfile`, que no existe en el bash 3.2 de macOS.
-> - **Falso resultado correcto:** `check-python.sh` lo da si no encuentra `python` o `pyflakes`, o si se
->   ejecuta fuera de la raíz.
-> - **Falso positivo:** `check-server-actions.sh` también marca `export default async function`.
-> - **Casos no detectados:** `export { … }`.
+Ambos scripts se pueden ejecutar desde cualquier carpeta del repositorio, funcionan con el bash 3.2 de
+macOS y **fallan** (código 2) si no pueden hacer la comprobación: sin ficheros que revisar, sin Python o sin
+`pyflakes`. Código 1 = se ha encontrado un problema.
 
 ### Scripts de `apps/web/scripts`
 
@@ -94,7 +91,7 @@ No aplica.
 | Herramienta | Requiere |
 |---|---|
 | Scripts de `apps/web` | Node.js, dependencias de `apps/web` (Next.js 14.2) |
-| `tools/check-server-actions.sh` | bash 4 o superior, git |
+| `tools/check-server-actions.sh` | bash 3.2 o superior, git |
 | `tools/check-python.sh` | Python 3 con `pyflakes` |
 | `apps/web/scripts/*` | `tsx` (con `npx`), acceso a la base de datos |
 
