@@ -60,10 +60,25 @@ export type SoAControlUpdatePayload = {
 export async function updateSoAControl(input: SoAControlUpdatePayload) {
   const fluxion = createFluxionClient()
   const adminClient = createAdminFluxionClient()
-  const { user, membership, onboardingCompleted } = await getAppAuthState()
+  const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')
-  if (!membership || !onboardingCompleted) redirect('/onboarding')
+  if (!membership || !onboardingCompleted || !profile) redirect('/onboarding')
+
+  // `owner_user_id` referencia auth.users: el selector envía el user_id del
+  // miembro. Se comprueba que pertenece a la organización, porque la escritura
+  // va con service role.
+  if (input.ownerUserId) {
+    const { data: owner } = await adminClient
+      .from('profiles')
+      .select('id')
+      .eq('organization_id', membership.organization_id)
+      .eq('user_id', input.ownerUserId)
+      .maybeSingle()
+    if (!owner) {
+      return { error: 'El propietario seleccionado no pertenece a la organización.' }
+    }
+  }
 
   // 1. Update main control (adminClient — RLS roto hasta migración 058)
   const { data: control, error: updateError } = await adminClient
@@ -127,10 +142,12 @@ export async function updateSoAControl(input: SoAControlUpdatePayload) {
   }
 
   // 4. Record in SoA Change Log
-  const { error: logError } = await fluxion.from('soa_controls_log').insert({
+  // adminClient: la tabla tiene RLS sin políticas, así que con el cliente del
+  // usuario la inserción se rechazaba. `actor_user_id` referencia profiles.id.
+  const { error: logError } = await adminClient.from('soa_controls_log').insert({
     soa_control_id: input.id,
     organization_id: membership.organization_id,
-    actor_user_id: user.id,
+    actor_user_id: profile.id,
     control_code: control.control_code,
     is_applicable: input.isApplicable,
     justification: input.justification,
@@ -225,19 +242,14 @@ export async function transitionSoAStatus(
 ) {
   const adminClient = createAdminFluxionClient()
   const fluxion = createFluxionClient()
-  const { user, membership, onboardingCompleted } = await getAppAuthState()
+  const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')
-  if (!membership || !onboardingCompleted) redirect('/onboarding')
+  if (!membership || !onboardingCompleted || !profile) redirect('/onboarding')
 
-  // Fetch current user role
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const userRole: string = profile?.role ?? ''
+  // Rol del perfil de la sesión. Antes se buscaba por `id = user.id` y el
+  // servidor rechazaba todos los cambios de estado.
+  const userRole: string = profile.role ?? ''
 
   // Role-gate transitions
   if (newStatus === 'under_review' && !ROLES_CAN_SUBMIT.has(userRole)) {
@@ -283,7 +295,7 @@ export async function transitionSoAStatus(
       const { data: prof } = await fluxion
         .from('profiles')
         .select('display_name, full_name')
-        .eq('id', user.id)
+        .eq('id', profile.id)
         .single()
       updatePayload.approved_by = (prof?.display_name || prof?.full_name || '').trim() || 'Desconocido'
     }
@@ -306,7 +318,7 @@ export async function transitionSoAStatus(
     .from('soa_lifecycle_log')
     .insert({
       organization_id: membership.organization_id,
-      actor_user_id: user.id,
+      actor_user_id: profile.id,
       from_status: fromStatus,
       to_status: newStatus,
     })
@@ -502,13 +514,15 @@ export async function checkSoACompleteness() {
 }
 
 export async function getSoAHistory() {
-  const fluxion = createFluxionClient()
+  // adminClient filtrado por organización: soa_controls_log tiene RLS sin
+  // políticas de lectura (igual que en getSoALifecycleLog).
+  const adminClient = createAdminFluxionClient()
   const { user, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')
   if (!membership || !onboardingCompleted) redirect('/onboarding')
 
-  const { data, error } = await fluxion
+  const { data, error } = await adminClient
     .from('soa_controls_log')
     .select(`
       *,

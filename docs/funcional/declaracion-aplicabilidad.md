@@ -46,11 +46,8 @@ de la organización y dejarla aprobada.
 | Responsable del SGAI, CAIO, DPO, Analista de cumplimiento, Administrador | Ídem | Enviar a revisión |
 | Administrador, Responsable del SGAI, CAIO | Ídem | Aprobar e iniciar una nueva revisión |
 
-> TODO: confirmar el ciclo de vida de la Declaración. La vista busca el rol del usuario por un campo
-> equivocado, así que no lo encuentra.
-> - Nadie ve los botones **Enviar a revisión**, **Aprobar SoA** ni **Iniciar nueva revisión**.
-> - El servidor rechaza los cambios de estado.
-> - Por la misma causa, «Aprobado por» queda como «Desconocido».
+El rol se toma del perfil de la sesión en la organización activa. «Aprobado por» se rellena con el nombre
+de quien aprueba si la cabecera no lo tenía.
 
 ## Campos
 
@@ -106,9 +103,10 @@ Edición de un control (panel lateral):
 | **Observaciones / Acciones pendientes** | texto largo | No | — | `notes` |
 | **Sistemas en alcance** | solo lectura | — | Se vinculan automáticamente al guardar si el control aplica | `organization_soa_system_links` |
 
-> TODO: confirmar dos comportamientos de la edición de controles.
-> - **Propietario:** asignarlo probablemente falla con «No se pudo actualizar el control.», porque el
->   selector guarda un identificador distinto del que espera la base de datos.
+El propietario debe ser un miembro de la organización; si no, se muestra «El propietario seleccionado no
+pertenece a la organización.».
+
+> TODO: confirmar un comportamiento de la edición de controles.
 > - **Vista Por sistema:** muestra todos los controles aplicables en todos los sistemas en alcance, no los
 >   vínculos reales.
 
@@ -128,10 +126,11 @@ Edición de un control (panel lateral):
 | **Ver Historial** | Todos | Pestañas **Ciclo de vida** y **Cambios en controles** | — |
 | **Exportar PDF** | Todos | Imprime desde el navegador la vista de impresión: portada, resumen y desglose de controles por grupo | — |
 
-> TODO: confirmar tres efectos secundarios.
+Cada guardado de un control queda en **Ver Historial › Cambios en controles**, y cada cambio de estado en
+**Ciclo de vida**, con su autor.
+
+> TODO: confirmar dos efectos secundarios.
 > - **Aplicar propuestas:** también borra la justificación de los controles que quedan excluidos.
-> - **Historial de cambios en controles:** nunca guarda ni muestra nada, porque la tabla no tiene políticas
->   de acceso.
 > - **Vista de impresión:** muestra «Fluxion SaaS» como organización y «Página 1 de 1» fijos.
 
 > **Pendiente de implementar.** Aprobación de la Declaración mediante

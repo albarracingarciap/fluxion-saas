@@ -870,7 +870,7 @@ function SoAEditSlideOver({
                 >
                   <option value="">Sin asignar</option>
                   {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.display_name}</option>
+                    <option key={m.id} value={m.user_id}>{m.display_name}</option>
                   ))}
                 </select>
               </div>

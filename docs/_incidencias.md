@@ -158,9 +158,9 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 
 | Id | Incidencia | Tipo | Prior. | Verif. | Ref. |
 |---|---|---|---|---|---|
-| E1 | **Declaración de Aplicabilidad bloqueada:** el rol se busca con `.eq('id', user.id)`. Nadie ve **Enviar a revisión** ni **Aprobar**, y «Aprobado por» sale «Desconocido» | Error | Alta | Código | 117, 141 |
-| E2 | Declaración: asignar el propietario de un control probablemente falla (P1) | Error | Media | Probable | 118 |
-| E3 | Declaración: **Aplicar propuestas** borra la justificación de los excluidos; el historial de controles no guarda nada; la impresión muestra «Fluxion SaaS» y «Página 1 de 1» fijos | Error | Media | Análisis | 119 |
+| E1 | **✔ Resuelta en B04.** **Declaración de Aplicabilidad bloqueada:** el rol se busca con `.eq('id', user.id)`. Nadie ve **Enviar a revisión** ni **Aprobar**, y «Aprobado por» sale «Desconocido» | Error | Alta | Código | 117, 141 |
+| E2 | **✔ Resuelta en B04.** Declaración: asignar el propietario de un control probablemente falla (P1) | Error | Media | Probable | 118 |
+| E3 | **Resuelta en parte en B04** (historial de controles). Declaración: **Aplicar propuestas** borra la justificación de los excluidos; el historial de controles no guarda nada; la impresión muestra «Fluxion SaaS» y «Página 1 de 1» fijos | Error | Media | Análisis | 119 |
 | E4 | **Historial de versiones de evidencias vacío:** la tabla no admite inserciones con los permisos del usuario | Error | Alta | Análisis | 123, 140 |
 | E5 | Biblioteca: solo muestra 24 evidencias, sin paginación; los filtros ofrecen 6 opciones; falta «Rechazada» | Error | Media | Análisis | 120 |
 | E6 | Biblioteca: permite fijar «Válida» sin revisión; el fichero se sube aunque se cancele; límite de 20 MB en la vista y 100 MB en el servidor | Incongruencia | Media | Análisis | 122 |
