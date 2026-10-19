@@ -30,6 +30,9 @@ type Props = {
   onSelectOption: (actionId: string, option: TreatmentOption) => void
   onSaveAction: (action: EditableTreatmentAction) => void
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void
+  /** Plan aprobado o en ejecución: se pueden cerrar acciones. */
+  canExecute: boolean
+  onCloseAction: (action: EditableTreatmentAction) => void
   selectedActionIds: Set<string>
   onToggleSelection: (actionId: string) => void
   onToggleGroupSelection: (actionIds: string[]) => void
@@ -54,6 +57,8 @@ export function ActionsGroupSection({
   onSelectOption,
   onSaveAction,
   onTaskStatusChange,
+  canExecute,
+  onCloseAction,
   selectedActionIds,
   onToggleSelection,
   onToggleGroupSelection,
@@ -138,6 +143,8 @@ export function ActionsGroupSection({
                   onSelectOption={(option) => onSelectOption(action.id, option)}
                   onSave={() => onSaveAction(action)}
                   onTaskStatusChange={onTaskStatusChange}
+                  canExecute={canExecute}
+                  onCloseAction={() => onCloseAction(action)}
                 />
               )}
             </div>

@@ -120,8 +120,8 @@ una versión ligera.
 > - **Proveedor de modelo GPAI:** qué documentos del Art. 53 se exigen en **Evaluado**.
 
 > **ℹ Aclaración.** Hoy ninguna etapa se puede alcanzar de forma verificable a partir de **Evaluado**: la
-> evaluación FMEA nunca se aprueba (GAP-13), la AISIA no tiene versión ligera, no existe el dato de
-> responsable de la supervisión humana y las acciones del plan no se pueden cerrar (GAP-18).
+> evaluación FMEA nunca se aprueba (GAP-13), la AISIA no tiene versión ligera y no existe el dato de
+> responsable de la supervisión humana.
 
 ## 1. Mapa general
 
@@ -600,10 +600,10 @@ Con el plan aprobado:
 3. Si la acción tiene evidencia, la [severidad residual](../glosario.md#severidad-residual-s_residual)
    pasa al ítem del FMEA y la zona se recalcula.
 
-> **⚠ GAP-18 · La ejecución del plan no se puede completar.** Las tareas de las acciones no se crean
-> (`R2`), y la vista solo permite cerrar una acción y registrar su severidad residual desde el estado de
-> su tarea vinculada. Sin tarea, la acción no se puede cerrar desde la aplicación, la zona del sistema no
-> baja y el plan nunca refleja el tratamiento realizado.
+> **✔ GAP-18 · Resuelto en B03** ([registro de cambios](../producto/registro-de-cambios.md)). Las tareas de
+> las acciones no se creaban (`R2`) y sin tarea no había forma de cerrar una acción. Ahora la tarea se crea al
+> decidir la opción, y una mitigación sin tarea se cierra con **Cerrar acción**. La severidad residual solo
+> se registra con el plan aprobado.
 
 > **⚠ GAP-19 · Residual sin evidencia validada.** La severidad residual pasa al FMEA si la acción tiene
 > una evidencia adjunta, sin comprobar que esté validada. Además, esas evidencias se guardan aparte de la
@@ -941,7 +941,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | Id | Fase | Gap | Efecto | Ref. |
 |---|---|---|---|---|
 | GAP-15 | 5 | ✔ Resuelto en B02: no se podía mitigar (controles sugeridos vacíos) | — | `R1`, `R9` |
-| GAP-18 | 5 | Las acciones no se pueden cerrar ni registrar residual (no hay tareas) | Corta | `R2` |
+| GAP-18 | 5 | ✔ Resuelto en B03: las acciones no se podían cerrar ni registrar residual | — | `R2` |
 | GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
 | GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |
 | GAP-13 | 4 | Evaluación FMEA sin estado final y vuelve a borrador al guardar | Corta | `R3`, `R4`, `R5` |

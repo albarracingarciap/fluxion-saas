@@ -127,7 +127,7 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | **Aprobar plan** | Aprobador asignado | Con notas de comité opcionales | Plan «Aprobado». Instantánea. Historial «Plan de tratamiento aprobado» |
 | **Devolver al autor** | Aprobador asignado | Con motivo obligatorio | Plan a «Borrador», con el motivo visible. Instantánea. Historial «Plan devuelto al autor» |
 | Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada». En Mitigar abre **Registrar S residual alcanzado** |
-| **Cerrar acción** (S residual) | Todos | Registra la severidad residual alcanzada, o marca que no se pudo medir | Cierra la acción y la tarea. Si hay evidencia, la severidad residual pasa al ítem del FMEA |
+| **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción | Cierra la acción y, si la hay, la tarea. Si hay evidencia, la severidad residual pasa al ítem del FMEA |
 | Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción | Sin evento ni historial |
 | **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review» |
 | **Reasignar** · **Due date** · **Cambiar opción** (en bloque) | Editor del plan | Sobre las acciones seleccionadas no cerradas. Mitigar no se admite en bloque | Eventos por acción e historial del cambio masivo |
@@ -139,9 +139,9 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 >   viendo aquí los botones, que fallan con «Este plan está en un circuito de aprobación. Decide desde
 >   Aprobaciones.»
 
-> TODO: confirmar la creación de tareas. Los textos y el diseño suponen que cada acción, salvo las
-> aceptadas, genera una tarea. Pero las acciones se crean sin opción y la regla de la base de datos solo
-> crea la tarea al insertar una acción con opción, así que no se crea ninguna automáticamente.
+Cada acción, salvo las aceptadas, tiene su [tarea](../glosario.md#tarea): la base de datos la crea al
+decidir la opción, con el responsable y la fecha de la acción, y las mantiene sincronizadas (requiere la
+migración `20261019100000`).
 
 > TODO: confirmar el comportamiento de **Guardar borrador**. No guarda las decisiones de las acciones,
 > aunque la vista las marca como guardadas: solo las guarda el guardado automático o **Guardar decisión**.

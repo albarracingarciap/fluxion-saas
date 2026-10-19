@@ -76,9 +76,6 @@ stateDiagram-v2
 
    La tarea muestra siempre su origen y el sistema al que pertenece.
 
-   > TODO: confirmar las tareas de las acciones del plan de tratamiento. La regla que las crea solo actúa
-   > cuando la acción nace con una opción decidida, y Fluxion crea las acciones sin opción, así que en la
-   > práctica no se generan.
 2. **Asignación.** Cada tarea tiene responsable, prioridad (baja, media, alta o crítica) y fecha
    límite. El responsable recibe un aviso al asignársela.
 

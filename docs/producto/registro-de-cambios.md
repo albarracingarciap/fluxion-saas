@@ -31,7 +31,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
 | B06 · Aviso al aprobador y bandeja visible | Integrado en `main` | `fase0/b06-aviso-aprobaciones` | 2026-10-19 | No |
-| B03 · Cierre de acciones sin depender de tareas | Pendiente | — | — | — |
+| B03 · Cierre de acciones sin depender de tareas | Integrado en `main` | `fase0/b03-cierre-acciones` | 2026-10-19 | **Sí** · `20261019100000_plan_tareas_de_acciones.sql` |
 | B05 · Correcciones del FMEA y del plan | Pendiente | — | — | — |
 
 ## Migraciones pendientes de aplicar
@@ -39,6 +39,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Fichero | Bloque | Qué hace | Orden respecto al despliegue |
 |---|---|---|---|
 | `supabase/migrations/20261019090000_plan_control_libre.sql` | B02 | `controls.template_id` opcional; columnas `title` y `description`; restricción plantilla o título | **Antes** de desplegar B02: el plan de tratamiento y las brechas leen `controls.title` |
+| `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql` | B03 | Corrige el responsable de la tarea en los dos triggers; crea la tarea al decidir la opción; genera las tareas que faltan | Antes o después de desplegar B03 (el código funciona sin ella, pero sin tareas nuevas). Revisa el número de tareas creadas por el relleno final |
 
 ---
 
@@ -244,3 +245,48 @@ en `sidebar.tsx`); `check-server-actions.sh` correcto. No se ha probado contra l
 
 **Qué mejora.** Los aprobadores se enteran de lo que tienen pendiente y encuentran la bandeja en el menú,
 también en organizaciones recién creadas. Cierra GAP-01 y GAP-14.
+
+---
+
+## B03 · Tareas de las acciones y cierre sin tarea
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b03-cierre-acciones` ·
+**Migración:** **sí**, `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql`
+
+**Problema.**
+- Las tareas de las acciones del plan no se creaban nunca: el trigger solo actuaba al **insertar** una
+  acción con opción, y las acciones se crean sin opción (`R2`).
+- La pantalla solo dejaba cerrar una acción y registrar su severidad residual desde el estado de su tarea.
+  Sin tareas, ninguna acción se podía cerrar (GAP-18).
+- **Hallazgo nuevo:** los dos triggers (crear la tarea y sincronizarla) escribían en `tasks.assignee_id` el
+  `owner_id` de la acción, que guarda `auth.users.id`, cuando esa columna referencia `profiles.id`. En
+  cuanto se creara una tarea, el guardado de la acción fallaría por la clave foránea. No se había notado
+  porque nunca se ejecutaban.
+- **Hallazgo nuevo:** al cerrar una mitigación con tarea, la aplicación marcaba primero la tarea como
+  hecha; un trigger de la tarea completaba la acción, y cuando se registraba la severidad residual la
+  acción ya estaba completada. El trigger que traslada la severidad residual al FMEA no se disparaba.
+- Se podía registrar la severidad residual (que cambia el FMEA) en un plan sin aprobar.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql` | La función de creación ignora acciones sin opción, aceptadas o con tarea, y traduce el responsable a `profiles.id`. La de sincronización también. Trigger nuevo `BEFORE UPDATE OF option` que crea la tarea al decidir la opción. Relleno de las tareas de las acciones ya decididas y abiertas |
+| `plan/actions.ts` · `recordMitigarResidualAction` | Tarea opcional. Exige el plan aprobado o en ejecución. Actualiza primero la acción y después la tarea, para que la severidad residual llegue al FMEA |
+| `plan/actions.ts` · `saveTreatmentActionDecision` | Devuelve la tarea creada por la base de datos |
+| `plan/action-detail-panel.tsx`, `actions-group-section.tsx`, `treatment-plan-client.tsx`, `record-residual-modal.tsx` | Botón **Cerrar acción** en las mitigaciones sin tarea de un plan aprobado; el modal acepta cerrar sin tarea; la tarea creada aparece sin recargar |
+| Documentación | `funcional/plan-de-tratamiento.md`, `negocio/plan-de-tratamiento.md`, `negocio/tareas.md`, `funcional/tareas.md`, `funcional/flujo-completo-evaluacion.md` (GAP-18), `_incidencias.md` (`R2`), `_pendientes.md` (104, 116, 160 en parte) |
+
+**Coherencia.** La lógica de la tarea sigue en la base de datos (un único sitio para el alta, la decisión y
+el relleno). Las tareas que crea el trigger no generan aviso al asignado, igual que el resto de tareas que
+crean otros módulos.
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos en los ficheros cambiados;
+`check-server-actions.sh` correcto. La migración no se ha ejecutado: la aplicas tú.
+
+**Qué mejora.** Las acciones del plan tienen su tarea, se pueden cerrar con o sin ella y la severidad
+residual llega al FMEA, con lo que la zona del sistema puede bajar. Elimina el cuarto corte del flujo
+(GAP-18).
+
+**Pendiente.** Completar una tarea desde **Tareas** o **Kanban** sigue cerrando la acción aunque el plan no
+esté aprobado, y sin pedir la severidad residual; el ciclo de vida completo llega con B07.

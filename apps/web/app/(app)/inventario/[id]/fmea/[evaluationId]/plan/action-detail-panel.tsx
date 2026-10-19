@@ -24,6 +24,10 @@ type Props = {
   onSelectOption: (option: TreatmentOption) => void
   onSave: () => void
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void
+  /** Plan aprobado o en ejecución. */
+  canExecute?: boolean
+  /** Cerrar una mitigación sin tarea vinculada (abre el registro de S residual). */
+  onCloseAction?: () => void
 }
 
 export function ActionDetailPanel({
@@ -41,10 +45,32 @@ export function ActionDetailPanel({
   onSelectOption,
   onSave,
   onTaskStatusChange,
+  canExecute = false,
+  onCloseAction,
 }: Props) {
   const customControlSelected = !action.control_template_id && action.custom_control_title !== null
+  const canCloseWithoutTask =
+    canExecute &&
+    !action.task_id &&
+    action.option === 'mitigar' &&
+    !['completed', 'cancelled'].includes(action.status) &&
+    !!onCloseAction
   return (
     <div className="border-t border-ltb bg-ltbg p-4 space-y-4">
+      {canCloseWithoutTask && (
+        <div className="rounded-[10px] border border-cyan-border bg-cyan-dim flex items-center justify-between gap-4 px-4 py-3">
+          <span className="font-sora text-[12px] text-ltt2">
+            Esta mitigación no tiene tarea vinculada. Ciérrala aquí cuando el control esté implantado.
+          </span>
+          <button
+            type="button"
+            onClick={onCloseAction}
+            className="shrink-0 rounded-[8px] border border-cyan-border bg-ltcard px-3 py-1.5 font-sora text-[12px] font-semibold text-brand-cyan hover:bg-cyan-dim transition-colors"
+          >
+            Cerrar acción
+          </button>
+        </div>
+      )}
       {action.task_id && action.option !== 'aceptar' && (
         <div className="rounded-[10px] border border-cyan-border bg-cyan-dim flex items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
