@@ -54,6 +54,8 @@ type SaveTreatmentPlanBatchDraftInput = {
     justification: string | null;
     sResidualTarget: number | null;
     controlTemplateId: string | null;
+    customControlTitle: string | null;
+    customControlDescription: string | null;
     reviewDueDate: string | null;
   }>;
 };
@@ -68,8 +70,13 @@ type SaveTreatmentActionInput = {
   justification: string | null;
   sResidualTarget: number | null;
   controlTemplateId: string | null;
+  /** Control propio (sin plantilla del catálogo). Se usa si no hay controlTemplateId. */
+  customControlTitle: string | null;
+  customControlDescription: string | null;
   reviewDueDate: string | null;
 };
+
+const CUSTOM_CONTROL_MIN_TITLE = 5;
 
 type SubmitTreatmentPlanInput = {
   aiSystemId: string;
@@ -224,6 +231,66 @@ async function upsertMitigationControl(params: {
   return { controlId: createdControl.id, controlResolution: 'created' as const };
 }
 
+/**
+ * Control propio de una acción de mitigación: no viene del catálogo, lleva su
+ * título y descripción. Si la acción ya tenía un control propio, se actualiza
+ * en lugar de crear otro.
+ */
+async function upsertCustomMitigationControl(params: {
+  organizationId: string;
+  aiSystemId: string;
+  ownerId: string | null;
+  currentControlId: string | null;
+  title: string;
+  description: string | null;
+}) {
+  const fluxion = createFluxionClient();
+
+  if (params.currentControlId) {
+    const { data: current } = await fluxion
+      .from('controls')
+      .select('id, template_id')
+      .eq('organization_id', params.organizationId)
+      .eq('id', params.currentControlId)
+      .maybeSingle();
+
+    if (current && current.template_id === null) {
+      const { error: updateError } = await fluxion
+        .from('controls')
+        .update({
+          title: params.title,
+          description: params.description,
+          ...(params.ownerId ? { owner_id: params.ownerId } : {}),
+        })
+        .eq('id', current.id);
+
+      if (updateError) return { error: updateError.message };
+      return { controlId: current.id as string, controlResolution: 'linked' as const };
+    }
+  }
+
+  const { data: createdControl, error: createError } = await fluxion
+    .from('controls')
+    .insert({
+      organization_id: params.organizationId,
+      system_id: params.aiSystemId,
+      template_id: null,
+      title: params.title,
+      description: params.description,
+      status: 'planned',
+      owner_id: params.ownerId,
+      notes: 'Control propio creado desde el plan de tratamiento FMEA.',
+    })
+    .select('id')
+    .single();
+
+  if (createError || !createdControl) {
+    return { error: createError?.message ?? 'No se pudo crear el control propio.' };
+  }
+
+  return { controlId: createdControl.id as string, controlResolution: 'created' as const };
+}
+
 async function calculateCurrentPlanProjectedZone(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fluxion: any;
@@ -355,6 +422,28 @@ export async function saveTreatmentPlanBatchDraft(input: SaveTreatmentPlanBatchD
         .maybeSingle();
 
       controlId = existingControl?.id ?? null;
+    } else if (actionInput.option === 'mitigar' && actionInput.customControlTitle?.trim() && existingAction.control_id) {
+      // Control propio ya creado: se conserva y se actualiza su texto. Si aún
+      // no existe, se crea al guardar la decisión (igual que con las plantillas).
+      const { data: currentControl } = await fluxion
+        .from('controls')
+        .select('id, template_id')
+        .eq('organization_id', membership.organization_id)
+        .eq('id', existingAction.control_id)
+        .maybeSingle();
+
+      if (currentControl && currentControl.template_id === null) {
+        await fluxion
+          .from('controls')
+          .update({
+            title: actionInput.customControlTitle.trim(),
+            description: actionInput.customControlDescription?.trim() || null,
+          })
+          .eq('id', currentControl.id);
+        controlId = currentControl.id;
+      } else {
+        controlId = null;
+      }
     }
 
     const { error: updateError } = await fluxion
@@ -450,8 +539,13 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
   }
 
   if (input.option === 'mitigar') {
-    if (!input.controlTemplateId) {
-      return { error: 'Selecciona un control sugerido para la acción de mitigación.' };
+    const customTitle = input.customControlTitle?.trim() ?? '';
+    if (!input.controlTemplateId && customTitle.length < CUSTOM_CONTROL_MIN_TITLE) {
+      return {
+        error: input.customControlTitle !== null
+          ? `El control propio necesita un título de al menos ${CUSTOM_CONTROL_MIN_TITLE} caracteres.`
+          : 'Selecciona un control sugerido o define un control propio para la acción de mitigación.',
+      };
     }
 
     if (typeof input.sResidualTarget !== 'number') {
@@ -505,6 +599,22 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
       ownerId: input.ownerId,
       controlTemplateId: input.controlTemplateId,
       option: input.option,
+    });
+
+    if ('error' in controlResult) {
+      return { error: controlResult.error };
+    }
+
+    controlId = controlResult.controlId ?? null;
+    controlResolution = controlResult.controlResolution ?? null;
+  } else if (input.option === 'mitigar' && input.customControlTitle?.trim()) {
+    const controlResult = await upsertCustomMitigationControl({
+      organizationId: membership.organization_id,
+      aiSystemId: input.aiSystemId,
+      ownerId: input.ownerId,
+      currentControlId: action.control_id,
+      title: input.customControlTitle.trim(),
+      description: input.customControlDescription?.trim() || null,
     });
 
     if ('error' in controlResult) {

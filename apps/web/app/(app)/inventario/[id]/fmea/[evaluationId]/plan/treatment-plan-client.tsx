@@ -284,6 +284,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             justification: action.justification,
             sResidualTarget: action.s_residual_target,
             controlTemplateId: action.control_template_id,
+            customControlTitle: action.control_template_id ? null : action.custom_control_title,
+            customControlDescription: action.control_template_id ? null : action.custom_control_description,
             reviewDueDate: action.review_due_date,
           })),
         });
@@ -396,6 +398,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
           ? current.s_residual_target ?? Math.max(current.s_actual_at_creation - 2, 1)
           : null,
       control_template_id: option === 'mitigar' ? current.control_template_id : null,
+      custom_control_title: option === 'mitigar' ? current.custom_control_title : null,
+      custom_control_description: option === 'mitigar' ? current.custom_control_description : null,
       control_id: option === 'mitigar' ? current.control_id : null,
       review_due_date: option === 'aceptar' ? current.review_due_date : null,
     }));
@@ -441,6 +445,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         justification: action.justification,
         sResidualTarget: action.s_residual_target,
         controlTemplateId: action.control_template_id,
+        customControlTitle: action.control_template_id ? null : action.custom_control_title,
+        customControlDescription: action.control_template_id ? null : action.custom_control_description,
         reviewDueDate: action.review_due_date,
       });
 

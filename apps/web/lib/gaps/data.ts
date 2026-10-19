@@ -99,7 +99,9 @@ type GapFailureModeCatalogRow = {
 type GapControlRow = {
   id: string
   system_id: string | null
-  template_id: string
+  /** Nulo en los controles propios (sin plantilla del catálogo). */
+  template_id: string | null
+  title: string | null
   status: string
   compliance_score: number | null
   owner_id: string | null
@@ -108,7 +110,7 @@ type GapControlRow = {
 type GapControlTemplateRow = {
   id: string
   code: string
-  name: string
+  title: string
 }
 
 type GapProfileRow = {
@@ -402,7 +404,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
           .in('plan_id', latestPlanIds),
     fluxion
       .from('controls')
-      .select('id, system_id, template_id, status, compliance_score, owner_id')
+      .select('id, system_id, template_id, title, status, compliance_score, owner_id')
       .eq('organization_id', organizationId),
   ])
 
@@ -424,7 +426,9 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
 
 
   const failureModeIds = Array.from(new Set(fmeaItems.map((row) => row.failure_mode_id)))
-  const controlTemplateIds = Array.from(new Set(controls.map((row) => row.template_id)))
+  const controlTemplateIds = Array.from(
+    new Set(controls.map((row) => row.template_id).filter((id): id is string => typeof id === 'string'))
+  )
   const profileIds = Array.from(
     new Set(
       [
@@ -448,7 +452,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       ? { data: [], error: null }
       : compliance
           .from('control_templates')
-          .select('id, code, name')
+          .select('id, code, title')
           .in('id', controlTemplateIds),
     profileIds.length === 0
       ? { data: [], error: null }
@@ -460,6 +464,11 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   ])
 
   const failureModes = (failureModesResult.data ?? []) as GapFailureModeCatalogRow[]
+  // Antes la consulta pedía una columna inexistente y el error se perdía: las
+  // brechas de control salían sin nombre de control. Se registra si vuelve a pasar.
+  if (controlTemplatesResult.error) {
+    console.error('[gaps] no se pudieron cargar las plantillas de control:', controlTemplatesResult.error.message)
+  }
   const controlTemplates = (controlTemplatesResult.data ?? []) as GapControlTemplateRow[]
   const profiles = (profilesResult.data ?? []) as GapProfileRow[]
 
@@ -670,8 +679,10 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       system_domain: system.domain,
       aiact_risk_level: system.aiact_risk_level,
       title: template
-        ? `${template.code} · ${template.name}`
-        : failureMode
+        ? `${template.code} · ${template.title}`
+        : control?.title
+          ? `Control propio · ${control.title}`
+          : failureMode
           ? `Mitigación pendiente · ${failureMode.code}`
           : 'Control de mitigación pendiente',
       meta: `${getSystemCode(system)} · ${failureMode?.code ?? 'Control'} · ${ownerName ?? 'Sin owner'}`,

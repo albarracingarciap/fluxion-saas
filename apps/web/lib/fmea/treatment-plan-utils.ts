@@ -82,6 +82,8 @@ export function getComparableActionSignature(action: EditableTreatmentAction) {
     id: action.id,
     option: action.option,
     control_template_id: action.control_template_id,
+    custom_control_title: action.custom_control_title ?? null,
+    custom_control_description: action.custom_control_description ?? null,
     control_id: action.control_id,
     s_residual_target: action.s_residual_target,
     justification: action.justification ?? '',

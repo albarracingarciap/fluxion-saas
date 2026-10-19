@@ -528,9 +528,9 @@ Para cada [acción de tratamiento](../glosario.md#acción-de-tratamiento) se eli
 
 Se guarda con **Guardar decisión** o con el guardado automático (30 s).
 
-> **⚠ GAP-15 · No se puede mitigar.** La lista de controles sugeridos sale vacía por un error de consulta,
-> y sin control no se puede elegir Mitigar ni crear un control libre (`R1`, `R9`). En la práctica, los
-> modos solo se pueden aceptar, transferir, evitar o diferir, y los de severidad 9 no se pueden aceptar.
+> **✔ GAP-15 · Resuelto en B02** ([registro de cambios](../producto/registro-de-cambios.md)). La lista de
+> controles sugeridos salía vacía por un error de consulta y no se podía crear un control libre (`R1`,
+> `R9`). Ahora se muestran los sugeridos y se puede definir un **Control propio**.
 
 > **⚠ GAP-16 · «Guardar borrador» no guarda las decisiones** aunque la vista las marque como guardadas
 > (`R7`). Hay que usar **Guardar decisión**.
@@ -941,7 +941,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 
 | Id | Fase | Gap | Efecto | Ref. |
 |---|---|---|---|---|
-| GAP-15 | 5 | No se puede mitigar: controles sugeridos vacíos | Corta | `R1`, `R9` |
+| GAP-15 | 5 | ✔ Resuelto en B02: no se podía mitigar (controles sugeridos vacíos) | — | `R1`, `R9` |
 | GAP-18 | 5 | Las acciones no se pueden cerrar ni registrar residual (no hay tareas) | Corta | `R2` |
 | GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
 | GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |

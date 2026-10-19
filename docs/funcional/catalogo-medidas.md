@@ -73,8 +73,6 @@ Sin resultados: «No se encontraron medidas de control».
 > - **Proceso y Formación:** la vista las ofrece, pero ninguna medida las usa.
 
 > TODO: confirmar varios usos del catálogo de medidas.
-> - **Medidas sugeridas:** las sugerencias de la evaluación FMEA, del plan de tratamiento y de las
->   brechas piden a la base de datos un dato que no existe. Es probable que no aparezca ninguna.
 > - **Medidas inactivas:** desactivar una medida solo la oculta al relacionarla con modos de fallo; sigue
 >   apareciendo en las sugerencias.
 
