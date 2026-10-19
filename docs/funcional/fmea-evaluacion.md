@@ -1,0 +1,252 @@
+---
+id: FUN-FMEA-EVALUAR
+titulo: Evaluación FMEA
+tipo: funcional
+modulo: analisis-modos-de-fallo
+audiencia: tecnica
+version: 0.1
+fuente:
+  - apps/web/app/(app)/inventario/[id]/fmea/page.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/page.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/familias-panel.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/actions.ts
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/exportar/route.ts
+  - apps/web/lib/fmea/domain.ts
+  - apps/web/lib/fmea/data.ts
+  - apps/web/lib/fmea/treatment-plan.ts
+  - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
+---
+
+# Evaluación FMEA
+
+Pantalla en la que se evalúan los modos de fallo priorizados de un sistema: ocurrencia, detectabilidad
+y severidad, con justificación y segunda revisión cuando se exigen. Calcula la
+[zona de riesgo](../glosario.md#zona-de-riesgo) y, al enviarla, crea el plan de tratamiento.
+
+## Propósito
+
+Realizar el [análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) de un
+sistema de forma trazable y obtener las acciones que deben tratarse.
+
+## Acceso y permisos
+
+- **Ruta de entrada:** `/inventario/[id]/fmea`.
+  - Reutiliza la evaluación en curso o crea una nueva.
+  - Después redirige a `…/fmea/[evaluationId]/evaluar` o, si ya hay plan, al plan.
+  - Con `?item=` abre ese ítem.
+- **Navegación:**
+  - **Eval. riesgos** en la [Ficha del sistema](ficha-sistema.md);
+  - [Evaluaciones](evaluaciones.md);
+  - [Dashboard](dashboard.md);
+  - brechas de control;
+  - tareas delegadas desde un modo.
+- **Disponibilidad:** Core.
+
+| Rol | Ver | Acciones permitidas |
+|---|---|---|
+| Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Evaluar, guardar, enviar a revisión |
+| DPO | Ídem | Además, resolver segundas revisiones (no siendo el evaluador) |
+| Directivo, Auditor, Lector | Sí, con los botones visibles | La base de datos rechaza los cambios |
+
+> **Pendiente de definir.** Qué roles pueden evaluar y resolver segundas revisiones. Hoy la segunda revisión
+> solo la puede resolver el DPO, porque el permiso se comprueba contra roles que ya no existen.
+
+### Al entrar en el FMEA
+
+| Situación | Resultado |
+|---|---|
+| El sistema no tiene modos activados | «Activa antes los modos de fallo» y **Volver al sistema** |
+| No hay modos priorizados | «Todavía no hay una cola priorizada para este sistema…» |
+| Todos los priorizados son de negocio | «Los modos priorizados de este sistema son todos de riesgo de negocio, que no forman parte del FMEA regulatorio.» |
+| Hay una evaluación en borrador o en revisión | Se reutiliza |
+| En otro caso | Se crea una evaluación nueva (versión siguiente) con un ítem por modo priorizado. Historial «Evaluación FMEA iniciada» |
+
+## Campos
+
+### Cabecera e indicadores
+
+- **Identificación:** nombre del sistema, código, «Evaluación FMEA · Versión N».
+- **Estado de guardado:** «Guardando…», «Cambios pendientes» o «Borrador sincronizado».
+- **Zona activa:**
+  - Zona I · requiere escalado;
+  - Zona II · revisión prioritaria;
+  - Zona III · seguimiento;
+  - Zona IV · estable.
+- **Indicadores:** Evaluados, Pendientes, Pospuestos, 2ª revisión, S_actual = 9, Tareas delegadas y
+  [Suelo AI Act](../glosario.md#suelo-ai-act).
+
+### Mapa de calor O × D_real
+
+Plegable. Rejilla de 5 × 5 con el número de modos evaluados en cada combinación, coloreada según la
+severidad máxima: bajo, moderado, medio, alto, crítico.
+
+### Estimación por familia
+
+Panel «Estimación por familia · N de M». Permite valorar a la vez todos los modos de una
+[familia](../glosario.md#estimación-por-familia).
+
+| Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
+|---|---|---|---|---|
+| **Ocurrencia (O)** | botones 1-5 | Sí | Muy improbable · Improbable · Posible · Probable · Casi seguro. Por defecto 3 | `fmea_family_estimates.o_value` |
+| **Detección (D)** | botones 1-5 | Sí | Se detecta siempre · casi siempre · Detección parcial · Difícil de detectar · No se detecta | `d_value` |
+| **Justificación** | texto largo | Sí | Mínimo 50 caracteres. Sustituye a la de cada modo de la familia | `justification` |
+
+- **Cálculo:** cada modo cubierto queda confirmado con la ocurrencia y la detección máximas de sus
+  familias y la severidad sugerida.
+- **Retirar la estimación:** los modos vuelven a pendiente.
+
+> TODO: confirmar el tratamiento de los modos ajustados a mano. La vista dice que la estimación por
+> familia no los toca, pero ningún ajuste individual queda marcado como manual: aplicar o retirar una
+> familia sobrescribe también los modos ya confirmados uno a uno.
+
+### Lista de modos
+
+**Filtros:**
+- **Estado:** Todos, Pendientes, Evaluados, Pospuestos, 2ª revisión, S ≥ 8 (por severidad por defecto).
+- **[Dimensión](../glosario.md#dimensión-de-riesgo).**
+- **Familia causal.**
+- **Búsqueda:** por código o nombre.
+
+Paginación de 20, agrupada por dimensión.
+
+| Columna | Descripción y valores | Origen (`tabla.columna`) |
+|---|---|---|
+| Código y nombre | — | `compliance.failure_modes.code`, `name` |
+| Estado | Pendiente · Confirmado · Pospuesto | `fmea_items.status` |
+| Dimensión | — | `failure_modes.dimension_id` |
+| **def** | [Severidad por defecto](../glosario.md#severidad-por-defecto-s_default) | `fmea_items.s_default_frozen` |
+| **act** | [Severidad actual](../glosario.md#severidad-actual-s_actual) confirmada, o la sugerida | `s_actual` |
+| Tarea | Estado de la tarea delegada | `tasks.status` |
+
+### Editor del modo
+
+| Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
+|---|---|---|---|---|
+| Criterios R·I·D·E | solo lectura | — | [Criterios R.I.D.E.](../glosario.md#criterios-ride) del catálogo | `compliance.failure_modes` |
+| **O · Ocurrencia en este sistema** | deslizador 1-5 | Sí | Por defecto 3. Improbable (1-2), Moderado (3), Probable (4-5) | `fmea_items.o_value` |
+| **D_real · Detectabilidad real** | deslizador 1-5 | Sí | Por defecto 3. Detectable (1-2), Moderado (3), Difícil de detectar (4-5) | `d_real_value` |
+| **S_actual sugerido** | calculado | — | Ver regla. Con 9: «⚠ S_actual = 9 activa Zona I y bloquea el despliegue hasta revisión.» | — |
+| **Ajustar S_actual manualmente** | número 2-9 | No | Sustituye al sugerido | `s_actual` |
+| **Justificación** | texto largo | Según regla | Mínimo 50 caracteres cuando es obligatoria | `narrative_justification` |
+
+**Regla de severidad sugerida** (entre 2 y 9):
+
+| Ocurrencia y detectabilidad | Severidad sugerida |
+|---|---|
+| O ≤ 2 y D ≤ 2 | Por defecto − 3 |
+| O ≤ 2 y D = 3 | Por defecto − 2 |
+| O ≤ 2 y D ≥ 4 | Por defecto − 1 |
+| O ≥ 4 | Por defecto |
+| Resto | Por defecto − 1 |
+
+**La justificación es obligatoria si se cumple alguna de estas condiciones:**
+- la severidad actual difiere 2 puntos o más de la severidad por defecto;
+- se sube a 9;
+- baja de 5 un modo que partía de 7 o más;
+- el modo ya estaba confirmado con texto.
+
+**Segunda revisión.** Se exige si la severidad se ajusta a mano y baja 3 puntos o más respecto a la
+severidad por defecto. Estados posibles:
+- Sin 2ª revisión;
+- 2ª revisión pendiente;
+- 2ª revisión aprobada;
+- 2ª revisión rechazada.
+
+Solo la puede resolver un usuario distinto del evaluador.
+
+**Contexto FMEA** (panel lateral):
+- descripción y clasificación del modo;
+- contexto AI Act del sistema;
+- controles relacionados del catálogo, con su estado en el sistema;
+- notas por dimensión;
+- historial de cambios del ítem.
+
+### Exportación
+
+**Exportar PDF** abre una página imprimible (HTML, no un fichero PDF). Contiene:
+- metadatos de la evaluación;
+- una tabla por dimensión con severidad por defecto, O, D, severidad actual, estado y justificación.
+
+## Acciones
+
+| Acción | Quién | Qué hace | Efectos |
+|---|---|---|---|
+| **Confirmar S_actual** | Roles con permiso | `saveFmeaItem`: confirma el ítem | Historial «Modo de fallo evaluado» y del ítem. Si se reconfirma, la segunda revisión vuelve a empezar |
+| **Posponer** | Ídem | Pospone el ítem y borra sus valores | Historial «Modo de fallo pospuesto» |
+| Confirmación con aviso de propagación | Ídem | Si la severidad es 4 o más y el modo puede causar o amplificar otros modos activos, muestra «Advertencia de propagación causal» con la lista | — |
+| **Guardar borrador** y guardado automático (2,5 s tras cada cambio) | Ídem | `saveFmeaDraft` | Guarda todos los ítems. Historial «Borrador FMEA guardado» |
+| **Delegar como tarea** | Ídem | Crea una [tarea](../glosario.md#tarea) con título, responsable, prioridad (Media por defecto) y fecha | Notifica al asignado |
+| **Aprobar 2ª revisión** / **Solicitar revisión de nuevo** | DPO no evaluador | `resolveFmeaSecondReview` | El rechazo exige una nota de al menos 50 caracteres. Historial «Segunda revisión aprobada» o «rechazada» |
+| **Aplicar a N modos** / **Retirar estimación** | Roles con permiso | Estimación por familia | Recarga la página |
+| **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
+| **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
+| **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) | — |
+
+**Envío a revisión:**
+- **Sin candidatos a tratamiento:** la evaluación pasa a «En revisión» y se vuelve a la ficha.
+- **Con candidatos** (modos con severidad 7 o más, o que pasaron segunda revisión): se crea el
+  [plan de tratamiento](plan-de-tratamiento.md) en borrador con una acción por candidato. El plan lleva:
+  - código PTR-año-nnn;
+  - zona;
+  - nivel de aprobación;
+  - aprobador asignado;
+  - fecha límite (30, 90, 180 o 365 días);
+  - cadencia de revisión.
+- **Prioridades:** se recalculan con la severidad residual.
+- **Navegación:** se abre el plan.
+
+> TODO: confirmar el ciclo de vida de la evaluación.
+> - **Vuelta a borrador:** guardar, también el guardado automático, devuelve a «Borrador» una evaluación
+>   ya enviada y convierte en evaluador a quien guarda.
+> - **Sin aprobación:** ningún flujo pasa la evaluación a «Aprobada» ni a «Sustituida», de modo que nunca
+>   se crea una versión 2 y la vista nunca queda en solo lectura.
+
+> TODO: confirmar el guardado automático de ítems pendientes. Guarda O = 3, D = 3 y la severidad sugerida
+> en los ítems todavía pendientes, y esos valores aparecen después en Evaluaciones y en la exportación.
+
+## Validaciones
+
+| Situación | Mensaje |
+|---|---|
+| Valores fuera de rango al confirmar | «Para confirmar un ítem necesitas O, D real y S actual válidos.» |
+| Falta justificación | «La justificación es obligatoria y debe tener al menos 50 caracteres.» |
+| Envío con ítems sin resolver | «La evaluación todavía no puede enviarse: quedan N pendiente(s) y M pospuesto(s) por resolver.» |
+| Envío con justificaciones pendientes | «Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.» |
+| Envío con segundas revisiones pendientes | «Quedan N modo(s) pendientes de 2ª revisión antes del envío.» |
+| Sin aprobador para la zona | «No se encontró un aprobador disponible para esta zona FMEA. Revisa los roles de los miembros del equipo.» |
+| Segunda revisión por el evaluador | «La segunda revisión debe realizarla un usuario distinto del evaluador principal.» |
+| Segunda revisión sin permiso | «No tienes permisos para realizar la segunda revisión.» |
+| Estimación por familia con cambios sin guardar | «Tienes cambios sin guardar en la lista de modos. Guárdalos antes de aplicar una estimación de familia.» |
+| Tarea ya delegada | «Ya existe una tarea delegada para este modo de fallo.» |
+
+El botón de envío se deshabilita mientras quedan pendientes, pospuestos o segundas revisiones, y lo
+explica en su ayuda.
+
+## Estados
+
+```mermaid
+stateDiagram-v2
+  state Evaluación {
+    [*] --> Borrador
+    Borrador --> En_revisión: enviar
+    En_revisión --> Borrador: guardar
+  }
+  state Ítem {
+    [*] --> Pendiente
+    Pendiente --> Confirmado: confirmar o familia
+    Pendiente --> Pospuesto: posponer
+    Confirmado --> Pospuesto: posponer
+    Pospuesto --> Confirmado: confirmar
+    Confirmado --> Pendiente: restablecer
+  }
+```
+
+Los estados «Aprobada» y «Sustituida» existen, pero ningún flujo los asigna.
+
+## Vistas relacionadas
+
+- [Ficha del sistema](ficha-sistema.md): activación y priorización de modos de fallo.
+- [Plan de tratamiento](plan-de-tratamiento.md): se crea al enviar.
+- [Comparativa FMEA](fmea-comparativa.md), [Evaluaciones](evaluaciones.md).
+- Negocio: [Análisis de modos de fallo (FMEA)](../negocio/analisis-modos-de-fallo.md).
