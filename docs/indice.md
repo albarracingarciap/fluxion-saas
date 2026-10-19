@@ -184,6 +184,7 @@ de cada uno está en [`_mapa.md`](_mapa.md).
 
 - [Cuestionario preliminar: reglas de clasificación AI Act y volcado al alta](producto/cuestionario-preliminar-reglas.md)
 - [Plan de resolución de gaps y simplificación del flujo de evaluación](producto/plan-resolucion-gaps.md)
+- [Registro de cambios del plan de resolución de gaps](producto/registro-de-cambios.md)
 
 ### Ficheros de control (equipo de documentación)
 
