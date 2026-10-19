@@ -98,20 +98,14 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
 | **Decisión de tratamiento** | 5 botones | Sí | Mitigar · Aceptar (no disponible con severidad 9) · Transferir · Evitar · Diferir | `option` |
-| **Controles sugeridos** | lista | Sí, en Mitigar | [Plantillas de control](../glosario.md#plantilla-de-control) asociadas al modo. Indica si el control ya existe en el sistema o se creará | `control_id` |
+| **Controles sugeridos** | lista | Sí, en Mitigar (uno de los sugeridos o un control propio) | [Plantillas de control](../glosario.md#plantilla-de-control) asociadas al modo. Indica si el control ya existe en el sistema o se creará | `control_id` |
+| **Control propio** | título y descripción | Título de 5 caracteres o más, si se elige | Control que no está en el catálogo. Se crea para el sistema al guardar la decisión; si la acción ya tenía uno, se actualiza | `controls.title`, `controls.description` (sin `template_id`) |
 | **S residual objetivo** | deslizador | Sí, en Mitigar | De 1 a la severidad actual − 1. Por defecto, la actual − 2 | `s_residual_target` |
 | **Justificación y trazabilidad** | texto largo | Sí, salvo en Mitigar | Aceptar: 100 caracteres mínimo. Transferir, Evitar y Diferir: 50. Diferir más de 90 días: 100 | `justification` |
 | **Responsable** | selector | Sí | Miembros de la organización | `owner_id` |
 | **Fecha objetivo** | fecha | Sí | No puede superar la fecha límite del plan | `due_date` |
 | **Fecha de revisión** | fecha | Sí, en Aceptar | — | `review_due_date` |
 | **Evidencia** | fichero (máx. 20 MB) o URL | No | Con la evidencia esperada según la opción. Estado: Pendiente de validar, Validada, Rechazada | `treatment_actions.evidence_id` → `evidences` |
-
-> TODO: confirmar que se muestran controles sugeridos. La consulta que los obtiene pide un dato de las
-> medidas que no existe en el catálogo, y es probable que la lista salga vacía. Ver
-> [Catálogo de medidas](catalogo-medidas.md).
-
-> TODO: confirmar la mitigación sin control sugerido. Si el modo no tiene controles en el catálogo, no se
-> puede mitigar desde esta pantalla, porque no hay forma de crear un control libre.
 
 > TODO: confirmar la fecha de revisión de «Diferir». La opción se considera revisable, pero solo «Aceptar»
 > guarda fecha de revisión, así que las acciones pospuestas nunca entran en
@@ -158,7 +152,8 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Sin opción elegida | «Selecciona una opción de tratamiento antes de guardar la acción.» |
 | Sin responsable / sin fecha | «Debes asignar un responsable para esta acción.» / «Debes definir una fecha objetivo para esta acción.» |
 | Fecha posterior al plan | «La fecha objetivo no puede superar la fecha límite global del plan.» |
-| Mitigar sin control | «Selecciona un control sugerido para la acción de mitigación.» |
+| Mitigar sin control | «Selecciona un control sugerido o define un control propio para la acción de mitigación.» |
+| Control propio con título corto | «El control propio necesita un título de al menos 5 caracteres.» |
 | Objetivo residual no menor que la actual | «El S residual objetivo debe ser menor que el S actual del modo de fallo.» |
 | Aceptar con severidad 9 | «Los modos con S_actual = 9 no pueden marcarse como aceptados.» |
 | Aceptar con justificación corta o sin fecha de revisión | «La aceptación requiere una justificación de al menos 100 caracteres.» / «La aceptación requiere una fecha de revisión obligatoria.» |

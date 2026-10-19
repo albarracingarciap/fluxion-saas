@@ -63,9 +63,6 @@ Sin resultados: «No se encontraron correspondencias».
 Cada pareja modo-medida solo puede existir una vez. Al editar solo se puede cambiar si es primaria.
 
 > TODO: confirmar varios usos de esta relación.
-> - **Sugerencias de medidas:** en la [Evaluación FMEA](fmea-evaluacion.md) y el
->   [Plan de tratamiento](plan-de-tratamiento.md) es probable que no aparezcan, porque la consulta pide
->   un dato de las medidas que no existe.
 > - **Mitigación primaria:** no se usa fuera de esta vista.
 > - **Filtro:** solo actúa sobre la página cargada.
 > - **Medida inactiva:** al editar una relación con una medida inactiva, la medida aparece vacía.

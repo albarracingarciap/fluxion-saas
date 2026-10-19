@@ -495,7 +495,7 @@ export async function buildFmeaEvaluationData(params: {
     .select(`
       failure_mode_id,
       control_template_id,
-      control_templates(id, code, name, description, area)
+      control_templates(id, code, title, description, area)
     `)
     .in('failure_mode_id', failureModeIds);
 
@@ -573,7 +573,7 @@ export async function buildFmeaEvaluationData(params: {
     bucket.push({
       control_template_id: controlTemplate.id,
       control_code: controlTemplate.code,
-      control_name: controlTemplate.name,
+      control_name: controlTemplate.title,
       control_description: controlTemplate.description,
       control_area: controlTemplate.area,
       status: controlState?.status ?? null,

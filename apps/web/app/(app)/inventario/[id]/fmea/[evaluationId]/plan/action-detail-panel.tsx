@@ -42,6 +42,7 @@ export function ActionDetailPanel({
   onSave,
   onTaskStatusChange,
 }: Props) {
+  const customControlSelected = !action.control_template_id && action.custom_control_title !== null
   return (
     <div className="border-t border-ltb bg-ltbg p-4 space-y-4">
       {action.task_id && action.option !== 'aceptar' && (
@@ -135,8 +136,8 @@ export function ActionDetailPanel({
           </div>
           <div className="space-y-2">
             {action.control_refs.length === 0 && (
-              <div className="rounded-[8px] border border-orb bg-ordim px-4 py-3 font-sora text-[13px] text-or">
-                Este modo no tiene controles sugeridos en el catálogo actual. Con el schema vigente no podemos crear un control manual libre desde esta pantalla: para mitigar aquí necesitamos un control mapeado o ampliar primero los mappings del catálogo.
+              <div className="rounded-[8px] border border-ltb bg-ltbg px-4 py-3 font-sora text-[12.5px] text-ltt2">
+                Este modo no tiene controles sugeridos en el catálogo. Define un control propio para mitigarlo.
               </div>
             )}
 
@@ -149,6 +150,8 @@ export function ActionDetailPanel({
                   onPatch((current) => ({
                     ...current,
                     control_template_id: control.control_template_id,
+                    custom_control_title: null,
+                    custom_control_description: null,
                   }))
                 }
                 className={`w-full rounded-[8px] border px-4 py-3 text-left transition-colors ${
@@ -196,6 +199,57 @@ export function ActionDetailPanel({
                 )}
               </button>
             ))}
+
+            {/* Control propio: para modos sin plantillas en el catálogo o cuando ninguna encaja */}
+            <div
+              className={`rounded-[8px] border px-4 py-3 transition-colors ${
+                customControlSelected ? 'border-cyan-border bg-cyan-dim' : 'border-ltb bg-ltbg'
+              }`}
+            >
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() =>
+                  onPatch((current) => ({
+                    ...current,
+                    control_template_id: null,
+                    custom_control_title: current.custom_control_title ?? '',
+                    custom_control_description: current.custom_control_description ?? '',
+                  }))
+                }
+                className="w-full text-left disabled:opacity-70"
+              >
+                <div className="font-sora text-[13px] font-semibold text-ltt">Control propio</div>
+                <div className="font-sora text-[12px] text-ltt2 mt-1">
+                  Un control que no está en el catálogo. Se creará para este sistema al guardar la decisión.
+                </div>
+              </button>
+              {customControlSelected && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="text"
+                    disabled={readOnly}
+                    value={action.custom_control_title ?? ''}
+                    onChange={(e) =>
+                      onPatch((current) => ({ ...current, custom_control_title: e.target.value }))
+                    }
+                    placeholder="Título del control (mínimo 5 caracteres)"
+                    maxLength={200}
+                    className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border disabled:opacity-70"
+                  />
+                  <textarea
+                    disabled={readOnly}
+                    value={action.custom_control_description ?? ''}
+                    onChange={(e) =>
+                      onPatch((current) => ({ ...current, custom_control_description: e.target.value }))
+                    }
+                    placeholder="Descripción: qué hace el control y cómo se comprueba que funciona"
+                    rows={3}
+                    className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[12.5px] text-ltt outline-none focus:border-cyan-border disabled:opacity-70"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {controlResolution && (

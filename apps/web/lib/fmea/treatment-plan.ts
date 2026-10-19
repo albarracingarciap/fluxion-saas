@@ -198,6 +198,9 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   item_status: 'pending' | 'evaluated' | 'skipped';
   requires_second_review: boolean;
   control_template_id: string | null;
+  /** Título del control propio (sin plantilla). Nulo si el control es del catálogo o no hay control. */
+  custom_control_title: string | null;
+  custom_control_description: string | null;
   control_refs: TreatmentPlanControlSuggestion[];
   task_status: string | null;
   evidence_title: string | null;
@@ -666,7 +669,7 @@ export async function buildTreatmentPlanData(params: {
           .select(`
             failure_mode_id,
             control_template_id,
-            control_templates(id, code, name, description, area)
+            control_templates(id, code, title, description, area)
           `)
           .in('failure_mode_id', failureModeIds);
 
@@ -704,7 +707,7 @@ export async function buildTreatmentPlanData(params: {
     current.push({
       control_template_id: template.id,
       control_code: template.code,
-      control_name: template.name,
+      control_name: template.title,
       control_description: template.description,
       control_area: template.area,
       existing_control_id: existing?.id ?? null,
@@ -773,6 +776,29 @@ export async function buildTreatmentPlanData(params: {
     }
   }
 
+  // Controles propios (sin plantilla) de las acciones: no salen en la consulta
+  // por plantillas de arriba.
+  const customControlIds = Array.from(new Set(
+    actions
+      .map((a) => a.control_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0 && !controlsById.has(id))
+  ));
+  const customControlsById = new Map<string, { title: string | null; description: string | null }>();
+  if (customControlIds.length > 0) {
+    const { data: customRows } = await fluxion
+      .from('controls')
+      .select('id, template_id, title, description')
+      .eq('organization_id', params.organizationId)
+      .in('id', customControlIds);
+    for (const row of (customRows ?? []) as Array<Record<string, unknown>>) {
+      if (row.template_id !== null) continue;
+      customControlsById.set(row.id as string, {
+        title: (row.title as string | null) ?? null,
+        description: (row.description as string | null) ?? null,
+      });
+    }
+  }
+
   const actionViews: TreatmentPlanActionView[] = actions
     .map((action) => {
       const item = fmeaItemMap.get(action.fmea_item_id);
@@ -807,6 +833,8 @@ export async function buildTreatmentPlanData(params: {
         item_status: item.status,
         requires_second_review: item.requires_second_review,
         control_template_id: controlTemplateId,
+        custom_control_title: action.control_id ? (customControlsById.get(action.control_id)?.title ?? null) : null,
+        custom_control_description: action.control_id ? (customControlsById.get(action.control_id)?.description ?? null) : null,
         control_refs: refsByFailureMode.get(item.failure_mode_id) ?? [],
         task_status: action.task_id ? (taskStatusByTaskId.get(action.task_id) ?? null) : null,
         evidence_title: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.title ?? null) : null,

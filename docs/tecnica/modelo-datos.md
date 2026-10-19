@@ -170,7 +170,7 @@ erDiagram
 | `fluxion.treatment_plans` | [Plan de tratamiento](../glosario.md#plan-de-tratamiento) | Uno por evaluación; `status`, `zone_at_creation`, `zone_target`, `ai_act_floor`, `approval_level`, `deadline` | `00000000000001` |
 | `fluxion.treatment_actions` | [Acción de tratamiento](../glosario.md#acción-de-tratamiento) | Única por (plan, ítem); `option` ([opción de tratamiento](../glosario.md#opción-de-tratamiento)), `status`. CHECK: aceptar exige 100 caracteres de justificación y no se admite con severidad 9 | `00000000000001` |
 | `fluxion.treatment_action_events`, `treatment_action_reviews`, `treatment_plan_snapshots` | [Revisión periódica](../glosario.md#revisión-periódica), [instantánea](../glosario.md#instantánea) | Eventos de solo inserción; revisiones de acciones aceptadas o pospuestas; instantáneas en cada transición | `00000000000001` |
-| `fluxion.controls` | [Control](../glosario.md#control) | `template_id` → `control_templates`, `system_id`, `status` | `00000000000001` |
+| `fluxion.controls` | [Control](../glosario.md#control) | `template_id` → `control_templates` (nulo en los controles propios, que llevan `title` y `description`), `system_id`, `status` | `00000000000001`, `20261019090000` |
 | `fluxion.business_risk_assessments` | [Riesgo de negocio](../glosario.md#riesgo-de-negocio) | `probability` y `impact` (1-5), `exposure` (columna calculada), único por (sistema, modo) | `20260913090000` |
 
 Los triggers de `treatment_actions` crean y sincronizan la tarea asociada y recalculan la zona objetivo

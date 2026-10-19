@@ -28,7 +28,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B00a · Comprobaciones estáticas | Integrado en `main` | `fase0/b00-comprobaciones` | 2026-10-19 | No |
 | B00b · Tests de la lógica central | Pendiente (antes de la fase 1) | — | — | — |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
-| B02 · Controles sugeridos y control libre | Pendiente | — | — | — |
+| B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Pendiente | — | — | — |
 | B06 · Aviso al aprobador y bandeja visible | Pendiente | — | — | — |
 | B03 · Cierre de acciones sin depender de tareas | Pendiente | — | — | — |
@@ -36,7 +36,9 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 
 ## Migraciones pendientes de aplicar
 
-Ninguna.
+| Fichero | Bloque | Qué hace | Orden respecto al despliegue |
+|---|---|---|---|
+| `supabase/migrations/20261019090000_plan_control_libre.sql` | B02 | `controls.template_id` opcional; columnas `title` y `description`; restricción plantilla o título | **Antes** de desplegar B02: el plan de tratamiento y las brechas leen `controls.title` |
 
 ---
 
@@ -122,3 +124,43 @@ rastro con autor; los controles admiten propietario e historial. Elimina uno de 
 **Pendiente en el área.** Aplicar propuestas borra la justificación de los excluidos y la vista de
 impresión tiene textos fijos (`E3`); la vista Por sistema no usa los vínculos reales. La aprobación por
 Flujos de aprobación llega con B11.
+
+---
+
+## B02 · Controles sugeridos y control propio
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b02-controles` ·
+**Migración:** **sí**, `supabase/migrations/20261019090000_plan_control_libre.sql` (aplicar antes de desplegar)
+
+**Problema.**
+- Las tres consultas de controles sugeridos (evaluación FMEA, plan de tratamiento y brechas) pedían
+  `control_templates.name`, una columna que no existe (es `title`). La lista salía vacía, y en brechas el
+  error se perdía en silencio (`R1`).
+- Sin controles sugeridos no se podía elegir **Mitigar**, y tampoco había forma de crear un control que no
+  estuviera en el catálogo (`R9`). En la práctica, ningún modo de fallo se podía mitigar (GAP-15).
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `lib/fmea/data.ts`, `lib/fmea/treatment-plan.ts`, `lib/gaps/data.ts` | `name` → `title` en las consultas de plantillas de control |
+| `lib/gaps/data.ts` | Se registra el error si fallan las plantillas; las brechas de control de un control propio muestran «Control propio · {título}» |
+| `supabase/migrations/20261019090000_plan_control_libre.sql` | `controls.template_id` deja de ser obligatorio; columnas `title` y `description`; restricción `chk_controls_template_or_title` |
+| `plan/actions.ts` | `saveTreatmentActionDecision` acepta un control propio (`customControlTitle`, `customControlDescription`, título de 5 caracteres o más) y lo crea, o lo actualiza si la acción ya tenía uno. El autoguardado conserva y actualiza un control propio ya creado |
+| `lib/fmea/treatment-plan.ts`, `treatment-plan-utils.ts` | La acción incluye `custom_control_title` y `custom_control_description`, leídos de los controles sin plantilla |
+| `plan/action-detail-panel.tsx`, `plan/treatment-plan-client.tsx` | Opción **Control propio** (título y descripción) bajo los sugeridos, también cuando el modo no tiene sugerencias. Elegir un sugerido descarta el propio y al revés |
+| Documentación | `funcional/plan-de-tratamiento.md`, `funcional/catalogo-medidas.md`, `funcional/catalogo-modo-medida.md`, `tecnica/modelo-datos.md`, `funcional/flujo-completo-evaluacion.md` (GAP-15), `_incidencias.md` (`R1`, `R9`), `_pendientes.md` (102, 184, 177 y 181 en parte, y una fila nueva para el glosario) |
+
+**Coherencia.** Ninguna vista ni función de la base de datos usa `controls.template_id`. Los demás lectores
+de `controls` (sugerencias de la evaluación FMEA) filtran por plantilla, así que un control propio no
+aparece como sugerencia de otros modos, que es lo esperado. El envío del plan a aprobación sigue exigiendo
+`control_id` en las mitigaciones, lo cumplan con plantilla o con control propio.
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos en los ficheros cambiados;
+`check-server-actions.sh` correcto. No se ha probado contra la base de datos.
+
+**Qué mejora.** Se puede mitigar: con un control del catálogo (las sugerencias vuelven a aparecer) o con un
+control propio. Elimina el segundo de los cinco cortes del flujo (GAP-15) y la fricción F-08 del plan.
+
+**Pendiente.** Validar en el glosario el término «Control propio». El autoguardado no crea controles
+nuevos (ni de plantilla ni propios): se crean con **Guardar decisión**, como hasta ahora (ver B05, `R7`).
