@@ -106,7 +106,7 @@ export type SidebarOrgState = {
   // sidebar no consulta entitlements.
   showDiscoveries?: boolean
   pendingDiscoveries?: number
-  /** Aprobaciones aparece solo con el modulo `approvals` contratado. */
+  /** Aprobaciones: Core en todos los planes, el layout lo envía siempre a true. */
   showApprovals?: boolean
   /** Incidentes con plazo de notificación vivo (Art. 73). */
   openIncidentDeadlines?: number
@@ -367,8 +367,8 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
         }
       : null
 
-    // Aprobaciones solo con el modulo contratado, igual que Descubrimientos: sin
-    // el, la pantalla existe pero no la alimenta nada.
+    // Aprobaciones es Core (_inventario.md §14.2); se mantiene la bandera por si
+    // el layout necesita ocultarla en algún contexto.
     const approvalsChild: NavItem | null = orgState.showApprovals
       ? { label: 'Aprobaciones', href: '/aprobaciones', icon: <GitBranch size={15} /> }
       : null

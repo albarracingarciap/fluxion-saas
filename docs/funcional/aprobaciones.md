@@ -33,7 +33,7 @@ queda registrado a nombre de quien lo emite: es lo que convierte una aprobación
 ## Acceso y permisos
 
 - **Ruta:** `/aprobaciones`
-- **Menú:** **Aprobaciones**. Solo aparece si el módulo Flujos de aprobación está activado.
+- **Menú:** **Aprobaciones**. Aparece siempre: Flujos de aprobación es Core.
 - **Disponibilidad:** Core en todos los planes.
 
 | Rol | Ver | Acciones permitidas |
@@ -52,7 +52,6 @@ Una persona puede decidir un paso si:
   - tiene una delegación vigente, si el paso la admite.
 
 > **Pendiente de implementar.**
-> - Paso de Flujos de aprobación al Core. Hoy la entrada del menú depende de la activación del módulo.
 > - Solicitudes para la AISIA, los documentos, la Declaración de Aplicabilidad y las evidencias. Hoy solo
 >   los planes de tratamiento abren solicitudes, aunque las políticas se pueden configurar para los cinco
 >   tipos.

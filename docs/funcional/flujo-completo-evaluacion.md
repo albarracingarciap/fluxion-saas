@@ -216,13 +216,9 @@ documento funcional.
 - **Resultado:** cuenta creada y redirección al onboarding (o a **Inicio de sesión** si hay que confirmar
   el correo).
 
-> **⚠ GAP-01 · Aprobaciones no visible en una organización nueva.** La prueba automática no incluye
-> Flujos de aprobación, y la entrada **Aprobaciones** del menú solo aparece si ese módulo está activo.
-> Una organización nueva puede crear políticas en **Ajustes › Aprobaciones**, pero sus aprobadores no ven
-> la bandeja en el menú (sí por URL).
->
-> **Pendiente de implementar.** Paso de Flujos de aprobación al Core y entrada del menú siempre visible
-> (`_inventario.md` §14.2).
+> **✔ GAP-01 · Resuelto en B06** ([registro de cambios](../producto/registro-de-cambios.md)). La entrada
+> **Aprobaciones** del menú dependía de un módulo que la prueba automática no incluía. Flujos de aprobación
+> ya es Core y la bandeja aparece siempre.
 
 ### 2.2 Onboarding
 
@@ -309,8 +305,9 @@ flowchart LR
 > los otros cuatro tipos se pueden guardar, pero no se aplican: esos objetos se aprueban con su propio
 > cambio de estado (ver [Circuito de aprobaciones](#13-circuito-de-aprobaciones)).
 
-> **💡 Sugerencia.** Configurar al menos una política de plan de tratamiento antes de evaluar el primer
-> sistema. Sin ella, el aprobador lo elige la aplicación y no recibe ningún aviso (GAP-14).
+> **💡 Sugerencia.** Configurar políticas de plan de tratamiento para los niveles 2 y 3 antes de evaluar el
+> primer sistema: según DP-01 los aprueba un comité, que solo se puede expresar con una política. Sin ella,
+> la aplicación asigna el plan a un Responsable del SGAI.
 
 ### 3.4 Canales, conectores y API
 
@@ -575,14 +572,14 @@ sequenceDiagram
 |---|---|---|
 | Quién aprueba | Un Responsable del SGAI activo distinto de quien envía (B01). Sin ninguno, el envío se rechaza | Los pasos de la política: rol, persona o comité con quórum, con delegaciones |
 | Dónde se decide | En la propia vista del plan: **Aprobar plan** / **Devolver al autor** | En [Aprobaciones](aprobaciones.md) |
-| Aviso | Ninguno | Al aprobador de cada paso y al solicitante del resultado |
+| Aviso | Al aprobador asignado, en la app (B06) | Al aprobador de cada paso y al solicitante del resultado |
 | Segregación | Sí: el aprobador nunca es quien envía (B01) | Por defecto, quien solicita no puede aprobar |
 | Acta | Referencia de texto tecleada (obligatoria en nivel 3) | Generada en PDF si hay paso de comité |
 | Rastro | Instantánea y evento del plan | Decisiones inmutables y auditoría |
 
-> **⚠ GAP-14 · Aprobación sin aviso** (aprobador al azar resuelto en B01). Sin política, el aprobador es
-> ahora un Responsable del SGAI, pero sigue sin recibir aviso: tiene que descubrir el plan por su cuenta
-> (en **Planes de tratamiento** o en **Evaluaciones**).
+> **✔ GAP-14 · Resuelto en B01 y B06.** Sin política, el aprobador era cualquier miembro y no recibía
+> aviso. Ahora es un Responsable del SGAI distinto de quien envía y recibe el aviso en la app
+> «Aprobación pendiente: plan {código}», con enlace al plan.
 >
 > **Decidido (DP-01), pendiente de implementar.** Nivel 1: Responsable del SGAI · nivel 2: Comité de
 > Riesgos de IA · nivel 3: Revisión por la Dirección.
@@ -896,7 +893,7 @@ Resumen de todo lo que se aprueba en el recorrido:
 | Exclusión de obligación | 3 | Ninguno | Cualquier miembro | No | No | No | Obligación excluida |
 | Segunda revisión FMEA | 4 | Propio del FMEA | Responsable del SGAI distinto del evaluador (B01) | Sí | No | No | Permite enviar el FMEA |
 | Evaluación FMEA | 4 | Ninguno | — | — | — | — | Queda «En revisión» |
-| Plan de tratamiento (sin política) | 5 | Propio del plan | Responsable del SGAI asignado por la aplicación (B01) | Sí (B01) | **No** | Referencia de texto (nivel 3) | Plan aprobado |
+| Plan de tratamiento (sin política) | 5 | Propio del plan | Responsable del SGAI asignado por la aplicación (B01) | Sí (B01) | Sí, en la app (B06) | Referencia de texto (nivel 3) | Plan aprobado |
 | Plan de tratamiento (con política) | 5 | **Flujos de aprobación** | Pasos de la política | Sí, por defecto | Sí | PDF si hay comité | Plan aprobado; rechazo lo devuelve a borrador |
 | Revisión de aceptación | 5 | Propio del plan | Cualquier miembro | No | No (escalar tampoco) | No | Nueva fecha u opción |
 | AISIA | 6 | Propio | Administrador, Resp. SGAI, CAIO (solo en pantalla) | No | No | Referencia opcional | AISIA aprobada; controles A.5.2-A.5.5 |
@@ -950,7 +947,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-13 | 4 | Evaluación FMEA sin estado final y vuelve a borrador al guardar | Corta | `R3`, `R4`, `R5` |
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
-| GAP-14 | 5 | Plan sin política: sin aviso al aprobador (el aprobador al azar se resolvió en B01) | Debilita | — |
+| GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
 | GAP-17 | 5 | Cancelación, caducidad y avisos del circuito de aprobación | Debilita | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
 | GAP-22 | 6 | AISIA aprobada sin segregación ni acta; toca la Declaración aprobada | Debilita | — |
@@ -966,7 +963,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-21 | 5 | Revisiones de «Diferir» y escalados sin aviso | Debilita | `R8`, `R11` |
 | GAP-25 | 7 | Registro UE no cubre el Anexo VIII | Debilita | `E12`, `E13` |
 | GAP-06 | 1 | Declaración (Core) depende de la AISIA (módulo) | Debilita (futuro) | — |
-| GAP-01 | 0 | Bandeja de Aprobaciones oculta en una organización nueva | Fricción | — |
+| GAP-01 | 0 | ✔ Resuelto en B06: bandeja de Aprobaciones oculta en una organización nueva | — | — |
 | GAP-02 | 0 | El onboarding no prepara el gobierno | Fricción | — |
 | GAP-03 | 0 | Onboarding de invitados no guarda datos | Fricción | `A2` |
 | GAP-04 | 1 | Gobernanza en texto libre, sin uso | Fricción | `A11` |

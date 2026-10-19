@@ -1,8 +1,9 @@
 /**
  * Catálogo de módulos de Fluxion.
  *
- * El Core —inventario, clasificación, FMEA, gaps, evidencias, SoA, tareas— no
- * es un módulo: está siempre. Un módulo es una capacidad que se despliega
+ * El Core —inventario, clasificación, FMEA, gaps, evidencias, SoA, tareas y
+ * Flujos de aprobación— no es un módulo: está siempre. Flujos de aprobación
+ * salió de esta lista al pasar al Core en todos los planes (_inventario.md §14.2). Un módulo es una capacidad que se despliega
  * aparte, se contrata aparte y puede no estar.
  *
  * OJO: aparecer en esta lista no concede nada. Un módulo está activo para una
@@ -20,7 +21,6 @@ export const MODULE_KEYS = [
   'drift-monitor',
   'doc-engine',
   'hitl',
-  'approvals',
   'itsm',
 ] as const
 
@@ -96,13 +96,6 @@ export const MODULE_CATALOG: ReadonlyArray<{
     name: 'Auditoría de discordancias',
     group: 'Cumplimiento',
     desc: 'Registra por qué un humano rechaza la sugerencia de un sistema de IA.',
-    available: true,
-  },
-  {
-    key: 'approvals',
-    name: 'Flujos de aprobación',
-    group: 'Cumplimiento',
-    desc: 'Aprobaciones multinivel configurables sobre planes y decisiones.',
     available: true,
   },
   {

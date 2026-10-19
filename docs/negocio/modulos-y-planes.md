@@ -72,8 +72,8 @@ Incluido en todos los planes, sin activación:
 | [Asistente SGAI](../glosario.md#asistente-sgai) | Asistente conversacional sobre normativa y sistemas |
 | [Catálogo de tablas básicas](../glosario.md#catálogo-de-tablas-básicas) | Modos de fallo, controles, obligaciones y tipos de evidencia de referencia |
 
-> **Pendiente de implementar.** Flujos de aprobación pasa al Core en todos los planes, con la
-> aprobación del plan de tratamiento integrada en él. Hoy figura todavía como módulo.
+> **Pendiente de implementar.** Integración de la aprobación del plan de tratamiento en Flujos de
+> aprobación. Flujos de aprobación ya es Core y está disponible en todos los planes.
 
 ### Módulos contratables
 
@@ -102,7 +102,7 @@ Los módulos no disponibles se describen en la [Hoja de ruta](hoja-de-ruta.md).
 ### Activación de un módulo
 
 1. Al crearse una organización, Fluxion activa automáticamente una prueba de 30 días de los módulos
-   disponibles, salvo Flujos de aprobación.
+   disponibles.
 2. El administrador puede activar en prueba, renovar o desactivar cualquier módulo disponible desde la
    ficha de la organización, eligiendo una duración de 30, 60, 90 o 120 días.
 3. Un módulo está activo mientras esté en prueba o contratado y no haya vencido su fecha.

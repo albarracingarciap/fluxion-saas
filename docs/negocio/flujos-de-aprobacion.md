@@ -98,8 +98,6 @@ tratamiento, el aprobador asignado según el [nivel de aprobación](../glosario.
 >   configurar para los cinco tipos, pero la evaluación de impacto, los documentos, la Declaración de
 >   Aplicabilidad y las evidencias todavía se aprueban con su propio cambio de estado.
 > - Integración completa de la aprobación del plan de tratamiento en este circuito.
-> - Paso de Flujos de aprobación al Core en todos los planes. En la aplicación figura todavía como
->   módulo, y su entrada del menú solo aparece si está activado.
 
 > **Pendiente de definir.** Qué rol aprueba en cada nivel de aprobación del plan de tratamiento.
 

@@ -155,7 +155,7 @@ El administrador elige la **Duración de la prueba**: 30 (por defecto), 60, 90 o
 > **Pendiente de implementar.** Nombres y estructura de módulos de negocio
 > (ver [Módulos y planes](../negocio/modulos-y-planes.md)). La vista usa todavía los nombres anteriores
 > (Conector MLOps, Detección de Shadow AI, Telemetría y evaluación, Auditoría de discordancias,
-> Documentación regulatoria) y muestra Flujos de aprobación como módulo.
+> Documentación regulatoria). Flujos de aprobación ya no aparece en la lista: es Core.
 
 ## Acciones
 

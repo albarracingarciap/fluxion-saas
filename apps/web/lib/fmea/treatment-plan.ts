@@ -317,6 +317,17 @@ export function getDefaultDeadlineForZone(zone: FmeaZone, from = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+const APPROVAL_LEVEL_LABELS: Record<TreatmentApprovalLevel, string> = {
+  level_1: 'Nivel 1 · Responsable',
+  level_2: 'Nivel 2 · Comité',
+  level_3: 'Nivel 3 · Dirección',
+};
+
+/** Nombre de negocio del nivel de aprobación (glosario). */
+export function getApprovalLevelLabel(level: string | null | undefined): string {
+  return APPROVAL_LEVEL_LABELS[level as TreatmentApprovalLevel] ?? 'Nivel sin definir';
+}
+
 /** Roles que pueden aprobar el plan sin política de Flujos de aprobación (DP-01). */
 export function getApproverRolePriority(level: TreatmentApprovalLevel): readonly string[] {
   return PLAN_APPROVER_ROLES[level] ?? PLAN_APPROVER_ROLES.level_1;
