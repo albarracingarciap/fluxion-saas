@@ -139,11 +139,11 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | R1 | **✔ Resuelta en B02.** **Controles sugeridos vacíos:** las consultas piden `control_templates.name`, que no existe (es `title`). Afecta a la evaluación FMEA, al plan de tratamiento y a las brechas | Error | Alta | Código | 177, 181, 184 |
 | R2 | **✔ Resuelta en B03** (requiere la migración `20261019100000`). **Las tareas no se crean desde las acciones del plan:** las acciones se insertan sin opción y la regla solo actúa al insertar con opción | Error | Alta | Código | 104, 116, 160 |
 | R3 | Ninguna evaluación FMEA llega a «Aprobada» ni a «Sustituida»: la comparativa es inalcanzable | Error | Alta | Análisis | 31, 100 |
-| R4 | Guardar, también el guardado automático, devuelve a borrador una evaluación enviada y cambia el evaluador | Error | Alta | Análisis | 98 |
-| R5 | El guardado automático pone O = 3 y D = 3 en los ítems pendientes, y esos valores aparecen en informes | Error | Media | Análisis | 99, 96 |
-| R6 | La estimación por familia sobrescribe los ajustes manuales | Error | Media | Análisis | 97 |
-| R7 | **Guardar borrador** del plan no guarda las decisiones, aunque la vista las marca como guardadas | Error | Alta | Análisis | 105 |
-| R8 | «Diferir» no guarda fecha de revisión: esas acciones nunca entran en Revisiones pendientes | Error | Media | Análisis | 103, 109 |
+| R4 | **✔ Resuelta en B05.** Guardar, también el guardado automático, devuelve a borrador una evaluación enviada y cambia el evaluador | Error | Alta | Análisis | 98 |
+| R5 | **✔ Resuelta en B05.** El guardado automático pone O = 3 y D = 3 en los ítems pendientes, y esos valores aparecen en informes | Error | Media | Análisis | 99, 96 |
+| R6 | **✔ Resuelta en B05.** La estimación por familia sobrescribe los ajustes manuales | Error | Media | Análisis | 97 |
+| R7 | **✔ Resuelta en B05.** **Guardar borrador** del plan no guarda las decisiones, aunque la vista las marca como guardadas | Error | Alta | Análisis | 105 |
+| R8 | **✔ Resuelta en B05.** «Diferir» no guarda fecha de revisión: esas acciones nunca entran en Revisiones pendientes | Error | Media | Análisis | 103, 109 |
 | R9 | **✔ Resuelta en B02** (requiere la migración `20261019090000`). Sin control en el catálogo, no se puede mitigar | Carencia | Media | Análisis | 102 |
 | R10 | Nombres de responsables y aprobadores vacíos, y el filtro por aprobador no funciona (P1) | Error | Media | Código | 106, 107, 185 |
 | R11 | El recordatorio semanal de revisiones puede no llegar a la persona correcta (P1) | Error | Media | Análisis | 108 |

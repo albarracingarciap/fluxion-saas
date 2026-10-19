@@ -105,6 +105,25 @@ async function requireEditableEvaluation(params: { aiSystemId: string; evaluatio
     return { error: 'La evaluación está en solo lectura y ya no admite cambios.' } as const;
   }
 
+  // Una evaluación enviada solo se puede retocar mientras su plan siga en
+  // borrador. Con el plan en aprobación o aprobado, cambiarla dejaría el plan
+  // desalineado de la evaluación que se aprobó (B05; el ciclo completo, en B07).
+  if (evaluation.state === 'in_review') {
+    const { data: lockingPlan } = await fluxion
+      .from('treatment_plans')
+      .select('id, status')
+      .eq('organization_id', membership.organization_id)
+      .eq('evaluation_id', params.evaluationId)
+      .neq('status', 'draft')
+      .limit(1)
+      .maybeSingle();
+    if (lockingPlan) {
+      return {
+        error: 'La evaluación tiene un plan de tratamiento enviado a aprobación o aprobado y ya no admite cambios.',
+      } as const;
+    }
+  }
+
   return { supabase, fluxion, user, membership, evaluation } as const;
 }
 
@@ -174,6 +193,9 @@ export async function saveFmeaItem(input: SaveFmeaItemInput) {
           d_real_value: null,
           s_actual: null,
           narrative_justification: input.justification?.trim() || null,
+          // Posponer es una decisión individual: la estimación por familia no la pisa (R6).
+          estimate_source: 'manual',
+          estimate_families: null,
           requires_second_review: false,
           second_review_status: 'not_required',
           second_reviewed_by: null,
@@ -187,6 +209,9 @@ export async function saveFmeaItem(input: SaveFmeaItemInput) {
           d_real_value: normalizedDRealValue,
           s_actual: input.sActual,
           narrative_justification: input.justification?.trim() || null,
+          // Confirmación individual: la estimación por familia ya no la pisa (R6).
+          estimate_source: 'manual',
+          estimate_families: null,
           requires_second_review: requiresSecond,
           second_review_status: requiresSecond ? 'pending' : 'not_required',
           second_reviewed_by: null,
@@ -262,7 +287,7 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
 
   if ('error' in context) return { error: context.error };
 
-  const { fluxion, user, membership } = context;
+  const { fluxion, user, membership, evaluation } = context;
 
   if (input.items && input.items.length > 0) {
     // Validar todos los ítems antes de persistir nada (3.2)
@@ -281,8 +306,13 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
     const skippedAt = new Date().toISOString();
 
     for (const item of input.items) {
-      const normalizedOValue = item.status === 'skipped' ? null : (item.oValue ?? 3);
-      const normalizedDRealValue = item.status === 'skipped' ? null : (item.dRealValue ?? 3);
+      // Los ítems pendientes se guardan tal como están: sin rellenar O y D con 3
+      // ni calcular una severidad que nadie ha confirmado (R5). Esa severidad
+      // aparecía después en Evaluaciones (Zona I) y en la exportación.
+      const isPending = item.status === 'pending';
+      const normalizedOValue = item.status === 'skipped' ? null : isPending ? (item.oValue ?? null) : (item.oValue ?? 3);
+      const normalizedDRealValue =
+        item.status === 'skipped' ? null : isPending ? (item.dRealValue ?? null) : (item.dRealValue ?? 3);
       const updatePayload =
         item.status === 'skipped'
           ? {
@@ -302,9 +332,9 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
               status: item.status,
               o_value: normalizedOValue,
               d_real_value: normalizedDRealValue,
-              s_actual: item.sActual,
+              s_actual: isPending ? null : item.sActual,
               narrative_justification: item.justification?.trim() || null,
-              requires_second_review: item.requiresSecondReview ?? false,
+              requires_second_review: isPending ? false : (item.requiresSecondReview ?? false),
               skipped_at: null,
             };
 
@@ -324,8 +354,11 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
     .from('fmea_evaluations')
     .update({
       cached_zone: input.cachedZone,
+      // Retocar una evaluación enviada la devuelve a borrador para reenviarla,
+      // pero el evaluador no cambia: antes pasaba a serlo quien guardaba, lo que
+      // rompía la segregación de la segunda revisión (R4).
       state: 'draft',
-      evaluator_id: user.id,
+      ...(evaluation.evaluator_id ? {} : { evaluator_id: user.id }),
     })
     .eq('id', input.evaluationId);
 
@@ -753,6 +786,8 @@ export async function bulkSkipFmeaItemsAction(input: {
       d_real_value: null,
       s_actual: null,
       narrative_justification: null,
+      estimate_source: 'manual',
+      estimate_families: null,
       requires_second_review: false,
       second_review_status: 'not_required',
       second_reviewed_by: null,
@@ -824,6 +859,9 @@ export async function bulkResetFmeaItemsAction(input: {
       d_real_value: null,
       s_actual: null,
       narrative_justification: null,
+      // Restablecer libera el ítem para que una estimación por familia vuelva a aplicarse.
+      estimate_source: null,
+      estimate_families: null,
       requires_second_review: false,
       second_review_status: 'not_required',
       second_reviewed_by: null,

@@ -32,7 +32,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
 | B06 · Aviso al aprobador y bandeja visible | Integrado en `main` | `fase0/b06-aviso-aprobaciones` | 2026-10-19 | No |
 | B03 · Cierre de acciones sin depender de tareas | Integrado en `main` | `fase0/b03-cierre-acciones` | 2026-10-19 | **Sí** · `20261019100000_plan_tareas_de_acciones.sql` |
-| B05 · Correcciones del FMEA y del plan | Pendiente | — | — | — |
+| B05 · Correcciones del FMEA y del plan | Integrado en `main` | `fase0/b05-correcciones-fmea-plan` | 2026-10-19 | No |
 
 ## Migraciones pendientes de aplicar
 
@@ -290,3 +290,44 @@ residual llega al FMEA, con lo que la zona del sistema puede bajar. Elimina el c
 
 **Pendiente.** Completar una tarea desde **Tareas** o **Kanban** sigue cerrando la acción aunque el plan no
 esté aprobado, y sin pedir la severidad residual; el ciclo de vida completo llega con B07.
+
+---
+
+## B05 · Correcciones del FMEA y del plan
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b05-correcciones-fmea-plan` · **Migración:** no
+
+**Problema.**
+
+| Ref. | Fallo |
+|---|---|
+| `R4` | Guardar (también el autoguardado) devolvía a borrador una evaluación enviada y convertía en evaluador a quien guardaba, rompiendo la segregación de la segunda revisión. Se podía modificar la evaluación aunque su plan ya estuviera aprobado |
+| `R5` | El autoguardado rellenaba O = 3, D = 3 y una severidad sugerida en los ítems pendientes; esa severidad aparecía en Evaluaciones (alertas de Zona I) y en la exportación |
+| `R6` | Ningún ajuste individual quedaba marcado como manual, así que aplicar o retirar una estimación por familia sobrescribía los modos confirmados uno a uno |
+| `R7` | **Guardar borrador** del plan no guardaba las decisiones de las acciones, aunque la vista las daba por guardadas |
+| `R8` | «Diferir» no guardaba fecha de revisión, así que las acciones pospuestas nunca llegaban a Revisiones pendientes |
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `evaluar/actions.ts` · `requireEditableEvaluation` | Una evaluación enviada solo admite cambios mientras su plan siga en borrador |
+| `evaluar/actions.ts` · `saveFmeaDraft` | Los ítems pendientes se guardan sin rellenar O y D ni severidad. El evaluador solo se fija si no lo había |
+| `evaluar/actions.ts` · `saveFmeaItem`, posponer en bloque | Marcan el ítem como ajuste manual (`estimate_source = 'manual'`). **Restablecer a pendiente** quita la marca |
+| `evaluar/fmea-evaluation-client.tsx`, `lib/fmea/data.ts` | El cliente envía los pendientes sin normalizar; la evaluación se muestra en solo lectura si su plan está en aprobación o aprobado (`lockedByPlan`) |
+| `plan/treatment-plan-client.tsx` | **Guardar borrador** envía las acciones modificadas (misma función que el autoguardado) |
+| `plan/actions.ts`, `action-detail-panel.tsx`, `bulk-change-option-modal.tsx` | Fecha de revisión obligatoria y guardada en Diferir, en la decisión individual, el autoguardado, el cambio en bloque y el envío |
+| `plan/actions.ts` · envío | La justificación mínima de Transferir, Evitar y Diferir al enviar pasa de 30 a 50 caracteres, la misma que exige la decisión individual |
+| Documentación | `funcional/fmea-evaluacion.md`, `funcional/plan-de-tratamiento.md`, `funcional/revisiones-pendientes.md`, `funcional/flujo-completo-evaluacion.md` (GAP-13 en parte, GAP-16, GAP-21 en parte), `_incidencias.md` (`R4` a `R8`), `_pendientes.md` |
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos nuevos (queda uno previo de `useMemo`);
+`check-server-actions.sh` correcto. No se ha probado contra la base de datos.
+
+**Qué mejora.** La evaluación deja de volver sola a borrador y de cambiar de evaluador; no aparecen
+severidades que nadie ha confirmado; las estimaciones por familia respetan los ajustes manuales; el borrador
+del plan guarda lo que dice guardar; y lo pospuesto entra en las revisiones periódicas.
+
+**Impacto para las organizaciones existentes.** Las acciones diferidas sin fecha de revisión no se pueden
+volver a enviar hasta tener fecha. Las evaluaciones con el plan en aprobación o aprobado pasan a solo lectura.
+
+**Pendiente.** El ciclo de vida completo de la evaluación (aprobada, sustituida, versión 2) llega con B07.

@@ -99,9 +99,8 @@ Panel «Estimación por familia · N de M». Permite valorar a la vez todos los 
   familias y la severidad sugerida.
 - **Retirar la estimación:** los modos vuelven a pendiente.
 
-> TODO: confirmar el tratamiento de los modos ajustados a mano. La vista dice que la estimación por
-> familia no los toca, pero ningún ajuste individual queda marcado como manual: aplicar o retirar una
-> familia sobrescribe también los modos ya confirmados uno a uno.
+Confirmar o posponer un modo uno a uno lo marca como ajuste manual: aplicar o retirar una estimación por
+familia ya no lo modifica. **Restablecer a pendiente** quita esa marca.
 
 ### Lista de modos
 
@@ -199,14 +198,14 @@ Solo la puede resolver un usuario distinto del evaluador.
 - **Prioridades:** se recalculan con la severidad residual.
 - **Navegación:** se abre el plan.
 
-> TODO: confirmar el ciclo de vida de la evaluación.
-> - **Vuelta a borrador:** guardar, también el guardado automático, devuelve a «Borrador» una evaluación
->   ya enviada y convierte en evaluador a quien guarda.
-> - **Sin aprobación:** ningún flujo pasa la evaluación a «Aprobada» ni a «Sustituida», de modo que nunca
->   se crea una versión 2 y la vista nunca queda en solo lectura.
+**Cambios tras el envío.** Una evaluación enviada se puede retocar mientras su plan siga en borrador:
+vuelve a «Borrador» para reenviarla, sin cambiar el evaluador. Con el plan en aprobación o aprobado, la
+evaluación queda en solo lectura.
 
-> TODO: confirmar el guardado automático de ítems pendientes. Guarda O = 3, D = 3 y la severidad sugerida
-> en los ítems todavía pendientes, y esos valores aparecen después en Evaluaciones y en la exportación.
+Los ítems pendientes se guardan tal como están: el guardado automático no les asigna severidad actual.
+
+> **Pendiente de implementar.** Ciclo de vida completo (estados «Aprobada» y «Sustituida», versión 2 y
+> comparativa), decidido en DP-03 (bloque B07).
 
 ## Validaciones
 

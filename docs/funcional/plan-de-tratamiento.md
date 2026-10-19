@@ -109,12 +109,11 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | **Justificación y trazabilidad** | texto largo | Sí, salvo en Mitigar | Aceptar: 100 caracteres mínimo. Transferir, Evitar y Diferir: 50. Diferir más de 90 días: 100 | `justification` |
 | **Responsable** | selector | Sí | Miembros de la organización | `owner_id` |
 | **Fecha objetivo** | fecha | Sí | No puede superar la fecha límite del plan | `due_date` |
-| **Fecha de revisión** | fecha | Sí, en Aceptar | — | `review_due_date` |
+| **Fecha de revisión** | fecha | Sí, en Aceptar y Diferir | — | `review_due_date` |
 | **Evidencia** | fichero (máx. 20 MB) o URL | No | Con la evidencia esperada según la opción. Estado: Pendiente de validar, Validada, Rechazada | `treatment_actions.evidence_id` → `evidences` |
 
-> TODO: confirmar la fecha de revisión de «Diferir». La opción se considera revisable, pero solo «Aceptar»
-> guarda fecha de revisión, así que las acciones pospuestas nunca entran en
-> [Revisiones pendientes](revisiones-pendientes.md).
+**Fecha de revisión** es obligatoria en Aceptar y en Diferir («Posponer con revisión»): las dos entran en
+[Revisiones pendientes](revisiones-pendientes.md).
 
 ## Acciones
 
@@ -143,8 +142,8 @@ Cada acción, salvo las aceptadas, tiene su [tarea](../glosario.md#tarea): la ba
 decidir la opción, con el responsable y la fecha de la acción, y las mantiene sincronizadas (requiere la
 migración `20261019100000`).
 
-> TODO: confirmar el comportamiento de **Guardar borrador**. No guarda las decisiones de las acciones,
-> aunque la vista las marca como guardadas: solo las guarda el guardado automático o **Guardar decisión**.
+**Guardar borrador** guarda las notas del riesgo residual y las acciones modificadas, igual que el
+guardado automático. Los controles nuevos (de plantilla o propios) se crean con **Guardar decisión**.
 
 > TODO: confirmar los nombres de los responsables. La vista guarda un identificador de usuario y busca los
 > nombres por otro, así que pueden aparecer como «Usuario». El reasignado en bloque también puede fallar

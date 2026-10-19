@@ -82,6 +82,15 @@ type SaveTreatmentActionInput = {
 
 const CUSTOM_CONTROL_MIN_TITLE = 5;
 
+/**
+ * Opciones con revisión periódica: Aceptar y Diferir («Posponer con revisión»).
+ * Antes solo Aceptar guardaba la fecha, así que lo diferido nunca entraba en
+ * Revisiones pendientes (R8).
+ */
+function optionNeedsReviewDate(option: TreatmentOption | null | undefined): boolean {
+  return option === 'aceptar' || option === 'diferir';
+}
+
 type SubmitTreatmentPlanInput = {
   aiSystemId: string;
   evaluationId: string;
@@ -434,7 +443,7 @@ export async function saveTreatmentPlanBatchDraft(input: SaveTreatmentPlanBatchD
         evidence_description: actionInput.option ? getEvidenceDescriptionForOption(actionInput.option) : null,
         owner_id: actionInput.ownerId,
         due_date: actionInput.dueDate,
-        review_due_date: actionInput.option === 'aceptar' ? actionInput.reviewDueDate : null,
+        review_due_date: optionNeedsReviewDate(actionInput.option) ? actionInput.reviewDueDate : null,
       })
       .eq('id', actionInput.actionId)
       .eq('plan_id', plan.id);
@@ -554,6 +563,10 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
     };
   }
 
+  if (input.option === 'diferir' && !input.reviewDueDate) {
+    return { error: 'Posponer con revisión requiere una fecha de revisión.' };
+  }
+
   if (input.option === 'diferir') {
     const today = new Date();
     const dueDate = new Date(`${input.dueDate}T00:00:00`);
@@ -613,7 +626,7 @@ export async function saveTreatmentActionDecision(input: SaveTreatmentActionInpu
       evidence_description: getEvidenceDescriptionForOption(input.option),
       owner_id: input.ownerId,
       due_date: input.dueDate,
-      review_due_date: input.option === 'aceptar' ? input.reviewDueDate : null,
+      review_due_date: optionNeedsReviewDate(input.option) ? input.reviewDueDate : null,
     })
     .eq('id', input.actionId)
     .eq('plan_id', plan.id);
@@ -745,8 +758,11 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     if (action.option === 'aceptar') {
       return (action.justification?.trim().length ?? 0) < 100 || !action.review_due_date;
     }
+    if (action.option === 'diferir' && !action.review_due_date) {
+      return true;
+    }
     if (['transferir', 'evitar', 'diferir'].includes(action.option ?? '')) {
-      return (action.justification?.trim().length ?? 0) < 30;
+      return (action.justification?.trim().length ?? 0) < 50;
     }
     return false;
   });
@@ -1808,6 +1824,10 @@ export async function bulkChangeTreatmentActionsOptionAction(
     return { error: 'Necesitas una justificación común de al menos 50 caracteres.' }
   }
 
+  if (input.option === 'diferir' && (!input.reviewDueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.reviewDueDate))) {
+    return { error: 'Posponer con revisión requiere una fecha de revisión válida.' }
+  }
+
   const context = await requireEditableTreatmentPlan({
     aiSystemId: input.aiSystemId,
     evaluationId: input.evaluationId,
@@ -1872,7 +1892,7 @@ export async function bulkChangeTreatmentActionsOptionAction(
     evidence_description: getEvidenceDescriptionForOption(input.option),
     s_residual_target: null,
     control_id: null,
-    review_due_date: input.option === 'aceptar' ? input.reviewDueDate : null,
+    review_due_date: optionNeedsReviewDate(input.option) ? input.reviewDueDate : null,
   }
 
   const { error: updateError } = await fluxion
@@ -1895,7 +1915,7 @@ export async function bulkChangeTreatmentActionsOptionAction(
       afterState: {
         option: input.option,
         justification: input.justification.trim(),
-        review_due_date: input.option === 'aceptar' ? input.reviewDueDate : null,
+        review_due_date: optionNeedsReviewDate(input.option) ? input.reviewDueDate : null,
       },
       justification: input.justification.trim(),
     })),

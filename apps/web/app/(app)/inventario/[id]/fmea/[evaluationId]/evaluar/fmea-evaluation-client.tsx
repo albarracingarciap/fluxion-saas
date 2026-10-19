@@ -676,7 +676,9 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     }[];
   } | null>(null);
 
-  const isReadOnly = data.evaluation.state === 'approved' || data.evaluation.state === 'superseded';
+  // También en solo lectura si su plan ya está en aprobación o aprobado (B05).
+  const isReadOnly =
+    data.evaluation.state === 'approved' || data.evaluation.state === 'superseded' || data.lockedByPlan;
 
   function toggleSelection(itemId: string) {
     setSelectedIds((prev) => {
@@ -866,9 +868,15 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
 
             return {
               itemId: item.id,
-              oValue: item.status === 'skipped' ? null : getNormalizedOValue(item.o_value),
-              dRealValue: item.status === 'skipped' ? null : getNormalizedDRealValue(item.d_real_value),
-              sActual: item.status === 'skipped' ? null : effectiveSActual,
+              oValue:
+                item.status === 'skipped' ? null : item.status === 'pending' ? item.o_value : getNormalizedOValue(item.o_value),
+              dRealValue:
+                item.status === 'skipped'
+                  ? null
+                  : item.status === 'pending'
+                    ? item.d_real_value
+                    : getNormalizedDRealValue(item.d_real_value),
+              sActual: item.status === 'skipped' || item.status === 'pending' ? null : effectiveSActual,
               justification: item.narrative_justification,
               status: item.status,
               requiresSecondReview: item.requires_second_review,
@@ -1179,9 +1187,15 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
 
           return {
             itemId: item.id,
-            oValue: item.status === 'skipped' ? null : getNormalizedOValue(item.o_value),
-            dRealValue: item.status === 'skipped' ? null : getNormalizedDRealValue(item.d_real_value),
-            sActual: item.status === 'skipped' ? null : effectiveSActual,
+            oValue:
+              item.status === 'skipped' ? null : item.status === 'pending' ? item.o_value : getNormalizedOValue(item.o_value),
+            dRealValue:
+              item.status === 'skipped'
+                ? null
+                : item.status === 'pending'
+                  ? item.d_real_value
+                  : getNormalizedDRealValue(item.d_real_value),
+            sActual: item.status === 'skipped' || item.status === 'pending' ? null : effectiveSActual,
             justification: item.narrative_justification,
             status: item.status,
             requiresSecondReview: item.requires_second_review,

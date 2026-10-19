@@ -402,7 +402,7 @@ export function ActionDetailPanel({
         </div>
       </div>
 
-      {action.option === 'aceptar' && (
+      {(action.option === 'aceptar' || action.option === 'diferir') && (
         <div>
           <label className="block font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-2">
             Fecha de revisión

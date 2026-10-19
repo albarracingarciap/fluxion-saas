@@ -112,6 +112,8 @@ export type FmeaEvaluationData = {
   viewerUserId: string;
   /** Rol de quien mira: decide si puede resolver segundas revisiones (DP-01). */
   viewerRole: string | null;
+  /** El plan de esta evaluación está en aprobación o aprobado: la evaluación ya no admite cambios (B05). */
+  lockedByPlan: boolean;
   activationSummary: {
     activatedCount: number;
     prioritizedCount: number;
@@ -374,6 +376,16 @@ export async function buildFmeaEvaluationData(params: {
 
   if (!system || !evaluation) return null;
 
+  const { data: lockingPlan } = await fluxion
+    .from('treatment_plans')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('evaluation_id', evaluationId)
+    .neq('status', 'draft')
+    .limit(1)
+    .maybeSingle();
+  const lockedByPlan = !!lockingPlan;
+
   const { data: activationRows } = await fluxion
     .from('system_failure_modes')
     .select('id, priority_status')
@@ -467,6 +479,7 @@ export async function buildFmeaEvaluationData(params: {
       items: [],
       viewerUserId,
       viewerRole,
+      lockedByPlan,
       activationSummary: {
         activatedCount,
         prioritizedCount,
@@ -647,6 +660,7 @@ export async function buildFmeaEvaluationData(params: {
     items,
     viewerUserId,
     viewerRole,
+    lockedByPlan,
     activationSummary: {
       activatedCount,
       prioritizedCount,
