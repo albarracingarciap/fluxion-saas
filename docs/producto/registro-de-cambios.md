@@ -29,7 +29,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B00b · Tests de la lógica central | Pendiente (antes de la fase 1) | — | — | — |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
-| B01 · Permisos del plan y del FMEA (DP-01) | Pendiente | — | — | — |
+| B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
 | B06 · Aviso al aprobador y bandeja visible | Pendiente | — | — | — |
 | B03 · Cierre de acciones sin depender de tareas | Pendiente | — | — | — |
 | B05 · Correcciones del FMEA y del plan | Pendiente | — | — | — |
@@ -164,3 +164,48 @@ control propio. Elimina el segundo de los cinco cortes del flujo (GAP-15) y la f
 
 **Pendiente.** Validar en el glosario el término «Control propio». El autoguardado no crea controles
 nuevos (ni de plantilla ni propios): se crean con **Guardar decisión**, como hasta ahora (ver B05, `R7`).
+
+---
+
+## B01 · Permisos del plan y del FMEA según DP-01
+
+**Fecha:** 2026-10-19 · **Rama:** `fase0/b01-permisos-plan` · **Migración:** no
+
+**Problema.** Los permisos del plan de tratamiento y de la segunda revisión del FMEA se comprobaban contra
+`['admin', 'editor', 'dpo', 'technical']`, de los que solo existe `dpo`. En la práctica:
+- solo el DPO podía editar y enviar el plan, y resolver segundas revisiones; sin DPO el flujo se detenía;
+- el aprobador del plan sin política se elegía con esos mismos roles y acababa siendo el DPO o «el primer
+  miembro distinto de quien envía» (GAP-14, en parte);
+- había dos copias de esa lógica (al enviar el FMEA y al enviar el plan);
+- la pantalla no sabía nada de roles: quien no podía editar veía todos los botones, y el autoguardado
+  fallaba en el servidor.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `lib/auth/roles-flujo.ts` (nuevo) | Roles de DP-01 en un único sitio: preparan el plan el **Analista de riesgos** y el **Responsable del sistema**; la segunda revisión la resuelve el **Responsable del SGAI** (propuesta pendiente de confirmar); el aprobador sin política es el **Responsable del SGAI** en los tres niveles. B23 lo sustituirá por roles múltiples |
+| `lib/fmea/treatment-plan.ts` | `getApproverRolePriority` devuelve los roles de DP-01. Nueva `resolvePlanApprover` única: miembro **activo**, con rol aprobador y **distinto de quien envía**; si no hay ninguno, devuelve `null` en lugar de elegir a cualquiera. `read_only` del plan también depende del rol de quien mira |
+| `plan/actions.ts` | Edición solo para quien prepara. Al enviar sin política: si no hay aprobador, error claro; si el aprobador guardado es quien envía, se busca otro (quien prepara no aprueba). Se elimina la copia local del resolutor |
+| `evaluar/actions.ts` | Segunda revisión solo para el Responsable del SGAI distinto del evaluador. Al enviar el FMEA, el plan se crea aunque todavía no haya aprobador: se exige al enviarlo a aprobación. Se elimina la copia local del resolutor |
+| `plan/page.tsx`, `evaluar/page.tsx`, `lib/fmea/data.ts`, `evaluar/fmea-evaluation-client.tsx` | El rol llega a la pantalla: el plan se muestra en solo lectura a quien no prepara, y el botón de segunda revisión solo aparece al Responsable del SGAI; texto de ayuda corregido |
+| Documentación | `funcional/plan-de-tratamiento.md`, `funcional/fmea-evaluacion.md`, `funcional/flujo-completo-evaluacion.md` |
+
+**Coherencia.** El DPO deja de editar planes (DP-01: consultivo). Las demás vistas que construyen el plan
+(pestaña de la ficha y resumen) son de solo lectura y no cambian. La edición de la evaluación FMEA sigue
+sin comprobar el rol en el servidor (depende de RLS); se restringirá con el modelo de roles (B23).
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos nuevos (queda uno previo de
+`useMemo` en `fmea-evaluation-client.tsx`); `check-server-actions.sh` correcto. No se ha probado contra la
+base de datos.
+
+**Qué mejora.** El flujo ya no depende de tener un DPO. Prepara quien debe, aprueba un Responsable del SGAI
+que nunca es quien envía, y la pantalla refleja los permisos reales. Elimina el tercer corte del flujo y
+la parte de «aprobador al azar» de GAP-14.
+
+**Impacto para las organizaciones existentes.** Un DPO que tuviera un plan en borrador deja de poder
+editarlo: lo continúa un Analista de riesgos o un Responsable del sistema. Los planes ya enviados conservan
+su aprobador; si era quien envió, al volver a enviarlo se asigna otro.
+
+**Pendiente.** Confirmar el rol de la segunda revisión (`_pendientes.md` 245). El aviso al aprobador en la
+vía sin política llega con B06; los comités de los niveles 2 y 3, con las políticas por defecto de B11.

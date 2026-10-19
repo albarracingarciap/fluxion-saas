@@ -1,5 +1,6 @@
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { PLAN_APPROVER_ROLES, canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 
 import { calculateFmeaZone, getAiActZoneFloor, type FmeaZone } from './domain';
 
@@ -316,17 +317,46 @@ export function getDefaultDeadlineForZone(zone: FmeaZone, from = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-export function getApproverRolePriority(level: TreatmentApprovalLevel) {
-  switch (level) {
-    case 'level_3':
-      return ['admin', 'dpo', 'technical'] as const;
-    case 'level_2':
-      return ['admin', 'dpo', 'technical', 'editor'] as const;
-    case 'level_1':
-    default:
-      return ['dpo', 'technical', 'admin', 'editor'] as const;
-  }
+/** Roles que pueden aprobar el plan sin política de Flujos de aprobación (DP-01). */
+export function getApproverRolePriority(level: TreatmentApprovalLevel): readonly string[] {
+  return PLAN_APPROVER_ROLES[level] ?? PLAN_APPROVER_ROLES.level_1;
 }
+
+/**
+ * Aprobador del plan cuando no hay política en Flujos de aprobación.
+ *
+ * Elige un miembro activo con un rol aprobador del nivel (DP-01) que no sea
+ * quien envía (quien prepara no aprueba). Si no hay ninguno devuelve null: ya
+ * no se asigna «cualquier miembro», como hacía la versión anterior.
+ */
+export async function resolvePlanApprover(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fluxion: any;
+  organizationId: string;
+  approvalLevel: TreatmentApprovalLevel;
+  actorUserId: string;
+}): Promise<string | null> {
+  const roles = getApproverRolePriority(params.approvalLevel);
+  const { data: members } = await params.fluxion
+    .from('profiles')
+    .select('user_id, role, is_active')
+    .eq('organization_id', params.organizationId)
+    .in('role', roles as string[])
+    .order('created_at', { ascending: true });
+
+  const candidates = ((members ?? []) as Array<{ user_id: string; role: string; is_active: boolean | null }>)
+    .filter((member) => member.is_active !== false && member.user_id !== params.actorUserId);
+
+  for (const role of roles) {
+    const match = candidates.find((member) => member.role === role);
+    if (match) return match.user_id;
+  }
+  return null;
+}
+
+export const NO_PLAN_APPROVER_MESSAGE =
+  'No hay ningún miembro activo con rol Responsable del SGAI (distinto de quien envía) para aprobar el plan. ' +
+  'Asigna ese rol en Usuarios, o configura una política de plan de tratamiento en Ajustes › Aprobaciones.';
 
 export async function generateTreatmentPlanCode(params: {
   organizationId: string;
@@ -399,6 +429,8 @@ export async function buildTreatmentPlanData(params: {
   aiSystemId: string;
   evaluationId: string;
   currentUserId?: string;
+  /** Rol de quien mira: sin permiso de preparación (DP-01), el plan se muestra en solo lectura. */
+  currentUserRole?: string;
 }) {
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
@@ -925,7 +957,11 @@ export async function buildTreatmentPlanData(params: {
     actions: actionViews,
     members: memberOptions,
     approver_name: currentPlan.approver_id ? memberNames.get(currentPlan.approver_id) ?? 'Usuario' : null,
-    read_only: !['draft', 'in_review'].includes(evaluation.state) || !['draft'].includes(currentPlan.status) || !plan,
+    read_only:
+      !['draft', 'in_review'].includes(evaluation.state) ||
+      !['draft'].includes(currentPlan.status) ||
+      !plan ||
+      !canPrepareTreatmentPlan(params.currentUserRole),
     tasks_total: tasksWithStatus.length,
     tasks_done: tasksDone,
     is_approver: !!(params.currentUserId && currentPlan.approver_id && params.currentUserId === currentPlan.approver_id),

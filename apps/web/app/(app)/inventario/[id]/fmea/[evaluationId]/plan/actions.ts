@@ -16,7 +16,8 @@ import { recordTreatmentActionEvent, recordTreatmentActionEvents } from '@/lib/f
 import {
   calculateProjectedZoneForTreatmentActions,
   getEvidenceDescriptionForOption,
-  getApproverRolePriority,
+  resolvePlanApprover,
+  NO_PLAN_APPROVER_MESSAGE,
   type TreatmentOption,
   type ReviewDecision,
 } from '@/lib/fmea/treatment-plan';
@@ -34,6 +35,7 @@ import { createClient } from '@/lib/supabase/server';
 // si esta accion puede cerrar el plan.
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import { notifyApprovalStep } from '@/lib/approvals/notify';
+import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
@@ -134,8 +136,12 @@ async function requireEditableTreatmentPlan(params: {
     return { error: 'No se encontró el plan de tratamiento asociado.' } as const;
   }
 
-  if (!['admin', 'editor', 'dpo', 'technical'].includes(membership.role)) {
-    return { error: 'No tienes permisos para editar este plan de tratamiento.' } as const;
+  // DP-01: preparan el plan el Analista de riesgos y el Responsable del sistema.
+  // El DPO es consultivo y ya no edita planes.
+  if (!canPrepareTreatmentPlan(membership.role)) {
+    return {
+      error: 'No tienes permisos para editar este plan de tratamiento: lo preparan el Analista de riesgos y el Responsable del sistema.',
+    } as const;
   }
 
   if (plan.status !== 'draft') {
@@ -143,37 +149,6 @@ async function requireEditableTreatmentPlan(params: {
   }
 
   return { supabase, fluxion, user, membership, evaluation, plan } as const;
-}
-
-async function resolvePlanApprover(params: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fluxion: any;
-  organizationId: string;
-  approvalLevel: string;
-  actorUserId: string;
-}) {
-  const { fluxion, organizationId, approvalLevel, actorUserId } = params;
-  const { data: members } = await fluxion
-    .from('profiles')
-    .select('user_id, role')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: true });
-
-  const candidates = members ?? [];
-  const priorities = getApproverRolePriority(approvalLevel as 'level_1' | 'level_2' | 'level_3');
-
-  for (const role of priorities) {
-    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role && member.user_id !== actorUserId);
-    if (match) return match.user_id as string;
-  }
-
-  for (const role of priorities) {
-    const match = candidates.find((member: { user_id: string; role: string }) => member.role === role);
-    if (match) return match.user_id as string;
-  }
-
-  const fallback = candidates.find((member: { user_id: string; role: string }) => member.user_id !== actorUserId) ?? candidates[0];
-  return fallback?.user_id ?? null;
 }
 
 async function upsertMitigationControl(params: {
@@ -809,6 +784,23 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
       approvalLevel: plan.approval_level,
       actorUserId: user.id,
     });
+  }
+
+  // Sin política, el plan necesita un aprobador concreto: no se envía a nadie.
+  if (!gobernado && !approverId) {
+    return { error: NO_PLAN_APPROVER_MESSAGE };
+  }
+
+  // Quien prepara no aprueba (DP-01): si el aprobador guardado es quien envía,
+  // se busca otro.
+  if (!gobernado && approverId === user.id) {
+    approverId = await resolvePlanApprover({
+      fluxion,
+      organizationId: membership.organization_id,
+      approvalLevel: plan.approval_level,
+      actorUserId: user.id,
+    });
+    if (!approverId) return { error: NO_PLAN_APPROVER_MESSAGE };
   }
 
   const { error: updateError } = await fluxion

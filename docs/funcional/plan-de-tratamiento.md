@@ -48,13 +48,18 @@ evidencia, y obtener la aprobación del nivel que corresponda.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| DPO | Sí | Editar el plan en borrador y enviarlo |
-| Aprobador asignado | Sí | Aprobar o devolver el plan en revisión |
+| Analista de riesgos, Responsable del sistema | Sí | Editar el plan en borrador y enviarlo |
+| Aprobador asignado (sin política: Responsable del SGAI) | Sí | Aprobar o devolver el plan en revisión |
 | Todos los roles | Sí | Gestionar evidencias, estado de tareas, severidad residual y revisiones periódicas |
 
-> **Pendiente de definir.** Qué roles pueden editar y aprobar el plan. Hoy solo el DPO puede editarlo,
-> porque el permiso se comprueba contra roles que ya no existen. El aprobador se asigna con la misma
-> regla, así que suele acabar siendo cualquier miembro distinto de quien envía.
+Permisos según la decisión DP-01 (bloque B01): quien prepara no aprueba y el DPO es consultivo, así que no
+edita el plan. Para los demás roles la vista se muestra en solo lectura.
+
+**Aprobador sin política** en Flujos de aprobación: un Responsable del SGAI activo distinto de quien envía,
+en cualquier nivel. Si no hay ninguno, el envío se rechaza (ver Validaciones). Los niveles 2 y 3 los aprueba
+un comité según DP-01, lo que exige una política de Flujos de aprobación.
+
+> **Pendiente de implementar.** Políticas por defecto con los comités de los niveles 2 y 3 (bloque B11).
 
 Si la evaluación todavía no tiene plan, la vista muestra un **Borrador de Previsualización** con los
 modos de severidad 7 o más.
@@ -163,7 +168,8 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Zona I sin acta | «Los planes de Zona I requieren una referencia de acta o comité antes de enviarse a alta dirección.» |
 | Aprobar sin ser el aprobador | «No eres el aprobador asignado a este plan.» |
 | Devolver sin motivo | «Debes indicar el motivo de devolución para que el autor pueda corregir el plan.» |
-| Editar sin permiso | «No tienes permisos para editar este plan de tratamiento.» |
+| Editar sin permiso | «No tienes permisos para editar este plan de tratamiento: lo preparan el Analista de riesgos y el Responsable del sistema.» |
+| Envío sin aprobador ni política | «No hay ningún miembro activo con rol Responsable del SGAI (distinto de quien envía) para aprobar el plan. Asigna ese rol en Usuarios, o configura una política de plan de tratamiento en Ajustes › Aprobaciones.» |
 | Evidencia de más de 20 MB | «El archivo no puede superar los 20 MB.» |
 
 ## Estados
