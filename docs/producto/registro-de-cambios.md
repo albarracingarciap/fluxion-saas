@@ -28,6 +28,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B00a · Comprobaciones estáticas | Integrado en `main` | `fase0/b00-comprobaciones` | 2026-10-19 | No |
 | B00b · Tests de la lógica central | Integrado en `main` | `prep/b00b-tests` | 2026-10-20 | No |
 | P1 · Identificadores de perfil y de usuario | Integrado en `main` | `prep/p1-identificadores` | 2026-10-20 | No |
+| T9 · `migrate.sh` atómico | Integrado en `main` | `prep/t9-migrate-atomico` | 2026-10-20 | No (cambia el script de migraciones) |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -405,3 +406,35 @@ organización. Donde conviven ambos tipos (detalle de evidencia, brechas), la b�
 **Qué mejora.** Los nombres de responsables, aprobadores y revisores aparecen; el filtro por aprobador, **Mis
 gaps** y el reasignado en bloque funcionan; el recordatorio semanal llega a su destinatario; las vistas
 guardadas de tareas se guardan.
+
+---
+
+## T9 · `migrate.sh` atómico
+
+**Fecha:** 2026-10-20 · **Rama:** `prep/t9-migrate-atomico` · **Migración:** no
+
+**Problema.**
+- La migración y su registro en `supabase_migrations.schema_migrations` iban en dos llamadas a psql. Si la
+  segunda fallaba o se cortaba la conexión, la migración quedaba aplicada sin registrar y el siguiente
+  `migrate.sh` la volvía a ejecutar (`T9`).
+- **Hallazgo nuevo:** la migración se pasaba con `-1 < fichero`. psql solo abre la transacción de `-1` con
+  `-c` o `-f`; con la entrada redirigida, cada sentencia se confirmaba por separado. Una migración que
+  fallara a medias quedaba aplicada en parte.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `infra/db/migrate.sh` | La migración y su `INSERT` de registro van juntos por `--single-transaction -f -`. Se registra también el nombre del fichero. Marca `-- migrate: sin-transaccion` para el caso excepcional de sentencias que no admiten transacción |
+| `docs/tecnica/despliegue.md` | Procedimiento actualizado; se retira el `TODO` |
+
+Todas las migraciones actuales admiten transacción (ninguna usa `CONCURRENTLY`, `VACUUM` ni `BEGIN`/`COMMIT`
+propios).
+
+**Verificación.** `bash -n` correcto. Ejecución simulada con `docker` y `git` falsos: la migración ya
+aplicada se salta; la nueva llega a psql junto con su registro en una sola transacción; la marcada sin
+transacción va por separado; si psql falla, el script termina con error sin registrar ni continuar. No se ha
+ejecutado contra una base de datos real.
+
+**Acción para ti.** El servidor usa una copia en `/root/migrate.sh`. Hay que actualizarla:
+`cp infra/db/migrate.sh /root/migrate.sh && chmod +x /root/migrate.sh`.

@@ -7,6 +7,10 @@
 #   /root/migrate.sh                      # instancia compartida (supabase-db)
 #   CT=fluxion-sb-db /root/migrate.sh     # stack propio
 #
+# Cada migración se aplica en una transacción junto con su registro en la tabla
+# de control. Una migración que no pueda ir en transacción debe llevar la línea
+# `-- migrate: sin-transaccion` al principio.
+#
 # Y funciona sobre una base de datos VIRGEN: crea la tabla de control si no
 # existe. Sin eso, la primera consulta falla con "schema does not exist" y el
 # `set -e` corta antes de aplicar nada — que es justo lo que pasa al levantar
@@ -46,14 +50,25 @@ for f in "$REPO"/supabase/migrations/*.sql; do
     continue
   fi
 
-  echo "→ aplicando     $v  ($(basename "$f"))"
+  nombre=$(basename "$f")
+  echo "→ aplicando     $v  ($nombre)"
 
-  # ON_ERROR_STOP y -1: la migracion entera va en una transaccion y, si algo
-  # falla, no se registra como aplicada. Una migracion a medias registrada como
-  # completa es la peor forma de romper una base de datos, porque el siguiente
-  # `migrate.sh` la da por hecha.
-  $PSQL -v ON_ERROR_STOP=1 -1 -q < "$f"
-  $PSQL -q -c "INSERT INTO supabase_migrations.schema_migrations(version) VALUES ('$v')"
+  registro="INSERT INTO supabase_migrations.schema_migrations(version, name) VALUES ('$v', '$nombre');"
+
+  if grep -q '^-- migrate: sin-transaccion' "$f"; then
+    # Excepción explícita para sentencias que no admiten transacción (por
+    # ejemplo CREATE INDEX CONCURRENTLY). Se aplica sentencia a sentencia y se
+    # registra después: si falla a medias, hay que revisarla a mano.
+    echo "  (sin transacción, marcada en el fichero)"
+    $PSQL -v ON_ERROR_STOP=1 -q -f - < "$f"
+    $PSQL -v ON_ERROR_STOP=1 -q -c "$registro"
+  else
+    # La migración y su registro van en la MISMA transacción: o se aplican las
+    # dos cosas o ninguna. Antes el registro iba en otra llamada (una migración
+    # aplicada podía quedar sin registrar y repetirse) y `-1` con la entrada por
+    # `<` no abría transacción: psql solo la abre con -c o -f.
+    { cat "$f"; printf '\n%s\n' "$registro"; } | $PSQL -v ON_ERROR_STOP=1 --single-transaction -q -f -
+  fi
 
   echo "  aplicada      $v"
   nuevas=$((nuevas + 1))
