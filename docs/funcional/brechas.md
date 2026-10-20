@@ -25,6 +25,8 @@ fuente:
   - apps/web/lib/tasks/queries.ts
   - apps/web/app/(app)/tareas/actions.ts
   - supabase/migrations/00000000000001_schema.sql
+  - apps/web/lib/gaps/exclusion-rules.ts
+  - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
 ---
 
 # Análisis de brechas
@@ -152,7 +154,7 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 | **Asignar grupo** | Todos | `updateGapGroupAssignment` | Ídem, en todas las brechas del grupo |
 | **Crear tarea** | Todos | `createGapTaskAction`: crea una [tarea](../glosario.md#tarea) con el título de la brecha, prioridad según la gravedad, responsable y fecha | Si ya existe, la reutiliza. Notifica al asignado. No disponible en brechas FMEA |
 | **Crear tareas** (grupo) | Todos | Una tarea por brecha, o una tarea paraguas del grupo | La paraguas queda vinculada a cada brecha |
-| **Excluir** | Roles con permiso | Modal de [disposición](../glosario.md#disposición-de-la-brecha) | La brecha sale de la cola y pasa a [Brechas excluidas](brechas-excluidas.md) |
+| **Excluir** | Roles con permiso | Modal de [disposición](../glosario.md#disposición-de-la-brecha) | La brecha sale de la cola y pasa a [Brechas excluidas](brechas-excluidas.md). Si una política de aprobación gobierna su capa (por defecto, Riesgo sin tratar y Obligación sin cubrir, DP-07), la exclusión queda pendiente y abre una solicitud en [Aprobaciones](aprobaciones.md): la brecha sigue en la cola con **Exclusión pendiente de aprobación** (enlace a Brechas excluidas) en lugar de **Excluir** (B11d) |
 | Selección múltiple › **Asignar** / **Crear tareas** / **Excluir** / **Exportar** | Según la acción | Acciones en bloque sobre las brechas seleccionadas de la página visible | FMEA queda excluida de la asignación y de las tareas |
 | **Exportar CSV** | Todos | Descarga las brechas filtradas | Columnas: Clave, Capa, Severidad, Sistema (código), Sistema, Título, Responsable, Fecha límite, Vencido, Días hasta vencimiento, Contexto, Origen |
 | **Guardar snapshot** | Todos | `saveGapAnalysisSnapshot` | Crea una [instantánea](../glosario.md#instantánea) y navega a ella |
@@ -166,6 +168,11 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 | **Tipo de exclusión** | opciones | Sí | Aceptado (riesgo conocido y aceptado, por defecto) · No aplica (fuera del alcance) | `gap_dispositions.disposition` (`accepted`, `not_applicable`) |
 | **Justificación** | texto largo | Sí | Mínimo 10 caracteres | `rationale` |
 | **Caducidad de la exclusión** | fecha | No | Si se indica, la brecha vuelve a la cola en esa fecha | `expires_at` |
+
+En las brechas Riesgo sin tratar y Obligación sin cubrir, el modal avisa: «Excluir un riesgo sin tratar o una
+obligación sin cubrir es aceptarlo: la exclusión pasa por Aprobaciones y la brecha sigue en la cola hasta que se
+aprueba.» El aviso de la exclusión en bloque indica cuántas quedan pendientes. El aviso sigue la política por
+defecto; lo que decide es la política activa.
 
 > TODO: confirmar varios fallos de esta vista.
 > - **Crear tareas en bloque no crea ninguna:** la vista cuenta todas las brechas como si ya tuvieran
@@ -182,6 +189,8 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 | Brecha FMEA | «Esta capa no admite asignación directa desde Análisis de gaps.» |
 | Origen no encontrado | «No se encontraron registros para actualizar.» |
 | Asignado sin perfil en la organización | «El usuario asignado no tiene perfil en esta organización.» |
+| Excluir una brecha con la exclusión pendiente | «Alguna brecha ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.» |
+| Activar desde la API una exclusión que gobierna una política | «Excluir esta brecha pasa por aprobación» (trigger `trg_gap_disposition_rules`) |
 
 No se valida que las fechas sean futuras. La caducidad de una exclusión puede ser una fecha pasada.
 
@@ -190,7 +199,10 @@ No se valida que las fechas sean futuras. La caducidad de una exclusión puede s
 ```mermaid
 stateDiagram-v2
   [*] --> Abierta: se cumple la condición
-  Abierta --> Excluida: excluir
+  Abierta --> Excluida: excluir (sin política)
+  Abierta --> Pendiente: excluir (con política, B11d)
+  Pendiente --> Excluida: se aprueba
+  Pendiente --> Abierta: se rechaza, se cancela, caduca la solicitud o se retira
   Excluida --> Abierta: caduca la exclusión o se reactiva
   Abierta --> [*]: se resuelve en el origen
 ```

@@ -25,6 +25,12 @@ const DECISION_LABELS: Record<string, string> = {
   abstained: 'Se abstuvo',
 }
 
+/** En un paso de consulta, el voto es un dictamen (B11d). */
+const DICTAMEN_LABELS: Record<string, string> = {
+  approved: 'Emitió un dictamen favorable',
+  rejected: 'Emitió un dictamen desfavorable',
+}
+
 function tipoLabel(t: string) {
   return APPROVAL_OBJECT_TYPES.find((x) => x.key === t)?.label ?? t
 }
@@ -57,7 +63,7 @@ function Historico({ requestId }: { requestId: string }) {
           <span className="text-lttm shrink-0">Paso {d.position} ·</span>
           <span>
             <strong className="text-ltt">{d.actor_name ?? 'Alguien'}</strong>{' '}
-            {DECISION_LABELS[d.decision]?.toLowerCase() ?? d.decision}
+            {((d.consultation ? DICTAMEN_LABELS[d.decision] : undefined) ?? DECISION_LABELS[d.decision])?.toLowerCase() ?? d.decision}
             {d.on_behalf_name && (
               <span className="text-lttm"> · por cuenta de {d.on_behalf_name}</span>
             )}
@@ -79,8 +85,16 @@ function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; deci
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, startTransition] = useTransition()
+  // Paso de consulta (B11d): dictamen favorable o desfavorable, siempre con
+  // texto, que consta pero no decide.
+  const consulta = row.current_step?.kind === 'consultation'
+  const [dictando, setDictando] = useState(false)
 
   function decidir(decision: 'approved' | 'rejected' | 'abstained') {
+    if (consulta && !motivo.trim()) {
+      setDictando(true)
+      return
+    }
     if (decision === 'rejected' && !motivo.trim()) {
       setPidiendoMotivo(true)
       return
@@ -93,6 +107,7 @@ function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; deci
       // cambio de estado del objeto—. Se enseña el aviso sin deshacer nada.
       if (r.aviso) setError(r.aviso)
       setPidiendoMotivo(false)
+      setDictando(false)
       setMotivo('')
       router.refresh()
     })
@@ -135,7 +150,8 @@ function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; deci
 
           <p className="font-sora text-[12px] text-lttm mt-1">
             {row.policy_name ?? 'Sin política'} · Paso {row.current_position} de {row.total_steps}
-            {row.quorum > 1 && ` · ${row.approvals_in_step} de ${row.quorum} votos`}
+            {row.status === 'pending' && consulta && ' (consulta)'}
+            {!consulta && row.quorum > 1 && ` · ${row.approvals_in_step} de ${row.quorum} votos`}
             {' · '}Solicitada por {row.requested_by_name ?? 'alguien'} el {fecha(row.requested_at)}
             {row.status === 'pending' && row.expires_at && ` · Caduca el ${fecha(row.expires_at)}`}
           </p>
@@ -189,7 +205,25 @@ function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; deci
           {abierto && <Historico requestId={row.id} />}
         </div>
 
-        {decidible && (
+        {decidible && consulta && (
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <button
+              onClick={() => setDictando(true)}
+              disabled={pendiente}
+              title="Tu dictamen consta en la solicitud; decide el paso siguiente"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-cyan-border bg-cyan-dim2 font-sora text-[12px] text-cyan-700 hover:bg-cyan-dim disabled:opacity-50"
+            >
+              <FileText size={13} /> Emitir dictamen
+            </button>
+            {cancelable && (
+              <button onClick={cancelar} className="font-sora text-[11.5px] text-lttm hover:text-red-600">
+                Cancelar solicitud
+              </button>
+            )}
+          </div>
+        )}
+
+        {decidible && !consulta && (
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             <div className="flex gap-1.5">
               <button
@@ -236,6 +270,46 @@ function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; deci
           </div>
         )}
       </div>
+
+      {dictando && (
+        <div className="mt-3 border-t border-ltb pt-3">
+          <label className="block font-plex text-[10px] uppercase tracking-[0.7px] text-ltt2 mb-1.5">
+            Dictamen
+          </label>
+          <textarea
+            className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] text-ltt font-sora outline-none focus:border-brand-cyan"
+            rows={3}
+            value={motivo}
+            placeholder="Tu opinión fundada: la leerá quien decida en el paso siguiente"
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+          <p className="font-sora text-[11px] text-lttm mt-1">
+            Un dictamen no aprueba ni rechaza: consta en la solicitud y en el acta, y la solicitud pasa al paso siguiente.
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <button
+              onClick={() => { setDictando(false); setMotivo('') }}
+              className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12px] text-lttm"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => decidir('rejected')}
+              disabled={pendiente || !motivo.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-red-200 bg-red-50 font-sora text-[12px] text-red-700 disabled:opacity-50"
+            >
+              <X size={13} /> Desfavorable
+            </button>
+            <button
+              onClick={() => decidir('approved')}
+              disabled={pendiente || !motivo.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-emerald-200 bg-emerald-50 font-sora text-[12px] text-emerald-700 disabled:opacity-50"
+            >
+              <Check size={13} /> Favorable
+            </button>
+          </div>
+        </div>
+      )}
 
       {pidiendoMotivo && (
         <div className="mt-3 border-t border-ltb pt-3">

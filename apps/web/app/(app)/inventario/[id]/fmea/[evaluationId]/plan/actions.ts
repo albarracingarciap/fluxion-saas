@@ -12,6 +12,7 @@ import {
   signedDownloadUrl,
 } from '@/lib/storage/objects';
 import { captureSnapshot } from '@/lib/fmea/treatment-plan-snapshots';
+import { planHasSecurityControls } from '@/lib/fmea/treatment-plan-rules';
 import { recordTreatmentActionEvent, recordTreatmentActionEvents } from '@/lib/fmea/treatment-action-events';
 import {
   calculateProjectedZoneForTreatmentActions,
@@ -776,6 +777,16 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
 
   const normalizedMinutesRef = input.approvalMinutesRef?.trim() || null;
 
+  // Contexto de la solicitud: el nivel elige la política y los controles de
+  // seguridad deciden si entra la consulta del CISO (B11d).
+  const approvalContext = {
+    approval_level: plan.approval_level,
+    has_security_controls: String(planHasSecurityControls(actions.map((action) => {
+      const item = Array.isArray(action.fmea_items) ? action.fmea_items[0] : action.fmea_items;
+      return { option: action.option, dimension_id: item?.dimension_id };
+    }))),
+  };
+
   // ¿Gobierna este plan una política del motor de aprobaciones?
   //
   // Con política, la referencia de acta deja de pedirse: la genera el motor a
@@ -785,7 +796,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
   const { data: policyId } = await admin.rpc('approval_policy_for', {
     p_organization_id: membership.organization_id,
     p_object_type:     'treatment_plan',
-    p_context:         { approval_level: plan.approval_level },
+    p_context:         approvalContext,
   });
 
   const gobernado = Boolean(policyId);
@@ -854,7 +865,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
       p_object_type:     'treatment_plan',
       p_object_id:       plan.id,
       p_requested_by:    perfil?.id,
-      p_context:         { approval_level: plan.approval_level },
+      p_context:         approvalContext,
     });
 
     // Si la solicitud no se abre, el plan se queda en revisión sin circuito y

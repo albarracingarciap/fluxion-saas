@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowLeft, ShieldCheck, MinusCircle } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, MinusCircle, Clock } from 'lucide-react'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildGapsData, type ExcludedGapRecord } from '@/lib/gaps/data'
@@ -15,6 +15,8 @@ export default async function ExcludedGapsPage() {
 
   const data = await buildGapsData(membership.organization_id)
   const { excluded } = data
+  // Snapshots antiguos y datos previos a B11d no traen la lista.
+  const pendientes = data.excluded_pending ?? []
 
   const accepted = excluded.filter((g) => g.disposition.disposition === 'accepted')
   const notApplicable = excluded.filter((g) => g.disposition.disposition === 'not_applicable')
@@ -68,6 +70,14 @@ export default async function ExcludedGapsPage() {
         </div>
       </section>
 
+      {pendientes.length > 0 && (
+        <ExcludedSection
+          title="Pendientes de aprobación · siguen en la cola activa"
+          icon="pending"
+          gaps={pendientes}
+        />
+      )}
+
       {excluded.length === 0 ? (
         <section className="bg-ltcard border border-dashed border-ltb rounded-[14px] p-8 text-center">
           <div className="w-12 h-12 rounded-full bg-ltbg border border-ltb flex items-center justify-center mx-auto mb-4">
@@ -113,13 +123,15 @@ function ExcludedSection({
   gaps,
 }: {
   title: string
-  icon: 'accepted' | 'not_applicable'
+  icon: 'accepted' | 'not_applicable' | 'pending'
   gaps: ExcludedGapRecord[]
 }) {
   return (
     <section className="bg-ltcard border border-ltb rounded-[14px] overflow-hidden shadow-[0_2px_12px_rgba(0,74,173,0.03)]">
       <div className="px-5 py-4 border-b border-ltb bg-ltcard2 flex items-center gap-3">
-        {icon === 'accepted' ? (
+        {icon === 'pending' ? (
+          <Clock size={15} className="text-amber-700 shrink-0" />
+        ) : icon === 'accepted' ? (
           <ShieldCheck size={15} className="text-brand-cyan shrink-0" />
         ) : (
           <MinusCircle size={15} className="text-lttm shrink-0" />
@@ -141,6 +153,7 @@ function ExcludedSection({
 function ExcludedGapCard({ gap }: { gap: ExcludedGapRecord }) {
   const { disposition } = gap
   const isAccepted = disposition.disposition === 'accepted'
+  const isPending = disposition.status === 'pending'
 
   return (
     <div className="rounded-[12px] border border-ltb bg-ltbg hover:border-cyan-border transition-all">
@@ -168,6 +181,11 @@ function ExcludedGapCard({ gap }: { gap: ExcludedGapRecord }) {
                 >
                   {isAccepted ? 'Aceptado' : 'No aplica'}
                 </span>
+                {isPending && (
+                  <span className="font-plex text-[10px] uppercase tracking-[0.7px] px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+                    Pendiente de aprobación
+                  </span>
+                )}
               </div>
               <p className="font-sora text-[14px] font-semibold text-ltt leading-[1.35]">{gap.title}</p>
               <p className="font-sora text-[12px] text-ltt2 mt-1">{gap.context_label}</p>
@@ -183,13 +201,13 @@ function ExcludedGapCard({ gap }: { gap: ExcludedGapRecord }) {
 
           <div className="grid gap-2 md:grid-cols-3 mt-3">
             <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Decidido por</p>
+              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">{isPending ? 'Solicitado por' : 'Decidido por'}</p>
               <p className="font-sora text-[12px] font-medium text-ltt mt-1">
                 {disposition.decided_by_name ?? 'Desconocido'}
               </p>
             </div>
             <div className="rounded-[10px] border border-ltb bg-ltcard px-3 py-2">
-              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Fecha decisión</p>
+              <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">{isPending ? 'Fecha solicitud' : 'Fecha decisión'}</p>
               <p className="font-sora text-[12px] font-medium text-ltt mt-1">
                 {disposition.decided_at.slice(0, 10)}
               </p>
@@ -209,7 +227,15 @@ function ExcludedGapCard({ gap }: { gap: ExcludedGapRecord }) {
             >
               Ver origen
             </Link>
-            <RevertDispositionButton dispositionId={disposition.id} />
+            {isPending && (
+              <Link
+                href="/aprobaciones"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard text-ltt2 font-sora text-[11px] hover:border-cyan-border hover:text-brand-cyan transition-colors"
+              >
+                Ver en Aprobaciones
+              </Link>
+            )}
+            <RevertDispositionButton dispositionId={disposition.id} pending={isPending} />
           </div>
         </div>
       </div>

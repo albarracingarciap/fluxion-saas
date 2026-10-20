@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, ShieldCheck, MinusCircle, Loader2 } from 'lucide-react'
 import type { UnifiedGapRecord } from '@/lib/gaps/data'
+import { gapExclusionNeedsApproval } from '@/lib/gaps/exclusion-rules'
 import { bulkSetGapDispositionAction } from './actions'
 import { GapPortal } from './gap-portal'
 
@@ -20,6 +21,7 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [resultCount, setResultCount] = useState(0)
+  const [pendingCount, setPendingCount] = useState(0)
 
   async function handleSubmit() {
     if (rationale.trim().length < 10) {
@@ -33,6 +35,7 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
         gapKey: g.key,
         gapLayer: g.layer,
         gapSourceId: g.id,
+        gapTitle: g.title,
       })),
       disposition,
       rationale: rationale.trim(),
@@ -43,6 +46,7 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
       setError(result.error)
     } else {
       setResultCount(result.count)
+      setPendingCount(result.pending)
       setDone(true)
     }
   }
@@ -60,7 +64,11 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
               {resultCount} gap{resultCount !== 1 ? 's' : ''} excluido{resultCount !== 1 ? 's' : ''}
             </p>
             <p className="font-sora text-[12px] text-ltt2 mt-2">
-              La exclusión se aplicó. Los gaps ya no aparecerán en la cola activa.
+              {pendingCount === 0
+                ? 'La exclusión se aplicó. Los gaps ya no aparecerán en la cola activa.'
+                : pendingCount === resultCount
+                  ? 'Las exclusiones esperan aprobación en Aprobaciones. Mientras tanto, los gaps siguen en la cola activa.'
+                  : `${pendingCount} de ellas esperan aprobación en Aprobaciones y sus gaps siguen en la cola activa hasta que se aprueben. El resto ya no aparecerá.`}
             </p>
             <button
               type="button"
@@ -167,6 +175,13 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
               Si se indica, los gaps volverán a la cola activa en esa fecha.
             </p>
           </div>
+
+          {selectedGaps.some((g) => gapExclusionNeedsApproval(g.layer)) && (
+            <p className="font-sora text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2">
+              Excluir un riesgo sin tratar o una obligación sin cubrir es aceptarlo: esas exclusiones pasan
+              por Aprobaciones y sus brechas siguen en la cola hasta que se aprueban.
+            </p>
+          )}
 
           {error && (
             <p className="font-sora text-[12px] text-re bg-red-dim border border-reb rounded-[8px] px-3 py-2">

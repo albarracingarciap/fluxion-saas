@@ -11,7 +11,10 @@ import {
 } from '../actions'
 import {
   APPROVAL_COMMITTEE_TYPES,
+  APPROVAL_GAP_LAYERS,
   APPROVAL_OBJECT_TYPES,
+  APPROVAL_STEP_CONDITIONS,
+  APPROVAL_STEP_KINDS,
   type ApprovalPolicyRow, type ApprovalStepRow, type ApprovalObjectType,
   type ApprovalApproverOptions,
 } from '@/lib/approvals/catalog'
@@ -38,6 +41,8 @@ type FormState = {
   niveles:            string[]
   /** Plantillas del expediente a las que se aplica (B11b). */
   plantillas:         string[]
+  /** Capas de brecha cuya exclusión gobierna (B11d). */
+  capas:              string[]
   /** Días hasta que caduca la solicitud; vacío = no caduca (B11c). */
   caducidad:          string
   author_can_approve: boolean
@@ -56,6 +61,7 @@ function formVacio(): FormState {
     name: '',
     niveles: ['level_3'],
     plantillas: [],
+    capas: [],
     caducidad: '',
     author_can_approve: false,
     is_active: true,
@@ -64,11 +70,24 @@ function formVacio(): FormState {
 }
 
 function describeStep(s: ApprovalStepRow, opciones: ApprovalApproverOptions): string {
+  // Consulta y condición delante (B11d): «Consulta · CISO · si hay controles de seguridad».
+  const pre = s.kind === 'consultation' ? 'Consulta · ' : ''
+  const cond = APPROVAL_STEP_CONDITIONS
+    .filter((c) => (s.condition?.[c.key] ?? []).includes(c.value))
+    .map((c) => ` · ${c.label.toLowerCase()}`)
+    .join('')
+  return pre + describeApprover(s, opciones) + cond
+}
+
+function describeApprover(s: ApprovalStepRow, opciones: ApprovalApproverOptions): string {
   if (s.approver_type === 'role') return ROLE_LABELS[s.approver_ref] ?? s.approver_ref
   if (s.approver_type === 'profile') {
     return opciones.profiles.find((p) => p.id === s.approver_ref)?.label ?? 'Persona'
   }
-  const respaldo = ` (si no hay: ${ROLE_LABELS[s.fallback_role ?? 'sgai_manager'] ?? s.fallback_role})`
+  // Una consulta sin nadie a quien consultar se omite: no tiene respaldo (B11d).
+  const respaldo = s.kind === 'consultation'
+    ? ' (si no hay, se omite)'
+    : ` (si no hay: ${ROLE_LABELS[s.fallback_role ?? 'sgai_manager'] ?? s.fallback_role})`
   if (s.approver_type === 'committee_type') {
     const t = APPROVAL_COMMITTEE_TYPES.find((c) => c.key === s.approver_ref)?.label ?? 'Comité'
     return `${t} · quórum ${s.quorum ?? 'del comité'}${respaldo}`
@@ -114,14 +133,17 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
       id:                 form.id,
       object_type:        form.object_type,
       name:               form.name,
-      // La condición solo se guarda para planes: en los demás objetos no hay
-      // nada equivalente al nivel, y una condición sobre una clave que nadie
-      // envía nunca dejaría la política sin aplicar jamás.
+      // Solo las condiciones que la aplicación envía en el contexto: el nivel
+      // del plan, la plantilla del expediente (B11b) y la capa de la brecha
+      // (B11d). Una condición sobre una clave que nadie envía dejaría la
+      // política sin aplicar jamás.
       conditions:         form.object_type === 'treatment_plan' && form.niveles.length
                             ? { approval_level: form.niveles }
                             : form.object_type === 'document' && form.plantillas.length
                               ? { template_key: form.plantillas }
-                              : {},
+                              : form.object_type === 'gap_disposition' && form.capas.length
+                                ? { gap_layer: form.capas }
+                                : {},
       author_can_approve: form.author_can_approve,
       is_active:          form.is_active,
       expires_after_days: form.caducidad ? Number(form.caducidad) : null,
@@ -242,6 +264,38 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
             </div>
           )}
 
+          {form.object_type === 'gap_disposition' && (
+            <div>
+              <FieldLabel>Se aplica a las brechas</FieldLabel>
+              <div className="flex gap-1.5 flex-wrap">
+                {APPROVAL_GAP_LAYERS.map((c) => {
+                  const activo = form.capas.includes(c.key)
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setForm((f) => ({
+                        ...f,
+                        capas: activo ? f.capas.filter((x) => x !== c.key) : [...f.capas, c.key],
+                      }))}
+                      className={`px-3 py-1.5 rounded-[7px] border font-sora text-[12px] transition-colors ${
+                        activo
+                          ? 'border-cyan-border bg-cyan-dim2 text-cyan-700'
+                          : 'border-ltb bg-ltcard2 text-lttm hover:border-ltb2'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+                Sin ninguna marcada, toda exclusión de brechas pasa por aprobación. Las brechas de las
+                capas que no gobierne ninguna política se excluyen directamente.
+              </p>
+            </div>
+          )}
+
           {/* ── Cadena ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -275,6 +329,43 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                       disabled={form.steps.length === 1}
                       className="p-1 text-lttm hover:text-red-600 disabled:opacity-30"><Trash2 size={13} /></button>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="relative">
+                      <select
+                        className={selectCls}
+                        value={s.kind ?? 'approval'}
+                        onChange={(e) => setPaso(i, { kind: e.target.value as ApprovalStepRow['kind'] })}
+                      >
+                        {APPROVAL_STEP_KINDS.map((k) => (
+                          <option key={k.key} value={k.key}>{k.label}</option>
+                        ))}
+                      </select>
+                      <SelectArrow />
+                    </div>
+                    {form.object_type === 'treatment_plan' && APPROVAL_STEP_CONDITIONS.map((c) => (
+                      <label key={c.key} className="flex items-center gap-2 font-sora text-[12px] text-ltt2">
+                        <input
+                          type="checkbox"
+                          checked={(s.condition?.[c.key] ?? []).includes(c.value)}
+                          onChange={(e) => {
+                            const resto = { ...(s.condition ?? {}) }
+                            delete resto[c.key]
+                            setPaso(i, { condition: e.target.checked ? { ...resto, [c.key]: [c.value] } : resto })
+                          }}
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+
+                  {s.kind === 'consultation' && (
+                    <p className="font-sora text-[11.5px] text-lttm mb-3">
+                      Quien consulta emite un dictamen favorable o desfavorable, siempre con texto. Consta
+                      en la solicitud y en el acta, pero no decide: la solicitud pasa al paso siguiente.
+                      Si no hay nadie a quien consultar, el paso se omite.
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="relative">
@@ -346,7 +437,7 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                           ? 'Al abrir cada solicitud se usa el comité activo de ese tipo, con su quórum (o la mayoría de los miembros con voto). Si no está constituido o no tiene miembros con voto, decide el rol de respaldo.'
                           : 'Al abrir cada solicitud se usa la persona designada en Organización › Gobernanza. Si la función está sin designar, decide el rol de respaldo.'}
                       </p>
-                      <label className="flex items-center gap-2 font-sora text-[12px] text-ltt2 mt-2">
+                      {s.kind !== 'consultation' && <label className="flex items-center gap-2 font-sora text-[12px] text-ltt2 mt-2">
                         Rol de respaldo
                         <span className="relative">
                           <select
@@ -360,7 +451,7 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                           </select>
                           <SelectArrow />
                         </span>
-                      </label>
+                      </label>}
                     </div>
                   )}
 
@@ -586,6 +677,13 @@ export function AprobacionesTab() {
                     {(row.conditions.template_key ?? []).map((k) => templateMeta(k).label).join(', ')}
                   </p>
                 )}
+                {(row.conditions.gap_layer ?? []).length > 0 && (
+                  <p className="font-sora text-[11.5px] text-lttm mt-2">
+                    Solo para{' '}
+                    {(row.conditions.gap_layer ?? [])
+                      .map((k) => APPROVAL_GAP_LAYERS.find((c) => c.key === k)?.label ?? k).join(', ')}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -596,6 +694,7 @@ export function AprobacionesTab() {
                     name: row.name,
                     niveles: row.conditions.approval_level ?? [],
                     plantillas: row.conditions.template_key ?? [],
+                    capas: row.conditions.gap_layer ?? [],
                     caducidad: row.expires_after_days ? String(row.expires_after_days) : '',
                     author_can_approve: row.author_can_approve,
                     is_active: row.is_active,

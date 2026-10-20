@@ -3,9 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { cancelLiveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open'
 import { getAppAuthState } from '@/lib/auth/app-state'
+import { hasAnyRole } from '@/lib/auth/roles'
 import { buildGapsData, type GapLayer, type GapDispositionType } from '@/lib/gaps/data'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 
 type GapAssignmentInput = {
   layer: GapLayer
@@ -230,10 +233,12 @@ export async function setGapDispositionAction(input: {
   gapKey: string
   gapLayer: GapLayer
   gapSourceId: string
+  /** Solo para el título de la solicitud de aprobación. */
+  gapTitle?: string
   disposition: GapDispositionType
   rationale: string
   expiresAt: string | null
-}): Promise<{ ok: true } | { error: string }> {
+}): Promise<{ ok: true; pending: number } | { error: string }> {
   const fluxion = createFluxionClient()
   const { user, membership, onboardingCompleted } = await getAppAuthState()
 
@@ -249,26 +254,20 @@ export async function setGapDispositionAction(input: {
 
   const profileId = profileRes.data?.id ?? null
 
-  const { error } = await fluxion.from('gap_dispositions').upsert(
-    {
-      organization_id: membership.organization_id,
-      gap_key: input.gapKey,
-      gap_layer: input.gapLayer,
-      gap_source_id: input.gapSourceId,
-      disposition: input.disposition,
-      rationale: input.rationale,
-      decided_by: profileId,
-      decided_at: new Date().toISOString(),
-      expires_at: input.expiresAt ? `${input.expiresAt}T23:59:59Z` : null,
-    },
-    { onConflict: 'organization_id,gap_key' }
-  )
-
-  if (error) return { error: error.message }
+  const result = await excluirBrechas({
+    fluxion,
+    organizationId: membership.organization_id,
+    profileId,
+    gaps: [{ gapKey: input.gapKey, gapLayer: input.gapLayer, gapSourceId: input.gapSourceId, gapTitle: input.gapTitle }],
+    disposition: input.disposition,
+    rationale: input.rationale,
+    expiresAt: input.expiresAt,
+  })
+  if ('error' in result) return result
 
   revalidatePath('/gaps')
   revalidatePath('/gaps/excluded')
-  return { ok: true }
+  return { ok: true, pending: result.pending }
 }
 
 export async function revertGapDispositionAction(
@@ -279,6 +278,20 @@ export async function revertGapDispositionAction(
 
   if (!user) redirect('/login')
   if (!membership || !onboardingCompleted) redirect('/onboarding')
+
+  const { data: row } = await fluxion
+    .from('gap_dispositions')
+    .select('id, status, decided_by')
+    .eq('id', dispositionId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle()
+  if (row?.status === 'pending') {
+    const retirada = await retirarPendientes(membership.organization_id, user.id, [row])
+    if ('error' in retirada) return retirada
+    revalidatePath('/gaps')
+    revalidatePath('/gaps/excluded')
+    return { ok: true }
+  }
 
   const { error } = await fluxion
     .from('gap_dispositions')
@@ -294,11 +307,11 @@ export async function revertGapDispositionAction(
 }
 
 export async function bulkSetGapDispositionAction(input: {
-  gaps: Array<{ gapKey: string; gapLayer: GapLayer; gapSourceId: string }>
+  gaps: Array<{ gapKey: string; gapLayer: GapLayer; gapSourceId: string; gapTitle?: string }>
   disposition: GapDispositionType
   rationale: string
   expiresAt: string | null
-}): Promise<{ ok: true; count: number } | { error: string }> {
+}): Promise<{ ok: true; count: number; pending: number } | { error: string }> {
   const fluxion = createFluxionClient()
   const { user, membership, onboardingCompleted } = await getAppAuthState()
 
@@ -315,29 +328,102 @@ export async function bulkSetGapDispositionAction(input: {
     .single()
 
   const profileId = profileRes.data?.id ?? null
-  const now = new Date().toISOString()
-  const expiresAt = input.expiresAt ? `${input.expiresAt}T23:59:59Z` : null
 
-  const { error } = await fluxion.from('gap_dispositions').upsert(
-    input.gaps.map((g) => ({
-      organization_id: membership.organization_id,
-      gap_key: g.gapKey,
-      gap_layer: g.gapLayer,
-      gap_source_id: g.gapSourceId,
-      disposition: input.disposition,
-      rationale: input.rationale,
-      decided_by: profileId,
-      decided_at: now,
-      expires_at: expiresAt,
-    })),
-    { onConflict: 'organization_id,gap_key' }
-  )
-
-  if (error) return { error: error.message }
+  const result = await excluirBrechas({
+    fluxion,
+    organizationId: membership.organization_id,
+    profileId,
+    gaps: input.gaps,
+    disposition: input.disposition,
+    rationale: input.rationale,
+    expiresAt: input.expiresAt,
+  })
+  if ('error' in result) return result
 
   revalidatePath('/gaps')
   revalidatePath('/gaps/excluded')
-  return { ok: true, count: input.gaps.length }
+  return { ok: true, count: input.gaps.length, pending: result.pending }
+}
+
+/**
+ * Registra las exclusiones. Cada una abre su solicitud de aprobación si una
+ * política activa la gobierna (DP-07, B11d: por defecto, «Riesgo sin tratar» y
+ * «Obligación sin cubrir», que aceptan un riesgo o un incumplimiento) y queda
+ * pendiente hasta que se decide. Si no, queda activa como antes.
+ */
+async function excluirBrechas(params: {
+  fluxion: ReturnType<typeof createFluxionClient>
+  organizationId: string
+  profileId: string | null
+  gaps: Array<{ gapKey: string; gapLayer: GapLayer; gapSourceId: string; gapTitle?: string }>
+  disposition: GapDispositionType
+  rationale: string
+  expiresAt: string | null
+}): Promise<{ pending: number } | { error: string }> {
+  const { fluxion, organizationId, profileId } = params
+  const now = new Date().toISOString()
+  const expiresAt = params.expiresAt ? `${params.expiresAt}T23:59:59Z` : null
+
+  // Una exclusión pendiente no se rehace: se retira y se vuelve a pedir.
+  const { data: vivas } = await fluxion
+    .from('gap_dispositions')
+    .select('gap_key')
+    .eq('organization_id', organizationId)
+    .eq('status', 'pending')
+    .in('gap_key', params.gaps.map((g) => g.gapKey))
+  if ((vivas ?? []).length > 0) {
+    return { error: 'Alguna brecha ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.' }
+  }
+
+  const { data: filas, error } = await fluxion
+    .from('gap_dispositions')
+    .upsert(
+      params.gaps.map((g) => ({
+        organization_id: organizationId,
+        gap_key: g.gapKey,
+        gap_layer: g.gapLayer,
+        gap_source_id: g.gapSourceId,
+        disposition: params.disposition,
+        rationale: params.rationale,
+        decided_by: profileId,
+        decided_at: now,
+        expires_at: expiresAt,
+        // La política decide: si ninguna la gobierna, pasa a activa abajo.
+        status: profileId ? 'pending' : 'active',
+      })),
+      { onConflict: 'organization_id,gap_key' }
+    )
+    .select('id, gap_key, gap_layer, status')
+
+  if (error) return { error: error.message }
+
+  let pending = 0
+  for (const fila of filas ?? []) {
+    if (fila.status !== 'pending' || !profileId) continue
+    const gap = params.gaps.find((g) => g.gapKey === fila.gap_key)
+    const abierta = await openApprovalRequest({
+      organizationId,
+      objectType: 'gap_disposition',
+      objectId: fila.id,
+      requestedByProfileId: profileId,
+      context: { gap_layer: fila.gap_layer, ...(gap?.gapTitle ? { gap_title: gap.gapTitle } : {}) },
+    })
+    // Con el rol de servicio: el trigger de la base no deja activar una
+    // exclusión desde la sesión del usuario si hay política (B11d).
+    const admin = createNoCacheAdminClient()
+    if ('error' in abierta) {
+      // Sin solicitud, la exclusión no puede quedarse esperando a nadie.
+      await admin.from('gap_dispositions').delete().eq('id', fila.id).eq('organization_id', organizationId)
+      return { error: abierta.error }
+    }
+    if (abierta.requestId === null) {
+      // Ninguna política la gobierna: queda activa, como antes de B11d.
+      await admin.from('gap_dispositions').update({ status: 'active' }).eq('id', fila.id).eq('organization_id', organizationId)
+      continue
+    }
+    pending++
+  }
+  return { pending }
 }
 
 export async function bulkRevertGapDispositionsAction(
@@ -351,10 +437,22 @@ export async function bulkRevertGapDispositionsAction(
 
   if (gapKeys.length === 0) return { error: 'No hay gaps para reactivar.' }
 
+  const { data: pendientes } = await fluxion
+    .from('gap_dispositions')
+    .select('id, decided_by')
+    .eq('organization_id', membership.organization_id)
+    .eq('status', 'pending')
+    .in('gap_key', gapKeys)
+  if ((pendientes ?? []).length > 0) {
+    const retirada = await retirarPendientes(membership.organization_id, user.id, pendientes ?? [])
+    if ('error' in retirada) return retirada
+  }
+
   const { error } = await fluxion
     .from('gap_dispositions')
     .delete()
     .eq('organization_id', membership.organization_id)
+    .eq('status', 'active')
     .in('gap_key', gapKeys)
 
   if (error) return { error: error.message }
@@ -362,6 +460,42 @@ export async function bulkRevertGapDispositionsAction(
   revalidatePath('/gaps')
   revalidatePath('/gaps/excluded')
   return { ok: true, count: gapKeys.length }
+}
+
+/**
+ * Retira exclusiones pendientes de aprobación: cancela su solicitud y las
+ * borra. Puede quien las pidió y quien puede reactivar brechas (Administrador,
+ * Responsable del SGAI, CAIO), como al cancelar desde Aprobaciones.
+ */
+async function retirarPendientes(
+  organizationId: string,
+  userId: string,
+  filas: Array<{ id: string; decided_by: string | null }>,
+): Promise<{ ok: true } | { error: string }> {
+  // Sin caché: decide quién puede retirar.
+  const admin = createNoCacheAdminClient()
+  const { data: perfil } = await admin
+    .from('profiles')
+    .select('id, role, roles')
+    .eq('user_id', userId)
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+  const gestiona = hasAnyRole(perfil, ['org_admin', 'sgai_manager', 'caio'])
+  if (!gestiona && filas.some((f) => f.decided_by !== perfil?.id)) {
+    return { error: 'Solo quien pidió la exclusión, o un administrador, puede retirarla.' }
+  }
+
+  for (const f of filas) {
+    await cancelLiveApprovalRequest('gap_disposition', f.id, 'Exclusión retirada: la brecha vuelve a la cola.')
+  }
+  const { error } = await admin
+    .from('gap_dispositions')
+    .delete()
+    .eq('organization_id', organizationId)
+    .eq('status', 'pending')
+    .in('id', filas.map((f) => f.id))
+  if (error) return { error: error.message }
+  return { ok: true }
 }
 
 export async function updateGapGroupAssignment(input: GapGroupAssignmentInput) {

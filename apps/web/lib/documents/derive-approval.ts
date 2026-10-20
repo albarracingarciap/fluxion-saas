@@ -1,5 +1,9 @@
 import 'server-only'
 
+import { APPROVAL_COMMITTEE_TYPES } from '@/lib/approvals/catalog'
+import { getRoleLabel } from '@/lib/auth/role-labels'
+import { GOVERNANCE_FUNCTIONS } from '@/lib/governance/functions'
+
 /**
  * Secciones derivadas de un acta de aprobación.
  *
@@ -41,12 +45,24 @@ const TIPO_OBJETO: Record<string, string> = {
   document:         'Documento regulatorio',
   soa:              'Declaración de Aplicabilidad',
   evidence:         'Evidencia',
+  gap_disposition:  'Exclusión de brecha',
 }
 
 const SENTIDO: Record<string, string> = {
   approved:  'a favor',
   rejected:  'en contra',
   abstained: 'abstención',
+}
+
+/** En un paso de consulta el voto es un dictamen, que no decide (B11d). */
+const DICTAMEN: Record<string, string> = {
+  approved: 'dictamen favorable',
+  rejected: 'dictamen desfavorable',
+}
+
+const OMISION: Record<string, string> = {
+  condition:    'no se cumplía su condición',
+  no_consultee: 'no había nadie a quien consultar',
 }
 
 const RESULTADO: Record<string, string> = {
@@ -77,9 +93,21 @@ function pasos(snapshot: Record<string, unknown>): Array<Record<string, unknown>
 function describePaso(p: Record<string, unknown>): string {
   const tipo = String(p.approver_type ?? '')
   const ref = String(p.approver_ref ?? '')
-  if (tipo === 'role') return `rol «${ref}»`
-  if (tipo === 'profile') return 'persona designada'
-  return `comité (quórum ${p.quorum ?? 1})`
+  const consulta = p.kind === 'consultation' ? 'consulta (dictamen) a ' : ''
+  if (tipo === 'role') return `${consulta}rol «${getRoleLabel(ref)}»`
+  if (tipo === 'profile') return `${consulta}persona designada`
+  if (tipo === 'function') {
+    return `${consulta}función de gobierno «${GOVERNANCE_FUNCTIONS.find((f) => f.key === ref)?.label ?? ref}»`
+  }
+  if (tipo === 'committee_type') {
+    return `${consulta}${APPROVAL_COMMITTEE_TYPES.find((c) => c.key === ref)?.label ?? ref}`
+  }
+  return `${consulta}comité (quórum ${p.quorum ?? 1})`
+}
+
+function sentido(snapshot: Record<string, unknown>, position: number, decision: string): string {
+  const consulta = pasos(snapshot).some((p) => Number(p.position) === position && p.kind === 'consultation')
+  return (consulta ? DICTAMEN[decision] : undefined) ?? SENTIDO[decision] ?? decision
 }
 
 export function deriveFromApproval(ref: string, ctx: ApprovalContext | null): string | null {
@@ -101,9 +129,12 @@ export function deriveFromApproval(ref: string, ctx: ApprovalContext | null): st
     case 'ACTA.2.a': {
       const lista = pasos(request.policy_snapshot)
       if (!lista.length) return null
+      const omitidos = request.policy_snapshot?.omitted_steps
       return lista
         .map((p) => `Paso ${p.position}: ${describePaso(p)}`
           + (p.allow_delegation === false ? ' · no admite delegación' : ''))
+        .concat((Array.isArray(omitidos) ? (omitidos as Array<Record<string, unknown>>) : [])
+          .map((p) => `Paso omitido: ${describePaso(p)} · ${OMISION[String(p.omitted_reason)] ?? String(p.omitted_reason)}`))
         .join('\n')
     }
 
@@ -119,7 +150,7 @@ export function deriveFromApproval(ref: string, ctx: ApprovalContext | null): st
         .map((d) => {
           const porCuenta = d.on_behalf_name ? `, por cuenta de ${d.on_behalf_name}` : ''
           return `Paso ${d.position} — ${d.actor_name ?? 'usuario no identificado'}${porCuenta}: `
-            + `${SENTIDO[d.decision] ?? d.decision}, el ${fecha(d.decided_at)}.`
+            + `${sentido(request.policy_snapshot, d.position, d.decision)}, el ${fecha(d.decided_at)}.`
         })
         .join('\n')
     }
@@ -128,7 +159,7 @@ export function deriveFromApproval(ref: string, ctx: ApprovalContext | null): st
       const motivos = decisions.filter((d) => d.reason?.trim())
       if (!motivos.length) return null
       return motivos
-        .map((d) => `${d.actor_name ?? 'Usuario'} (${SENTIDO[d.decision] ?? d.decision}): «${d.reason}»`)
+        .map((d) => `${d.actor_name ?? 'Usuario'} (${sentido(request.policy_snapshot, d.position, d.decision)}): «${d.reason}»`)
         .join('\n')
     }
 

@@ -7,9 +7,11 @@ import { revertGapDispositionAction } from './actions'
 
 type Props = {
   dispositionId: string
+  /** Exclusión pendiente de aprobación: retirarla cancela su solicitud (B11d). */
+  pending?: boolean
 }
 
-export function RevertDispositionButton({ dispositionId }: Props) {
+export function RevertDispositionButton({ dispositionId, pending = false }: Props) {
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -34,7 +36,9 @@ export function RevertDispositionButton({ dispositionId }: Props) {
         {error && (
           <span className="font-sora text-[11px] text-re">{error}</span>
         )}
-        <span className="font-sora text-[12px] text-ltt2">¿Reactivar este gap?</span>
+        <span className="font-sora text-[12px] text-ltt2">
+          {pending ? '¿Retirar la exclusión? Se cancela su solicitud de aprobación.' : '¿Reactivar este gap?'}
+        </span>
         <button
           type="button"
           onClick={() => setConfirming(false)}
@@ -49,7 +53,7 @@ export function RevertDispositionButton({ dispositionId }: Props) {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[11px] font-medium disabled:opacity-40"
         >
           {loading && <Loader2 size={11} className="animate-spin" />}
-          {loading ? 'Revirtiendo…' : 'Sí, reactivar'}
+          {loading ? 'Revirtiendo…' : pending ? 'Sí, retirar' : 'Sí, reactivar'}
         </button>
       </div>
     )
@@ -62,7 +66,7 @@ export function RevertDispositionButton({ dispositionId }: Props) {
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltbg text-ltt2 font-sora text-[11px] hover:border-cyan-border hover:text-brand-cyan transition-colors"
     >
       <RotateCcw size={12} />
-      Reactivar
+      {pending ? 'Retirar exclusión' : 'Reactivar'}
     </button>
   )
 }

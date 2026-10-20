@@ -36,6 +36,8 @@ export type ApprovalRequestRow = {
     approver_ref?: string
     fallback?: boolean
     resolved_from?: { approver_type?: string; approver_ref?: string }
+    /** `consultation`: dictamen favorable o desfavorable, con texto; no decide (B11d). */
+    kind?: 'approval' | 'consultation'
   } | null
   status:             'pending' | 'approved' | 'rejected' | 'cancelled'
   policy_name:        string | null
@@ -58,6 +60,8 @@ export type ApprovalRequestRow = {
 
 export type ApprovalDecisionRow = {
   position:         number
+  /** El paso era una consulta: «aprobó» es un dictamen favorable (B11d). */
+  consultation:     boolean
   actor_name:       string | null
   on_behalf_name:   string | null
   decision:         'approved' | 'rejected' | 'abstained'
@@ -201,7 +205,7 @@ export async function getApprovalDecisions(requestId: string): Promise<ApprovalD
   // comprobación toca hacerla aquí.
   const { data: propia } = await admin
     .from('approval_requests')
-    .select('id')
+    .select('id, policy_snapshot')
     .eq('id', requestId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle()
@@ -234,11 +238,16 @@ export async function getApprovalDecisions(requestId: string): Promise<ApprovalD
     return p?.full_name || p?.email || null
   }
 
+  const consultas = ((propia.policy_snapshot as { steps?: Array<{ position: number; kind?: string }> } | null)?.steps ?? [])
+    .filter((p) => p.kind === 'consultation')
+    .map((p) => Number(p.position))
+
   return data.map((d: {
     position: number; decision: ApprovalDecisionRow['decision']; reason: string | null
     decided_at: string; actor_profile_id: string; on_behalf_of: string | null
   }) => ({
     position:       d.position,
+    consultation:   consultas.indexOf(Number(d.position)) !== -1,
     decision:       d.decision,
     reason:         d.reason,
     decided_at:     d.decided_at,
@@ -427,6 +436,8 @@ function mensajeMotor(m: string): string {
   if (/inexistente|no existe/i.test(m)) return 'La solicitud no existe.'
   if (/ya estaba cerrada/i.test(m)) return 'La solicitud ya estaba cerrada.'
   if (/chk_rechazo_motivado/i.test(m)) return 'Rechazar exige un motivo.'
+  if (/dictamen necesita su texto/i.test(m)) return 'Un dictamen necesita su texto: es lo que leerá quien decida después.'
+  if (/no cabe abstenerse/i.test(m)) return 'En una consulta no cabe abstenerse: el dictamen es favorable o desfavorable.'
   return 'No se pudo registrar la decisión. ' + m
 }
 
