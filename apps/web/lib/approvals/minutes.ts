@@ -8,12 +8,11 @@ const TEMPLATE_KEY = 'approval_minutes'
 /**
  * Genera el acta de una solicitud cerrada.
  *
- * **Solo cuando participó un comité.** Un acta de una aprobación de un paso
- * resuelta por rol no aporta nada que no esté ya en el histórico de la
- * solicitud, y generar un PDF por cada decisión sería mucho papel para poca
- * prueba. Lo que necesitaba constancia formal era la decisión colegiada: es la
- * que sustituye al campo de texto donde alguien escribía la referencia de un
- * acta que nadie comprobaba.
+ * **En todo cierre con decisión (B11c).** Antes solo se generaba cuando
+ * participaba un comité. Con todos los objetos en el circuito, el acta es la
+ * prueba que queda en el expediente de quién aprobó o rechazó, con qué
+ * política y cuándo, también en las aprobaciones de una sola persona. Las
+ * cancelaciones y caducidades no llevan acta: no hubo decisión.
  *
  * No lanza. La decisión ya está registrada y es inmutable; si el acta no se
  * puede generar, se devuelve el aviso y el voto sigue en pie. Un fallo del
@@ -33,9 +32,10 @@ export async function generateApprovalMinutes(requestId: string): Promise<{
 
   if (error || !request) return { aviso: 'No se pudo leer la solicitud para generar el acta.' }
 
-  const pasos = Array.isArray(request.policy_snapshot?.steps) ? request.policy_snapshot.steps : []
-  const huboComite = pasos.some((p: { approver_type?: string }) => p.approver_type === 'committee')
-  if (!huboComite) return {}
+  // Acta en todo cierre con decisión (B11c), no solo con comité: es la prueba
+  // de quién aprobó o rechazó, con qué política y cuándo. Las cancelaciones no
+  // la llevan, porque no hubo decisión.
+  if (request.status !== 'approved' && request.status !== 'rejected') return {}
 
   // Ya generada: esto puede llamarse dos veces si alguien reintenta.
   const { data: existente } = await admin

@@ -586,10 +586,9 @@ sequenceDiagram
 >
 > **Pendiente de implementar.** Integración completa de la aprobación del plan en Flujos de aprobación.
 
-> **⚠ GAP-17 · Circuito de aprobación con cabos sueltos** (`O7`, `O8`, `S12`):
-> - quien solicita no ve **Cancelar solicitud**, y cancelar no devuelve el plan a borrador ni avisa;
-> - las solicitudes no caducan: si no se alcanza el quórum, el plan queda «En aprobación» indefinidamente;
-> - el correo de aprobaciones nunca se envía; cada voto vuelve a avisar a todos los decisores.
+> **✔ GAP-17 · Resuelto en B11c** (`O7`, `O8`, `S12`): quien solicita ve y puede cancelar su solicitud en
+> **Mis solicitudes**, y cancelar devuelve el objeto a borrador y avisa; las solicitudes caducan si la
+> política lo fija; el correo de aprobaciones se envía y solo se avisa a los decisores de cada paso nuevo.
 
 ### 7.3 Ejecutar el plan
 
@@ -953,7 +952,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
-| GAP-17 | 5 | Cancelación, caducidad y avisos del circuito de aprobación | Debilita | `O7`, `O8`, `S12` |
+| GAP-17 | 5 | ✔ Resuelto en B11c: cancelación, caducidad y avisos del circuito de aprobación | — | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
 | GAP-22 | 6 | AISIA sin acta y sin el aprobador de DP-01 (rol, segregación y Declaración resueltos en B08) | Debilita | — |
 | GAP-24 | 7 | Aprobadores del expediente por plantilla (ciclo, segregación, versiones, rótulo y evidencia resueltos en B09) | Debilita | — |

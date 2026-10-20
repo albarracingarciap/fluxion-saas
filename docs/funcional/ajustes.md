@@ -24,6 +24,7 @@ fuente:
   - apps/web/lib/approvals/catalog.ts
   - apps/web/lib/channels/send.ts
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
+  - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
 ---
 
 # Ajustes
@@ -45,13 +46,13 @@ sistemas, a dónde envía avisos y quién aprueba qué. También las preferencia
 | Grupo | Pestañas | Quién las ve |
 |---|---|---|
 | **Personal** | Mi cuenta · Notificaciones · Sesiones activas | Todos los roles |
-| **Workspace** | Auditoría · Seguridad · API y desarrolladores · Webhooks · Conectores · Canales de aviso · Aprobaciones | Solo Administrador |
+| **Workspace** | Auditoría · Seguridad · API y desarrolladores · Webhooks · Conectores · Canales de aviso · Aprobaciones | Administrador. **Aprobaciones** también el Responsable del SGAI y el CAIO (B11c) |
 
-> TODO: confirmar quién debe ver las pestañas de Workspace.
-> - Hoy solo las ve el administrador.
-> - El Responsable del SGAI puede gestionar conectores y canales, y el Responsable del SGAI y el CAIO
->   pueden gestionar políticas de aprobación, pero no tienen acceso a esas pestañas.
-> - Cualquier miembro debería poder delegar sus aprobaciones, y no tiene dónde hacerlo.
+Las delegaciones de aprobación se gestionan en [Aprobaciones](aprobaciones.md) › **Delegaciones**, donde
+cualquier miembro puede delegar la suya (B11c).
+
+> TODO: confirmar quién debe ver el resto de pestañas de Workspace. El Responsable del SGAI puede gestionar
+> conectores y canales, pero no tiene acceso a esas pestañas.
 
 ## Campos
 
@@ -206,7 +207,7 @@ Revisión por la Dirección. Se pueden editar como cualquier otra.
 Gobernanza. Si el comité no está constituido o no tiene miembros con voto, o la función está sin designar,
 decide el rol de respaldo (por defecto, el Responsable del SGAI; en la Revisión por la Dirección, un
 Directivo). La resolución queda congelada en la solicitud.
-| Delegación: **En quién delego**, **Desde**, **Hasta**, **Alcance** | selector, fechas, casillas | Persona y fecha de fin obligatorias | Sin tipos marcados, cubre todos |
+| **Caducidad de las solicitudes (días)** | número | No | Vacío = no caduca. Si nadie decide en ese plazo, la solicitud caduca, el objeto vuelve a borrador y se avisa (B11c) |
 
 Los cinco tipos de objeto abren solicitudes con estas políticas (B11a); ver [Aprobaciones](aprobaciones.md).
 

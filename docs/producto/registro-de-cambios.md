@@ -43,6 +43,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: decisiones de DP-01, DP-10, B02, B23a y B23b | Integrado en `main` | `docs/glosario-decisiones` | 2026-10-20 | No |
 | B11a · Flujos de aprobación: efectos y apertura por tipo de objeto | Integrado en `main` | `fase2/b11a-aprobaciones-objetos` | 2026-10-20 | **Sí** · `20261020140000_aprobaciones_objetos.sql` |
 | B11b · Flujos de aprobación: políticas por defecto de DP-01 | Integrado en `main` | `fase2/b11b-politicas-defecto` | 2026-10-20 | **Sí** · `20261020150000_aprobaciones_tipos_aprobador.sql` y `20261020150100_aprobaciones_politicas_defecto.sql` |
+| B11c · Flujos de aprobación: cancelación, caducidad y avisos | Integrado en `main` | `fase2/b11c-cancelacion-caducidad` | 2026-10-20 | **Sí** · `20261020160000_aprobaciones_caducidad.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -64,6 +65,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020140000_aprobaciones_objetos.sql` | B11a | La vista de la bandeja (`v_approval_requests`) resuelve el nombre de la AISIA, la Declaración y la evidencia, y añade `object_href` | **Antes** de desplegar B11a: la bandeja lee `object_href` |
 | `supabase/migrations/20261020150000_aprobaciones_tipos_aprobador.sql` | B11b (1/2) | Tipos de aprobador `committee_type` y `function`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
 | `supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql` | B11b (2/2) | Rol de respaldo y quórum de los pasos; varias políticas activas por tipo con condiciones (gana la más específica); resolución de comité por tipo y función al abrir; siembra de las políticas de DP-01 (trigger al crear la organización y para las existentes, solo en tipos sin política propia); abre solicitud para lo que ya esperaba aprobación | **Antes** de desplegar B11b. Revisa en Ajustes › Aprobaciones las políticas creadas y en Aprobaciones las solicitudes abiertas |
+| `supabase/migrations/20261020160000_aprobaciones_caducidad.sql` | B11c | `approval_policies.expires_after_days` y `approval_requests.expires_at` (fijada al abrir); la vista de la bandeja expone `expires_at` | **Antes** de desplegar B11c. Además, en el VPS, añadir al crontab la línea de `approval-expiry` (está en `infra/schedules/crontab`) |
 
 ---
 
@@ -1031,4 +1033,45 @@ cubra todos los casos.
 **Glosario (2026-10-20, a petición del responsable).** «Flujos de aprobación» recoge los aprobadores por tipo de
 comité y por función, el rol de respaldo, las políticas por defecto y las condiciones; «Nivel de aprobación» ya
 no lleva la marca de pendiente. TODO 252 resuelto.
+
+---
+
+## B11c · Flujos de aprobación: cancelación, caducidad y avisos
+
+**Fecha:** 2026-10-20 · **Rama:** `fase2/b11c-cancelacion-caducidad` ·
+**Migración:** **sí**, `supabase/migrations/20261020160000_aprobaciones_caducidad.sql` (aplicar antes de desplegar)
+· **Crontab:** nueva línea `approval-expiry` en `infra/schedules/crontab` (instalar en el VPS)
+
+**Problema** (GAP-17; `O7`, `O8`, `S12`, `A15`):
+- quien pedía una aprobación no veía **Cancelar solicitud**, y cancelar no devolvía el objeto a borrador ni avisaba;
+- las solicitudes no caducaban: sin quórum, el objeto se quedaba «en aprobación» para siempre;
+- cada voto que dejaba el paso pendiente volvía a avisar a todos los decisores, y los errores del motor salían en
+  texto técnico;
+- el correo de aprobaciones no se enviaba nunca (el correo exigía una tarea vinculada) y el enlace de los canales
+  era relativo;
+- el acta solo se generaba con comité;
+- las políticas solo las veía el Administrador, y los demás miembros no tenían dónde delegar.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Migración | Caducidad por política (`expires_after_days`), fecha de caducidad congelada en cada solicitud, índice y vista |
+| `lib/approvals/effects.ts` | `applyApprovalCancellation`: el plan, la AISIA, el expediente, la Declaración y la evidencia vuelven a borrador, con historial |
+| `lib/approvals/notify.ts` | Aviso de cancelación a quien tenía que decidir; aviso al solicitante salvo que lo cerrara él («caducada» cuando procede); enlaces absolutos en los canales |
+| Correo | `sendGenericEmail` y tipos de aviso de aprobaciones con correo, según las preferencias (renombradas: «Aprobación pendiente de mi decisión», «Decisión sobre mis solicitudes») |
+| Bandeja | Pestañas **Mis solicitudes** (con **Cancelar solicitud**) y **Delegaciones** (para cualquier miembro); «Caduca el …»; solo se avisa al avanzar de paso; mensajes del motor legibles |
+| Acta | En todo cierre con decisión (aprobada o rechazada) |
+| Ajustes | La pestaña **Aprobaciones** la ven también el Responsable del SGAI y el CAIO; caducidad en el editor; las delegaciones pasan a Aprobaciones |
+| Tarea programada | `/api/cron/approval-expiry` cada hora: cancela las caducadas con los mismos efectos que una cancelación |
+
+**Verificación.** Migración probada en el Postgres local (la caducidad de una política se congela en la solicitud;
+es idempotente). `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 49/49, `check-server-actions.sh`
+correcto. No se ha probado en el navegador ni el envío real de correo (requiere `RESEND_API_KEY`).
+
+**Documentación.** `funcional/aprobaciones.md`, `funcional/ajustes.md`, `funcional/perfil.md`,
+`funcional/flujo-completo-evaluacion.md` (GAP-17 resuelto), `tecnica/tareas-programadas.md`; TODO 72 y 153 en parte.
+
+**Pendiente.** B11d: pasos de consulta (dictamen del DPO, revisión del CISO), pasos condicionales, exclusión de
+brechas (DP-07), la clasificación y la política de IA como objetos aprobables; retirar la vía propia del plan.
 

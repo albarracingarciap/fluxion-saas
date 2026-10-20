@@ -1159,7 +1159,7 @@ export async function getApprovalPolicies(): Promise<ApprovalPolicyRow[]> {
 
   const { data: politicas, error } = await admin
     .from('approval_policies')
-    .select('id, object_type, name, conditions, author_can_approve, is_active, is_default')
+    .select('id, object_type, name, conditions, author_can_approve, is_active, is_default, expires_after_days')
     .eq('organization_id', profile.organization_id)
     .order('object_type')
 
@@ -1194,6 +1194,8 @@ export async function saveApprovalPolicy(input: {
   conditions:         Record<string, string[]>
   author_can_approve: boolean
   is_active:          boolean
+  /** Días que puede estar abierta una solicitud; null = no caduca (B11c). */
+  expires_after_days?: number | null
   steps:              ApprovalStepRow[]
 }): Promise<{ id: string } | { error: string }> {
   const { profile, error } = await getCurrentUserProfile()
@@ -1204,6 +1206,10 @@ export async function saveApprovalPolicy(input: {
 
   const nombre = input.name.trim()
   if (!nombre) return { error: 'El nombre es obligatorio.' }
+  const caducidad = input.expires_after_days ?? null
+  if (caducidad !== null && (!Number.isInteger(caducidad) || caducidad < 1)) {
+    return { error: 'La caducidad debe ser un número entero de días, al menos 1, o quedar vacía.' }
+  }
   if (!input.steps.length) {
     return { error: 'Una política sin pasos no aprueba nada. Añade al menos uno.' }
   }
@@ -1237,6 +1243,7 @@ export async function saveApprovalPolicy(input: {
     conditions:         input.conditions,
     author_can_approve: input.author_can_approve,
     is_active:          input.is_active,
+    expires_after_days: caducidad,
   }
 
   let policyId = input.id

@@ -120,3 +120,56 @@ export async function sendTaskEmail(params: TaskEmailParams & { subject?: string
     console.error('[email] Send error:', err)
   }
 }
+
+// ── Correo genérico (B11c) ───────────────────────────────────────────────────
+// Para avisos que no son de una tarea, como los de Flujos de aprobación. Antes
+// el correo solo se enviaba con una tarea vinculada, así que el de aprobaciones
+// no salía nunca (S12).
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+export async function sendGenericEmail(params: {
+  to:             string
+  recipientName?: string
+  subject:        string
+  body?:          string
+  /** Ruta de la aplicación (relativa) o URL absoluta. */
+  url:            string
+  cta?:           string
+}): Promise<void> {
+  const resend = getResend()
+  if (!resend || !params.to) return
+
+  const href = params.url.startsWith('http') ? params.url : `${APP_URL}${params.url}`
+  const greeting = params.recipientName ? `Hola ${escapeHtml(params.recipientName)},` : 'Hola,'
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8" /><title>${escapeHtml(params.subject)}</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:'Inter',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:32px 16px;"><tr><td align="center">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;max-width:560px;width:100%;">
+      <tr><td style="background:linear-gradient(135deg,#00adef,#33c3f5);padding:24px 32px;">
+        <span style="font-size:20px;font-weight:700;color:#ffffff;">CompaaS IA</span>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 8px;color:#64748b;font-size:13px;">${greeting}</p>
+        <p style="margin:0 0 12px;color:#1e293b;font-size:15px;font-weight:600;">${escapeHtml(params.subject)}</p>
+        ${params.body ? `<p style="margin:0 0 24px;color:#334155;font-size:14px;line-height:1.6;">${escapeHtml(params.body)}</p>` : ''}
+        <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#00adef,#33c3f5);color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:13px;font-weight:600;">${escapeHtml(params.cta ?? 'Abrir')} →</a>
+      </td></tr>
+      <tr><td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:11px;color:#94a3b8;">Puedes gestionar tus preferencias de notificación en
+        <a href="${APP_URL}/ajustes" style="color:#00adef;text-decoration:none;">Ajustes</a>.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`
+
+  try {
+    await resend.emails.send({ from: FROM_ADDRESS, to: params.to, subject: params.subject, html })
+  } catch (err) {
+    console.error('[email] Send error:', err)
+  }
+}
+

@@ -5,6 +5,10 @@ import { createNotification } from '@/lib/notifications/sender'
 import { enqueueChannelMessage } from '@/lib/channels/send'
 import { emitEvent } from '@/lib/outbox/emit'
 
+// Los canales (Slack, Teams) y los correos salen de la aplicación: el enlace
+// tiene que ser absoluto (S12).
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.fluxion.ai'
+
 /**
  * Avisa a quien le toca decidir el paso actual.
  *
@@ -97,7 +101,7 @@ export async function notifyApprovalStep(requestId: string): Promise<void> {
       message: {
         title: titulo,
         text:  `${cuerpo} ${ids.length} persona(s) pueden decidirlo.`,
-        url:   '/aprobaciones',
+        url:   `${APP_URL}/aprobaciones`,
         level: 'info',
       },
     })
@@ -111,7 +115,11 @@ export async function notifyApprovalStep(requestId: string): Promise<void> {
  *
  * El que espera es quien la pidió: sin este aviso, tendría que ir a mirar.
  */
-export async function notifyApprovalClosed(requestId: string): Promise<void> {
+export async function notifyApprovalClosed(
+  requestId: string,
+  /** profiles.id de quien la cerró: no se avisa a sí mismo. */
+  actorProfileId?: string | null,
+): Promise<void> {
   try {
     const admin = createNoCacheAdminClient()
 
@@ -131,8 +139,9 @@ export async function notifyApprovalClosed(requestId: string): Promise<void> {
 
     if (!solicitante) return
 
+    const caducada = request.status === 'cancelled' && (request.closed_reason ?? '').startsWith('Caducada')
     const veredicto = request.status === 'approved' ? 'aprobada'
-      : request.status === 'rejected' ? 'rechazada' : 'cancelada'
+      : request.status === 'rejected' ? 'rechazada' : caducada ? 'caducada' : 'cancelada'
 
     await emitEvent({
       organizationId: request.organization_id,
@@ -145,6 +154,8 @@ export async function notifyApprovalClosed(requestId: string): Promise<void> {
         reason:       request.closed_reason,
       },
     })
+
+    if (actorProfileId && actorProfileId === solicitante.id) return
 
     await createNotification({
       recipientProfileId: solicitante.id,
@@ -160,3 +171,60 @@ export async function notifyApprovalClosed(requestId: string): Promise<void> {
     console.error('[approvals/notify] fallo al avisar del cierre:', e)
   }
 }
+
+/**
+ * Quién puede decidir ahora el paso actual (profiles.id). Se pide antes de
+ * cancelar: con la solicitud cerrada, el motor ya no devuelve candidatos.
+ */
+export async function currentApprovalCandidates(requestId: string): Promise<string[]> {
+  const admin = createNoCacheAdminClient()
+  const { data } = await admin.rpc('approval_step_candidates', { p_request_id: requestId })
+  return ((data ?? []) as Array<{ profile_id: string }>).map((c) => c.profile_id)
+}
+
+/**
+ * Avisa a quienes tenían pendiente decidir una solicitud que se canceló o
+ * caducó (B11c): sin esto, la tenían en su lista de avisos sin saber que ya no
+ * hay nada que decidir.
+ */
+export async function notifyApprovalCancelled(
+  requestId: string,
+  candidateProfileIds: readonly string[],
+  actorProfileId?: string | null,
+): Promise<void> {
+  try {
+    const admin = createNoCacheAdminClient()
+    const { data: request } = await admin
+      .from('v_approval_requests')
+      .select('id, organization_id, object_label, closed_reason')
+      .eq('id', requestId)
+      .maybeSingle()
+    if (!request) return
+
+    const destinatarios = candidateProfileIds.filter((id) => id !== actorProfileId)
+    if (!destinatarios.length) return
+
+    const { data: perfiles } = await admin
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', destinatarios)
+
+    await Promise.all(
+      (perfiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) =>
+        createNotification({
+          recipientProfileId: p.id,
+          organizationId:     request.organization_id,
+          type:               'approval_closed',
+          title:              `Ya no tienes que decidir: ${request.object_label ?? 'una solicitud'}`,
+          body:               request.closed_reason ?? 'La solicitud se canceló.',
+          linkUrl:            '/aprobaciones',
+          recipientEmail:     p.email ?? undefined,
+          recipientName:      p.full_name ?? undefined,
+        })
+      )
+    )
+  } catch (e) {
+    console.error('[approvals/notify] fallo al avisar de la cancelación:', e)
+  }
+}
+

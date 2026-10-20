@@ -4,11 +4,13 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, X, MinusCircle, Clock, ChevronDown, ChevronRight, UserCheck, FileText } from 'lucide-react'
 
-import { APPROVAL_OBJECT_TYPES } from '@/lib/approvals/catalog'
+import { APPROVAL_OBJECT_TYPES, type ApprovalApproverOptions } from '@/lib/approvals/catalog'
 import {
   decideApproval, cancelApproval, getApprovalDecisions,
   type ApprovalRequestRow, type ApprovalDecisionRow,
 } from './actions'
+import { getApprovalApproverOptions } from '../ajustes/actions'
+import { Delegaciones } from '../ajustes/tabs/aprobaciones'
 
 const MOTIVO_LABELS: Record<string, string> = {
   role:       'Te corresponde por tu rol',
@@ -70,7 +72,7 @@ function Historico({ requestId }: { requestId: string }) {
 
 // ── Tarjeta ─────────────────────────────────────────────────────────────────
 
-function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boolean }) {
+function Tarjeta({ row, decidible, cancelable }: { row: ApprovalRequestRow; decidible: boolean; cancelable: boolean }) {
   const router = useRouter()
   const [abierto, setAbierto] = useState(false)
   const [motivo, setMotivo] = useState('')
@@ -102,6 +104,7 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
     startTransition(async () => {
       const r = await cancelApproval(row.id, razon)
       if (r.error) { setError(r.error); return }
+      if (r.aviso) setError(r.aviso)
       router.refresh()
     })
   }
@@ -134,6 +137,7 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
             {row.policy_name ?? 'Sin política'} · Paso {row.current_position} de {row.total_steps}
             {row.quorum > 1 && ` · ${row.approvals_in_step} de ${row.quorum} votos`}
             {' · '}Solicitada por {row.requested_by_name ?? 'alguien'} el {fecha(row.requested_at)}
+            {row.status === 'pending' && row.expires_at && ` · Caduca el ${fecha(row.expires_at)}`}
           </p>
 
           {row.can_decide && (
@@ -211,7 +215,22 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
                 <MinusCircle size={13} /> Abstenerse
               </button>
             </div>
-            <button onClick={cancelar} className="font-sora text-[11.5px] text-lttm hover:text-red-600">
+            {cancelable && (
+              <button onClick={cancelar} className="font-sora text-[11.5px] text-lttm hover:text-red-600">
+                Cancelar solicitud
+              </button>
+            )}
+          </div>
+        )}
+
+        {!decidible && cancelable && row.status === 'pending' && (
+          <div className="shrink-0">
+            <button
+              onClick={cancelar}
+              disabled={pendiente}
+              title="El objeto vuelve a borrador y se avisa a quien tenía que decidir"
+              className="px-3 py-1.5 rounded-[7px] border border-ltb bg-ltcard2 font-sora text-[12px] text-lttm hover:text-red-600 disabled:opacity-50"
+            >
               Cancelar solicitud
             </button>
           </div>
@@ -257,19 +276,36 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
 
 // ── Pantalla ────────────────────────────────────────────────────────────────
 
-export function AprobacionesClient({ pendientes, historico }: {
+type Pestana = 'decidir' | 'mias' | 'delegaciones' | 'historico'
+
+function DelegacionesPestana() {
+  const [opciones, setOpciones] = useState<ApprovalApproverOptions | null>(null)
+  if (opciones === null) {
+    getApprovalApproverOptions().then(setOpciones)
+    return <p className="font-sora text-[12.5px] text-lttm">Cargando…</p>
+  }
+  return <Delegaciones opciones={opciones} />
+}
+
+export function AprobacionesClient({ pendientes, historico, mias, puedeCancelarTodas }: {
   pendientes: ApprovalRequestRow[]
   historico:  ApprovalRequestRow[]
+  /** Solicitudes pendientes que he abierto yo (B11c). */
+  mias:       ApprovalRequestRow[]
+  /** Administrador o Responsable del SGAI: cancelan cualquier solicitud. */
+  puedeCancelarTodas: boolean
 }) {
-  const [pestana, setPestana] = useState<'mias' | 'historico'>('mias')
+  const [pestana, setPestana] = useState<Pestana>('decidir')
 
-  const filas = pestana === 'mias' ? pendientes : historico
+  const filas = pestana === 'decidir' ? pendientes : pestana === 'mias' ? mias : historico
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 flex-wrap">
         {([
-          ['mias', `Me toca decidir (${pendientes.length})`],
+          ['decidir', `Me toca decidir (${pendientes.length})`],
+          ['mias', `Mis solicitudes (${mias.length})`],
+          ['delegaciones', 'Delegaciones'],
           ['historico', 'Histórico'],
         ] as const).map(([k, label]) => (
           <button
@@ -286,22 +322,37 @@ export function AprobacionesClient({ pendientes, historico }: {
         ))}
       </div>
 
-      {filas.length === 0 ? (
+      {pestana === 'delegaciones' ? (
+        <DelegacionesPestana />
+      ) : filas.length === 0 ? (
         <div className="border border-ltb rounded-[12px] bg-ltcard px-5 py-8 text-center">
           <Clock size={20} className="text-lttm mx-auto mb-2" />
           <p className="font-sora text-[13px] text-ltt">
-            {pestana === 'mias' ? 'No tienes nada pendiente de decidir.' : 'Todavía no hay solicitudes cerradas.'}
+            {pestana === 'decidir' ? 'No tienes nada pendiente de decidir.'
+              : pestana === 'mias' ? 'No tienes solicitudes abiertas.'
+              : 'Todavía no hay solicitudes cerradas.'}
           </p>
-          {pestana === 'mias' && (
+          {pestana === 'decidir' && (
             <p className="font-sora text-[12px] text-lttm mt-1">
               Aquí aparecerá lo que te corresponda por tu rol, por designación, por comité
               o por delegación.
             </p>
           )}
+          {pestana === 'mias' && (
+            <p className="font-sora text-[12px] text-lttm mt-1">
+              Lo que envíes a aprobación aparecerá aquí mientras esté pendiente. Puedes cancelarlo:
+              el objeto vuelve a borrador.
+            </p>
+          )}
         </div>
       ) : (
         filas.map((row) => (
-          <Tarjeta key={row.id} row={row} decidible={pestana === 'mias'} />
+          <Tarjeta
+            key={row.id}
+            row={row}
+            decidible={pestana === 'decidir'}
+            cancelable={row.status === 'pending' && (pestana === 'mias' || puedeCancelarTodas)}
+          />
         ))
       )}
     </div>

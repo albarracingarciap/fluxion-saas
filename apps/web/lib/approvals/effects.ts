@@ -285,3 +285,110 @@ async function aplicarAPlan(params: {
   }
   return {}
 }
+
+// ── Cancelación y caducidad (B11c) ───────────────────────────────────────────
+// Una solicitud cancelada o caducada devuelve el objeto a borrador: sin
+// decisión, no puede quedarse «en aprobación» esperando a nadie. Solo se usa
+// cuando la cancelación viene de Aprobaciones o de la caducidad; si la retira el
+// propio dominio (volver a borrador), el dominio ya ha cambiado su estado.
+
+export async function applyApprovalCancellation(params: {
+  objectType: ApprovalObjectType
+  objectId:   string
+  reason:     string
+  actorUserId?: string | null
+}): Promise<{ aviso?: string }> {
+  const admin = createNoCacheAdminClient()
+  const nota = `[CANCELADA] ${params.reason}`
+
+  switch (params.objectType) {
+    case 'treatment_plan': {
+      const { data: p } = await admin.from('treatment_plans')
+        .select('id, organization_id, system_id, code, status').eq('id', params.objectId).maybeSingle()
+      if (!p || p.status !== 'in_review') return {}
+      const { error } = await admin.from('treatment_plans')
+        .update({ status: 'draft', approved_at: null, approval_committee_notes: nota }).eq('id', p.id)
+      if (error) return aviso('el plan no se pudo devolver a borrador', error)
+      await historial(p.system_id, p.organization_id, 'treatment_plan_cancelled', 'Aprobación del plan cancelada',
+        `La solicitud de aprobación del plan ${p.code} se canceló y el plan vuelve a borrador. Motivo: ${params.reason}`,
+        params.actorUserId, { treatment_plan_id: p.id })
+      return {}
+    }
+    case 'aisia_assessment': {
+      const { data: a } = await admin.from('aisia_assessments')
+        .select('id, organization_id, ai_system_id, version, status').eq('id', params.objectId).maybeSingle()
+      if (!a || a.status !== 'submitted') return {}
+      const { error } = await admin.from('aisia_assessments')
+        .update({ status: 'draft', submitted_at: null, submitted_by: null }).eq('id', a.id)
+      if (error) return aviso('la AISIA no se pudo devolver a borrador', error)
+      await historial(a.ai_system_id, a.organization_id, 'aisia_cancelled', 'Aprobación de la AISIA cancelada',
+        `La solicitud de aprobación de la AISIA v${a.version} se canceló y vuelve a borrador. Motivo: ${params.reason}`,
+        params.actorUserId, { assessment_id: a.id })
+      return {}
+    }
+    case 'document': {
+      const { data: d } = await admin.from('documents')
+        .select('id, organization_id, ai_system_id, template_key, version, status').eq('id', params.objectId).maybeSingle()
+      if (!d || d.status !== 'in_review') return {}
+      const { error } = await admin.from('documents')
+        .update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', d.id)
+      if (error) return aviso('el expediente no se pudo devolver a borrador', error)
+      if (d.ai_system_id) {
+        await historial(d.ai_system_id, d.organization_id, 'document_returned', 'Expediente devuelto a borrador',
+          `${templateMeta(d.template_key).label} · versión ${d.version ?? 1}: la solicitud de aprobación se canceló. Motivo: ${params.reason}`,
+          params.actorUserId, { document_id: d.id })
+      }
+      return {}
+    }
+    case 'soa': {
+      const { data: meta } = await admin.from('organization_soa_metadata')
+        .select('lifecycle_status').eq('organization_id', params.objectId).maybeSingle()
+      if (meta?.lifecycle_status !== 'under_review') return {}
+      const { error } = await admin.from('organization_soa_metadata')
+        .update({ lifecycle_status: 'draft' }).eq('organization_id', params.objectId)
+      if (error) return aviso('la Declaración no se pudo devolver a borrador', error)
+      await admin.from('soa_lifecycle_log').insert({
+        organization_id: params.objectId, actor_user_id: null, from_status: 'under_review', to_status: 'draft',
+      })
+      await syncAisiaSoaControls(admin, params.objectId)
+      return {}
+    }
+    case 'evidence': {
+      const { data: e } = await admin.from('system_evidences')
+        .select('id, organization_id, ai_system_id, title, status').eq('id', params.objectId).maybeSingle()
+      if (!e || e.status !== 'pending_review') return {}
+      const { error } = await admin.from('system_evidences')
+        .update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', e.id)
+      if (error) return aviso('la evidencia no se pudo devolver a borrador', error)
+      if (e.ai_system_id) {
+        await historial(e.ai_system_id, e.organization_id, 'evidence_review_cancelled', 'Revisión de evidencia cancelada',
+          `Evidencia "${e.title}": la solicitud de aprobación se canceló y vuelve a borrador. Motivo: ${params.reason}`,
+          params.actorUserId, { evidence_id: e.id })
+      }
+      return {}
+    }
+    default:
+      return {}
+  }
+}
+
+async function historial(
+  aiSystemId: string | null,
+  organizationId: string,
+  type: string,
+  title: string,
+  summary: string,
+  actorUserId: string | null | undefined,
+  payload: Record<string, unknown>,
+) {
+  if (!aiSystemId) return
+  await insertAiSystemHistoryEvents(createNoCacheAdminClient(), [{
+    ai_system_id: aiSystemId,
+    organization_id: organizationId,
+    event_type: type,
+    event_title: title,
+    event_summary: summary,
+    actor_user_id: actorUserId ?? null,
+    payload,
+  }])
+}
