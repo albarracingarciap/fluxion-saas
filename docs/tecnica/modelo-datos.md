@@ -33,6 +33,7 @@ fuente:
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
   - supabase/migrations/20261020120000_expediente_ciclo.sql
+  - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - recursos/db/README.md
 ---
 
@@ -95,7 +96,8 @@ erDiagram
 | `fluxion.profiles` | [Miembro](../glosario.md#miembro) | `user_id` → `auth.users`, `roles` (`org_role[]`, todos los roles), `role` (principal, = `roles[1]`), `is_active`. Único por (`user_id`, `organization_id`): un usuario puede pertenecer a varias organizaciones | `00000000000001` |
 | `fluxion.invitations` | — | `email`, `role`, `token` único, `status`, `expires_at` | `00000000000001` |
 | `fluxion.organization_modules` | [Módulo](../glosario.md#módulo) | PK (`organization_id`, `module_key`), `status` ∈ `enabled`, `disabled`, `trial`, `licensed_until` | `20260811000306` |
-| `fluxion.committees`, `committee_members` | [Comité](../glosario.md#comité) | `type` único por organización; un miembro es un perfil o una persona externa | `00000000000001` |
+| `fluxion.committees`, `committee_members` | [Comité](../glosario.md#comité) | `type` único por organización (también `technical_committee`); `quorum` (NULL = mayoría de los que votan) y `tie_break` (`chair`, `escalate`); un miembro es un perfil o una persona externa; `committee_role = 'advisor'` tiene voz sin voto | `00000000000001`, `20261020130000` |
+| `fluxion.governance_designations` | — | Funciones de gobierno de DP-01 (`ciso`, `legal`, `corporate_risk`, `data_controller`, `quality`): una persona (`profile_id`) por función y organización. Escriben Administrador y Responsable del SGAI | `20261020130000` |
 | `fluxion.profile_systems` | — | Asignación de miembros a sistemas, con `is_lead` | `00000000000001` |
 | `fluxion.api_keys` | [Clave API](../glosario.md#clave-api) | `key_prefix`, `key_hash` (SHA-256, índice único), `scopes text[]`, `revoked_at`, `expires_at` | `00000000000001`, `20260811150000` |
 | `fluxion.audit_log` | — | `actor_id` → `profiles`, `action`, `target_type`, `target_id` | `00000000000001` |
@@ -119,7 +121,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level`, `value_chain_roles`, `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000` |
+| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level`, `value_chain_roles`, `owner_profile_id`, `human_oversight_owner_id`, `human_oversight_backup_id` (B23b), `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000` |
 | `fluxion.ai_system_history` | [Historial del sistema](../glosario.md#historial-del-sistema) | `event_type`, `payload`, `actor_user_id` → `auth.users` | `00000000000001` |
 | `fluxion.classification_events` | [Clasificación AI Act](../glosario.md#clasificación-ai-act) | `version`, `method`, `risk_level`, `obligations_set`, `status`. Solo un `pending_reconciliation` por sistema | `00000000000001` |
 | `fluxion.classification_diffs` | [Reclasificación](../glosario.md#reclasificación) | `diff_type` ∈ `added`, `removed`, `unchanged`; `resolution` | `00000000000001` |
@@ -287,6 +289,8 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
 | `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` → `approved` → `superseded`; aprobar exige `sgai_manager` y no ser autor de ningún apartado, y rellena `approved_by`/`approved_at` |
 | `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
+| `fluxion.trg_governance_designation_rules()`, `trg_profiles_dpo_data_controller()` | B23b: la persona designada es de la organización; el DPO no puede ser Responsable del tratamiento, ni al designar ni al dar el rol |
+| `fluxion.approval_can_decide`, `approval_step_candidates` (revisadas en `20261020130000`) | Los asesores (`committee_role = 'advisor'`) de un comité no son candidatos ni pueden decidir |
 | `fluxion.trg_task_done_propagate_action()` | Trigger AFTER en `tasks`: al completar la tarea de una acción, completa la acción (antes era BEFORE y abortaba la actualización) |
 | `fluxion.process_task_recurrences()` | Genera las tareas recurrentes (pg_cron) |
 | `fluxion.incident_notification_days(...)`, `set_incident_deadline()` | Plazo del AI Act, Art. 73 |

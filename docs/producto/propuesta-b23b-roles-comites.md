@@ -25,7 +25,7 @@ roles, el responsable de supervisión humana de cada sistema y los comités con 
 técnico.
 
 Al final hay **seis decisiones** para el responsable del proyecto (§7). **Aprobadas todas el 2026-10-20**
-tal como se proponen.
+tal como se proponen. **Implementada el 2026-10-20** (ver el registro de cambios, B23b).
 
 ## 1. Punto de partida
 

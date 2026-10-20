@@ -38,6 +38,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B10 · Evidencias: revisión obligatoria y versiones | Integrado en `main` | `fase1/b10-evidencias` | 2026-10-20 | **Sí** · `20261020110000_evidencias_revision_versiones.sql` |
 | B09 · Expediente documental: ciclo y rastro | Integrado en `main` | `fase1/b09-expediente` | 2026-10-20 | **Sí** · `20261020120000_expediente_ciclo.sql` |
 | B08 · AISIA: mínimo (DP-05) | Integrado en `main` | `fase1/b08-aisia-minimo` | 2026-10-20 | No |
+| B23b · Funciones de gobierno, responsables por sistema y comités | Integrado en `main` | `fase1/b23b-gobierno` | 2026-10-20 | **Sí** · `20261020130000_gobierno_designaciones_comites.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -55,6 +56,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql` | B07 | Funciones `plan_estado_por_acciones` y `fmea_aplicar_aprobacion_plan`; trigger de estado del plan en `treatment_actions`; propagación tarea → acción en un trigger AFTER; aplica la aprobación a los planes ya aprobados cuya evaluación seguía en revisión | **Antes** de desplegar B07: aprobar un plan llama a `fmea_aplicar_aprobacion_plan`. Revisa cuántas evaluaciones pasan a «Aprobada» |
 | `supabase/migrations/20261020110000_evidencias_revision_versiones.sql` | B10 | Reglas del ciclo de revisión en `system_evidences` (alta en borrador, transiciones, aprueba el Responsable del SGAI distinto del autor); versiones registradas por trigger, con fichero y caducidad; etiqueta `sin-revision` en las válidas sin revisar | **Antes** de desplegar B10: la aplicación ya no escribe las versiones. Revisa cuántas evidencias reciben `sin-revision` |
 | `supabase/migrations/20261020120000_expediente_ciclo.sql` | B09 | `documents.version` y `previous_id`; reglas del ciclo del expediente (transiciones, edición solo en borrador, aprueba el Responsable del SGAI que no lo redactó); `document_reopen`; etiqueta `sin-revision` en evidencias válidas de PDF de expedientes sin aprobar | **Antes** de desplegar B09: la aplicación lee `documents.version` y llama a `document_reopen`. Aplicar después de la de B10 |
+| `supabase/migrations/20261020130000_gobierno_designaciones_comites.sql` | B23b | `governance_designations` con RLS; incompatibilidad DPO + Responsable del tratamiento; responsables en `ai_systems` (y casa `ai_owner` con un miembro si es inequívoco); comité técnico, quórum y desempate; asesores sin voto en `approval_can_decide` y `approval_step_candidates` | **Antes** de desplegar B23b. Aplicar después de las de B10 y B09. Contiene `ALTER TYPE … ADD VALUE`, válido dentro de la transacción de `migrate.sh` (Postgres 12+) |
 
 ---
 
@@ -821,4 +823,65 @@ resuelto y 136 en parte.
 
 **Pendiente (B15).** Plantilla `aisia` del expediente, versiones, acta y aprobación por el Comité de IA con
 Flujos de aprobación.
+
+---
+
+## B23b · Funciones de gobierno, responsables por sistema y comités
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b23b-gobierno` ·
+**Migración:** **sí**, `supabase/migrations/20261020130000_gobierno_designaciones_comites.sql` (aplicar antes de desplegar)
+
+**Decisión del responsable (2026-10-20).** Aprobada íntegra la
+[propuesta de B23b](propuesta-b23b-roles-comites.md): funciones como designaciones, la lista de DP-01,
+Gobernanza con miembros, supervisión humana obligatoria en alto riesgo, responsable de cada sistema ligado a
+un miembro (sin restringir la preparación) y quórum por mayoría con desempate del presidente.
+
+**Problema** (I-02, I-03, I-07, I-09 de DP-01; F-13; DP-02):
+- CISO, Legal, Riesgos corporativos, Responsable del tratamiento y función de calidad no existían, y DP-01 los
+  usa como revisores y aprobadores;
+- Gobernanza guardaba nombres en texto libre que no usaba nada;
+- la ficha no decía qué miembro es responsable de cada sistema ni quién supervisa su funcionamiento (AI Act,
+  Art. 14 y 26.2), que DP-02 exige para la etapa Evaluado;
+- los comités no tenían voz sin voto, quórum, desempate ni comité técnico, y en Flujos de aprobación un asesor
+  podía aprobar;
+- el Administrador que no tenía ese rol como principal no podía editar la organización.
+
+**Cambios en la base de datos** (migración): `governance_designations` (una persona por función, RLS para
+Administrador y Responsable del SGAI); incompatibilidad DPO + Responsable del tratamiento en los dos sentidos;
+`ai_systems.owner_profile_id`, `human_oversight_owner_id` y `human_oversight_backup_id` (se casa `ai_owner` con
+un miembro cuando el nombre o el correo coinciden con uno solo); tipo `technical_committee`, `committees.quorum`
+y `tie_break`; los asesores quedan fuera de `approval_can_decide` y `approval_step_candidates`.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| `lib/governance/functions.ts` (nuevo, puro) | Funciones de gobierno, incompatibilidades, aviso de auditor, miembros con voto, quórum efectivo, aviso del DPO con voto y obligación de supervisión humana |
+| `lib/governance/approval-map.ts` (nuevo, puro) | Mapa de aprobaciones de DP-01 con lo que aplica hoy cada objeto |
+| Organización › Gobernanza | Responsable del SGAI y DPO desde los roles; funciones de gobierno designables; el auditor externo sigue en texto |
+| Organización › Comités | Comité técnico; quórum y desempate; «Asesor (voz sin voto)»; confirmación al añadir al DPO con voto |
+| Ficha del sistema | Tarjeta **Responsables**: Responsable del sistema, Responsable de supervisión humana y suplente |
+| Evaluación FMEA | En alto riesgo, no se envía sin responsable de supervisión humana |
+| Usuarios › Roles y permisos | Mapa de aprobaciones con quién ocupa cada papel y «sin asignar» donde falta |
+| Organización | El Administrador se reconoce por cualquiera de sus roles |
+| Auditoría | Eventos `org.governance_designation_changed` y `system.responsibles_changed` |
+| Tests | `tests/gobierno.test.ts` (49 en total) |
+
+**Verificación.**
+- Migración probada en el Postgres local tras las demás: casa `ai_owner` con el miembro; el asesor no es
+  candidato ni decide y el miembro con voto sí; rechaza al DPO como Responsable del tratamiento y dar el rol DPO
+  a quien ya lo es; crea el comité técnico con quórum y desempate; es idempotente.
+- `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 49/49, `check-server-actions.sh` correcto. No se
+  ha probado en el navegador.
+
+**Documentación.** `funcional/organizacion.md`, `funcional/usuarios.md`, `funcional/ficha-sistema.md`,
+`funcional/fmea-evaluacion.md`, `funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`,
+`producto/propuesta-b23b-roles-comites.md`; TODO nuevo para el glosario.
+
+**Pendiente.**
+- B11: políticas por defecto que usen funciones, comités (con su quórum y desempate) y la delegación de la
+  dirección en Zona I. Hoy el quórum se guarda y se muestra, pero Flujos de aprobación sigue usando el quórum de
+  cada paso.
+- Avisos al responsable de cada sistema y uso del responsable de supervisión humana en la etapa Evaluado (B18).
+- Glosario: términos nuevos (ver `_pendientes.md`).
 

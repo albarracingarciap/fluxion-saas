@@ -20,6 +20,8 @@ fuente:
   - apps/web/app/api/v1/systems/[systemId]/reclassify-ai/route.ts
   - apps/web/app/api/v1/systems/[systemId]/reclassify/route.ts
   - services/agents/fluxion_agents/routes/classification.py
+  - apps/web/app/(app)/inventario/[id]/responsables-card.tsx
+  - apps/web/app/(app)/inventario/[id]/responsables-actions.ts
 ---
 
 # Ficha del sistema
@@ -64,7 +66,16 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Responsables**, **Acciones rápidas** y dependencias externas |
+
+**Responsables** (B23b, DP-01). Se guardan al elegirlos; los cambia el Administrador, el Responsable del SGAI
+o un Responsable del sistema:
+
+| Campo | Descripción | Origen |
+|---|---|---|
+| **Responsable del sistema** | Miembro con el rol Responsable del sistema. Si la ficha tenía un nombre en texto libre, se muestra como «Equipo indicado en la ficha» | `ai_systems.owner_profile_id` |
+| **Responsable de supervisión humana** | Cualquier miembro activo. Obligatorio en alto riesgo (AI Act, Art. 14 y 26.2): sin él no se puede enviar la evaluación de riesgos | `ai_systems.human_oversight_owner_id` |
+| **Suplente de supervisión humana** | Otra persona | `ai_systems.human_oversight_backup_id` |
 
 **Acciones rápidas:**
 

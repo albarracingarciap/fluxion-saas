@@ -52,6 +52,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { hasRole, rolesOf } from '@/lib/auth/roles';
 import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules';
 import { aisiaApprovalBlocker } from '@/lib/auth/roles-flujo';
+import { ResponsablesCard } from './responsables-card';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -4287,6 +4288,8 @@ export function SystemDetailClient({
                 </div>
               </div>
             </div>
+
+            <ResponsablesCard systemId={system.id} />
 
             <div>
               <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3">Acciones rápidas</div>

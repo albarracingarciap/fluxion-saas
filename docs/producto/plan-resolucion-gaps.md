@@ -724,7 +724,7 @@ causa C1. **Talla:** M, repartida entre los bloques.
   - **Pantalla Roles y permisos** de Usuarios: pasa de descriptiva a reflejar el mapa de aprobaciones.
 - **Decidido (2026-10-20).** B23a hecho (roles múltiples). Para B23b se aprueba íntegra la
   [propuesta](propuesta-b23b-roles-comites.md): funciones como designaciones, supervisión humana y
-  responsable por sistema, comités con asesores sin voto, quórum por mayoría y desempate del presidente.
+  responsable por sistema, comités con asesores sin voto, quórum por mayoría y desempate del presidente. **Implementado el 2026-10-20.**
 - **Datos:** migración de un rol a roles múltiples; tipos de comité; columnas de comité.
 - **Depende de:** B00, B01.
 - **Talla:** L. **Riesgo:** toca todas las comprobaciones de rol y las políticas RLS que lo leen.
