@@ -10,10 +10,13 @@ import {
   type ApprovalDelegationRow,
 } from '../actions'
 import {
+  APPROVAL_COMMITTEE_TYPES,
   APPROVAL_OBJECT_TYPES,
   type ApprovalPolicyRow, type ApprovalStepRow, type ApprovalObjectType,
   type ApprovalApproverOptions,
 } from '@/lib/approvals/catalog'
+import { GOVERNANCE_FUNCTIONS, getGovernanceFunctionLabel } from '@/lib/governance/functions'
+import { TEMPLATE_KEYS, templateMeta } from '@/lib/documents/templates'
 import { FieldLabel, inputCls, selectCls, SelectArrow } from './shared'
 import { ROLE_LABELS } from '@/lib/auth/role-labels'
 
@@ -33,6 +36,8 @@ type FormState = {
   object_type:        ApprovalObjectType
   name:               string
   niveles:            string[]
+  /** Plantillas del expediente a las que se aplica (B11b). */
+  plantillas:         string[]
   author_can_approve: boolean
   is_active:          boolean
   steps:              ApprovalStepRow[]
@@ -48,6 +53,7 @@ function formVacio(): FormState {
     object_type: 'treatment_plan',
     name: '',
     niveles: ['level_3'],
+    plantillas: [],
     author_can_approve: false,
     is_active: true,
     steps: [{ ...PASO_NUEVO }],
@@ -59,6 +65,12 @@ function describeStep(s: ApprovalStepRow, opciones: ApprovalApproverOptions): st
   if (s.approver_type === 'profile') {
     return opciones.profiles.find((p) => p.id === s.approver_ref)?.label ?? 'Persona'
   }
+  const respaldo = ` (si no hay: ${ROLE_LABELS[s.fallback_role ?? 'sgai_manager'] ?? s.fallback_role})`
+  if (s.approver_type === 'committee_type') {
+    const t = APPROVAL_COMMITTEE_TYPES.find((c) => c.key === s.approver_ref)?.label ?? 'Comité'
+    return `${t} · quórum ${s.quorum ?? 'del comité'}${respaldo}`
+  }
+  if (s.approver_type === 'function') return `${getGovernanceFunctionLabel(s.approver_ref)}${respaldo}`
   const c = opciones.committees.find((c) => c.id === s.approver_ref)?.label ?? 'Comité'
   return `${c} · quórum ${s.quorum ?? 1}`
 }
@@ -104,7 +116,9 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
       // envía nunca dejaría la política sin aplicar jamás.
       conditions:         form.object_type === 'treatment_plan' && form.niveles.length
                             ? { approval_level: form.niveles }
-                            : {},
+                            : form.object_type === 'document' && form.plantillas.length
+                              ? { template_key: form.plantillas }
+                              : {},
       author_can_approve: form.author_can_approve,
       is_active:          form.is_active,
       steps:              form.steps,
@@ -192,6 +206,38 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
             </div>
           )}
 
+          {form.object_type === 'document' && (
+            <div>
+              <FieldLabel>Se aplica a las plantillas</FieldLabel>
+              <div className="flex gap-1.5 flex-wrap">
+                {TEMPLATE_KEYS.map((k) => {
+                  const activo = form.plantillas.includes(k)
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setForm((f) => ({
+                        ...f,
+                        plantillas: activo ? f.plantillas.filter((x) => x !== k) : [...f.plantillas, k],
+                      }))}
+                      className={`px-3 py-1.5 rounded-[7px] border font-sora text-[12px] transition-colors ${
+                        activo
+                          ? 'border-cyan-border bg-cyan-dim2 text-cyan-700'
+                          : 'border-ltb bg-ltcard2 text-lttm hover:border-ltb2'
+                      }`}
+                    >
+                      {templateMeta(k).label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+                Sin ninguna marcada, la política se aplica a todos los expedientes. Si varias políticas
+                encajan, se aplica la más específica.
+              </p>
+            </div>
+          )}
+
           {/* ── Cadena ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -236,16 +282,21 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                           setPaso(i, {
                             approver_type: tipo,
                             approver_ref:
-                              tipo === 'role'      ? 'sgai_manager'
-                            : tipo === 'profile'   ? (opciones.profiles[0]?.id ?? '')
-                            :                        (opciones.committees[0]?.id ?? ''),
+                              tipo === 'role'           ? 'sgai_manager'
+                            : tipo === 'profile'        ? (opciones.profiles[0]?.id ?? '')
+                            : tipo === 'committee_type' ? 'risk_committee'
+                            : tipo === 'function'       ? 'data_controller'
+                            :                             (opciones.committees[0]?.id ?? ''),
                             quorum: tipo === 'committee' ? 2 : null,
+                            fallback_role: tipo === 'committee_type' || tipo === 'function' ? 'sgai_manager' : null,
                           })
                         }}
                       >
                         <option value="role">Por rol</option>
                         <option value="profile">Persona concreta</option>
-                        <option value="committee">Comité</option>
+                        <option value="committee">Comité concreto</option>
+                        <option value="committee_type">Comité por tipo</option>
+                        <option value="function">Función de gobierno</option>
                       </select>
                       <SelectArrow />
                     </div>
@@ -265,6 +316,12 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                         {s.approver_type === 'committee' && opciones.committees.map((c) => (
                           <option key={c.id} value={c.id}>{c.label}</option>
                         ))}
+                        {s.approver_type === 'committee_type' && APPROVAL_COMMITTEE_TYPES.map((c) => (
+                          <option key={c.key} value={c.key}>{c.label}</option>
+                        ))}
+                        {s.approver_type === 'function' && GOVERNANCE_FUNCTIONS.map((f) => (
+                          <option key={f.key} value={f.key}>{f.label}</option>
+                        ))}
                       </select>
                       <SelectArrow />
                     </div>
@@ -276,6 +333,31 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                       constan en el comité pero no pueden emitir voto, así que cuéntalos fuera
                       al fijar el quórum.
                     </p>
+                  )}
+
+                  {(s.approver_type === 'committee_type' || s.approver_type === 'function') && (
+                    <div className="mt-2">
+                      <p className="font-sora text-[11.5px] text-lttm">
+                        {s.approver_type === 'committee_type'
+                          ? 'Al abrir cada solicitud se usa el comité activo de ese tipo, con su quórum (o la mayoría de los miembros con voto). Si no está constituido o no tiene miembros con voto, decide el rol de respaldo.'
+                          : 'Al abrir cada solicitud se usa la persona designada en Organización › Gobernanza. Si la función está sin designar, decide el rol de respaldo.'}
+                      </p>
+                      <label className="flex items-center gap-2 font-sora text-[12px] text-ltt2 mt-2">
+                        Rol de respaldo
+                        <span className="relative">
+                          <select
+                            className={`${selectCls} py-1`}
+                            value={s.fallback_role ?? 'sgai_manager'}
+                            onChange={(e) => setPaso(i, { fallback_role: e.target.value })}
+                          >
+                            {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                              <option key={k} value={k}>{v}</option>
+                            ))}
+                          </select>
+                          <SelectArrow />
+                        </span>
+                      </label>
+                    </div>
                   )}
 
                   {s.approver_type === 'committee' && opciones.committees.length === 0 && (
@@ -293,6 +375,18 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                           className={`${inputCls} w-16 py-1`}
                           value={s.quorum ?? 1}
                           onChange={(e) => setPaso(i, { quorum: Number(e.target.value) })}
+                        />
+                      </label>
+                    )}
+                    {s.approver_type === 'committee_type' && (
+                      <label className="flex items-center gap-2 font-sora text-[12px] text-ltt2">
+                        Quórum
+                        <input
+                          type="number" min={1}
+                          className={`${inputCls} w-20 py-1`}
+                          value={s.quorum ?? ''}
+                          placeholder="Comité"
+                          onChange={(e) => setPaso(i, { quorum: e.target.value ? Number(e.target.value) : null })}
                         />
                       </label>
                     )}
@@ -413,8 +507,8 @@ export function AprobacionesTab() {
         <div className="rounded-[9px] border border-ltb bg-ltcard2 px-5 py-6 text-center">
           <p className="font-sora text-[13px] text-ltt">Todavía no hay ninguna política.</p>
           <p className="font-sora text-[12px] text-lttm mt-1">
-            Sin política, cada objeto se cierra como hasta ahora. Nada cambia hasta que
-            crees la primera.
+            Cada organización recibe las políticas por defecto del modelo de gobierno al crearse.
+            Sin política, un objeto se aprueba por su vía propia.
           </p>
         </div>
       ) : (
@@ -427,6 +521,11 @@ export function AprobacionesTab() {
                   <span className="rounded-[5px] bg-ltcard2 border border-ltb px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-lttm">
                     {APPROVAL_OBJECT_TYPES.find((t) => t.key === row.object_type)?.label ?? row.object_type}
                   </span>
+                  {row.is_default && (
+                    <span className="rounded-[5px] bg-cyan-dim border border-cyan-border px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-brand-cyan">
+                      Por defecto
+                    </span>
+                  )}
                   {!row.is_active && (
                     <span className="rounded-[5px] bg-ltcard2 px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-lttm">
                       Inactiva
@@ -450,10 +549,16 @@ export function AprobacionesTab() {
                   ))}
                 </div>
 
-                {Object.keys(row.conditions).length > 0 && (
+                {(row.conditions.approval_level ?? []).length > 0 && (
                   <p className="font-sora text-[11.5px] text-lttm mt-2">
                     Solo cuando el nivel es{' '}
                     {(row.conditions.approval_level ?? []).map((n) => NIVEL_LABELS[n] ?? n).join(', ')}
+                  </p>
+                )}
+                {(row.conditions.template_key ?? []).length > 0 && (
+                  <p className="font-sora text-[11.5px] text-lttm mt-2">
+                    Solo para{' '}
+                    {(row.conditions.template_key ?? []).map((k) => templateMeta(k).label).join(', ')}
                   </p>
                 )}
               </div>
@@ -465,6 +570,7 @@ export function AprobacionesTab() {
                     object_type: row.object_type,
                     name: row.name,
                     niveles: row.conditions.approval_level ?? [],
+                    plantillas: row.conditions.template_key ?? [],
                     author_can_approve: row.author_can_approve,
                     is_active: row.is_active,
                     steps: row.steps,

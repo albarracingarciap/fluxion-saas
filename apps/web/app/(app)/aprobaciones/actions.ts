@@ -22,6 +22,13 @@ export type ApprovalRequestRow = {
   object_label:       string | null
   /** Pantalla del objeto, para revisarlo antes de decidir (B11a). */
   object_href:        string | null
+  /** Paso actual congelado; `fallback` si decide el rol de respaldo (B11b). */
+  current_step?:      {
+    approver_type?: string
+    approver_ref?: string
+    fallback?: boolean
+    resolved_from?: { approver_type?: string; approver_ref?: string }
+  } | null
   status:             'pending' | 'approved' | 'rejected' | 'cancelled'
   policy_name:        string | null
   current_position:   number

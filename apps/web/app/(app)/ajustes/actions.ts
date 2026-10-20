@@ -1159,7 +1159,7 @@ export async function getApprovalPolicies(): Promise<ApprovalPolicyRow[]> {
 
   const { data: politicas, error } = await admin
     .from('approval_policies')
-    .select('id, object_type, name, conditions, author_can_approve, is_active')
+    .select('id, object_type, name, conditions, author_can_approve, is_active, is_default')
     .eq('organization_id', profile.organization_id)
     .order('object_type')
 
@@ -1167,7 +1167,7 @@ export async function getApprovalPolicies(): Promise<ApprovalPolicyRow[]> {
 
   const { data: pasos } = await admin
     .from('approval_policy_steps')
-    .select('id, policy_id, position, approver_type, approver_ref, quorum, allow_delegation')
+    .select('id, policy_id, position, approver_type, approver_ref, quorum, allow_delegation, fallback_role')
     .in('policy_id', politicas.map((p: { id: string }) => p.id))
     .order('position')
 
@@ -1216,6 +1216,16 @@ export async function saveApprovalPolicy(input: {
     if (paso.approver_type === 'committee' && (!paso.quorum || paso.quorum < 1)) {
       return { error: `El paso ${i + 1} es de comité y necesita un quórum de al menos 1.` }
     }
+    if (paso.approver_type === 'committee_type' && paso.quorum !== null && paso.quorum !== undefined && paso.quorum < 1) {
+      return { error: `El quórum del paso ${i + 1} debe ser al menos 1, o quedar vacío para usar el del comité.` }
+    }
+  }
+
+  // Cada tipo de objeto conserva al menos una política activa (B11b): sin
+  // ninguna, sus objetos volverían a aprobarse fuera del circuito.
+  if (input.id && !input.is_active) {
+    const ultima = await esUltimaActiva(profile.organization_id, input.object_type, input.id)
+    if (ultima) return { error: ULTIMA_POLITICA }
   }
 
   const admin = createConnectorAdminClient()
@@ -1244,13 +1254,13 @@ export async function saveApprovalPolicy(input: {
       .insert({ ...payload, created_by: profile.id })
       .select('id')
       .single()
-    // El índice único deja una sola política activa por tipo de objeto: con dos,
-    // cuál se aplicó dependería del orden de inserción.
+    // El índice único deja una sola política activa por tipo de objeto y
+    // condiciones: con dos iguales, cuál se aplicó dependería del orden.
     if (insErr || !row) {
       const dup = insErr?.code === '23505'
       return {
         error: dup
-          ? 'Ya hay una política activa para ese tipo de objeto. Desactívala primero.'
+          ? 'Ya hay una política activa para ese tipo de objeto con las mismas condiciones. Desactívala o cambia las condiciones.'
           : 'Error al crear: ' + (insErr?.message ?? ''),
       }
     }
@@ -1265,8 +1275,10 @@ export async function saveApprovalPolicy(input: {
       position:         i + 1,
       approver_type:    s.approver_type,
       approver_ref:     s.approver_ref,
-      quorum:           s.approver_type === 'committee' ? s.quorum : null,
+      quorum:           s.approver_type === 'committee' || s.approver_type === 'committee_type' ? (s.quorum ?? null) : null,
       allow_delegation: s.allow_delegation,
+      fallback_role:    s.approver_type === 'committee_type' || s.approver_type === 'function'
+                          ? (s.fallback_role ?? 'sgai_manager') : null,
     }))
   )
 
@@ -1290,6 +1302,22 @@ export async function saveApprovalPolicy(input: {
   return { id: policyId! }
 }
 
+const ULTIMA_POLITICA =
+  'Es la única política activa de este tipo de objeto. Crea o activa otra antes: sin ninguna, se aprobaría fuera del circuito.'
+
+/** ¿Es la única política activa de su tipo, aparte de `exceptId`? */
+async function esUltimaActiva(organizationId: string, objectType: string, exceptId: string): Promise<boolean> {
+  const admin = createConnectorAdminClient()
+  const { count } = await admin
+    .from('approval_policies')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .eq('object_type', objectType)
+    .eq('is_active', true)
+    .neq('id', exceptId)
+  return (count ?? 0) === 0
+}
+
 export async function deleteApprovalPolicy(id: string): Promise<{ success?: true; error?: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
@@ -1309,6 +1337,16 @@ export async function deleteApprovalPolicy(id: string): Promise<{ success?: true
 
   if ((count ?? 0) > 0) {
     return { error: 'Hay solicitudes en curso con esta política. Desactívala en vez de borrarla.' }
+  }
+
+  const { data: politica } = await admin
+    .from('approval_policies')
+    .select('object_type, is_active')
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle()
+  if (politica?.is_active && (await esUltimaActiva(profile.organization_id, politica.object_type, id))) {
+    return { error: ULTIMA_POLITICA }
   }
 
   const { error: delErr } = await admin

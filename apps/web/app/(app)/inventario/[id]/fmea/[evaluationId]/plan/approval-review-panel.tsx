@@ -63,7 +63,21 @@ export function ApprovalReviewPanel({ data }: { data: TreatmentPlanData }) {
         </span>
       </div>
 
-      {!data.is_approver && (
+      {data.in_approval_circuit && (
+        <div className="px-5 py-4 flex items-start gap-3">
+          <ShieldAlert className="w-4 h-4 text-or shrink-0 mt-0.5" />
+          <div>
+            <div className="font-sora text-[13.5px] font-semibold text-ltt mb-1">Esperando aprobación</div>
+            <p className="font-sora text-[13px] text-ltt2">
+              La decisión se toma en{' '}
+              <a href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</a>,
+              con la política de aprobación de la organización para este nivel.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!data.in_approval_circuit && !data.is_approver && (
         <div className="px-5 py-4 flex items-start gap-3">
           <ShieldAlert className="w-4 h-4 text-or shrink-0 mt-0.5" />
           <div>
@@ -78,7 +92,7 @@ export function ApprovalReviewPanel({ data }: { data: TreatmentPlanData }) {
         </div>
       )}
 
-      {data.is_approver && (
+      {!data.in_approval_circuit && data.is_approver && (
         <div className="p-5 space-y-4">
           {data.plan.approval_committee_notes && data.plan.approval_committee_notes.startsWith('[DEVUELTO]') && (
             <div className="rounded-[10px] border border-reb bg-red-dim px-4 py-3 flex items-start gap-2">

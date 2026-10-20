@@ -23,11 +23,26 @@ export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']
 export type ApprovalStepRow = {
   id?:               string
   position:          number
-  approver_type:     'role' | 'profile' | 'committee'
+  /**
+   * `committee_type` y `function` (B11b) se resuelven al abrir la solicitud:
+   * al comité activo de ese tipo o a la persona designada para la función. Si
+   * no hay, decide `fallback_role`.
+   */
+  approver_type:     'role' | 'profile' | 'committee' | 'committee_type' | 'function'
   approver_ref:      string
   quorum:            number | null
   allow_delegation:  boolean
+  /** Rol de respaldo de los pasos por tipo de comité o por función (NULL = Responsable del SGAI). */
+  fallback_role?:    string | null
 }
+
+/** Tipos de comité que se pueden pedir en una política (B11b). */
+export const APPROVAL_COMMITTEE_TYPES: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'ai_committee',        label: 'Comité de IA' },
+  { key: 'risk_committee',      label: 'Comité de Riesgos de IA' },
+  { key: 'director_review',     label: 'Revisión por la Dirección' },
+  { key: 'technical_committee', label: 'Comité técnico' },
+]
 
 export type ApprovalPolicyRow = {
   id:                 string
@@ -36,6 +51,8 @@ export type ApprovalPolicyRow = {
   conditions:         Record<string, string[]>
   author_can_approve: boolean
   is_active:          boolean
+  /** Sembrada con el mapa de DP-01 (B11b). */
+  is_default?:        boolean
   steps:              ApprovalStepRow[]
 }
 

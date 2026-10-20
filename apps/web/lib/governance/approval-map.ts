@@ -40,7 +40,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [fn('legal'), role('compliance_analyst')],
     approves: [role('sgai_manager'), committee('ai_committee')],
     approveNote: 'El Comité de IA si es alto riesgo o se invoca el Art. 6.3',
-    today: 'Sin aprobación (B11)',
+    today: 'Sin aprobación todavía (la clasificación no es un objeto aprobable)',
   },
   {
     object: 'Evaluación de riesgos y plan · nivel 1',
@@ -48,7 +48,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [fn('ciso')],
     reviewNote: 'Si hay controles de seguridad',
     approves: [role('sgai_manager')],
-    today: 'Responsable del SGAI distinto de quien prepara',
+    today: 'Política por defecto: Responsable del SGAI distinto de quien envía',
   },
   {
     object: 'Evaluación de riesgos y plan · nivel 2 (Zona II)',
@@ -56,7 +56,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [fn('ciso')],
     reviewNote: 'Si hay controles de seguridad',
     approves: [committee('risk_committee')],
-    today: 'Responsable del SGAI, o la política configurada en Flujos de aprobación',
+    today: 'Política por defecto: Comité de Riesgos de IA (si no está constituido, el Responsable del SGAI). Sin revisión del CISO todavía',
   },
   {
     object: 'Evaluación de riesgos y plan · nivel 3 (Zona I)',
@@ -64,7 +64,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [committee('risk_committee')],
     approves: [committee('director_review')],
     approveNote: 'La dirección puede delegarlo, con fecha de fin',
-    today: 'Responsable del SGAI, o la política configurada en Flujos de aprobación',
+    today: 'Política por defecto: Revisión por la Dirección (si no está constituida, un Directivo), con delegación',
   },
   {
     object: 'AISIA / FRIA',
@@ -72,7 +72,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [role('dpo'), fn('legal')],
     reviewNote: 'Dictamen del DPO',
     approves: [committee('ai_committee')],
-    today: 'Responsable del SGAI distinto de quien la prepara',
+    today: 'Política por defecto: Comité de IA (si no está constituido, el Responsable del SGAI). Sin dictamen del DPO todavía',
   },
   {
     object: 'DPIA',
@@ -80,7 +80,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [role('dpo')],
     reviewNote: 'Dictamen obligatorio',
     approves: [fn('data_controller')],
-    today: 'Responsable del SGAI que no la redactó',
+    today: 'Política por defecto: Responsable del tratamiento (si no está designado, el Responsable del SGAI). Sin dictamen del DPO todavía',
   },
   {
     object: 'Documentación técnica (Anexo IV)',
@@ -88,14 +88,14 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [role('sgai_manager')],
     approves: [role('sgai_manager'), fn('quality')],
     approveNote: 'La función de calidad si la organización es proveedora',
-    today: 'Responsable del SGAI que no lo redactó',
+    today: 'Política por defecto: Responsable del SGAI',
   },
   {
     object: 'Declaración de Aplicabilidad',
     prepares: [role('sgai_manager')],
     reviews: [committee('ai_committee')],
     approves: [role('executive'), committee('director_review')],
-    today: 'Administrador, Responsable del SGAI o CAIO (B11)',
+    today: 'Política por defecto: Revisión por la Dirección (si no está constituida, un Directivo)',
   },
   {
     object: 'Evidencias',
@@ -103,7 +103,7 @@ export const APPROVAL_MAP: readonly ApprovalMapRow[] = [
     reviews: [],
     approves: [role('sgai_manager')],
     approveNote: 'O un revisor designado distinto del autor',
-    today: 'Responsable del SGAI distinto de quien la aporta',
+    today: 'Política por defecto: Responsable del SGAI distinto de quien la envía',
   },
   {
     object: 'Política de IA',

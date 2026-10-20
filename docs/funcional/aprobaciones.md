@@ -20,6 +20,8 @@ fuente:
   - supabase/migrations/20260903090000_approval_candidates.sql
   - supabase/migrations/20261020140000_aprobaciones_objetos.sql
   - apps/web/lib/approvals/open.ts
+  - supabase/migrations/20261020150000_aprobaciones_tipos_aprobador.sql
+  - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
 ---
 
 # Aprobaciones
@@ -64,10 +66,19 @@ para su tipo:
 | Declaración de Aplicabilidad | Enviarla a revisión (con todos los controles aplicables justificados) | **En Aprobaciones** en lugar de **Aprobar SoA**. **Iniciar nueva revisión** cancela la solicitud |
 | Evidencia | Enviarla a revisión (también en bloque) | «Se decide en Aprobaciones». Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
 
-Sin política, cada objeto conserva su aprobación propia.
+**Políticas por defecto (B11b).** Toda organización tiene una política para cada tipo de objeto, con el mapa
+de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
+menos una activa. Solo un objeto cuyo contexto no encaje con ninguna (por ejemplo, un nivel del plan cuya
+política se desactivó habiendo otras) se aprueba por su vía propia.
 
-> **Pendiente de implementar.** Políticas por defecto con el mapa de aprobaciones de DP-01 para que no haya
-> objetos sin política (B11b).
+Al aplicar las políticas por defecto, los objetos que ya esperaban aprobación por la vía antigua (planes,
+AISIA, expedientes y evidencias en revisión, y la Declaración en revisión) abrieron su solicitud.
+
+**Respaldo.** Si un paso pide un comité que no está constituido o una función de gobierno sin designar,
+decide el rol de respaldo de la política, y la tarjeta lo indica en ámbar.
+
+> **Pendiente de implementar.** Pasos de consulta sin voto (dictamen del DPO, revisión del CISO) y pasos
+> condicionales (B11d).
 
 ## Campos
 
