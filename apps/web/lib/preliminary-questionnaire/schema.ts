@@ -277,8 +277,11 @@ export const SECTIONS: Section[] = [
           },
           {
             type: 'checks', key: 'c2b_seguros', label: 'Acceso a seguros de salud y vida',
+            // `admisibilidad` (acceso a seguros de vida y salud) se retiró el 2026-10-20
+            // (DP-10): no figura en el Anexo III, punto 5.c, que solo cita la
+            // evaluación de riesgos y la fijación de precios. Pendiente de revisión
+            // jurídica. Las respuestas ya guardadas con ese valor se conservan.
             options: opts(
-              ['admisibilidad', 'Toma de decisiones, o influencia sustancial en ellas, sobre la admisibilidad de las personas físicas para acceder a seguros de salud y de vida'],
               ['precios', 'Evaluación de riesgos y fijación de precios en relación con las personas físicas en los seguros de vida y de salud'],
             ),
           },
