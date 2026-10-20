@@ -590,6 +590,16 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       }
     }
 
+    // ¿Se decide en Flujos de aprobación? (B11a)
+    const { data: solicitudViva } = await fluxion
+      .from('approval_requests')
+      .select('id')
+      .eq('object_type', 'aisia_assessment')
+      .eq('object_id', aisiaRow.id)
+      .eq('status', 'pending')
+      .maybeSingle();
+    const aisiaEnCircuito = Boolean(solicitudViva);
+
     const sections: AisiaSectionEntry[] = ((aisiaRow.aisia_sections as AisiaSectionEntry[]) ?? [])
       .sort((a, b) => a.section_code.localeCompare(b.section_code));
 
@@ -602,6 +612,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       created_by:       aisiaRow.created_by,
       created_by_name:  createdByName,
       submitted_by:     (aisiaRow.submitted_by as string | null) ?? null,
+      in_approval_circuit: aisiaEnCircuito,
       submitted_at:     aisiaRow.submitted_at ?? null,
       approved_at:      aisiaRow.approved_at ?? null,
       rejected_at:      aisiaRow.rejected_at ?? null,

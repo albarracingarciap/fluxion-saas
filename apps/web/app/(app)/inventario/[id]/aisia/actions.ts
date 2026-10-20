@@ -6,6 +6,7 @@ import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { AISIA_PREFILL_SYSTEM_COLUMNS, buildAisiaPrefill } from '@/lib/aisia/prefill';
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync';
 import { aisiaApprovalBlocker } from '@/lib/auth/roles-flujo';
+import { EN_CIRCUITO, cancelLiveApprovalRequest, liveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -222,6 +223,15 @@ export async function submitAisia(assessmentId: string) {
     return { error: 'Solo se puede enviar una evaluación en borrador.' };
   }
 
+  // Con una política de Flujos de aprobación, la decisión se toma allí (B11a).
+  const apertura = await openApprovalRequest({
+    organizationId: profile.organization_id,
+    objectType: 'aisia_assessment',
+    objectId: assessmentId,
+    requestedByProfileId: profile.id,
+  });
+  if ('error' in apertura) return { error: apertura.error };
+
   const now = new Date().toISOString();
 
   const { error } = await fluxion
@@ -233,7 +243,11 @@ export async function submitAisia(assessmentId: string) {
     })
     .eq('id', assessmentId);
 
-  if (error) return { error: 'No se pudo enviar la evaluación.' };
+  if (error) {
+    // La solicitud se abrió pero la AISIA no cambió: no puede quedar viva.
+    await cancelLiveApprovalRequest('aisia_assessment', assessmentId, 'La AISIA no se pudo enviar.');
+    return { error: 'No se pudo enviar la evaluación.' };
+  }
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -287,6 +301,7 @@ export async function approveAisia(
   if (assessment.status !== 'submitted') {
     return { error: 'Solo se puede aprobar una evaluación enviada.' };
   }
+  if (await liveApprovalRequest('aisia_assessment', assessmentId)) return { error: EN_CIRCUITO };
 
   // Rol y segregación en el servidor (B08, DP-01): antes solo los comprobaba
   // la pantalla, y quien la preparaba podía aprobarla.
@@ -510,6 +525,7 @@ export async function rejectAisia(assessmentId: string, reason: string) {
   if (assessment.status !== 'submitted') {
     return { error: 'Solo se puede rechazar una evaluación enviada.' };
   }
+  if (await liveApprovalRequest('aisia_assessment', assessmentId)) return { error: EN_CIRCUITO };
 
   const blocker = aisiaApprovalBlocker({
     actor: profile,

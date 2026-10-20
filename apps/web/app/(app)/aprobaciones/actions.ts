@@ -20,6 +20,8 @@ export type ApprovalRequestRow = {
   object_type:        ApprovalObjectType
   object_id:          string
   object_label:       string | null
+  /** Pantalla del objeto, para revisarlo antes de decidir (B11a). */
+  object_href:        string | null
   status:             'pending' | 'approved' | 'rejected' | 'cancelled'
   policy_name:        string | null
   current_position:   number
@@ -282,6 +284,7 @@ export async function decideApproval(input: {
         outcome:    resultado,
         reason:     input.reason?.trim() || null,
         actorUserId: profile.user_id,
+        actorProfileId: profile.id,
       })
       aviso = efecto.aviso
     }

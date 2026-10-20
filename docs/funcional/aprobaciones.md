@@ -18,6 +18,8 @@ fuente:
   - supabase/migrations/20260901090000_approvals_view.sql
   - supabase/migrations/20260902090000_approval_minutes.sql
   - supabase/migrations/20260903090000_approval_candidates.sql
+  - supabase/migrations/20261020140000_aprobaciones_objetos.sql
+  - apps/web/lib/approvals/open.ts
 ---
 
 # Aprobaciones
@@ -51,13 +53,21 @@ Una persona puede decidir un paso si:
   - es miembro del comité;
   - tiene una delegación vigente, si el paso la admite.
 
-> **Pendiente de implementar.**
-> - Solicitudes para la AISIA, los documentos, la Declaración de Aplicabilidad y las evidencias. Hoy solo
->   los planes de tratamiento abren solicitudes, aunque las políticas se pueden configurar para los cinco
->   tipos.
+**Qué abre solicitudes (B11a).** Los cinco tipos de objeto, cuando la organización tiene una política activa
+para su tipo:
 
-> **Pendiente de definir.** Qué rol aprueba en cada [nivel de aprobación](../glosario.md#nivel-de-aprobación)
-> del plan de tratamiento.
+| Objeto | Se abre al | Pantalla del objeto mientras está pendiente |
+|---|---|---|
+| Plan de tratamiento | Enviarlo a aprobación | El panel de aprobación remite a Aprobaciones |
+| Evaluación AISIA | Enviarla para aprobación | La ficha muestra «La decisión se toma en Aprobaciones» en lugar de **Aprobar** y **Rechazar** |
+| Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política puede depender de la plantilla, `template_key`) | En lugar de **Aprobar expediente**, el motivo. **Volver a borrador** cancela la solicitud |
+| Declaración de Aplicabilidad | Enviarla a revisión (con todos los controles aplicables justificados) | **En Aprobaciones** en lugar de **Aprobar SoA**. **Iniciar nueva revisión** cancela la solicitud |
+| Evidencia | Enviarla a revisión (también en bloque) | «Se decide en Aprobaciones». Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
+
+Sin política, cada objeto conserva su aprobación propia.
+
+> **Pendiente de implementar.** Políticas por defecto con el mapa de aprobaciones de DP-01 para que no haya
+> objetos sin política (B11b).
 
 ## Campos
 
@@ -67,7 +77,8 @@ Una persona puede decidir un paso si:
 
 | Elemento | Descripción | Origen |
 |---|---|---|
-| Título | Objeto de la solicitud | `v_approval_requests.object_label` |
+| Título | Objeto de la solicitud: nombre del sistema (plan), título (AISIA, expediente, evidencia) o «Declaración de Aplicabilidad ISO/IEC 42001» | `v_approval_requests.object_label` |
+| **Ver {objeto} →** | Abre la pantalla del objeto para revisarlo antes de decidir | `object_href` |
 | Tipo | Plan de tratamiento · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia | `object_type` |
 | Estado (cerradas) | Aprobada · Rechazada · Cancelada | `status` |
 | Datos | «{política} · Paso N de M · {votos} de {quórum} votos (en comités) · Solicitada por {persona} el {fecha}» | `policy_snapshot`, `current_position` |
@@ -94,10 +105,20 @@ Una persona puede decidir un paso si:
 
 **Al cerrarse una solicitud:**
 
-1. **Efecto sobre el objeto:** solo existe para el plan de tratamiento.
-   - Aprobada: el plan pasa a aprobado.
-   - Rechazada: el plan vuelve a borrador con la nota «[DEVUELTO] {motivo}».
-2. **Acta:** se genera si algún paso es de comité.
+1. **Efecto sobre el objeto** (`lib/approvals/effects.ts`):
+
+   | Objeto | Aprobada | Rechazada |
+   |---|---|---|
+   | Plan de tratamiento | Aprobado; la evaluación de riesgos queda aprobada (B07) | Vuelve a borrador con la nota «[DEVUELTO] {motivo}» |
+   | Evaluación AISIA | Aprobada, con quien decidió y la referencia `APR-…`; actualiza los controles A.5.2-A.5.5 si la Declaración está en borrador | Rechazada, con el motivo |
+   | Expediente documental | Aprobado, con quien decidió | Vuelve a borrador |
+   | Declaración de Aplicabilidad | Aprobada, con quien decidió | Vuelve a borrador |
+   | Evidencia | Válida, con quien decidió | Rechazada, con el motivo |
+
+   Cada efecto deja su evento en el historial del sistema (salvo la Declaración, que tiene su propio
+   historial).
+2. **Acta:** se genera si algún paso es de comité, y va al expediente del sistema cuando el objeto tiene
+   sistema.
 3. **Avisos:** el solicitante recibe un [aviso en la app](../glosario.md#aviso-en-la-app) «Aprobación
    {aprobada | rechazada | cancelada}».
 4. **Integración saliente:** se envía `approval.{estado}` a las

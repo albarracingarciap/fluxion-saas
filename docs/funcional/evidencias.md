@@ -54,6 +54,8 @@ muestra «Pendiente de revisión del Responsable del SGAI» en lugar de **Aproba
 
 > **Pendiente de implementar.** El «revisor designado» de DP-01 como alternativa al Responsable del SGAI.
 
+Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene. Si se cambia el contenido o el fichero de una evidencia pendiente, la solicitud se cancela.
+
 ## Campos
 
 ### Indicadores y bloques

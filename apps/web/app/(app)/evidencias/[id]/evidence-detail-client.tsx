@@ -28,7 +28,7 @@ import {
  * `canDecide`: quien mira puede aprobar o rechazar esta evidencia (Responsable
  * del SGAI que no la aportó, DP-01). Lo calcula la página.
  */
-export function ReviewActions({ evidence, canDecide }: { evidence: EvidenceDetail; canDecide: boolean }) {
+export function ReviewActions({ evidence, canDecide, inApprovalCircuit = false }: { evidence: EvidenceDetail; canDecide: boolean; inApprovalCircuit?: boolean }) {
   const router = useRouter()
   const [isReviewing, startReviewTransition] = useTransition()
   const [rejectNotes, setRejectNotes] = useState('')
@@ -64,7 +64,13 @@ export function ReviewActions({ evidence, canDecide }: { evidence: EvidenceDetai
         </button>
       )}
 
-      {status === 'pending_review' && !canDecide && (
+      {status === 'pending_review' && inApprovalCircuit && (
+        <a href="/aprobaciones" className="font-sora text-[12px] text-brand-cyan hover:underline">
+          La revisión se decide en Aprobaciones
+        </a>
+      )}
+
+      {status === 'pending_review' && !inApprovalCircuit && !canDecide && (
         <span className="font-sora text-[12px] text-lttm">
           Pendiente de revisión del Responsable del SGAI (distinto de quien la aporta).
         </span>

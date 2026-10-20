@@ -22,13 +22,15 @@ type Props = {
   userRoles: string[]
   lifecycleStatus: string
   controls: SoAControlRecord[]
+  /** La aprobación se decide en Flujos de aprobación (B11a). */
+  inApprovalCircuit?: boolean
 }
 
 type ConfirmDialog = {
   missingCodes: string[]
 }
 
-export function HeaderActions({ metadata, availableTags, userRoles, lifecycleStatus, controls }: Props) {
+export function HeaderActions({ metadata, availableTags, userRoles, lifecycleStatus, controls, inApprovalCircuit = false }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isAisiaOpen, setIsAisiaOpen] = useState(false)
@@ -91,7 +93,16 @@ export function HeaderActions({ metadata, availableTags, userRoles, lifecycleSta
         </button>
       )}
 
-      {lifecycleStatus === 'under_review' && canApprove && (
+      {lifecycleStatus === 'under_review' && inApprovalCircuit && (
+        <a
+          href="/aprobaciones"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] bg-ltbg border border-ltb text-ltt2 font-sora text-[13px] hover:text-brand-cyan transition-all"
+        >
+          En Aprobaciones
+        </a>
+      )}
+
+      {lifecycleStatus === 'under_review' && canApprove && !inApprovalCircuit && (
         <button
           onClick={() => handleTransition('approved')}
           disabled={isPending}

@@ -147,6 +147,15 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
             <p className="font-sora text-[11.5px] text-lttm mt-1.5">Motivo: «{row.closed_reason}»</p>
           )}
 
+          {row.object_href && (
+            <a
+              href={row.object_href}
+              className="inline-flex items-center gap-1.5 font-sora text-[12px] text-cyan-700 hover:underline mt-2 mr-4"
+            >
+              Ver {tipoLabel(row.object_type).toLowerCase()} →
+            </a>
+          )}
+
           {row.minutes_render_id && (
             <a
               href={`/api/documents/v1/renders/${row.minutes_render_id}/download`}

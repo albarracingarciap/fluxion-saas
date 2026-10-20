@@ -9,6 +9,7 @@ import { SoAMetadataBar } from './metadata-bar'
 import { ArrowLeft, ShieldCheck, Clock, CheckCircle2, FileEdit } from 'lucide-react'
 import Link from 'next/link'
 import { rolesOf } from '@/lib/auth/roles'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 const LIFECYCLE_CONFIG = {
   draft: {
@@ -55,6 +56,15 @@ export default async function SoAPage() {
 
   const data = await buildSoAData(membership.organization_id)
 
+  // ¿Se decide en Flujos de aprobación? (B11a). La solicitud usa el id de la organización.
+  const { data: solicitudViva } = await createFluxionClient()
+    .from('approval_requests')
+    .select('id')
+    .eq('object_type', 'soa')
+    .eq('object_id', membership.organization_id)
+    .eq('status', 'pending')
+    .maybeSingle()
+
   const lifecycleStatus = data.metadata.lifecycle_status ?? 'draft'
   const isReadOnly = lifecycleStatus !== 'draft'
   const lifecycleCfg = LIFECYCLE_CONFIG[lifecycleStatus as keyof typeof LIFECYCLE_CONFIG] ?? LIFECYCLE_CONFIG.draft
@@ -88,6 +98,7 @@ export default async function SoAPage() {
                 userRoles={userRoles}
                 lifecycleStatus={lifecycleStatus}
                 controls={data.controls}
+                inApprovalCircuit={Boolean(solicitudViva)}
               />
             </div>
           )}

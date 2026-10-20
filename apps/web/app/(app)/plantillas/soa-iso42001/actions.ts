@@ -9,6 +9,7 @@ import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
+import { EN_CIRCUITO, cancelLiveApprovalRequest, hasApprovalPolicy, liveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open'
 
 export async function initializeSoA(_formData: FormData) {
   const adminClient = createAdminFluxionClient()
@@ -264,8 +265,16 @@ export async function transitionSoAStatus(
     return { error: 'No tienes permisos para reabrir el documento SoA.' }
   }
 
-  // Hard block: can't approve with incomplete controls
-  if (newStatus === 'approved') {
+  // Con una política de Flujos de aprobación, la aprobación se decide allí (B11a).
+  // La Declaración es una por organización: su solicitud usa el id de la organización.
+  const gobernada = await hasApprovalPolicy(membership.organization_id, 'soa')
+  if (newStatus === 'approved' && (await liveApprovalRequest('soa', membership.organization_id))) {
+    return { error: EN_CIRCUITO }
+  }
+
+  // Hard block: can't approve with incomplete controls. En el circuito se
+  // comprueba al enviarla, porque quien vota solo puede aprobar o rechazar.
+  if (newStatus === 'approved' || (newStatus === 'under_review' && gobernada)) {
     const { data: incomplete } = await adminClient
       .from('organization_soa_controls')
       .select('control_code', { count: 'exact', head: false })
@@ -275,7 +284,7 @@ export async function transitionSoAStatus(
 
     if (incomplete && incomplete.length > 0) {
       return {
-        error: `No se puede aprobar: ${incomplete.length} control${incomplete.length > 1 ? 'es aplicables carecen' : ' aplicable carece'} de justificación (${incomplete.map((c) => c.control_code).slice(0, 5).join(', ')}${incomplete.length > 5 ? '…' : ''}).`,
+        error: `No se puede ${newStatus === 'approved' ? 'aprobar' : 'enviar a aprobación'}: ${incomplete.length} control${incomplete.length > 1 ? 'es aplicables carecen' : ' aplicable carece'} de justificación (${incomplete.map((c) => c.control_code).slice(0, 5).join(', ')}${incomplete.length > 5 ? '…' : ''}).`,
       }
     }
   }
@@ -328,9 +337,27 @@ export async function transitionSoAStatus(
       if (logError) console.error('Error writing SoA lifecycle log:', logError)
     })
 
+  if (newStatus === 'under_review' && gobernada) {
+    const apertura = await openApprovalRequest({
+      organizationId: membership.organization_id,
+      objectType: 'soa',
+      objectId: membership.organization_id,
+      requestedByProfileId: profile.id,
+    })
+    if ('error' in apertura) {
+      await adminClient
+        .from('organization_soa_metadata')
+        .update({ lifecycle_status: fromStatus ?? 'draft' })
+        .eq('organization_id', membership.organization_id)
+      return { error: apertura.error }
+    }
+  }
+
   // Al abrir una revisión se aplican las AISIA aprobadas mientras la
-  // Declaración no estaba en borrador (B08).
+  // Declaración no estaba en borrador (B08). Si estaba en el circuito, la
+  // solicitud se retira.
   if (newStatus === 'draft') {
+    await cancelLiveApprovalRequest('soa', membership.organization_id, 'Devuelta a borrador.')
     await syncAisiaSoaControls(adminClient, membership.organization_id)
   }
 

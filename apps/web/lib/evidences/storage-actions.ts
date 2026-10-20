@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { MAX_EVIDENCE_FILE_BYTES, MAX_EVIDENCE_FILE_LABEL, statusAfterEdit } from '@/lib/evidences/review-rules'
+import { cancelLiveApprovalRequest } from '@/lib/approvals/open'
 import {
   BUCKET_EVIDENCES,
   objectKey,
@@ -148,6 +149,10 @@ export async function confirmEvidenceUpload(input: {
   if (updErr) {
     console.error('confirmEvidenceUpload:', updErr)
     return { error: 'El fichero se subió pero no se pudo registrar. Avisa a soporte.' }
+  }
+
+  if (backToDraft && evidence.status === 'pending_review') {
+    await cancelLiveApprovalRequest('evidence', evidence.id, 'Se cambió el fichero y la evidencia vuelve a borrador.')
   }
 
   return { path: input.key }

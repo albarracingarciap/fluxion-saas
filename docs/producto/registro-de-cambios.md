@@ -41,6 +41,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B23b · Funciones de gobierno, responsables por sistema y comités | Integrado en `main` | `fase1/b23b-gobierno` | 2026-10-20 | **Sí** · `20261020130000_gobierno_designaciones_comites.sql` |
 | Decisiones DP-06 a DP-10 (fuera del plan de bloques) | Integrado en `main` | `docs/decisiones-dp06-dp10` | 2026-10-20 | No |
 | Glosario: decisiones de DP-01, DP-10, B02, B23a y B23b | Integrado en `main` | `docs/glosario-decisiones` | 2026-10-20 | No |
+| B11a · Flujos de aprobación: efectos y apertura por tipo de objeto | Integrado en `main` | `fase2/b11a-aprobaciones-objetos` | 2026-10-20 | **Sí** · `20261020140000_aprobaciones_objetos.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -59,6 +60,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020110000_evidencias_revision_versiones.sql` | B10 | Reglas del ciclo de revisión en `system_evidences` (alta en borrador, transiciones, aprueba el Responsable del SGAI distinto del autor); versiones registradas por trigger, con fichero y caducidad; etiqueta `sin-revision` en las válidas sin revisar | **Antes** de desplegar B10: la aplicación ya no escribe las versiones. Revisa cuántas evidencias reciben `sin-revision` |
 | `supabase/migrations/20261020120000_expediente_ciclo.sql` | B09 | `documents.version` y `previous_id`; reglas del ciclo del expediente (transiciones, edición solo en borrador, aprueba el Responsable del SGAI que no lo redactó); `document_reopen`; etiqueta `sin-revision` en evidencias válidas de PDF de expedientes sin aprobar | **Antes** de desplegar B09: la aplicación lee `documents.version` y llama a `document_reopen`. Aplicar después de la de B10 |
 | `supabase/migrations/20261020130000_gobierno_designaciones_comites.sql` | B23b | `governance_designations` con RLS; incompatibilidad DPO + Responsable del tratamiento; responsables en `ai_systems` (y casa `ai_owner` con un miembro si es inequívoco); comité técnico, quórum y desempate; asesores sin voto en `approval_can_decide` y `approval_step_candidates` | **Antes** de desplegar B23b. Aplicar después de las de B10 y B09. Contiene `ALTER TYPE … ADD VALUE`, válido dentro de la transacción de `migrate.sh` (Postgres 12+) |
+| `supabase/migrations/20261020140000_aprobaciones_objetos.sql` | B11a | La vista de la bandeja (`v_approval_requests`) resuelve el nombre de la AISIA, la Declaración y la evidencia, y añade `object_href` | **Antes** de desplegar B11a: la bandeja lee `object_href` |
 
 ---
 
@@ -929,4 +931,47 @@ A petición del responsable, `glosario.md` incorpora lo decidido e implementado:
 - Entrada nueva **Responsable de supervisión humana** (B23b).
 
 `_pendientes.md`: 8, 237, 240, 249, 250 y 251 resueltos; 247 queda abierto solo por `_inventario.md`.
+
+---
+
+## B11a · Flujos de aprobación: efectos y apertura por tipo de objeto
+
+**Fecha:** 2026-10-20 · **Rama:** `fase2/b11a-aprobaciones-objetos` ·
+**Migración:** **sí**, `supabase/migrations/20261020140000_aprobaciones_objetos.sql` (solo la vista de la bandeja)
+
+Primera parte de B11 (el plan lo parte en B11a efectos y apertura, B11b políticas por defecto, B11c
+cancelación, caducidad y avisos, B11d pasos de consulta y condicionales).
+
+**Problema** (F-01; GAP-22, GAP-24, GAP-26 en parte): Flujos de aprobación se diseñó como motor común, pero
+solo lo usaba el plan de tratamiento. La AISIA, el expediente, la Declaración de Aplicabilidad y las
+evidencias tenían cada uno su aprobación propia aunque se configurara una política para su tipo, y la
+bandeja no enlazaba con el objeto que se estaba decidiendo.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| `lib/approvals/open.ts` (nuevo) | `openApprovalRequest` (abre la solicitud y avisa al primer paso), `liveApprovalRequest`, `cancelLiveApprovalRequest` y `hasApprovalPolicy` |
+| `lib/approvals/effects.ts` | Efectos de la AISIA, el expediente, la Declaración y la evidencia al aprobarse o rechazarse, con historial; recibe también el perfil de quien decide |
+| `lib/approvals/minutes.ts` | El acta de los objetos con sistema va a su expediente |
+| AISIA | Enviar abre la solicitud; con ella viva, **Aprobar** y **Rechazar** remiten a Aprobaciones y la ficha lo indica |
+| Expediente | Enviar a revisión abre la solicitud (con política, sin huecos obligatorios; el contexto lleva la plantilla); **Volver a borrador** la cancela; aprobar desde la pantalla remite a Aprobaciones |
+| Declaración de Aplicabilidad | Enviar abre la solicitud (con política, controles justificados); **Iniciar nueva revisión** la cancela; **En Aprobaciones** en lugar de **Aprobar SoA** |
+| Evidencias | Enviar a revisión (también en bloque) abre la solicitud; aprobar o rechazar desde la biblioteca o el detalle remite a Aprobaciones; cambiar el contenido o el fichero de una pendiente cancela la solicitud |
+| Bandeja | Enlace **Ver {objeto} →** para revisar el objeto antes de decidir |
+
+Sin política para su tipo, cada objeto conserva su aprobación propia: B11a no cambia nada en una
+organización que no haya configurado políticas. B11b sembrará las políticas por defecto de DP-01.
+
+**Verificación.** La vista se probó en el Postgres local tras todas las migraciones (columnas y orden; es
+idempotente). `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 49/49, `check-server-actions.sh`
+correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/aprobaciones.md` (qué abre solicitudes y efectos), `funcional/aisia.md`,
+`funcional/expediente-documental.md`, `funcional/declaracion-aplicabilidad.md`, `funcional/evidencias.md`.
+
+**Pendiente.** B11b (políticas por defecto con el mapa de DP-01, funciones y comités, eliminar la vía propia
+del plan); B11c (cancelación que devuelve a borrador y avisa, caducidad, avisos solo a nuevos decisores); B11d
+(pasos de consulta y condicionales; exclusión de brechas, DP-07). En la ficha del sistema, las evidencias en el
+circuito muestran el aviso al intentar decidir, no antes.
 

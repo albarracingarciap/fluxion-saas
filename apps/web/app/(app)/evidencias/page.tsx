@@ -17,6 +17,7 @@ import { EvidencesLibraryClient } from './evidences-library-client'
 import { hasRole } from '@/lib/auth/roles'
 import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules'
 import { ExpiryAlertsBanner } from './expiry-alerts-client'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 type EvidencePageSearchParams = Promise<{
   system?: string
@@ -280,6 +281,15 @@ export default async function EvidencesPage({
   }
 
   const resolvedSearchParams = (await searchParams) ?? {}
+
+  // Evidencias que se deciden en Flujos de aprobación (B11a).
+  const { data: solicitudesVivas } = await createFluxionClient()
+    .from('approval_requests')
+    .select('object_id')
+    .eq('organization_id', membership.organization_id)
+    .eq('object_type', 'evidence')
+    .eq('status', 'pending')
+  const enCircuito = (solicitudesVivas ?? []).map((r: { object_id: string }) => r.object_id)
   const data = await buildEvidencesData(membership.organization_id)
 
   // La página no debe caerse si las alertas fallan, pero el fallo tiene que
@@ -798,6 +808,7 @@ export default async function EvidencesPage({
               </div>
             ) : filteredLibrary.length > 0 ? (
               <EvidencesLibraryClient
+                inApprovalCircuitIds={enCircuito}
                 evidences={filteredLibrary.slice(0, 24)}
                 organizationId={membership.organization_id}
                 currentUserId={user.id}
