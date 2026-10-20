@@ -18,6 +18,7 @@ fuente:
   - infra/schedules/README.md
   - supabase/migrations/00000000000004_cron_jobs.sql
   - supabase/migrations/20260822090000_telemetry_rollups.sql
+  - apps/web/app/api/cron/approval-expiry/route.ts
 ---
 
 # Tareas programadas
@@ -36,6 +37,7 @@ Trabajos que Fluxion ejecuta periódicamente. Hay nueve:
 | `cost-budgets` | Crontab → web | `40 * * * *` (cada hora) | Compara el gasto del mes con los presupuestos y avisa del umbral más alto nuevo |
 | `hitl-discordance` | Crontab → web | `30 6 * * *` (diaria, 06:30) | Detecta subidas de discordancia en la supervisión humana y avisa |
 | `outbox` | Crontab → web | `*/5 * * * *` (cada 5 min) | Entrega los webhooks salientes pendientes |
+| `approval-expiry` | Crontab → web | `50 * * * *` (cada hora) | Cancela las solicitudes de aprobación caducadas, devuelve el objeto a borrador y avisa (B11c) |
 | `process-task-recurrences` | pg_cron | `5 * * * *` (cada hora) | Crea las tareas recurrentes que tocan |
 | `telemetry-rollup` | pg_cron | `25 * * * *` (cada hora) | Recalcula los agregados diarios de telemetría de ayer y hoy |
 | `telemetry-partitions` | pg_cron | `0 3 1 * *` (día 1, 03:00) | Crea las particiones mensuales de telemetría para los próximos 6 meses |
@@ -48,6 +50,7 @@ Las horas son las del servidor y las de pg_cron, que se espera estén en UTC.
 |---|---|---|---|---|
 | `evidence-expiry` | `system_evidences` | `evidence_expiry_alerts`, `system_evidences.status` | `UNIQUE (evidence_id, alert_type)`, una alerta viva por evidencia | `{checked, upserted, superseded, cleared, errors, statusSynced, runAt}` |
 | `review-reminders` | `treatment_actions`, `notifications` | `notifications` | Ventana de 6 días por destinatario | `{checkedAt, totalPending, totalOverdue, orgCount, notified, skipped, unassigned, orgs}` |
+| `approval-expiry` | `approval_requests` (`expires_at`) | `approval_requests`, el objeto, `notifications` | Solo solicitudes pendientes; al cancelarlas dejan de estarlo | `{cerradas, errores}` |
 | `incident-deadlines` | `ai_incidents`, `incident_deadline_alerts` | `notifications`, `channel_deliveries`, `incident_deadline_alerts` | Clave `(incident_id, threshold)` | `{checkedAt, withOpenDeadline, thresholdsAlerted, notificationsSent, deliveriesRetried}` |
 | `cost-budgets` | `telemetry.v_budget_status`, `cost_budget_alerts` | `cost_budget_alerts`, `signals`, `channel_deliveries` | Clave `(budget_id, period_key, threshold)` y `dedupe_key` de la señal | `{checkedAt, budgets, alerted, deliveriesRetried}` |
 | `hitl-discordance` | RPC `hitl_discordance_spikes()` | `signals`, `channel_deliveries` | `dedupe_key` por sistema y semana ISO | `{checkedAt, spikes, alerted, deliveriesRetried}` |

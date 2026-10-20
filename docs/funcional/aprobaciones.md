@@ -22,6 +22,8 @@ fuente:
   - apps/web/lib/approvals/open.ts
   - supabase/migrations/20261020150000_aprobaciones_tipos_aprobador.sql
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
+  - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
+  - apps/web/app/api/cron/approval-expiry/route.ts
 ---
 
 # Aprobaciones
@@ -82,7 +84,13 @@ decide el rol de respaldo de la política, y la tarjeta lo indica en ámbar.
 
 ## Campos
 
-**Pestañas:** **Me toca decidir (N)** e **Histórico**. No hay filtros.
+**Pestañas:** **Me toca decidir (N)**, **Mis solicitudes (N)** (las pendientes que he abierto yo),
+**Delegaciones** y **Histórico**. No hay filtros.
+
+**Delegaciones** (B11c): cualquier miembro delega su autoridad en otra persona, con fecha de inicio y fin
+obligatoria y, si quiere, solo para algunos tipos de objeto. El Administrador y el Responsable del SGAI pueden
+registrar delegaciones en nombre de otros. Es el mecanismo de la delegación de la dirección en los planes de
+Zona I.
 
 **Cada solicitud:**
 
@@ -112,7 +120,7 @@ decide el rol de respaldo de la política, y la tarjeta lo indica en ámbar.
 | **Aprobar** | Decisor | `decideApproval` | Si se alcanza el quórum, el paso se cierra y se avanza al siguiente. En el último paso, la solicitud queda aprobada |
 | **Rechazar** | Decisor | Pide el motivo («Qué hay que corregir para que esto pueda aprobarse») y **Confirmar rechazo** | Cierra la solicitud como rechazada |
 | **Abstenerse** | Decisor | Registra la abstención | «Consta, pero no acerca la aprobación» |
-| **Cancelar solicitud** | Solicitante, Administrador, Responsable del SGAI | Pide el motivo y cancela | Cierra la solicitud como cancelada |
+| **Cancelar solicitud** | Solicitante (en **Mis solicitudes**), Administrador y Responsable del SGAI | Pide el motivo y cancela | Cierra la solicitud como cancelada, devuelve el objeto a borrador (con historial) y avisa al solicitante, si no fue él, y a quien tenía que decidir |
 
 **Al cerrarse una solicitud:**
 
@@ -128,42 +136,43 @@ decide el rol de respaldo de la política, y la tarjeta lo indica en ámbar.
 
    Cada efecto deja su evento en el historial del sistema (salvo la Declaración, que tiene su propio
    historial).
-2. **Acta:** se genera si algún paso es de comité, y va al expediente del sistema cuando el objeto tiene
-   sistema.
-3. **Avisos:** el solicitante recibe un [aviso en la app](../glosario.md#aviso-en-la-app) «Aprobación
-   {aprobada | rechazada | cancelada}».
+2. **Acta:** se genera en todo cierre con decisión (aprobada o rechazada), no solo con comité (B11c), y va
+   al expediente del sistema cuando el objeto tiene sistema. Las cancelaciones y caducidades no llevan acta.
+3. **Avisos:** el solicitante recibe un [aviso en la app](../glosario.md#aviso-en-la-app) y un correo
+   «Aprobación {aprobada | rechazada | cancelada | caducada}», salvo que la cerrara él mismo.
 4. **Integración saliente:** se envía `approval.{estado}` a las
    [integraciones salientes](../glosario.md#integración-saliente-webhook).
 
 **Mientras siga pendiente:** se avisa a quienes pueden decidir el paso actual con «Aprobación pendiente:
-{objeto}».
+{objeto}», en la aplicación, por correo y por los canales de aviso (con enlace absoluto). Solo se avisa al
+abrir la solicitud y cada vez que avanza de paso, a los decisores del paso nuevo: un voto que deja el paso
+pendiente no vuelve a avisar (B11c).
+
+**Caducidad** (B11c). Si la política fija una caducidad, la tarjeta muestra «Caduca el {fecha}». La tarea
+`approval-expiry` (cada hora) cancela las vencidas con el motivo «Caducada: nadie decidió en N días», con los
+mismos efectos que una cancelación.
+
+Los correos respetan las preferencias de notificación de cada persona (**Aprobación pendiente de mi
+decisión** y **Decisión sobre mis solicitudes**).
 
 Cada decisión queda en el registro de auditoría. Las decisiones no se pueden modificar ni borrar.
 
-> TODO: confirmar varios comportamientos de la bandeja.
-> - **Cancelar solicitud:** solo aparece en **Me toca decidir**, que no muestra las solicitudes propias.
->   Por eso el solicitante no ve el botón.
-> - **Efectos de la cancelación:** no avisa y no devuelve el plan a borrador.
-> - **Avisos repetidos:** cada voto que deja la solicitud pendiente vuelve a avisar a todos los decisores.
-> - **Mensajes de error:** los del motor aparecen en texto técnico.
-> - **Avisos y mensajes:** los que no son errores también se pintan en rojo.
-> - **Caducidad:** las solicitudes no caducan. Si el quórum no se puede alcanzar, la solicitud queda
->   pendiente indefinidamente.
+> TODO: confirmar un comportamiento de la bandeja: los avisos y mensajes que no son errores también se
+> pintan en rojo.
 
-**Configuración:** en **Ajustes › Aprobaciones**:
+**Configuración:** en **Ajustes › Aprobaciones**, para el Administrador, el Responsable del SGAI y el CAIO
+(B11c):
 - **Políticas:**
   - tipo de objeto y nombre;
-  - niveles a los que se aplica (solo en planes de tratamiento);
-  - cadena de pasos, cada uno por rol, persona o comité, con quórum y delegación;
+  - niveles (planes de tratamiento) o plantillas (expedientes) a los que se aplica;
+  - cadena de pasos, cada uno por rol, persona, comité concreto, tipo de comité o función de gobierno, con
+    quórum, rol de respaldo y delegación;
   - si quien solicita puede aprobar;
+  - caducidad de las solicitudes;
   - si la política está activa.
-- **Delegaciones:** en quién se delega, desde y hasta qué fecha, y para qué tipos de objeto.
+- Las **delegaciones** están en la pestaña **Delegaciones** de esta vista.
 
 Ver [Ajustes](ajustes.md).
-
-> **Pendiente de definir.** Qué roles configuran las políticas. La pestaña solo la ve el Administrador,
-> mientras que el servidor admite también al Responsable del SGAI y al CAIO. Las delegaciones de los demás
-> usuarios no tienen pantalla.
 
 ## Validaciones
 

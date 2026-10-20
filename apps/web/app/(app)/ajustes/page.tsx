@@ -110,6 +110,10 @@ export default function AjustesPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = hasRole(profile as RoleHolder, 'org_admin')
+  // Las políticas de aprobación también las gestionan el Responsable del SGAI y
+  // el CAIO (B11c, A15); el resto de Workspace sigue siendo del Administrador.
+  const canManageApprovals = isAdmin || hasRole(profile as RoleHolder, 'sgai_manager') || hasRole(profile as RoleHolder, 'caio')
+  const workspaceTabs = isAdmin ? WORKSPACE_TABS : WORKSPACE_TABS.filter((t) => t.key === 'aprobaciones')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orgRetentionMonths = {
@@ -192,15 +196,15 @@ export default function AjustesPage() {
             })}
           </ul>
 
-          {/* Workspace section (admin only) */}
-          {isAdmin && (
+          {/* Workspace section (admin; Aprobaciones también para Responsable del SGAI y CAIO) */}
+          {canManageApprovals && (
             <>
               <div className="mx-3 my-1.5 border-t border-ltb" />
               <p className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm px-3 py-2">
                 Workspace
               </p>
               <ul className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible">
-                {WORKSPACE_TABS.map((tab) => {
+                {workspaceTabs.map((tab) => {
                   const isActive = tab.key === activeTab
                   return (
                     <li key={tab.key} className="shrink-0 lg:w-full">
@@ -257,7 +261,7 @@ export default function AjustesPage() {
               {activeTab === 'webhooks'  && isAdmin && <WebhooksTab />}
               {activeTab === 'conectores' && isAdmin && <ConectoresTab />}
               {activeTab === 'canales'    && isAdmin && <CanalesTab />}
-              {activeTab === 'aprobaciones' && isAdmin && <AprobacionesTab />}
+              {activeTab === 'aprobaciones' && canManageApprovals && <AprobacionesTab />}
             </>
           )}
         </div>

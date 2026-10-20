@@ -8,7 +8,7 @@
  */
 
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
-import { sendTaskEmail } from './email'
+import { sendGenericEmail, sendTaskEmail } from './email'
 import {
   resolveNotificationPrefs,
   isNotificationEnabled,
@@ -24,7 +24,13 @@ const TYPE_TO_PREF_KEY: Record<string, NotificationEventKey> = {
   comment_added:    'task_assigned',
   status_changed:   'task_assigned',
   attachment_added: 'task_assigned',
+  // Flujos de aprobación (B11c): correo genérico, sin tarea vinculada.
+  approval_pending: 'plan_pending_approval',
+  approval_closed:  'plan_decision',
 }
+
+/** Tipos cuyo correo no depende de una tarea. */
+const GENERIC_EMAIL_TYPES = new Set(['approval_pending', 'approval_closed'])
 
 export interface NotificationInput {
   recipientProfileId: string
@@ -66,7 +72,8 @@ export async function createNotification(input: NotificationInput): Promise<void
     })
 
     // Email: solo si hay dirección, tipo mapeado y preferencias lo permiten
-    if (input.sendEmail !== false && input.recipientEmail && input.taskTitle && input.relatedTaskId) {
+    const generico = GENERIC_EMAIL_TYPES.has(input.type)
+    if (input.sendEmail !== false && input.recipientEmail && (generico || (input.taskTitle && input.relatedTaskId))) {
       const prefKey = TYPE_TO_PREF_KEY[input.type]
 
       // Leer preferencias del destinatario para respetar su configuración
@@ -86,7 +93,16 @@ export async function createNotification(input: NotificationInput): Promise<void
         }
       }
 
-      if (emailEnabled) {
+      if (emailEnabled && generico) {
+        await sendGenericEmail({
+          to:            input.recipientEmail,
+          recipientName: input.recipientName,
+          subject:       input.title,
+          body:          input.body,
+          url:           input.linkUrl ?? '/aprobaciones',
+          cta:           'Abrir Aprobaciones',
+        })
+      } else if (emailEnabled && input.taskTitle) {
         await sendTaskEmail({
           to:            input.recipientEmail,
           type:          input.type,

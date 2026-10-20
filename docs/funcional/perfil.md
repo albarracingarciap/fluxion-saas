@@ -107,7 +107,7 @@ todo**. Todos los eventos están activados por defecto. Se guarda en
 | Categoría | Eventos |
 |---|---|
 | Asignaciones | Acción asignada a mí · Tarea asignada a mí |
-| Aprobaciones | Plan pendiente de mi aprobación · Decisión sobre mis planes |
+| Aprobaciones | Aprobación pendiente de mi decisión · Decisión sobre mis solicitudes |
 | Vencimientos | Acción vencida · Revisión periódica próxima · Evidencia por caducar |
 | Resúmenes | Resumen semanal (solo correo) |
 

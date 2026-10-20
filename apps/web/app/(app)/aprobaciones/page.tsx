@@ -1,16 +1,23 @@
 import { GitBranch } from 'lucide-react'
 
-import { getMyPendingApprovals, getApprovalHistory } from './actions'
+import { getMyPendingApprovals, getApprovalHistory, getMyOpenRequests } from './actions'
+import { getAppAuthState } from '@/lib/auth/app-state'
+import { hasAnyRole } from '@/lib/auth/roles'
 import { AprobacionesClient } from './aprobaciones-client'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Aprobaciones · CompaaS IA' }
 
 export default async function AprobacionesPage() {
-  const [pendientes, historico] = await Promise.all([
+  const [pendientes, historico, mias, auth] = await Promise.all([
     getMyPendingApprovals(),
     getApprovalHistory(),
+    getMyOpenRequests(),
+    getAppAuthState(),
   ])
+  // Cancelan cualquier solicitud el Administrador y el Responsable del SGAI; el
+  // resto, las suyas (B11c).
+  const puedeCancelarTodas = hasAnyRole(auth.profile, ['org_admin', 'sgai_manager'])
 
   return (
     <div className="max-w-[1100px] w-full mx-auto flex flex-col gap-5 animate-fadein pb-16">
@@ -28,7 +35,12 @@ export default async function AprobacionesPage() {
         </div>
       </div>
 
-      <AprobacionesClient pendientes={pendientes} historico={historico} />
+      <AprobacionesClient
+        pendientes={pendientes}
+        historico={historico}
+        mias={mias}
+        puedeCancelarTodas={puedeCancelarTodas}
+      />
     </div>
   )
 }

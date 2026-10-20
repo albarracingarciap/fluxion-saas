@@ -13,3 +13,6 @@
 # que una cadencia mayor haria que el primer reintento tardase mas de lo que
 # dice su propia politica.
 */5 * * * * /opt/fluxion/app-cron.sh /api/cron/outbox
+# Minuto 50: caducidad de las solicitudes de aprobacion (B11c). Horaria: las
+# caducidades se cuentan en dias, asi que una hora de margen basta.
+50 * * * * /opt/fluxion/app-cron.sh /api/cron/approval-expiry

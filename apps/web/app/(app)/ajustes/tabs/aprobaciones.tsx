@@ -38,6 +38,8 @@ type FormState = {
   niveles:            string[]
   /** Plantillas del expediente a las que se aplica (B11b). */
   plantillas:         string[]
+  /** Días hasta que caduca la solicitud; vacío = no caduca (B11c). */
+  caducidad:          string
   author_can_approve: boolean
   is_active:          boolean
   steps:              ApprovalStepRow[]
@@ -54,6 +56,7 @@ function formVacio(): FormState {
     name: '',
     niveles: ['level_3'],
     plantillas: [],
+    caducidad: '',
     author_can_approve: false,
     is_active: true,
     steps: [{ ...PASO_NUEVO }],
@@ -121,6 +124,7 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                               : {},
       author_can_approve: form.author_can_approve,
       is_active:          form.is_active,
+      expires_after_days: form.caducidad ? Number(form.caducidad) : null,
       steps:              form.steps,
     })
     setGuardando(false)
@@ -424,6 +428,22 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
             </label>
           </div>
 
+          <div>
+            <FieldLabel>Caducidad de las solicitudes (días)</FieldLabel>
+            <input
+              type="number"
+              min={1}
+              className={`${inputCls} w-32`}
+              value={form.caducidad}
+              placeholder="No caduca"
+              onChange={(e) => setForm((f) => ({ ...f, caducidad: e.target.value }))}
+            />
+            <p className="font-sora text-[11.5px] text-lttm mt-1.5">
+              Si nadie decide en ese plazo, la solicitud caduca: el objeto vuelve a borrador y se avisa a quien la
+              pidió y a quien tenía que decidir.
+            </p>
+          </div>
+
           <label className="flex items-center gap-2 font-sora text-[12.5px] text-ltt">
             <input
               type="checkbox"
@@ -555,6 +575,11 @@ export function AprobacionesTab() {
                     {(row.conditions.approval_level ?? []).map((n) => NIVEL_LABELS[n] ?? n).join(', ')}
                   </p>
                 )}
+                {row.expires_after_days && (
+                  <p className="font-sora text-[11.5px] text-lttm mt-2">
+                    Las solicitudes caducan a los {row.expires_after_days} días
+                  </p>
+                )}
                 {(row.conditions.template_key ?? []).length > 0 && (
                   <p className="font-sora text-[11.5px] text-lttm mt-2">
                     Solo para{' '}
@@ -571,6 +596,7 @@ export function AprobacionesTab() {
                     name: row.name,
                     niveles: row.conditions.approval_level ?? [],
                     plantillas: row.conditions.template_key ?? [],
+                    caducidad: row.expires_after_days ? String(row.expires_after_days) : '',
                     author_can_approve: row.author_can_approve,
                     is_active: row.is_active,
                     steps: row.steps,
@@ -588,7 +614,10 @@ export function AprobacionesTab() {
         ))
       )}
 
-      <Delegaciones opciones={opciones} />
+      <p className="font-sora text-[12px] text-lttm">
+        Las delegaciones de autoridad se gestionan en <a href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</a> › Delegaciones,
+        donde cualquier miembro puede delegar la suya.
+      </p>
 
       {editando && (
         <Editor
@@ -608,7 +637,8 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function Delegaciones({ opciones }: { opciones: ApprovalApproverOptions }) {
+/** Delegaciones de autoridad (B11c: también en Aprobaciones › Delegaciones, para cualquier miembro). */
+export function Delegaciones({ opciones }: { opciones: ApprovalApproverOptions }) {
   const [filas, setFilas] = useState<ApprovalDelegationRow[] | null>(null)
   const [abierto, setAbierto] = useState(false)
   const [error, setError] = useState<string | null>(null)

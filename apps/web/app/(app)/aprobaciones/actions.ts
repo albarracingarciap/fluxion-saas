@@ -12,7 +12,13 @@ import { logAuditEvent } from '@/lib/audit'
 import type { ApprovalObjectType } from '@/lib/approvals/catalog'
 import { applyApprovalOutcome } from '@/lib/approvals/effects'
 import { generateApprovalMinutes } from '@/lib/approvals/minutes'
-import { notifyApprovalStep, notifyApprovalClosed } from '@/lib/approvals/notify'
+import {
+  currentApprovalCandidates,
+  notifyApprovalCancelled,
+  notifyApprovalClosed,
+  notifyApprovalStep,
+} from '@/lib/approvals/notify'
+import { applyApprovalCancellation } from '@/lib/approvals/effects'
 import { hasAnyRole } from '@/lib/auth/roles'
 
 export type ApprovalRequestRow = {
@@ -22,6 +28,8 @@ export type ApprovalRequestRow = {
   object_label:       string | null
   /** Pantalla del objeto, para revisarlo antes de decidir (B11a). */
   object_href:        string | null
+  /** Fecha de caducidad de la solicitud, si su política la tiene (B11c). */
+  expires_at?:        string | null
   /** Paso actual congelado; `fallback` si decide el rol de respaldo (B11b). */
   current_step?:      {
     approver_type?: string
@@ -261,6 +269,14 @@ export async function decideApproval(input: {
 
   const admin = createNoCacheAdminClient()
 
+  const { data: antes } = await admin
+    .from('approval_requests')
+    .select('current_position')
+    .eq('id', input.requestId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle()
+  if (!antes) return { error: 'La solicitud no existe.' }
+
   const { data, error } = await admin.rpc('approval_decide', {
     p_request_id: input.requestId,
     p_profile_id: profile.id,
@@ -268,7 +284,7 @@ export async function decideApproval(input: {
     p_reason:     input.reason?.trim() || null,
   })
 
-  if (error) return { error: error.message }
+  if (error) return { error: mensajeMotor(error.message) }
 
   const resultado = String(data)
 
@@ -302,12 +318,19 @@ export async function decideApproval(input: {
     const acta = await generateApprovalMinutes(input.requestId)
     if (acta.aviso) aviso = aviso ? `${aviso} ${acta.aviso}` : acta.aviso
 
-    await notifyApprovalClosed(input.requestId)
+    await notifyApprovalClosed(input.requestId, profile.id)
   } else if (resultado === 'pending') {
-    // Sigue viva: o falta quorum en este paso, o acaba de avanzar al siguiente.
-    // notifyApprovalStep resuelve quien queda por decidir y no repite a quien
-    // ya voto, asi que sirve para los dos casos.
-    await notifyApprovalStep(input.requestId)
+    // Solo se avisa si la solicitud avanzó de paso, y entonces a los decisores
+    // del paso nuevo (B11c, O8). Un voto que deja el paso pendiente no vuelve a
+    // avisar a quienes ya tenían el aviso.
+    const { data: despues } = await admin
+      .from('approval_requests')
+      .select('current_position')
+      .eq('id', input.requestId)
+      .maybeSingle()
+    if ((despues?.current_position ?? 0) > (antes.current_position ?? 0)) {
+      await notifyApprovalStep(input.requestId)
+    }
   }
 
   void logAuditEvent({
@@ -327,7 +350,7 @@ export async function decideApproval(input: {
 }
 
 export async function cancelApproval(requestId: string, reason: string):
-  Promise<{ success?: true; error?: string }> {
+  Promise<{ success?: true; error?: string; aviso?: string }> {
   const profile = await contexto()
   if (!profile) return { error: 'No autenticado.' }
 
@@ -350,12 +373,34 @@ export async function cancelApproval(requestId: string, reason: string):
   if (!permitido) return { error: 'Solo quien la solicitó o un administrador puede cancelarla.' }
   if (!reason.trim()) return { error: 'Indica por qué se cancela.' }
 
+  // Quién tenía que decidir, antes de cerrarla: después el motor ya no lo dice.
+  const candidatos = await currentApprovalCandidates(requestId)
+
   const { error } = await admin.rpc('approval_cancel', {
     p_request_id: requestId,
     p_reason:     reason.trim(),
   })
 
-  if (error) return { error: error.message }
+  if (error) return { error: mensajeMotor(error.message) }
+
+  // El objeto vuelve a borrador y se avisa (B11c, O7).
+  const { data: cerrada } = await admin
+    .from('approval_requests')
+    .select('object_type, object_id')
+    .eq('id', requestId)
+    .maybeSingle()
+  let aviso: string | undefined
+  if (cerrada) {
+    const efecto = await applyApprovalCancellation({
+      objectType: cerrada.object_type,
+      objectId:   cerrada.object_id,
+      reason:     reason.trim(),
+      actorUserId: profile.user_id,
+    })
+    aviso = efecto.aviso
+  }
+  await notifyApprovalClosed(requestId, profile.id)
+  await notifyApprovalCancelled(requestId, candidatos, profile.id)
 
   void logAuditEvent({
     organization_id: profile.organization_id,
@@ -367,5 +412,45 @@ export async function cancelApproval(requestId: string, reason: string):
   })
 
   revalidatePath('/aprobaciones')
-  return { success: true }
+  revalidatePath('/', 'layout')
+  return aviso ? { success: true, aviso } : { success: true }
 }
+
+/**
+ * Mensajes del motor en texto para el usuario (B11c, O8). El motor habla para
+ * el log («El perfil … no puede decidir en el paso …»); aquí se traduce lo que
+ * puede ver quien usa la bandeja.
+ */
+function mensajeMotor(m: string): string {
+  if (/no puede decidir/i.test(m)) return 'No te corresponde decidir este paso (o ya votaste en él).'
+  if (/ya esta (approved|rejected|cancelled)/i.test(m)) return 'La solicitud ya está cerrada.'
+  if (/inexistente|no existe/i.test(m)) return 'La solicitud no existe.'
+  if (/ya estaba cerrada/i.test(m)) return 'La solicitud ya estaba cerrada.'
+  if (/chk_rechazo_motivado/i.test(m)) return 'Rechazar exige un motivo.'
+  return 'No se pudo registrar la decisión. ' + m
+}
+
+/** Solicitudes pendientes que he abierto yo: las puedo seguir y cancelar (B11c, O7). */
+export async function getMyOpenRequests(): Promise<ApprovalRequestRow[]> {
+  const profile = await contexto()
+  if (!profile) return []
+
+  const admin = createNoCacheAdminClient()
+  const { data, error } = await admin
+    .from('v_approval_requests')
+    .select('*')
+    .eq('organization_id', profile.organization_id)
+    .eq('requested_by', profile.id)
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: false })
+
+  if (error || !data?.length) return []
+  return (data as Array<Record<string, unknown>>).map((r) => ({
+    ...(r as unknown as ApprovalRequestRow),
+    quorum: Number((r.current_step as { quorum?: number } | null)?.quorum ?? 1),
+    can_decide: null,
+    on_behalf_of: null,
+    minutes_render_id: null,
+  }))
+}
+

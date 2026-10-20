@@ -53,6 +53,8 @@ export type ApprovalPolicyRow = {
   is_active:          boolean
   /** Sembrada con el mapa de DP-01 (B11b). */
   is_default?:        boolean
+  /** Días que puede estar abierta una solicitud; null = no caduca (B11c). */
+  expires_after_days?: number | null
   steps:              ApprovalStepRow[]
 }
 
