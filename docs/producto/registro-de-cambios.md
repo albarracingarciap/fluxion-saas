@@ -27,6 +27,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 |---|---|---|---|---|
 | B00a · Comprobaciones estáticas | Integrado en `main` | `fase0/b00-comprobaciones` | 2026-10-19 | No |
 | B00b · Tests de la lógica central | Integrado en `main` | `prep/b00b-tests` | 2026-10-20 | No |
+| P1 · Identificadores de perfil y de usuario | Integrado en `main` | `prep/p1-identificadores` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -360,3 +361,47 @@ prepara y aprueba quedan fijadas por tests. Cualquier cambio que las altere sin 
 **Límites.** No hay tests de integración contra la base de datos (el recorrido alta → FMEA → plan →
 aprobación que proponía B00). Requieren una base local con las migraciones; se pueden abordar cuando haya
 entorno local.
+
+---
+
+## P1 · Identificadores de perfil y de usuario
+
+**Fecha:** 2026-10-20 · **Rama:** `prep/p1-identificadores` · **Migración:** no
+
+**Problema.** Patrón P1 de `_incidencias.md`: en varias pantallas se guarda el identificador de usuario
+(`auth.users.id`) y se busca por el de perfil (`profiles.id`), o al revés. B04 y B01 lo corrigieron en la
+Declaración de Aplicabilidad y en el plan; quedaban estos sitios:
+
+| Sitio | Efecto |
+|---|---|
+| Biblioteca y detalle de evidencias | Responsable y revisor salían vacíos |
+| Plan de tratamiento | Nombres de responsables y aprobador como «Usuario» (`R10`); el reasignado en bloque siempre respondía «no pertenece a la organización» |
+| Planes de tratamiento | Nombres vacíos y filtro por aprobador sin resultados (`R10`) |
+| Recordatorio semanal de revisiones | El aviso se dirigía a un identificador que no es de perfil y no llegaba (`R11`) |
+| Vistas guardadas de tareas | No se guardaban ni se borraban: la clave foránea y la RLS esperan `auth.users.id` (`O13`) |
+| Análisis de brechas | Responsables como «Sin owner» y **Mis gaps** vacío |
+
+**Regla aplicada.** Los campos de responsable, aprobador, revisor y autor de vista guardan `auth.users.id`
+(así lo exigen sus claves foráneas o las RLS). Los nombres se buscan por `profiles.user_id`, filtrando por la
+organización. Donde conviven ambos tipos (detalle de evidencia, brechas), la búsqueda acepta los dos.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `lib/evidences/data.ts` | Nombres por `profiles.user_id` |
+| `lib/evidences/detail.ts`, `lib/gaps/data.ts` | Búsqueda por `user_id` o `id` y mapa con las dos claves |
+| `lib/fmea/treatment-plan.ts` | Nombres de miembros por `user_id` |
+| `plan/actions.ts` · reasignado en bloque | Valida el responsable por `user_id` |
+| `app/(app)/planes/page.tsx` | Los miembros se identifican por `user_id` |
+| `app/api/cron/review-reminders/route.ts` | Traduce cada responsable a su perfil en la organización antes de avisar; si ya no es miembro, cuenta como sin asignar |
+| `app/(app)/tareas/actions.ts` | Vistas guardadas con `owner_id = auth.users.id` |
+| `app/(app)/gaps/page.tsx` | **Mis gaps** compara con el usuario de la sesión |
+| Documentación | `funcional/{evidencias,plan-de-tratamiento,planes-de-tratamiento,revisiones-pendientes,tareas,brechas}.md`, `_incidencias.md` (`P1`, `R10`, `R11`, `O13`), `_pendientes.md` |
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos; `npm test` 18 de 18;
+`check-server-actions.sh` correcto. No se ha probado contra la base de datos.
+
+**Qué mejora.** Los nombres de responsables, aprobadores y revisores aparecen; el filtro por aprobador, **Mis
+gaps** y el reasignado en bloque funcionan; el recordatorio semanal llega a su destinatario; las vistas
+guardadas de tareas se guardan.

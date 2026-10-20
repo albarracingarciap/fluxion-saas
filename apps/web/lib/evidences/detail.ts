@@ -73,6 +73,7 @@ type HistoryEventRow = {
 
 type ProfileRow = {
   id: string
+  user_id: string
   first_name: string | null
   last_name: string | null
 }
@@ -235,17 +236,24 @@ export async function getEvidenceDetail(
   versionRows.forEach((v) => { if (v.changed_by) profileIds.add(v.changed_by) })
   ;(historyResult.data ?? []).forEach((h: HistoryEventRow) => { if (h.actor_user_id) profileIds.add(h.actor_user_id) })
 
+  // Aquí conviven dos identificadores (patrón P1): responsable, revisor e
+  // historial guardan auth.users.id; las versiones, profiles.id. Se buscan los
+  // perfiles por ambos y el mapa responde a los dos.
   const ids = Array.from(profileIds)
+  const idList = ids.join(',')
   const { data: profiles } = ids.length > 0
     ? await fluxion
         .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', ids)
+        .select('id, user_id, first_name, last_name')
+        .eq('organization_id', organizationId)
+        .or(`user_id.in.(${idList}),id.in.(${idList})`)
     : { data: [] }
 
-  const profileMap = new Map<string, ProfileRow>(
-    ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p]),
-  )
+  const profileMap = new Map<string, ProfileRow>()
+  for (const p of (profiles ?? []) as ProfileRow[]) {
+    profileMap.set(p.id, p)
+    profileMap.set(p.user_id, p)
+  }
 
   // Supabase returns related records as arrays (PostgREST FK joins)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

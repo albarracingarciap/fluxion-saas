@@ -1039,7 +1039,7 @@ export async function createSavedViewAction(input: {
     .from('task_saved_views')
     .insert({
       organization_id: ctx.organizationId,
-      owner_id:        ctx.profileId,
+      owner_id:        ctx.userId, // FK y RLS sobre auth.users.id (P1)
       name:            input.name.trim(),
       scope:           input.scope,
       filters:         input.filters,
@@ -1065,7 +1065,7 @@ export async function deleteSavedViewAction(
     .from('task_saved_views')
     .delete()
     .eq('id', viewId)
-    .eq('owner_id', ctx.profileId) // solo el owner puede borrar
+    .eq('owner_id', ctx.userId) // solo el owner puede borrar (auth.users.id)
 
   if (error) return { error: error.message }
   return { ok: true }

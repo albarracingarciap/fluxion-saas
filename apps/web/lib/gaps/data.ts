@@ -115,6 +115,7 @@ type GapControlTemplateRow = {
 
 type GapProfileRow = {
   id: string
+  user_id: string
   full_name: string | null
 }
 
@@ -456,10 +457,14 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
           .in('id', controlTemplateIds),
     profileIds.length === 0
       ? { data: [], error: null }
+      // Responsables (obligaciones, evidencias, acciones, controles) guardan
+      // auth.users.id; quien decide una exclusión, profiles.id. Se buscan por
+      // ambos (patrón P1): antes los responsables salían como «Sin owner».
       : fluxion
           .from('profiles')
-          .select('id, full_name')
-          .in('id', profileIds),
+          .select('id, user_id, full_name')
+          .eq('organization_id', organizationId)
+          .or(`user_id.in.(${profileIds.join(',')}),id.in.(${profileIds.join(',')})`),
     buildArticleToFailureModeMap(),
   ])
 
@@ -494,7 +499,11 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const systemMap = new Map(systems.map((row) => [row.id, row]))
   const failureModeMap = new Map(failureModes.map((row) => [row.id, row]))
   const controlTemplateMap = new Map(controlTemplates.map((row) => [row.id, row]))
-  const profileMap = new Map(profiles.map((row) => [row.id, row]))
+  const profileMap = new Map<string, GapProfileRow>()
+  for (const row of profiles) {
+    profileMap.set(row.id, row)
+    profileMap.set(row.user_id, row)
+  }
   const controlMap = new Map(controls.map((row) => [row.id, row]))
   const actionByItemId = new Map(treatmentActions.map((row) => [row.fmea_item_id, row]))
 

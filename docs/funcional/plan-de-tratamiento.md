@@ -145,10 +145,6 @@ migración `20261019100000`).
 **Guardar borrador** guarda las notas del riesgo residual y las acciones modificadas, igual que el
 guardado automático. Los controles nuevos (de plantilla o propios) se crean con **Guardar decisión**.
 
-> TODO: confirmar los nombres de los responsables. La vista guarda un identificador de usuario y busca los
-> nombres por otro, así que pueden aparecer como «Usuario». El reasignado en bloque también puede fallar
-> por esto.
-
 ## Validaciones
 
 | Situación | Mensaje |

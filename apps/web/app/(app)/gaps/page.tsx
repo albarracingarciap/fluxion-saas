@@ -12,7 +12,6 @@ import {
   ShieldAlert,
   ShieldOff,
 } from 'lucide-react'
-import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { getAppAuthState } from '@/lib/auth/app-state'
 import {
   buildGapsData,
@@ -170,12 +169,10 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
     redirect('/onboarding')
   }
 
-  const fluxion = createFluxionClient()
-  const [data, currentProfileRes] = await Promise.all([
-    buildGapsData(membership.organization_id),
-    fluxion.from('profiles').select('id').eq('user_id', user.id).single(),
-  ])
-  const currentProfileId = currentProfileRes.data?.id ?? null
+  const data = await buildGapsData(membership.organization_id)
+  // El responsable de una brecha guarda auth.users.id: «Mis gaps» compara con el
+  // usuario de la sesión. Antes se comparaba con profiles.id y no coincidía (P1).
+  const currentUserId = user.id
 
   const currentParams = new URLSearchParams()
 
@@ -218,8 +215,8 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
       (!gap.overdue && typeof gap.days_until_due === 'number' && gap.days_until_due <= 7)
   ).length
 
-  const myGapsCount = currentProfileId
-    ? data.gaps.filter((gap) => gap.owner_id === currentProfileId).length
+  const myGapsCount = currentUserId
+    ? data.gaps.filter((gap) => gap.owner_id === currentUserId).length
     : 0
 
   const filteredGaps = data.gaps.filter((gap) => {
@@ -229,7 +226,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
     if (overdueOnly && !gap.overdue) return false
     if (unassignedOnly && gap.owner_id) return false
     if (noDueDateOnly && gap.due_date) return false
-    if (mineOnly && gap.owner_id !== currentProfileId) return false
+    if (mineOnly && gap.owner_id !== currentUserId) return false
     if (
       dueSoonOnly &&
       (gap.overdue || typeof gap.days_until_due !== 'number' || gap.days_until_due > 7)
@@ -586,7 +583,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
               }
               label={`Todos (${data.summary.total})`}
             />
-            {currentProfileId && (
+            {currentUserId && (
               <FilterChip
                 href={buildGapFilterHref(currentParams, 'mine', 'true', { toggle: true })}
                 active={mineOnly}

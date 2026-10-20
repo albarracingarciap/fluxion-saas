@@ -1642,11 +1642,13 @@ export async function bulkAssignTreatmentActionsOwnerAction(
 
   const { fluxion, membership, plan, user } = context
 
+  // owner_id guarda auth.users.id (es lo que envía el selector de miembros):
+  // antes se buscaba como profiles.id y el reasignado siempre fallaba (P1).
   const { data: ownerProfile } = await fluxion
     .from('profiles')
     .select('id')
     .eq('organization_id', membership.organization_id)
-    .eq('id', input.ownerId)
+    .eq('user_id', input.ownerId)
     .maybeSingle()
 
   if (!ownerProfile) {
