@@ -40,14 +40,19 @@ export default async function PlanesPage({ searchParams }: PageProps) {
       .order('name'),
     fluxion
       .from('profiles')
-      .select('id, full_name')
+      .select('user_id, full_name')
       .eq('organization_id', orgId)
       .neq('is_active', false)
       .order('full_name'),
   ])
 
   const systems = (systemsRes.data ?? []) as { id: string; name: string }[]
-  const members = (membersRes.data ?? []) as { id: string; full_name: string }[]
+  // approver_id y owner_id de los planes guardan auth.users.id: los miembros se
+  // identifican igual para que el filtro por aprobador y los nombres funcionen (R10, P1).
+  const members = ((membersRes.data ?? []) as { user_id: string; full_name: string }[]).map((m) => ({
+    id: m.user_id,
+    full_name: m.full_name,
+  }))
 
   return (
     <div className="max-w-[1280px] mx-auto w-full animate-fadein pb-10">

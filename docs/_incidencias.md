@@ -65,7 +65,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 
 | Id | Patrón | Dónde aparece | Prioridad | Verif. |
 |---|---|---|---|---|
-| P1 | **Confusión entre `profiles.id` y `profiles.user_id`** (`auth.users.id`). Se guarda un identificador y se busca por el otro, o una FK apunta a `auth.users` y se escribe `profiles.id` | Declaración de Aplicabilidad (rol y propietario), plan de tratamiento y planes (nombres, filtro por aprobador, reasignar), evidencias (responsable y revisor), revisiones pendientes (destinatario), vistas guardadas de tareas | Alta | Código |
+| P1 | **✔ Corregido en B04, B01 y el bloque P1 (registro de cambios).** **Confusión entre `profiles.id` y `profiles.user_id`** (`auth.users.id`). Se guarda un identificador y se busca por el otro, o una FK apunta a `auth.users` y se escribe `profiles.id` | Declaración de Aplicabilidad (rol y propietario), plan de tratamiento y planes (nombres, filtro por aprobador, reasignar), evidencias (responsable y revisor), revisiones pendientes (destinatario), vistas guardadas de tareas | Alta | Código |
 | P2 | **Roles que no existen:** `getRoleLabel` del layout compara con `admin`, `editor` y `viewer`, así que casi todos los roles se muestran como «Miembro» | Menú lateral | Baja | Código |
 | P3 | **Valores de enumeración distintos entre la interfaz y la base de datos:** etiquetas para estados que no existen, y estados reales que no tienen etiqueta | Dossier técnico, registro UE, detalle de evidencia, ficha del sistema, catálogo de medidas (`organizational`), catálogo de obligaciones (`all`, `transparency`), modos de fallo, incidentes | Media | Código |
 | P4 | **Códigos sin traducir en la interfaz** (`zona_iv`, `Pmedium`, `causes`, `assignee id changed`, estados de tareas) | Ficha del sistema, dossier, incidentes, tareas, relaciones causales, AISIA | Baja | Análisis |
@@ -145,8 +145,8 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | R7 | **✔ Resuelta en B05.** **Guardar borrador** del plan no guarda las decisiones, aunque la vista las marca como guardadas | Error | Alta | Análisis | 105 |
 | R8 | **✔ Resuelta en B05.** «Diferir» no guarda fecha de revisión: esas acciones nunca entran en Revisiones pendientes | Error | Media | Análisis | 103, 109 |
 | R9 | **✔ Resuelta en B02** (requiere la migración `20261019090000`). Sin control en el catálogo, no se puede mitigar | Carencia | Media | Análisis | 102 |
-| R10 | Nombres de responsables y aprobadores vacíos, y el filtro por aprobador no funciona (P1) | Error | Media | Código | 106, 107, 185 |
-| R11 | El recordatorio semanal de revisiones puede no llegar a la persona correcta (P1) | Error | Media | Análisis | 108 |
+| R10 | **✔ Resuelta (bloque P1).** Nombres de responsables y aprobadores vacíos, y el filtro por aprobador no funciona (P1) | Error | Media | Código | 106, 107, 185 |
+| R11 | **✔ Resuelta (bloque P1).** El recordatorio semanal de revisiones puede no llegar a la persona correcta (P1) | Error | Media | Análisis | 108 |
 | R12 | No consta cómo pasa un plan a «En curso» y «Cerrado» | Carencia | Media | — | 32 |
 | R13 | Brechas: **Crear tareas en bloque** no crea ninguna | Error | Alta | Código | 111 |
 | R14 | Brechas: la cabecera dice «de lectura», pero la vista permite editar | Incongruencia | Baja | Código | 110 |
@@ -195,7 +195,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | O10 | Coste y uso: el pie nunca muestra la fecha de cálculo (falta permiso de lectura) | Error | Baja | Código | 155 |
 | O11 | Coste y uso: las monedas se suman sin convertir; «sin tarifa» es permanente; las trazas con más de 2 días de retraso no se agregan | Error | Media | Análisis | 155, 156, 200 |
 | O12 | Presupuestos: el aviso no llega a la campana; con umbrales repetidos no avisa nunca; no se pueden editar | Error | Media | Código | 158 |
-| O13 | **Tareas: las vistas guardadas no se guardan** (FK a `auth.users`, se escribe `profiles.id`) | Error | Alta | Código | 159 |
+| O13 | **✔ Resuelta (bloque P1).** **Tareas: las vistas guardadas no se guardan** (FK a `auth.users`, se escribe `profiles.id`) | Error | Alta | Código | 159 |
 | O14 | Tareas: el cambio de asignado sale sin traducir; no se registran varios cambios; las tareas de señal e incidente no enlazan con su origen | Error | Baja | Código | 161 |
 | O15 | Tareas: eliminar en bloque quita de la lista tareas que no se borran | Error | Media | Análisis | 162 |
 | O16 | Kanban: arrastrar no deja actividad, no avisa ni emite `task.completed` | Error | Media | Análisis | 163 |

@@ -133,7 +133,27 @@ export async function GET(request: NextRequest) {
   let skipped = 0
 
   for (const org of orgSummaries) {
-    for (const [ownerId, owner] of Object.entries(org.owners)) {
+    // owner_id de las acciones guarda auth.users.id; el destinatario de un aviso
+    // es profiles.id. Antes se usaba el primero y el aviso no llegaba (R11, P1).
+    const ownerUserIds = Object.keys(org.owners)
+    const { data: ownerProfiles } = ownerUserIds.length === 0
+      ? { data: [] }
+      : await fluxion
+          .from('profiles')
+          .select('id, user_id')
+          .eq('organization_id', org.org_id)
+          .in('user_id', ownerUserIds)
+    const profileIdByUser = new Map(
+      ((ownerProfiles ?? []) as Array<{ id: string; user_id: string }>).map((p) => [p.user_id, p.id])
+    )
+
+    for (const [ownerUserId, owner] of Object.entries(org.owners)) {
+      const ownerId = profileIdByUser.get(ownerUserId)
+      if (!ownerId) {
+        // El responsable ya no es miembro de la organización.
+        org.unassigned++
+        continue
+      }
       if (alreadyNotified.has(ownerId)) {
         skipped++
         continue

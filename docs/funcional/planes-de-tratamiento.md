@@ -79,9 +79,6 @@ Se muestran 30 por página.
 | **Progreso** | Barra y «x/y acciones» |
 | **Fecha límite** | «Vencido hace N d», «Hoy» o «En N d» |
 
-> TODO: confirmar los nombres de aprobador y responsable y el filtro por aprobador. Pueden aparecer vacíos
-> o no funcionar, porque los planes guardan un identificador de usuario y la lista busca por otro.
-
 ## Acciones
 
 | Acción | Quién | Qué hace | Efectos |

@@ -172,8 +172,6 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 >   tarea y deshabilita el botón. Comprobado en el código.
 > - **Asignar en bloque borra datos:** si solo se rellena el responsable o solo la fecha, el otro campo se
 >   vacía en el origen, aunque la etiqueta diga «Sin cambios».
-> - **Responsable que no se ve:** el responsable asignado puede mostrarse como «Sin owner» y no aparecer en
->   **Mis gaps**, porque la asignación guarda un identificador y la vista busca otro.
 
 ## Validaciones
 

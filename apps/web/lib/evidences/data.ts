@@ -33,6 +33,7 @@ type EvidenceRow = {
 
 type EvidenceProfileRow = {
   id: string
+  user_id: string
   first_name: string | null
   last_name: string | null
 }
@@ -311,16 +312,19 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
     )
   )
 
+  // owner_user_id y reviewed_by guardan auth.users.id: los nombres se buscan
+  // por profiles.user_id, no por profiles.id (patrón P1).
   const { data: profilesResult, error: profilesError } = await fluxion
     .from('profiles')
-    .select('id, first_name, last_name')
-    .in('id', profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000'])
+    .select('id, user_id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .in('user_id', profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000'])
 
   if (profilesError && profileIds.length > 0) {
     throw new Error(`No se pudieron cargar los perfiles de evidencias: ${profilesError.message}`)
   }
 
-  const profileMap = new Map(((profilesResult ?? []) as EvidenceProfileRow[]).map((row) => [row.id, row]))
+  const profileMap = new Map(((profilesResult ?? []) as EvidenceProfileRow[]).map((row) => [row.user_id, row]))
   const systemMap = new Map(systems.map((row) => [row.id, row]))
   const obligationCounts = new Map<string, number>()
   const snapshotById = new Map(snapshots.map((row) => [row.id, row]))

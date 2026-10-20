@@ -730,12 +730,15 @@ export async function buildTreatmentPlanData(params: {
       ? { data: [] }
       : await fluxion
           .from('profiles')
-          .select('id, first_name, last_name')
-          .in('id', memberIds);
+          .select('id, user_id, first_name, last_name')
+          .eq('organization_id', params.organizationId)
+          .in('user_id', memberIds);
 
+  // memberIds son auth.users.id (como owner_id y approver_id): antes se
+  // buscaban por profiles.id y los nombres salían como «Usuario» (R10, P1).
   const memberNames = new Map(
     (profiles ?? []).map((profile) => [
-      profile.id,
+      profile.user_id,
       `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Usuario',
     ])
   );

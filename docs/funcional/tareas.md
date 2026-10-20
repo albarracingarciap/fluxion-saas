@@ -65,8 +65,6 @@ y la vista no avisa.
 **Vistas guardadas:** **Vistas › Guardar filtros actuales…**, con nombre y visibilidad **Solo yo** o
 **Toda la org**.
 
-> TODO: confirmar las vistas guardadas. No llegan a guardarse ni a borrarse: el autor se registra con un
-> identificador que no corresponde a la tabla, y la vista no muestra el error.
 
 **Tabla**, ordenada por fecha límite (las que no tienen, al final) y después por creación:
 

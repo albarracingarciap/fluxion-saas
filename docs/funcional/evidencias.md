@@ -90,9 +90,6 @@ por revisar, cuáles caducan, cuáles no tienen responsable y cuáles no respald
 | Caducidad | Caducada · Sin caducidad · Caduca hoy · Caduca en N días | `expires_at` |
 | **Owner** · **Obligaciones vinculadas** · **Emitida** · **Trazabilidad** | Trazabilidad: Huérfana o número de obligaciones | `owner_user_id`, `system_obligation_evidences`, `issued_at` |
 
-> TODO: confirmar los nombres de responsable y revisor. La vista los busca por un identificador distinto del
-> que guarda, así que pueden salir vacíos aunque estén asignados.
-
 ### Nueva evidencia organizacional / Editar evidencia
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |

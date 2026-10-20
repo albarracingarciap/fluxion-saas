@@ -78,9 +78,6 @@ responsable un aviso en la app:
 
 No envía correo.
 
-> TODO: confirmar el destinatario del recordatorio. Usa un identificador de usuario donde se espera el del
-> perfil, así que podría no llegar a la persona correcta.
-
 
 ## Validaciones
 
