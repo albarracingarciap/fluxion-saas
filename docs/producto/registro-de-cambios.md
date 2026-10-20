@@ -1028,3 +1028,7 @@ condicionales, exclusión de brechas de DP-07, la clasificación y la política 
 propia del plan (aprobador asignado) solo queda para los planes sin política aplicable; se retirará cuando B11d
 cubra todos los casos.
 
+**Glosario (2026-10-20, a petición del responsable).** «Flujos de aprobación» recoge los aprobadores por tipo de
+comité y por función, el rol de respaldo, las políticas por defecto y las condiciones; «Nivel de aprobación» ya
+no lleva la marca de pendiente. TODO 252 resuelto.
+
