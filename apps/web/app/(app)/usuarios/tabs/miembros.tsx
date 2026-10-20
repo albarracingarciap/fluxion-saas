@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Loader2, UserX, UserCheck, X, Clock, Users } from 'lucide-react';
 import {
   MemberAvatar, RoleBadge, ROLE_LABELS, selectCls, SelectArrow, formatDate,
@@ -319,6 +320,54 @@ function RolesEditor({
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<string[]>(roles)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  // El panel se pinta en un portal con posición fija: dentro de la tabla lo
+  // recortaba el `overflow-hidden` de la tarjeta. Se abre hacia arriba si no
+  // cabe debajo del botón.
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return }
+    function colocar() {
+      const boton = buttonRef.current?.getBoundingClientRect()
+      const panel = panelRef.current
+      if (!boton || !panel) return
+      const margen = 8
+      const alto = panel.offsetHeight
+      const ancho = panel.offsetWidth
+      const abajo = boton.bottom + 4
+      const top = abajo + alto + margen > window.innerHeight
+        ? Math.max(margen, boton.top - 4 - alto)
+        : abajo
+      const left = Math.min(Math.max(margen, boton.right - ancho), window.innerWidth - ancho - margen)
+      setPos({ top, left })
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    window.addEventListener('scroll', colocar, true)
+    return () => {
+      window.removeEventListener('resize', colocar)
+      window.removeEventListener('scroll', colocar, true)
+    }
+  }, [open])
+
+  // Cerrar al pulsar fuera o con Escape.
+  useEffect(() => {
+    if (!open) return
+    function fuera(e: MouseEvent) {
+      const t = e.target as Node
+      if (panelRef.current?.contains(t) || buttonRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    function escape(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('mousedown', fuera)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [open])
 
   function toggle(role: string) {
     setDraft((d) => (d.includes(role) ? d.filter((r) => r !== role) : [...d, role]))
@@ -336,6 +385,7 @@ function RolesEditor({
         {roles.map((r) => <RoleBadge key={r} role={r} />)}
         {editable && (
           <button
+            ref={buttonRef}
             type="button"
             onClick={() => { setDraft(roles); setOpen((o) => !o) }}
             disabled={pending}
@@ -347,8 +397,12 @@ function RolesEditor({
         )}
       </div>
       {error && <p className="mt-1 font-sora text-[11px] text-re leading-snug">{error}</p>}
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-[240px] rounded-[10px] border border-ltb bg-ltcard p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+          className="fixed z-50 w-[240px] rounded-[10px] border border-ltb bg-ltcard p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+        >
           <p className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-2">Roles del miembro</p>
           <div className="space-y-1 max-h-[260px] overflow-y-auto">
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
@@ -374,7 +428,8 @@ function RolesEditor({
               Guardar
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
