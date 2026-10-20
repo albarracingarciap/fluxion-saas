@@ -1,6 +1,6 @@
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
-import { PLAN_APPROVER_ROLES, canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
+import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 
 import { calculateFmeaZone, getAiActZoneFloor, type FmeaZone } from './domain';
 
@@ -38,7 +38,26 @@ export type TreatmentActionStatus =
   | 'accepted'
   | 'cancelled';
 
-export type TreatmentApprovalLevel = 'level_1' | 'level_2' | 'level_3';
+import {
+  getApprovalLevelForZone,
+  getApproverRolePriority,
+  getDefaultDeadlineForZone,
+  getReviewCadenceForZone,
+  pickPlanApprover,
+  type TreatmentApprovalLevel,
+} from './treatment-plan-rules';
+
+// Reglas puras: viven en treatment-plan-rules.ts (probadas en tests/) y se
+// reexportan aquí para no cambiar a quien ya las importa desde este módulo.
+export {
+  getApprovalLevelForZone,
+  getReviewCadenceForZone,
+  getDefaultDeadlineForZone,
+  getApprovalLevelLabel,
+  getApproverRolePriority,
+  pickPlanApprover,
+} from './treatment-plan-rules';
+export type { TreatmentApprovalLevel } from './treatment-plan-rules';
 
 export type TreatmentPlanRecord = {
   id: string;
@@ -275,64 +294,6 @@ export type TreatmentPlanData = {
   overdue_reviews_count: number;
 };
 
-export function getApprovalLevelForZone(zone: FmeaZone): TreatmentApprovalLevel {
-  if (zone === 'zona_i') return 'level_3';
-  if (zone === 'zona_ii') return 'level_2';
-  return 'level_1';
-}
-
-export function getReviewCadenceForZone(zone: FmeaZone) {
-  switch (zone) {
-    case 'zona_i':
-      return 'monthly';
-    case 'zona_ii':
-      return 'quarterly';
-    case 'zona_iii':
-      return 'biannual';
-    case 'zona_iv':
-    default:
-      return 'annual';
-  }
-}
-
-export function getDefaultDeadlineForZone(zone: FmeaZone, from = new Date()) {
-  const date = new Date(from);
-
-  switch (zone) {
-    case 'zona_i':
-      date.setDate(date.getDate() + 30);
-      break;
-    case 'zona_ii':
-      date.setDate(date.getDate() + 90);
-      break;
-    case 'zona_iii':
-      date.setDate(date.getDate() + 180);
-      break;
-    case 'zona_iv':
-    default:
-      date.setDate(date.getDate() + 365);
-      break;
-  }
-
-  return date.toISOString().slice(0, 10);
-}
-
-const APPROVAL_LEVEL_LABELS: Record<TreatmentApprovalLevel, string> = {
-  level_1: 'Nivel 1 · Responsable',
-  level_2: 'Nivel 2 · Comité',
-  level_3: 'Nivel 3 · Dirección',
-};
-
-/** Nombre de negocio del nivel de aprobación (glosario). */
-export function getApprovalLevelLabel(level: string | null | undefined): string {
-  return APPROVAL_LEVEL_LABELS[level as TreatmentApprovalLevel] ?? 'Nivel sin definir';
-}
-
-/** Roles que pueden aprobar el plan sin política de Flujos de aprobación (DP-01). */
-export function getApproverRolePriority(level: TreatmentApprovalLevel): readonly string[] {
-  return PLAN_APPROVER_ROLES[level] ?? PLAN_APPROVER_ROLES.level_1;
-}
-
 /**
  * Aprobador del plan cuando no hay política en Flujos de aprobación.
  *
@@ -355,14 +316,7 @@ export async function resolvePlanApprover(params: {
     .in('role', roles as string[])
     .order('created_at', { ascending: true });
 
-  const candidates = ((members ?? []) as Array<{ user_id: string; role: string; is_active: boolean | null }>)
-    .filter((member) => member.is_active !== false && member.user_id !== params.actorUserId);
-
-  for (const role of roles) {
-    const match = candidates.find((member) => member.role === role);
-    if (match) return match.user_id;
-  }
-  return null;
+  return pickPlanApprover(members ?? [], params.approvalLevel, params.actorUserId);
 }
 
 export const NO_PLAN_APPROVER_MESSAGE =

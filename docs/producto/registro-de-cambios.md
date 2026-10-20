@@ -26,7 +26,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Bloque | Estado | Rama | Fecha | Migración |
 |---|---|---|---|---|
 | B00a · Comprobaciones estáticas | Integrado en `main` | `fase0/b00-comprobaciones` | 2026-10-19 | No |
-| B00b · Tests de la lógica central | Pendiente (antes de la fase 1) | — | — | — |
+| B00b · Tests de la lógica central | Integrado en `main` | `prep/b00b-tests` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -331,3 +331,32 @@ del plan guarda lo que dice guardar; y lo pospuesto entra en las revisiones peri
 volver a enviar hasta tener fecha. Las evaluaciones con el plan en aprobación o aprobado pasan a solo lectura.
 
 **Pendiente.** El ciclo de vida completo de la evaluación (aprobada, sustituida, versión 2) llega con B07.
+
+---
+
+## B00b · Tests de la lógica central
+
+**Fecha:** 2026-10-20 · **Rama:** `prep/b00b-tests` · **Migración:** no
+
+**Problema.** No había ningún test. Los bloques de la fase 1 (sobre todo B07) cambian la lógica central del
+FMEA y del plan, y sin una red mínima un error en las reglas de zona o de aprobación no se detectaría hasta
+producción.
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `apps/web/lib/fmea/treatment-plan-rules.ts` (nuevo) | Reglas puras del plan movidas desde `treatment-plan.ts`: nivel de aprobación, cadencia y plazo por zona, nombre del nivel, roles aprobadores. Nueva `pickPlanApprover`, la regla de elección del aprobador sin base de datos |
+| `apps/web/lib/fmea/treatment-plan.ts` | Reexporta esas reglas (nadie cambia sus importaciones); `resolvePlanApprover` usa `pickPlanApprover` |
+| `apps/web/tests/` (nuevo) | `fmea-domain.test.ts` y `plan-reglas.test.ts`: 18 casos. `support/` con el hook de resolución de `@/` y de importaciones sin extensión |
+| `apps/web/package.json` | Script `npm test` (`node --test`, sin dependencias nuevas) |
+| `CLAUDE.md`, `docs/tecnica/herramientas-internas.md` | Comando y alcance de los tests |
+
+**Verificación.** `npm test`: 18 de 18; `tsc --noEmit` sin errores (incluye los tests).
+
+**Qué mejora.** Las reglas que deciden la zona, la severidad, el nivel de aprobación, el plazo y quién
+prepara y aprueba quedan fijadas por tests. Cualquier cambio que las altere sin querer falla en `npm test`.
+
+**Límites.** No hay tests de integración contra la base de datos (el recorrido alta → FMEA → plan →
+aprobación que proponía B00). Requieren una base local con las migraciones; se pueden abordar cuando haya
+entorno local.
