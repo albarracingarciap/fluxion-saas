@@ -51,3 +51,29 @@ export function canPrepareTreatmentPlan(quien: QuienOrol): boolean {
 export function canResolveFmeaSecondReview(quien: QuienOrol): boolean {
   return hasAnyRole(comoHolder(quien), FMEA_SECOND_REVIEW_ROLES)
 }
+
+/**
+ * Aprobador de la AISIA hasta B11/B15. DP-01 la asigna al Comité de IA, que
+ * solo se puede expresar con una política de Flujos de aprobación; mientras
+ * tanto aprueba el Responsable del SGAI, como en el expediente (B09).
+ */
+export const AISIA_APPROVER_ROLES: readonly OrgRole[] = ['sgai_manager']
+
+/**
+ * Por qué esta persona no puede aprobar o rechazar la AISIA; null si puede.
+ * `preparerProfileIds`: quien la creó y quien la envió (profiles.id).
+ */
+export function aisiaApprovalBlocker(params: {
+  actor: QuienOrol
+  actorProfileId: string
+  preparerProfileIds: readonly (string | null | undefined)[]
+}): string | null {
+  if (!hasAnyRole(comoHolder(params.actor), AISIA_APPROVER_ROLES)) {
+    return 'Solo el Responsable del SGAI puede aprobar o rechazar la AISIA.'
+  }
+  if (params.preparerProfileIds.includes(params.actorProfileId)) {
+    return 'Quien prepara la AISIA no puede aprobarla ni rechazarla.'
+  }
+  return null
+}
+

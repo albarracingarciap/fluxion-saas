@@ -663,18 +663,17 @@ stateDiagram-v2
   «Implantado» si todos los sistemas vinculados a cada control tienen AISIA aprobada.
 - **Evidencias:** no genera evidencia.
 
-> **⚠ GAP-22 · Aprobación de la AISIA sin garantías de circuito.**
-> - La restricción de roles aprobadores solo está en la pantalla, y no hay segregación: quien la redacta
->   puede aprobarla si tiene uno de esos roles.
-> - No hay acta: la referencia es un texto opcional.
-> - La sincronización de los controles A.5.2-A.5.5 cambia su estado aunque la Declaración ya esté
->   aprobada, sin pasar por una nueva revisión.
+> **⚠ GAP-22 · Aprobación de la AISIA sin garantías de circuito.** Resuelto en parte en B08: el servidor
+> exige el rol (Responsable del SGAI) y que no apruebe quien la preparó, y la sincronización de los
+> controles A.5.2-A.5.5 ya no toca una Declaración que no esté en borrador. **Queda:** no hay acta (la
+> referencia es un texto opcional) y DP-01 asigna la aprobación al Comité de IA.
 >
-> **Pendiente de implementar.** Aprobación de la AISIA mediante Flujos de aprobación.
+> **Pendiente de implementar.** AISIA como plantilla del expediente (B15, DP-04 y DP-05 aprobadas) y
+> aprobación mediante Flujos de aprobación (B11).
 
 > **⚠ GAP-23 · AISIA no actualizable.** Una AISIA aprobada no se puede reabrir ni versionar: si cambia el
-> sistema o el plan, no hay forma de rehacerla (`E19`). Los valores precargados de S1 y S2 no se guardan si
-> no se editan.
+> sistema o el plan, no hay forma de rehacerla. Se resuelve en B15, con las versiones del expediente. La
+> precarga de S1 y S2 ya se guarda (B08, `E19`).
 
 > **💡 Sugerencia.** Precargar S3 con los modos tratados del plan aprobado y S4 con sus acciones, en lugar
 > de una selección libre. Hoy nada impide aprobar una AISIA sin modos ni plan seleccionados.
@@ -956,7 +955,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
 | GAP-17 | 5 | Cancelación, caducidad y avisos del circuito de aprobación | Debilita | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
-| GAP-22 | 6 | AISIA aprobada sin segregación ni acta; toca la Declaración aprobada | Debilita | — |
+| GAP-22 | 6 | AISIA sin acta y sin el aprobador de DP-01 (rol, segregación y Declaración resueltos en B08) | Debilita | — |
 | GAP-24 | 7 | Aprobadores del expediente por plantilla (ciclo, segregación, versiones, rótulo y evidencia resueltos en B09) | Debilita | — |
 | GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |
 | GAP-10 | 3 | Clasificación sin aprobación ni historial | Debilita | `I10` |

@@ -49,8 +49,9 @@ import { ClassificationHistorySection } from '@/components/classification/Classi
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
 import { useAuthStore } from '@/lib/store/authStore';
-import { hasAnyRole, hasRole, rolesOf } from '@/lib/auth/roles';
+import { hasRole, rolesOf } from '@/lib/auth/roles';
 import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules';
+import { aisiaApprovalBlocker } from '@/lib/auth/roles-flujo';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -259,6 +260,7 @@ export type AisiaAssessmentEntry = {
   title: string | null;
   created_by: string;
   created_by_name: string | null;
+  submitted_by: string | null;
   submitted_at: string | null;
   approved_at: string | null;
   rejected_at: string | null;
@@ -1031,7 +1033,6 @@ function getSoaBadge(soaState: SoaControlState | undefined) {
   return { label: 'No iniciado', cls: 'bg-ltcard text-lttm border-ltb' };
 }
 
-const APPROVER_ROLES = ['org_admin', 'sgai_manager', 'caio'] as const;
 
 function IsoTab({
   system,
@@ -1040,6 +1041,7 @@ function IsoTab({
   isInSoaScope,
   soaScopeSystemTags,
   userRoles,
+  currentProfileId,
   onInitAisia,
   isInitingAisia,
   aisiaError,
@@ -1058,6 +1060,8 @@ function IsoTab({
   isInSoaScope: boolean;
   soaScopeSystemTags: string[];
   userRoles: string[];
+  /** profiles.id de quien mira: quien prepara la AISIA no la decide (B08). */
+  currentProfileId: string | null;
   onInitAisia: () => void;
   isInitingAisia: boolean;
   aisiaError: string | null;
@@ -1094,6 +1098,14 @@ function IsoTab({
 
   const hasLegacyData = system.iso_42001_score !== null;
   const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
+  // Quién puede aprobar o rechazar: Responsable del SGAI que no la preparó (B08).
+  const aisiaBlocker = aisia
+    ? aisiaApprovalBlocker({
+        actor: { roles: userRoles },
+        actorProfileId: currentProfileId ?? '',
+        preparerProfileIds: [aisia.created_by, aisia.submitted_by],
+      })
+    : null;
 
   // Progreso de secciones cuando hay AISIA
   const sectionProgress = aisia
@@ -1356,8 +1368,13 @@ function IsoTab({
                   </div>
                 )}
 
-                {/* Acciones — solo para aprobadores */}
-                {hasAnyRole({ roles: userRoles }, APPROVER_ROLES) && (
+                {/* Acciones — solo para quien puede decidir: Responsable del SGAI que no la preparó (B08) */}
+                {aisiaBlocker !== null && (
+                  <p className="font-sora text-[12px] text-lttm">
+                    {aisiaBlocker}
+                  </p>
+                )}
+                {aisiaBlocker === null && (
                   <div className="space-y-2">
                     {/* Sin formulario abierto: botones principales */}
                     {approvalAction === null && (
@@ -1800,9 +1817,10 @@ export function SystemDetailClient({
     startApproveAisiaTransition(async () => {
       setAisiaApprovalError(null);
       const result = await approveAisia(assessmentId, minutesRef);
-      if ('error' in result && result.error) {
+      if ('error' in result) {
         setAisiaApprovalError(result.error);
       } else {
+        if (result.aviso) window.alert(result.aviso);
         router.refresh();
       }
     });
@@ -3275,6 +3293,7 @@ export function SystemDetailClient({
                   isInSoaScope={isInSoaScope}
                   soaScopeSystemTags={soaScopeSystemTags}
                   userRoles={rolesOf(profile)}
+                  currentProfileId={profile?.id ?? null}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
                   aisiaError={aisiaError}

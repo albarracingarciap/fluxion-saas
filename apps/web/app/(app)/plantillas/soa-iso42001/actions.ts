@@ -8,6 +8,7 @@ import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fl
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { hasAnyRole } from '@/lib/auth/roles'
+import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
 
 export async function initializeSoA(_formData: FormData) {
   const adminClient = createAdminFluxionClient()
@@ -326,6 +327,12 @@ export async function transitionSoAStatus(
     .then(({ error: logError }) => {
       if (logError) console.error('Error writing SoA lifecycle log:', logError)
     })
+
+  // Al abrir una revisión se aplican las AISIA aprobadas mientras la
+  // Declaración no estaba en borrador (B08).
+  if (newStatus === 'draft') {
+    await syncAisiaSoaControls(adminClient, membership.organization_id)
+  }
 
   revalidatePath('/plantillas/soa-iso42001')
   return { success: true }

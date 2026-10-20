@@ -10,6 +10,9 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
+  - apps/web/lib/aisia/prefill.ts
+  - apps/web/lib/aisia/soa-sync.ts
+  - apps/web/lib/auth/roles-flujo.ts
   - supabase/migrations/00000000000001_schema.sql
 ---
 
@@ -35,9 +38,12 @@ modos de fallo y el plan de tratamiento. Las AISIA aprobadas alimentan la
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Todos los roles | Sí | Editar y enviar mientras está en borrador |
-| Administrador, Responsable del SGAI, CAIO | Ídem | Aprobar o rechazar (desde la ficha del sistema) |
+| Responsable del SGAI que no la ha creado ni enviado | Ídem | Aprobar o rechazar (desde la ficha del sistema). Lo comprueba el servidor |
 
-> **Pendiente de definir.** Qué roles pueden aprobar o rechazar una AISIA.
+Quien prepara no aprueba (DP-01). La ficha muestra el motivo a quien no puede decidir.
+
+> **Pendiente de implementar.** DP-01 asigna la aprobación de la AISIA al Comité de IA. Hasta que pase a ser
+> una plantilla del expediente con Flujos de aprobación (B15 y B11), la aprueba el Responsable del SGAI.
 
 La evaluación solo se puede editar en borrador. En el resto de estados se muestra en solo lectura.
 
@@ -57,8 +63,11 @@ Todo se guarda en `aisia_sections.data`. No hay campos obligatorios.
 | **S5 · Impacto en personas** | **Personas y grupos directamente afectados**; **Afecta a colectivos vulnerables** (con descripción si se activa); **Derechos fundamentales potencialmente afectados**; **Severidad del impacto potencial** (Bajo, Medio, Alto, Crítico); **Probabilidad de materialización** (Baja, Media, Alta); **Descripción detallada del impacto**; **Salvaguardias y medidas de protección** |
 | **S6 · Impacto social** | **Descripción del impacto social**, **Evaluación del riesgo de sesgo y discriminación**, **Consideraciones medioambientales**, **Implicaciones sociales más amplias**, **Consulta a partes interesadas** y **Conclusión y valoración global** |
 
+**Precarga.** Al crear la AISIA, S1 y S2 se guardan con los datos de la ficha (nombre, versión, usos,
+descripción técnica, automatización, interacción con personas, datos personales, categorías, volumen,
+retención y estado de la DPIA). Si la ficha no tiene un dato, el campo queda vacío.
+
 > TODO: confirmar varios datos de las secciones.
-> - **Precarga:** los valores precargados de la ficha no se guardan si no se modifican.
 > - **S3:** cada modo muestra su origen de activación (`rule`, `ai`, `manual`) en lugar de su nombre.
 > - **S3 y S4:** el nivel del modo y el estado del plan aparecen sin traducir.
 
@@ -69,12 +78,12 @@ Todo se guarda en `aisia_sections.data`. No hay campos obligatorios.
 | **Siguiente →** / **← Anterior** / barra lateral | Todos | Guarda la sección actual como «en curso» y cambia de sección | — |
 | **✓ Marcar completa** | Todos | Guarda la sección como completa | — |
 | **Enviar para aprobación →** (en S6) | Todos | Guarda S6 y envía la evaluación | Estado «En revisión». Historial «AISIA enviada para aprobación». Vuelve a la ficha |
-| **✓ Aprobar evaluación** (en la ficha) | Administrador, Responsable del SGAI, CAIO | Aprueba, con referencia de actas opcional | Historial «AISIA aprobada». Marca como implantados los controles A.5.2 a A.5.5 de la Declaración si todos sus sistemas tienen AISIA aprobada |
+| **✓ Aprobar evaluación** (en la ficha) | Responsable del SGAI que no la preparó | Aprueba, con referencia de actas opcional | Historial «AISIA aprobada». Si la Declaración de Aplicabilidad está en borrador, marca como implantados los controles A.5.2 a A.5.5 cuando todos sus sistemas tienen AISIA aprobada; si no lo está, no la toca, lo avisa y lo aplica al iniciar su siguiente revisión |
 | **✕ Rechazar** (en la ficha) | Ídem | Rechaza con motivo obligatorio | Historial «AISIA rechazada» |
 | **✎ Corregir y reenviar** (en la ficha) | Todos | Crea una versión nueva en borrador con los datos de la rechazada | Historial «AISIA reabierta para corrección» |
 
-> TODO: confirmar cómo se actualiza una AISIA aprobada. No hay forma de crear una versión nueva a partir de
-> una AISIA aprobada: la ficha solo ofrece **Ver evaluación →**.
+> **Pendiente de implementar.** Nueva versión a partir de una AISIA aprobada: llega con su paso a plantilla
+> del expediente (B15, DP-05), que ya tiene versiones.
 
 > **Pendiente de implementar.**
 > - Propuesta de contenido por IA para las secciones.
@@ -87,6 +96,9 @@ Todo se guarda en `aisia_sections.data`. No hay campos obligatorios.
 | Editar fuera de borrador | «Solo se puede editar una evaluación en borrador.» |
 | Enviar fuera de borrador | «Solo se puede enviar una evaluación en borrador.» |
 | Aprobar o rechazar una no enviada | «Solo se puede aprobar una evaluación enviada.» / «Solo se puede rechazar una evaluación enviada.» |
+| Aprobar o rechazar sin el rol | «Solo el Responsable del SGAI puede aprobar o rechazar la AISIA.» |
+| Aprobar o rechazar quien la preparó | «Quien prepara la AISIA no puede aprobarla ni rechazarla.» |
+| Rechazar sin motivo | «Indica el motivo del rechazo.» |
 | Reabrir con otra activa | «Ya existe una evaluación activa para este sistema. Complétala primero.» |
 | Iniciar con otra activa | «Ya existe una evaluación AISIA activa para este sistema.» |
 
