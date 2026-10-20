@@ -252,6 +252,7 @@ export default function PerfilPage() {
               setFormData={setFormData}
               userEmail={user.email}
               currentRole={role}
+              currentRoles={profile?.roles ?? []}
               managers={managers}
             />
           )}

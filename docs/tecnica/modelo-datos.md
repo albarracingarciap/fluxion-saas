@@ -89,7 +89,7 @@ erDiagram
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
 | `fluxion.organizations` | [Organización](../glosario.md#organización) | `slug` único, `plan`, `normative_modules` | `00000000000001` |
-| `fluxion.profiles` | [Miembro](../glosario.md#miembro) | `user_id` → `auth.users`, `role` (`org_role`), `is_active`. Único por (`user_id`, `organization_id`): un usuario puede pertenecer a varias organizaciones | `00000000000001` |
+| `fluxion.profiles` | [Miembro](../glosario.md#miembro) | `user_id` → `auth.users`, `roles` (`org_role[]`, todos los roles), `role` (principal, = `roles[1]`), `is_active`. Único por (`user_id`, `organization_id`): un usuario puede pertenecer a varias organizaciones | `00000000000001` |
 | `fluxion.invitations` | — | `email`, `role`, `token` único, `status`, `expires_at` | `00000000000001` |
 | `fluxion.organization_modules` | [Módulo](../glosario.md#módulo) | PK (`organization_id`, `module_key`), `status` ∈ `enabled`, `disabled`, `trial`, `licensed_until` | `20260811000306` |
 | `fluxion.committees`, `committee_members` | [Comité](../glosario.md#comité) | `type` único por organización; un miembro es un perfil o una persona externa | `00000000000001` |

@@ -75,25 +75,9 @@ export async function updateProfile(data: UpdateProfileInput) {
     return { error: 'Error al actualizar el perfil: ' + profileError.message }
   }
 
-  // Cambio de rol: solo lo permitimos si el usuario es org_admin
-  if (data.role) {
-    const { data: membership } = await fluxion
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (membership?.role === 'org_admin') {
-      const { error: roleError } = await fluxion
-        .from('profiles')
-        .update({ role: data.role })
-        .eq('user_id', user.id)
-
-      if (roleError) {
-        console.error('updateRole error:', roleError)
-      }
-    }
-  }
+  // Los roles ya no se cambian desde el perfil: se gestionan en Usuarios
+  // (updateMemberRoles), que valida incompatibilidades y que la organización
+  // conserve al menos un Administrador (B23a). `data.role` se ignora.
 
   revalidatePath('/perfil')
   return { success: true }

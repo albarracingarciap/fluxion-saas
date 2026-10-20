@@ -2,16 +2,17 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
-import { isInvitableRole } from '@/lib/users/roles';
+import { isAssignableRole, isInvitableRole } from '@/lib/users/roles';
 import { revalidatePath } from 'next/cache';
 import { logAuditEvent } from '@/lib/audit';
+import { findIncompatibleRoles, hasRole, rolesOf } from '@/lib/auth/roles'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function getActorProfile(fluxion: ReturnType<typeof createFluxionClient>, userId: string) {
   const { data } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, full_name')
+    .select('id, organization_id, role, roles, full_name')
     .eq('user_id', userId)
     .single();
   return data;
@@ -32,6 +33,27 @@ async function logRoleChange(
   await fluxion.from('member_role_changes').insert(payload);
 }
 
+/**
+ * ¿Queda otro Administrador activo en la organización además de `excludeProfileId`?
+ * La organización nunca puede quedarse sin Administrador (B23a).
+ */
+async function hasOtherActiveAdmin(
+  fluxion: ReturnType<typeof createFluxionClient>,
+  organizationId: string,
+  excludeProfileId: string,
+): Promise<boolean> {
+  const { count } = await fluxion
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .contains('roles', ['org_admin'])
+    .neq('is_active', false)
+    .neq('id', excludeProfileId);
+  return (count ?? 0) > 0;
+}
+
+const ULTIMO_ADMIN = 'La organización debe tener al menos un Administrador activo. Asigna antes el rol a otro miembro.';
+
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 export async function getOrganizationMembersAndInvitations() {
@@ -43,7 +65,7 @@ export async function getOrganizationMembersAndInvitations() {
 
   const { data: profile, error: profileError } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role')
+    .select('id, organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 
@@ -51,7 +73,7 @@ export async function getOrganizationMembersAndInvitations() {
 
   const { data: allMembers, error: membersError } = await fluxion
     .from('profiles')
-    .select('id, role, user_id, full_name, avatar_url, created_at, is_active')
+    .select('id, role, roles, user_id, full_name, avatar_url, created_at, is_active')
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: true });
 
@@ -77,6 +99,7 @@ export async function getOrganizationMembersAndInvitations() {
     id:         m.id,
     user_id:    m.user_id,
     role:       m.role,
+    roles:      rolesOf(m),
     created_at: m.created_at,
     full_name:  m.full_name || null,
     avatar_url: m.avatar_url || null,
@@ -93,6 +116,7 @@ export async function getOrganizationMembersAndInvitations() {
     inactiveMembers:  (allMembers ?? []).filter((m: any) => m.is_active === false).map(mapMember),
     invitations:      pendingInvitations ?? [],
     currentUserRole:  profile.role,
+    currentUserRoles: rolesOf(profile),
     currentUserId:    user.id,
   };
 }
@@ -110,7 +134,7 @@ export async function getMemberDetail(memberId: string) {
   // Profile
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, user_id, full_name, avatar_url, role, created_at, is_active, job_title, phone, bio')
+    .select('id, user_id, full_name, avatar_url, role, roles, created_at, is_active, job_title, phone, bio')
     .eq('id', memberId)
     .single();
 
@@ -251,9 +275,10 @@ export async function inviteUser(email: string, role: string, message?: string) 
   if (!user) return { error: 'No autorizado' };
 
   const profile = await getActorProfile(fluxion, user.id);
-  if (!profile || profile.role !== 'org_admin') {
+  if (!profile || !hasRole(profile, 'org_admin')) {
     return { error: 'Solo los administradores pueden enviar invitaciones.' };
   }
+  if (!isInvitableRole(role)) return { error: 'El rol seleccionado no es válido.' };
 
   const { data: invite, error } = await fluxion
     .from('invitations')
@@ -309,7 +334,7 @@ export async function createUser(input: {
   if (!user) return { error: 'No autorizado' };
 
   const actor = await getActorProfile(fluxion, user.id);
-  if (!actor || actor.role !== 'org_admin') {
+  if (!actor || !hasRole(actor, 'org_admin')) {
     return { error: 'Solo los administradores pueden dar de alta usuarios.' };
   }
 
@@ -369,7 +394,7 @@ export async function createUser(input: {
   // organización huérfana con un administrador que no debería existir.
   const { data: newProfile } = await admin
     .from('profiles')
-    .select('id, organization_id, role')
+    .select('id, organization_id, role, roles')
     .eq('user_id', newUserId)
     .maybeSingle();
 
@@ -419,9 +444,10 @@ export async function inviteUserBulk(emails: string[], role: string, message?: s
   if (!user) return { error: 'No autorizado' };
 
   const profile = await getActorProfile(fluxion, user.id);
-  if (!profile || profile.role !== 'org_admin') {
+  if (!profile || !hasRole(profile, 'org_admin')) {
     return { error: 'Solo los administradores pueden enviar invitaciones.' };
   }
+  if (!isInvitableRole(role)) return { error: 'El rol seleccionado no es válido.' };
 
   const results: Array<{ email: string; token?: string; error?: string }> = [];
 
@@ -475,7 +501,7 @@ export async function resendInvitation(invitationId: string) {
   if (!user) return { error: 'No autorizado' };
 
   const profile = await getActorProfile(fluxion, user.id);
-  if (!profile || profile.role !== 'org_admin') {
+  if (!profile || !hasRole(profile, 'org_admin')) {
     return { error: 'Solo los administradores pueden reenviar invitaciones.' };
   }
 
@@ -517,7 +543,12 @@ export async function resendInvitation(invitationId: string) {
   return { success: true, token: newToken };
 }
 
-export async function updateMemberRole(memberId: string, newRole: string) {
+/**
+ * Asigna todos los roles de un miembro (B23a). El primero es el principal.
+ * Solo un Administrador. Valida roles, incompatibilidades de DP-01 y que la
+ * organización conserve al menos un Administrador activo.
+ */
+export async function updateMemberRoles(memberId: string, newRoles: string[]) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
 
@@ -525,28 +556,47 @@ export async function updateMemberRole(memberId: string, newRole: string) {
   if (!user) return { error: 'No autorizado' };
 
   const actor = await getActorProfile(fluxion, user.id);
-  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden cambiar roles.' };
+  if (!actor || !hasRole(actor, 'org_admin')) return { error: 'Solo administradores pueden cambiar roles.' };
+
+  const roles = Array.from(new Set(newRoles));
+  if (roles.length === 0) return { error: 'Un miembro necesita al menos un rol.' };
+  if (!roles.every(isAssignableRole)) return { error: 'El rol seleccionado no es válido.' };
+
+  const incompatibles = findIncompatibleRoles(roles);
+  if (incompatibles) {
+    return { error: 'DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).' };
+  }
 
   const { data: target } = await fluxion
     .from('profiles')
-    .select('role')
+    .select('id, role, roles, is_active')
     .eq('id', memberId)
-    .single();
+    .eq('organization_id', actor.organization_id)
+    .maybeSingle();
+  if (!target) return { error: 'Miembro no encontrado.' };
 
+  const prevRoles = rolesOf(target);
+  const pierdeAdmin = prevRoles.includes('org_admin') && !roles.includes('org_admin');
+  if (pierdeAdmin && !(await hasOtherActiveAdmin(fluxion, actor.organization_id, memberId))) {
+    return { error: ULTIMO_ADMIN };
+  }
+
+  // El trigger sincroniza `role` (principal) con roles[0].
   const { error } = await fluxion
     .from('profiles')
-    .update({ role: newRole })
-    .eq('id', memberId);
+    .update({ roles })
+    .eq('id', memberId)
+    .eq('organization_id', actor.organization_id);
 
-  if (error) return { error: 'Error al actualizar el rol: ' + error.message };
+  if (error) return { error: 'Error al actualizar los roles: ' + error.message };
 
   await logRoleChange(fluxion, {
     organization_id: actor.organization_id,
     actor_id:    actor.id,
     member_id:   memberId,
     change_type: 'role_change',
-    prev_role:   target?.role ?? null,
-    new_role:    newRole,
+    prev_role:   prevRoles.join(', '),
+    new_role:    roles.join(', '),
   });
 
   void logAuditEvent({
@@ -556,11 +606,26 @@ export async function updateMemberRole(memberId: string, newRole: string) {
     action:     'member.role_changed',
     target_type: 'member',
     target_id:  memberId,
-    metadata:   { prev_role: target?.role, new_role: newRole },
+    metadata:   { prev_roles: prevRoles, new_roles: roles },
   });
 
   revalidatePath('/usuarios');
   return { success: true };
+}
+
+/**
+ * Cambia el rol principal y conserva los demás. Se mantiene por compatibilidad;
+ * la pantalla usa updateMemberRoles.
+ */
+export async function updateMemberRole(memberId: string, newRole: string) {
+  const fluxion = createFluxionClient();
+  const { data: target } = await fluxion
+    .from('profiles')
+    .select('role, roles')
+    .eq('id', memberId)
+    .maybeSingle();
+  const otros = rolesOf(target).filter((r) => r !== target?.role && r !== newRole);
+  return updateMemberRoles(memberId, [newRole, ...otros]);
 }
 
 export async function deactivateMember(memberId: string) {
@@ -571,15 +636,18 @@ export async function deactivateMember(memberId: string) {
   if (!user) return { error: 'No autorizado' };
 
   const actor = await getActorProfile(fluxion, user.id);
-  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden desactivar miembros.' };
+  if (!actor || !hasRole(actor, 'org_admin')) return { error: 'Solo administradores pueden desactivar miembros.' };
 
   const { data: target } = await fluxion
     .from('profiles')
-    .select('user_id, role')
+    .select('user_id, role, roles')
     .eq('id', memberId)
     .single();
 
   if (target?.user_id === user.id) return { error: 'No puedes desactivarte a ti mismo.' };
+  if (hasRole(target, 'org_admin') && !(await hasOtherActiveAdmin(fluxion, actor.organization_id, memberId))) {
+    return { error: ULTIMO_ADMIN };
+  }
 
   const { error } = await fluxion
     .from('profiles')
@@ -618,11 +686,11 @@ export async function reactivateMember(memberId: string) {
   if (!user) return { error: 'No autorizado' };
 
   const actor = await getActorProfile(fluxion, user.id);
-  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden reactivar miembros.' };
+  if (!actor || !hasRole(actor, 'org_admin')) return { error: 'Solo administradores pueden reactivar miembros.' };
 
   const { data: target } = await fluxion
     .from('profiles')
-    .select('role')
+    .select('role, roles')
     .eq('id', memberId)
     .single();
 
@@ -663,15 +731,18 @@ export async function removeMember(memberId: string) {
   if (!user) return { error: 'No autorizado' };
 
   const actor = await getActorProfile(fluxion, user.id);
-  if (!actor || actor.role !== 'org_admin') return { error: 'Solo administradores pueden eliminar miembros.' };
+  if (!actor || !hasRole(actor, 'org_admin')) return { error: 'Solo administradores pueden eliminar miembros.' };
 
   const { data: target } = await fluxion
     .from('profiles')
-    .select('user_id, role')
+    .select('user_id, role, roles')
     .eq('id', memberId)
     .single();
 
   if (target?.user_id === user.id) return { error: 'No puedes eliminarte a ti mismo.' };
+  if (hasRole(target, 'org_admin') && !(await hasOtherActiveAdmin(fluxion, actor.organization_id, memberId))) {
+    return { error: ULTIMO_ADMIN };
+  }
 
   // Log before delete (FK would cascade otherwise)
   await logRoleChange(fluxion, {

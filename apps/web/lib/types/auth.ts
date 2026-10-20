@@ -31,7 +31,10 @@ export interface Profile {
   bio: string | null
   pronouns: string | null
   // Rol y estado
+  /** Rol principal (= roles[0]). Para permisos usar `roles` con lib/auth/roles. */
   role: OrgRole
+  /** Todos los roles del miembro (B23a). */
+  roles: OrgRole[]
   platform_role: PlatformRole | null
   is_active: boolean
   onboarding_completed: boolean

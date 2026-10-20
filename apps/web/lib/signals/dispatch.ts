@@ -61,7 +61,7 @@ async function resolveRecipients(
     .select('id')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
-    .in('role', GOVERNANCE_ROLES)
+    .overlaps('roles', GOVERNANCE_ROLES as unknown as string[])
 
   return (governance ?? []).map((r: { id: string }) => r.id)
 }

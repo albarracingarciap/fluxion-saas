@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bot, ShieldAlert, Users2, Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, X, UserPlus, Building2 } from 'lucide-react';
 import { getCommittees, upsertCommittee, addCommitteeMember, removeCommitteeMember } from './actions';
+import { hasAnyRole } from '@/lib/auth/roles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -586,7 +587,7 @@ export function CommitteesTab() {
       setCommittees(res.committees as Committee[]);
       setOrgProfiles(res.orgProfiles as OrgProfile[]);
       setOrgId(res.organizationId!);
-      setCanManage(['org_admin', 'sgai_manager', 'caio'].includes(res.currentUserRole!));
+      setCanManage(hasAnyRole({ role: res.currentUserRole, roles: res.currentUserRoles }, ['org_admin', 'sgai_manager', 'caio']));
     }
   }, []);
 

@@ -33,6 +33,8 @@ type Props = {
   setFormData: (data: ProfileFormData) => void
   userEmail: string | null | undefined
   currentRole: string | null | undefined
+  /** Todos los roles del usuario (B23a) */
+  currentRoles: string[]
   managers: ManagerOption[]
 }
 
@@ -41,10 +43,11 @@ export function InformacionPersonalTab({
   setFormData,
   userEmail,
   currentRole,
+  currentRoles,
   managers,
 }: Props) {
   const initials = getInitials(formData.first_name, formData.last_name, userEmail)
-  const isAdmin = currentRole === 'org_admin'
+  const isAdmin = currentRoles.includes('org_admin') || currentRole === 'org_admin'
   const bioLen = formData.bio.length
 
   return (
@@ -111,24 +114,20 @@ export function InformacionPersonalTab({
           </div>
 
           <div className="md:col-span-2">
-            <FieldLabel>Rol Fluxion</FieldLabel>
-            <div className="relative">
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className={selectCls}
-                disabled={!isAdmin}
-              >
-                {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-              <SelectArrow />
+            <FieldLabel>Roles</FieldLabel>
+            {/* Solo lectura: los roles se gestionan en Usuarios, que valida las
+                incompatibilidades y que siempre quede un Administrador (B23a). */}
+            <div className="flex flex-wrap gap-1.5">
+              {(currentRoles.length > 0 ? currentRoles : [formData.role]).filter(Boolean).map((r) => (
+                <span key={r} className="inline-flex items-center px-2.5 py-1 rounded-[6px] border border-ltb bg-ltbg font-sora text-[12px] text-ltt2">
+                  {ROLE_LABELS[r] ?? r}
+                </span>
+              ))}
             </div>
             <p className="font-sora text-[11.5px] text-lttm mt-1.5">
               {isAdmin
-                ? 'Como administrador, puedes gestionar el rol asignado.'
-                : 'Este campo solo puede ser modificado por un administrador de la organización.'}
+                ? 'Los roles se gestionan en Configuración › Usuarios.'
+                : 'Los roles los asigna un administrador de la organización.'}
             </p>
           </div>
         </div>

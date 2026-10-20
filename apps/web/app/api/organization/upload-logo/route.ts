@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { revalidatePath } from 'next/cache'
+import { hasRole } from '@/lib/auth/roles'
 
 const BUCKET = 'organization-logos'
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -17,11 +18,11 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'org_admin') {
+  if (!profile || !hasRole(profile, 'org_admin')) {
     return NextResponse.json({ error: 'Sin permisos de administrador' }, { status: 403 })
   }
 

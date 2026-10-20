@@ -115,7 +115,7 @@ async function requireEditableTreatmentPlan(params: {
 
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 
@@ -149,7 +149,7 @@ async function requireEditableTreatmentPlan(params: {
 
   // DP-01: preparan el plan el Analista de riesgos y el Responsable del sistema.
   // El DPO es consultivo y ya no edita planes.
-  if (!canPrepareTreatmentPlan(membership.role)) {
+  if (!canPrepareTreatmentPlan(membership)) {
     return {
       error: 'No tienes permisos para editar este plan de tratamiento: lo preparan el Analista de riesgos y el Responsable del sistema.',
     } as const;
@@ -991,7 +991,7 @@ async function requireActionOwnership(params: {
 
   const { data: membership } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
   if (!membership) return { error: 'Perfil no encontrado.' } as const;
@@ -1214,7 +1214,7 @@ export async function approveTreatmentPlanAction(input: {
 
   const { data: membership } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
   if (!membership) return { error: 'Perfil no encontrado.' };
@@ -1302,7 +1302,7 @@ export async function rejectTreatmentPlanAction(input: {
 
   const { data: membership } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
   if (!membership) return { error: 'Perfil no encontrado.' };
@@ -1985,7 +1985,7 @@ export async function reviewAcceptanceAction(
 
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
   if (membershipError || !membership) return { error: 'Organización no encontrada.' };

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 /**
  * Conciliación de descubrimientos.
@@ -79,12 +80,12 @@ async function requireResolver() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role')
+    .select('id, organization_id, role, roles')
     .eq('user_id', user.id)
     .single()
 
   if (!profile) return { error: 'No autenticado' as const, profile: null }
-  if (!RESOLVER_ROLES.includes(profile.role)) {
+  if (!hasAnyRole(profile, RESOLVER_ROLES)) {
     return { error: 'Sin permisos para conciliar descubrimientos.' as const, profile: null }
   }
 

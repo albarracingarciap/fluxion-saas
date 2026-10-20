@@ -21,8 +21,9 @@ export function RolesTab() {
   return (
     <div>
       <p className="font-sora text-[13px] text-ltt2 mb-5 leading-relaxed">
-        Cada miembro tiene un único rol que determina qué puede leer y modificar en la plataforma.
-        Solo el Administrador puede cambiar roles.
+        Un miembro puede tener varios roles; sus permisos son la suma de todos ellos. Solo un Administrador
+        puede cambiar roles, puede haber varios Administradores y la organización siempre conserva al menos uno.
+        DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {ROLE_ORDER.map((role) => {

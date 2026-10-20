@@ -41,7 +41,6 @@ experiencia (región, avisos, tema visual).
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Todos los roles | Su propio perfil | Editar sus datos, seguridad y preferencias |
-| Administrador (`org_admin`) | Ídem | Además, cambiar su propio **Rol Fluxion** |
 
 ## Campos
 
@@ -56,7 +55,7 @@ La vista tiene seis pestañas. Todas, salvo **Seguridad**, se guardan con **Guar
 | **Apellidos** | texto | No | — | `profiles.last_name` |
 | **Cargo / Puesto** | texto | No | Placeholder «Ej. Director de Riesgos» | `profiles.preferences.job_title` |
 | **Departamento** | texto | No | Placeholder «Ej. Compliance / IT» | `profiles.preferences.department` |
-| **Rol Fluxion** | selector | — | Los diez [roles](../glosario.md#rol). Solo editable por `org_admin` | `profiles.role` |
+| **Roles** | solo lectura | — | Todos los [roles](../glosario.md#rol) del usuario. Se gestionan en [Usuarios](usuarios.md) | `profiles.roles` |
 | **Bio corta** | texto largo | No | Contador de 280 caracteres. Aparece en el detalle del miembro en [Usuarios](usuarios.md) | `profiles.bio` |
 | **Manager** | selector | No | «Sin asignar» o un miembro activo de la organización | `profiles.manager_id` |
 | **Pronombres** | texto | No | Placeholder «Ej. ella, él, elle» | `profiles.pronouns` |

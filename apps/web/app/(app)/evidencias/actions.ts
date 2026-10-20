@@ -18,7 +18,7 @@ async function getAuthContext() {
 
   const { data: profile, error: profileError } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 

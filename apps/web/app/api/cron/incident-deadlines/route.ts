@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('organization_id', incident.organization_id)
         .eq('is_active', true)
-        .in('role', GOVERNANCE_ROLES)
+        .overlaps('roles', GOVERNANCE_ROLES as unknown as string[])
 
       const recipients = new Set<string>((people ?? []).map((p: { id: string }) => p.id))
       if (incident.owner_id) recipients.add(incident.owner_id)

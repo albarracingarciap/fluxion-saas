@@ -54,7 +54,7 @@ El usuario puede acceder de inmediato con la contraseña inicial.
 | **Apellidos** | texto | No | — | → `profiles.last_name` |
 | **Correo electrónico** | email | Sí | — | `auth.users.email` |
 | **Contraseña inicial** | password | Sí | Mínimo 8 caracteres | Supabase Auth |
-| **Rol** | selector | — | Todos los roles salvo Administrador. Por defecto Lector | `profiles.role` |
+| **Rol** | selector | — | Los diez roles, incluido Administrador. Por defecto Lector. Los demás roles se añaden después en **Miembros** | `profiles.roles` |
 
 ### Nueva invitación
 
@@ -64,14 +64,17 @@ El usuario se registra con un enlace de invitación.
 |---|---|---|---|---|
 | **Invitación múltiple** | interruptor | — | Cambia entre un correo y varios | — |
 | **Correo electrónico** / **Correos electrónicos** | email / texto largo | Sí | En modo múltiple, uno por línea o separados por coma | `invitations.email` |
-| **Rol** | selector | — | Todos los roles salvo Administrador. Por defecto Lector | `invitations.role` |
+| **Rol** | selector | — | Los diez roles, incluido Administrador. Por defecto Lector | `invitations.role` |
 | **Mensaje personal** | texto largo | No | Máximo 300 caracteres | `invitations.message` |
 
 ### Miembros
 
 - **Filtros:** búsqueda por nombre o correo y filtro por rol. Se muestran 20 por página.
-- **Columnas:** foto, nombre (con la marca «Tú»), correo, fecha de alta y rol. El administrador puede
-  cambiar el rol desde un selector en la propia fila.
+- **Columnas:** foto, nombre (con la marca «Tú»), correo, fecha de alta y **roles** (todos, el principal
+  primero). El filtro por rol encuentra a quien tenga ese rol entre los suyos.
+- **Editar roles:** el Administrador pulsa **Editar** en la fila, marca los roles y pulsa **Guardar**.
+  Puede editar también los suyos. Un miembro puede tener varios roles y puede haber varios
+  Administradores (B23a).
 - **Desactivados:** sección aparte con los miembros desactivados (`profiles.is_active = false`).
 
 > TODO: confirmar por qué la vista no muestra los correos de los miembros. Se piden a la API de
@@ -87,8 +90,9 @@ El usuario se registra con un enlace de invitación.
 ### Roles y permisos
 
 Tarjetas descriptivas de los diez roles: Administrador, SGAI Manager, CAIO, DPO, System Owner, Analista
-de Riesgos, Analista de Cumplimiento, Directivo, Auditor y Lector. Es solo informativa: no hay una matriz
-de permisos configurable.
+de Riesgos, Analista de Cumplimiento, Directivo, Auditor y Lector. Explica que un miembro puede tener
+varios roles y que sus permisos son la suma de todos. Es solo informativa: no hay una matriz de permisos
+configurable.
 
 ### Auditoría
 
@@ -115,7 +119,7 @@ Panel lateral en solo lectura:
 | **Reenviar** | Administrador | `resendInvitation`: nuevo enlace y 7 días más | Auditoría `invitation.resent` |
 | **Copiar** | Todos | Copia el enlace de la invitación | — |
 | **Cancelar invitación** | Administrador | `cancelInvitation`: estado `revoked` | Auditoría `invitation.cancelled` |
-| Cambiar rol (selector de fila) | Administrador, sobre otros | `updateMemberRole` | Registro en `member_role_changes`. Auditoría `member.role_changed` |
+| **Editar** › **Guardar** (roles de la fila) | Administrador, sobre cualquier miembro (también él mismo) | `updateMemberRoles` | Registro en `member_role_changes` con los roles anteriores y nuevos. Auditoría `member.role_changed` |
 | **Desactivar** | Administrador, sobre otros | Pide confirmación y ejecuta `deactivateMember`: `is_active = false` | Registro en `member_role_changes`. Auditoría `member.deactivated` |
 | **Reactivar** | Administrador | `reactivateMember` | Auditoría `member.reactivated` |
 
@@ -127,10 +131,9 @@ Panel lateral en solo lectura:
 >   Seguridad.
 > - **Botón para eliminar a un miembro:** la acción existe en el servidor, pero no hay botón.
 
-> TODO: confirmar dos comportamientos de la gestión de miembros.
-> - El selector de rol de la fila permite asignar Administrador, aunque al invitar ese rol está excluido.
-> - Si fallan el cambio de rol, la desactivación, la reactivación o la cancelación, la vista no muestra
->   ningún mensaje.
+> TODO: confirmar un comportamiento de la gestión de miembros. Si fallan la reactivación o la
+> cancelación de una invitación, la vista no muestra ningún mensaje (los errores al cambiar roles y al
+> desactivar ya se muestran).
 
 ## Validaciones
 
@@ -139,6 +142,9 @@ Panel lateral en solo lectura:
 | Correo no válido | «El correo electrónico no es válido.» |
 | Sin nombre | «El nombre es obligatorio.» |
 | Rol no permitido | «El rol seleccionado no es válido.» |
+| DPO y Responsable del SGAI a la vez | «DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).» |
+| Quitar, desactivar o eliminar al último Administrador | «La organización debe tener al menos un Administrador activo. Asigna antes el rol a otro miembro.» |
+| Sin roles | «Un miembro necesita al menos un rol.» |
 | Contraseña corta | «La contraseña debe tener al menos 8 caracteres.» |
 | Ya hay una invitación pendiente | «Ya existe una invitación pendiente para este correo.» |
 | El correo ya tiene usuario | «Ya existe un usuario con ese correo electrónico.» |

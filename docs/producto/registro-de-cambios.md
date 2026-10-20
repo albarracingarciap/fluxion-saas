@@ -31,6 +31,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | T9 · `migrate.sh` atómico | Integrado en `main` | `prep/t9-migrate-atomico` | 2026-10-20 | No (cambia el script de migraciones) |
 | Logo CompaaS IA (fuera del plan) | Integrado en `main` | `feat/logo-compaas` | 2026-10-20 | No |
 | Textos CompaaS IA: títulos y bienvenida (fuera del plan) | Integrado en `main` | `feat/textos-compaas` | 2026-10-20 | No |
+| B23a · Roles múltiples por miembro | Integrado en `main` | `fase1/b23a-roles-multiples` | 2026-10-20 | **Sí** · `20261020090000_roles_multiples.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -44,6 +45,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 |---|---|---|---|
 | `supabase/migrations/20261019090000_plan_control_libre.sql` | B02 | `controls.template_id` opcional; columnas `title` y `description`; restricción plantilla o título | **Antes** de desplegar B02: el plan de tratamiento y las brechas leen `controls.title` |
 | `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql` | B03 | Corrige el responsable de la tarea en los dos triggers; crea la tarea al decidir la opción; genera las tareas que faltan | Antes o después de desplegar B03 (el código funciona sin ella, pero sin tareas nuevas). Revisa el número de tareas creadas por el relleno final |
+| `supabase/migrations/20261020090000_roles_multiples.sql` | B23a | Columna `profiles.roles`, trigger de sincronización con `role`, incompatibilidad DPO + Responsable del SGAI, reescritura de las 67 políticas RLS y de dos funciones de aprobación | **Antes** de desplegar B23a: la aplicación lee `profiles.roles` |
 
 ---
 
@@ -480,3 +482,54 @@ ejecutado contra una base de datos real.
 
 **Pendiente (más adelante, a petición del responsable).** Resto de textos con «Fluxion»: descripción del
 registro, mensaje de prueba de canales de Slack y Teams, correos, PDF generados y documentación.
+
+---
+
+## B23a · Roles múltiples por miembro
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b23a-roles-multiples` ·
+**Migración:** **sí**, `supabase/migrations/20261020090000_roles_multiples.sql` (aplicar antes de desplegar)
+
+**Problema.** Cada miembro tenía un solo rol (`profiles.role`). DP-01 exige acumular roles (Administrador +
+Responsable del SGAI, Responsable del sistema + Analista de riesgos…) y permitir varios Administradores. Con
+B01 se notaba: un Administrador no podía preparar ni aprobar planes. Además, el rol de Administrador no se
+podía asignar al invitar, y las invitaciones no validaban el rol (`A14`).
+
+**Decisiones del responsable (2026-10-20).** Adelantar B23 a B07. El rol de Administrador se combina con
+cualquier otro y puede haber más de un Administrador.
+
+**Cambios en la base de datos** (migración):
+- `profiles.roles` (`org_role[]`): todos los roles. `profiles.role` se mantiene como rol principal
+  (= `roles[1]`), sincronizado por el trigger `trg_profiles_sync_roles` en los dos sentidos (una escritura
+  antigua de `role` sustituye el principal y conserva los demás).
+- Restricciones `chk_profiles_rol_principal` y `chk_profiles_dpo_no_sgai` (DPO + Responsable del SGAI).
+- Las **67 políticas RLS** que comparaban `profiles.role` se reescriben desde el catálogo a `roles && ARRAY[…]`.
+  La migración comprueba al final que no queda ninguna con el patrón antiguo; si queda, se aborta.
+- `approval_can_decide` y `approval_step_candidates` comparan con la lista de roles.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| `lib/auth/roles.ts` (nuevo) | `rolesOf`, `hasRole`, `hasAnyRole`, `findIncompatibleRoles`: toda comprobación de permisos mira la lista completa |
+| `lib/auth/app-state.ts`, `lib/types/auth.ts`, `lib/fmea/data.ts` | La sesión y los contextos cargan `roles` |
+| 37 consultas sobre `profiles` | Leen también `roles` |
+| 39 comprobaciones de permisos (ajustes, organización, usuarios, aprobaciones, incidentes, descubrimientos, logo, perfil) | `hasRole`/`hasAnyRole` en lugar de comparar `role` |
+| Plan, FMEA, Declaración de Aplicabilidad, ficha del sistema (aprobar AISIA), comités, incidentes | La interfaz recibe todos los roles |
+| Avisos de incidentes y señales, aprobador sin política | Destinatarios y candidatos por cualquiera de sus roles (`.overlaps('roles', …)`) |
+| `lib/users/roles.ts` | Los diez roles son asignables, incluido Administrador |
+| **Usuarios** | Editor de roles con casillas en cada fila (también para uno mismo); invitar y crear admiten Administrador; validación de roles en invitaciones; la organización conserva siempre un Administrador activo (al quitar el rol, desactivar o eliminar); errores visibles |
+| **Perfil** | Los roles pasan a solo lectura: cambiar el rol principal desde aquí podía quitar el rol de Administrador sin la comprobación de Usuarios |
+| Tests | `tests/roles.test.ts` y casos de roles múltiples en `plan-reglas.test.ts` (23 en total) |
+
+**Verificación.**
+- Migración probada en un Postgres 17 local con las 53 migraciones del repositorio cargadas (arnés con
+  Supabase simulado): se aplica, es idempotente (la segunda vez no reescribe nada), el trigger sincroniza bien,
+  la incompatibilidad se rechaza, la RLS acepta un rol secundario y rechaza a quien no tiene rol, y las
+  funciones de aprobación encuentran al candidato por un rol secundario.
+- `tsc --noEmit` sin errores, `next lint` sin avisos en las áreas tocadas, `npm test` 23/23,
+  `check-server-actions.sh` correcto.
+
+**Pendiente (B23b).** Responsable de supervisión humana por sistema, comité técnico, voz sin voto en comités y
+funciones de gobierno (CISO, Legal, Responsable del tratamiento). Las invitaciones asignan un solo rol; el
+resto se añade en **Miembros**.

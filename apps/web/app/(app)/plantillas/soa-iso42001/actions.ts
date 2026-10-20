@@ -7,6 +7,7 @@ import { getAppAuthState } from '@/lib/auth/app-state'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 export async function initializeSoA(_formData: FormData) {
   const adminClient = createAdminFluxionClient()
@@ -249,16 +250,16 @@ export async function transitionSoAStatus(
 
   // Rol del perfil de la sesión. Antes se buscaba por `id = user.id` y el
   // servidor rechazaba todos los cambios de estado.
-  const userRole: string = profile.role ?? ''
+  const roleHolder = profile
 
   // Role-gate transitions
-  if (newStatus === 'under_review' && !ROLES_CAN_SUBMIT.has(userRole)) {
+  if (newStatus === 'under_review' && !hasAnyRole(roleHolder, ROLES_CAN_SUBMIT)) {
     return { error: 'No tienes permisos para enviar el documento a revisión.' }
   }
-  if (newStatus === 'approved' && !ROLES_CAN_APPROVE.has(userRole)) {
+  if (newStatus === 'approved' && !hasAnyRole(roleHolder, ROLES_CAN_APPROVE)) {
     return { error: 'No tienes permisos para aprobar el documento SoA.' }
   }
-  if (newStatus === 'draft' && !ROLES_CAN_APPROVE.has(userRole)) {
+  if (newStatus === 'draft' && !hasAnyRole(roleHolder, ROLES_CAN_APPROVE)) {
     return { error: 'No tienes permisos para reabrir el documento SoA.' }
   }
 

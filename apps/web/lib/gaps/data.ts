@@ -341,7 +341,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       .eq('organization_id', organizationId),
     fluxion
       .from('profiles')
-      .select('user_id, role, full_name')
+      .select('user_id, role, roles, full_name')
       .eq('organization_id', organizationId),
     fluxion
       .from('gap_dispositions')

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { getIncident, getOrgMembers, getCorrectiveActions } from '../actions'
 import { IncidenteDetalle } from './incidente-detalle'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,7 @@ export default async function IncidentePage({ params }: { params: { id: string }
 
   if (!incident) notFound()
 
-  const canGovern = GOVERNANCE_ROLES.includes(auth.membership?.role ?? '')
+  const canGovern = hasAnyRole(auth.membership, GOVERNANCE_ROLES)
 
   return (
     <IncidenteDetalle

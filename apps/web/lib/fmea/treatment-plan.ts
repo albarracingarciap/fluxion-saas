@@ -57,6 +57,7 @@ export {
   getApproverRolePriority,
   pickPlanApprover,
 } from './treatment-plan-rules';
+import type { RoleHolder } from '@/lib/auth/roles';
 export type { TreatmentApprovalLevel } from './treatment-plan-rules';
 
 export type TreatmentPlanRecord = {
@@ -311,9 +312,9 @@ export async function resolvePlanApprover(params: {
   const roles = getApproverRolePriority(params.approvalLevel);
   const { data: members } = await params.fluxion
     .from('profiles')
-    .select('user_id, role, is_active')
+    .select('user_id, role, roles, is_active')
     .eq('organization_id', params.organizationId)
-    .in('role', roles as string[])
+    .overlaps('roles', roles as string[])
     .order('created_at', { ascending: true });
 
   return pickPlanApprover(members ?? [], params.approvalLevel, params.actorUserId);
@@ -394,8 +395,8 @@ export async function buildTreatmentPlanData(params: {
   aiSystemId: string;
   evaluationId: string;
   currentUserId?: string;
-  /** Rol de quien mira: sin permiso de preparación (DP-01), el plan se muestra en solo lectura. */
-  currentUserRole?: string;
+  /** Quien mira (con sus roles): sin permiso de preparación (DP-01), el plan se muestra en solo lectura. */
+  currentUserRole?: RoleHolder | string;
 }) {
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
@@ -717,7 +718,7 @@ export async function buildTreatmentPlanData(params: {
 
   const { data: members } = await fluxion
     .from('profiles')
-    .select('user_id, role')
+    .select('user_id, role, roles')
     .eq('organization_id', params.organizationId)
     .order('created_at', { ascending: true });
 

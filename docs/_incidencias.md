@@ -97,7 +97,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | A11 | Organización: los campos de Gobernanza y Operaciones (responsables, ejercicio, idioma, color, pie) no los usa nada | Carencia | Media | Análisis | 68 |
 | A12 | Organización: renovar un módulo lo pasa a «en prueba»; un miembro de comité dado de baja no se puede volver a añadir | Error | Media | Análisis | 69 |
 | A13 | Usuarios: la columna de correo sale vacía y la búsqueda por correo no funciona | Error | Media | Análisis | 70 |
-| A14 | Usuarios: el selector de la fila permite asignar Administrador, aunque al invitar no se puede; los errores no se muestran | Incongruencia | Media | Análisis | 71 |
+| A14 | **✔ Resuelta en B23a.** Usuarios: el selector de la fila permite asignar Administrador, aunque al invitar no se puede; los errores no se muestran | Incongruencia | Media | Análisis | 71 |
 | A15 | Ajustes: las pestañas de Workspace solo las ve el Administrador, pero el servidor deja gestionar a otros roles | Decisión | Media | Análisis | 72 |
 | A16 | Ajustes › Auditoría: el filtro no ofrece varios tipos de evento | Carencia | Baja | Análisis | 74 |
 | A17 | Ajustes › Seguridad: MFA obligatoria, dominios permitidos y tiempo de sesión se guardan, pero no se aplican | Carencia | Alta | Análisis | — |

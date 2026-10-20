@@ -8,6 +8,7 @@ import { SoAPrintView } from './soa-print-view'
 import { SoAMetadataBar } from './metadata-bar'
 import { ArrowLeft, ShieldCheck, Clock, CheckCircle2, FileEdit } from 'lucide-react'
 import Link from 'next/link'
+import { rolesOf } from '@/lib/auth/roles'
 
 const LIFECYCLE_CONFIG = {
   draft: {
@@ -50,7 +51,7 @@ export default async function SoAPage() {
   // Rol del perfil de la sesión, en la organización activa. Antes se buscaba
   // el perfil por `id = user.id` (identificador de auth.users) y nunca se
   // encontraba: nadie veía los botones de ciclo de vida.
-  const userRole: string = profile?.role ?? ''
+  const userRoles: string[] = rolesOf(profile)
 
   const data = await buildSoAData(membership.organization_id)
 
@@ -84,7 +85,7 @@ export default async function SoAPage() {
               <HeaderActions
                 metadata={data.metadata}
                 availableTags={data.availableTags}
-                userRole={userRole}
+                userRoles={userRoles}
                 lifecycleStatus={lifecycleStatus}
                 controls={data.controls}
               />

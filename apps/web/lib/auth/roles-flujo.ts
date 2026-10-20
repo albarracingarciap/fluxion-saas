@@ -6,12 +6,12 @@
  * prepara no aprueba, y el DPO es consultivo (emite dictamen, no edita ni
  * aprueba planes de tratamiento).
  *
- * Es una solución de transición (bloque B01): hoy cada miembro tiene un solo
- * rol (`profiles.role`). El bloque B23 introduce roles múltiples y el bloque
- * B11 lleva las aprobaciones a Flujos de aprobación con políticas por defecto;
- * entonces estas constantes se sustituyen.
+ * Las comprobaciones miran todos los roles del miembro (`profiles.roles`,
+ * B23a). El bloque B11 llevará las aprobaciones a Flujos de aprobación con
+ * políticas por defecto.
  */
 import type { OrgRole } from '@/lib/types/auth'
+import { hasAnyRole, type RoleHolder } from './roles'
 
 /** Preparan la evaluación de riesgos y el plan de tratamiento: Analista de riesgos y Responsable del sistema. */
 export const PLAN_PREPARER_ROLES: readonly OrgRole[] = ['risk_analyst', 'system_owner']
@@ -37,10 +37,17 @@ export const PLAN_APPROVER_ROLES: Record<'level_1' | 'level_2' | 'level_3', read
   level_3: ['sgai_manager'],
 }
 
-export function canPrepareTreatmentPlan(role: string | null | undefined): boolean {
-  return !!role && (PLAN_PREPARER_ROLES as readonly string[]).includes(role)
+/** Acepta el miembro (con su lista de roles) o un rol suelto. */
+type QuienOrol = RoleHolder | string
+
+function comoHolder(quien: QuienOrol): RoleHolder {
+  return typeof quien === 'string' ? { role: quien } : quien
 }
 
-export function canResolveFmeaSecondReview(role: string | null | undefined): boolean {
-  return !!role && (FMEA_SECOND_REVIEW_ROLES as readonly string[]).includes(role)
+export function canPrepareTreatmentPlan(quien: QuienOrol): boolean {
+  return hasAnyRole(comoHolder(quien), PLAN_PREPARER_ROLES)
+}
+
+export function canResolveFmeaSecondReview(quien: QuienOrol): boolean {
+  return hasAnyRole(comoHolder(quien), FMEA_SECOND_REVIEW_ROLES)
 }

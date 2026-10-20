@@ -20,7 +20,7 @@ export default async function TreatmentPlanPage({ params }: TreatmentPlanPagePro
     aiSystemId: params.id,
     evaluationId: params.evaluationId,
     currentUserId: user.id,
-    currentUserRole: membership.role,
+    currentUserRole: membership,
   });
 
   if (!data) notFound();

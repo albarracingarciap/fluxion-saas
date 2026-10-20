@@ -81,7 +81,7 @@ async function requireEditableEvaluation(params: { aiSystemId: string; evaluatio
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
     // `id` lo necesita la estimacion por familia para registrar quien la firma.
-    .select('id, organization_id, role, full_name')
+    .select('id, organization_id, role, roles, full_name')
     .eq('user_id', user.id)
     .single();
 
@@ -986,7 +986,7 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 
   // DP-01 (pendiente de confirmar): la segunda revisión la resuelve el
   // Responsable del SGAI, distinto del evaluador.
-  if (!canResolveFmeaSecondReview(membership.role)) {
+  if (!canResolveFmeaSecondReview(membership)) {
     return { error: 'No tienes permisos para realizar la segunda revisión: la resuelve el Responsable del SGAI.' };
   }
 
