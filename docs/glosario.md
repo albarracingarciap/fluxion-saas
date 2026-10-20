@@ -15,6 +15,13 @@ fuente:
   - apps/web/lib/fmea/treatment-plan.ts
   - apps/web/lib/gaps/data.ts
   - apps/web/lib/types/auth.ts
+  - apps/web/lib/auth/role-labels.ts
+  - apps/web/lib/governance/functions.ts
+  - supabase/migrations/20261020090000_roles_multiples.sql
+  - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
+  - supabase/migrations/20261019090000_plan_control_libre.sql
+  - docs/producto/plan-resolucion-gaps.md
+  - docs/producto/cuestionario-preliminar-reglas.md
   - apps/web/lib/modules/registry.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
@@ -154,10 +161,22 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Alto riesgo | `high` | AI Act, Art. 6 y Anexo III |
 | Riesgo limitado (obligaciones de transparencia) | `limited` | AI Act, Art. 50 |
 | Riesgo mínimo | `minimal` | Sin obligaciones específicas |
-| Modelo de IA de uso general | `gpai` | AI Act, Art. 3.63 y Art. 51-55 |
 | Pendiente de clasificar | `pending` | — |
 
-- > TODO: confirmar el tratamiento de «Modelo de IA de uso general». En el AI Act no es un nivel de riesgo de un sistema, sino una categoría de modelo; Fluxion lo guarda en el mismo campo.
+- **Modelo de IA de uso general (GPAI)** no es un nivel de riesgo: es una categoría aparte (ver «Categoría GPAI»). Un sistema basado en un modelo GPAI se clasifica por lo que hace (decisión DP-10 y D3, 2026-10-20).
+- > **Pendiente de implementar.** El campo todavía admite el valor `gpai`; deja de usarse con el nuevo cuestionario preliminar (B13), que migra esos sistemas a `is_gpai` y a «Pendiente de clasificar».
+
+### Categoría GPAI
+- **Definición:** relación de un sistema u organización con los modelos de IA de uso general, independiente del nivel de riesgo. Valores: **Proveedor de modelo GPAI** (la organización desarrolla un modelo GPAI y lo introduce en el mercado), **con riesgo sistémico** (sí, no o sin determinar) y **Sistema basado en un modelo GPAI de terceros** (usa el modelo de otro, por ejemplo por API; es informativo y no genera obligaciones de proveedor de modelo).
+- **No usar:** «nivel GPAI», «riesgo GPAI».
+- **En el código:** `ai_systems.is_gpai` (proveedor de modelo GPAI). Los demás indicadores llegan con B13.
+- **Normativa:** AI Act, Art. 3.63, 51, 53 y 55.
+
+### Ámbito del AI Act
+- **Definición:** si un sistema queda sujeto al AI Act. Valores: **Dentro del ámbito**, **Fuera del ámbito** (con su motivo, por ejemplo uso puramente personal o fines exclusivamente militares) y **No es un sistema de IA** (no cumple la definición del Art. 3.1). Solo los sistemas dentro del ámbito tienen nivel de riesgo.
+- **No usar:** «exento», «no aplica» a secas.
+- **En el código:** campo de ámbito aparte del nivel de riesgo (decisión DP-10). Se crea con el nuevo cuestionario preliminar (B13).
+- **Normativa:** AI Act, Art. 2 y Art. 3.1.
 
 ### Obligación
 - **Definición:** requisito normativo concreto que aplica a un sistema de IA según su nivel de riesgo AI Act y el rol de la organización en la cadena de valor. Fluxion lo sugiere y la organización lo acepta, lo resuelve o lo excluye.
@@ -344,11 +363,16 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `fluxion.treatment_action_reviews`; vista `/planes/revisiones-pendientes`.
 
 ### Control
-- **Definición:** medida concreta que la organización implanta en un sistema de IA para reducir un modo de fallo. Se instancia a partir de una plantilla de control.
+- **Definición:** medida concreta que la organización implanta en un sistema de IA para reducir un modo de fallo. Se instancia a partir de una plantilla de control o se crea como **control propio**.
 - **No usar:** «salvaguarda», «mitigación».
 - **En el código:** `fluxion.controls` (`status` ∈ `planned`, `partial`, `implemented`, `excluded`).
 - **Normativa:** ISO/IEC 42001, §6.1.3 y Anexo A.
 - > TODO: confirmar el término. La interfaz llama «Medidas» al catálogo de plantillas de control (`/datos/medidas`). Propuesta: «Control» en toda la documentación y «Medida» como sinónimo desaconsejado.
+
+### Control propio
+- **Definición:** control que la organización crea sin partir de una plantilla del catálogo, con su título y su descripción. Se usa cuando ninguna plantilla encaja con el modo de fallo que se quiere mitigar.
+- **No usar:** «control libre», «control manual».
+- **En el código:** `fluxion.controls` con `template_id` nulo y `title`, `description`.
 
 ### Plantilla de control
 - **Definición:** control genérico del catálogo (CTL-001 a CTL-059) que se puede asociar a modos de fallo y aplicar a un sistema.
@@ -371,13 +395,31 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Nivel 2 · Comité | `level_2` | Zona II |
 | Nivel 3 · Dirección | `level_3` | Zona I |
 
-- > **Pendiente de definir.** El rol que aprueba en cada nivel. El comentario de la columna `treatment_plans.approval_level` en la base de datos dice: nivel 1, responsable del SGAI; nivel 2, SGAI y CRO; nivel 3, alta dirección con firma en acta de comité. El código, en cambio, usa roles que no existen (`_inventario.md` §5.2).
+- Quién aprueba cada nivel (DP-01): nivel 1, el Responsable del SGAI; nivel 2, el Comité de Riesgos de IA; nivel 3, la Revisión por la Dirección, que puede delegar la aprobación de los planes de Zona I con fecha de fin.
+- > **Pendiente de implementar.** Sin una política en Flujos de aprobación, los tres niveles los aprueba hoy el Responsable del SGAI distinto de quien prepara el plan; las políticas por defecto llegan con B11.
 
 ### Comité
-- **Definición:** órgano colegiado de gobierno de la IA de la organización. Tipos: Comité de IA, Comité de Riesgos de IA y Revisión por la Dirección. Sus miembros tienen un rol en el comité: Presidente, Secretario, Miembro o Asesor.
+- **Definición:** órgano colegiado de gobierno de la IA de la organización. Tipos: Comité de IA, Comité de Riesgos de IA, Revisión por la Dirección y Comité técnico / validación de modelos (opcional). Sus miembros tienen un papel en el comité: Presidente, Secretario, Miembro o Asesor. Cada comité fija su quórum y su regla de desempate.
 - **No usar:** «grupo de trabajo».
-- **En el código:** `fluxion.committees` (`type` ∈ `ai_committee`, `risk_committee`, `director_review`); `fluxion.committee_members`.
+- **En el código:** `fluxion.committees` (`type` ∈ `ai_committee`, `risk_committee`, `director_review`, `technical_committee`; `quorum`, `tie_break`); `fluxion.committee_members` (`committee_role`).
 - **Normativa:** la Revisión por la Dirección corresponde a ISO/IEC 42001, §9.3.
+
+---
+
+### Comité técnico / validación de modelos
+- **Definición:** comité opcional, formado por perfiles técnicos (MLOps, ciencia de datos, responsables de sistema), que revisa la calidad técnica de un sistema antes del Comité de Riesgos de IA.
+- **No usar:** «comité de modelos».
+- **En el código:** `fluxion.committees.type = 'technical_committee'`.
+
+### Asesor (voz sin voto)
+- **Definición:** papel de un miembro de comité que participa con voz pero sin voto: no vota, no cuenta para el quórum y no puede aprobar en Flujos de aprobación. Es el papel del DPO y del auditor externo en los comités.
+- **No usar:** «invitado», «observador».
+- **En el código:** `fluxion.committee_members.committee_role = 'advisor'`.
+
+### Quórum
+- **Definición:** número de miembros con voto de un comité necesarios para decidir. Si no se fija, es la mayoría de los miembros con voto. Cada comité indica también cómo se resuelve un empate: voto del presidente o elevación al órgano superior.
+- **No usar:** «mínimo de votos».
+- **En el código:** `fluxion.committees.quorum` (nulo = mayoría) y `tie_break` (`chair`, `escalate`).
 
 ---
 
@@ -550,6 +592,12 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `fluxion.hitl_decisions` (`decision` ∈ `accepted`, `modified`, `overridden`, `not_used`); `fluxion.hitl_reason_codes`; vista `/supervision`.
 - **Normativa:** AI Act, Art. 14.
 
+### Responsable de supervisión humana
+- **Definición:** miembro designado en cada sistema de IA como la persona competente que puede intervenir en su funcionamiento o detenerlo. Puede tener un suplente. Es obligatorio en los sistemas de alto riesgo para enviar su evaluación de riesgos.
+- **No usar:** «supervisor del sistema», «operador humano».
+- **En el código:** `ai_systems.human_oversight_owner_id` y `human_oversight_backup_id` (`profiles.id`).
+- **Normativa:** AI Act, Art. 14 y Art. 26.2.
+
 ### Supervisión post-comercialización
 - **Definición:** módulo que agrupa la vigilancia de los sistemas de IA en producción. Hoy contiene la Supervisión humana y, en el futuro, la deriva y la equidad.
 - **No usar:** «monitorización».
@@ -606,14 +654,14 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `fluxion.organizations`; `organization_id` en todas las tablas de datos de cliente.
 
 ### Miembro
-- **Definición:** persona que pertenece a una organización con un rol.
+- **Definición:** persona que pertenece a una organización con uno o varios roles.
 - **No usar:** «usuario» cuando se habla de la pertenencia a la organización (usuario es la cuenta de acceso), «empleado».
 - **En el código:** `fluxion.profiles`.
 
 ### Rol
-- **Definición:** perfil de permisos de un miembro dentro de su organización.
+- **Definición:** perfil de permisos de un miembro dentro de su organización. Un miembro puede tener varios roles, y sus permisos son la suma de todos. Puede haber varios Administradores, y la organización conserva siempre al menos uno. DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).
 - **No usar:** «perfil», «permiso».
-- **En el código:** enum `fluxion.org_role`.
+- **En el código:** enum `fluxion.org_role`; `profiles.roles` (todos los roles) y `profiles.role` (el principal, el primero de la lista).
 
 | Término | Valor |
 |---|---|
@@ -628,7 +676,19 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Auditor | `auditor` |
 | Lector | `viewer` |
 
-- > TODO: confirmar «Responsable del SGAI» y «Responsable del sistema». En la interfaz aparecen como «SGAI Manager» y «System Owner».
+### Función de gobierno
+- **Definición:** función del modelo de gobierno de la IA que interviene en el circuito de aprobación sin ser un rol de permisos. La persona designada conserva su rol y además ocupa la función. Hay una persona por función.
+
+| Término | Valor | Papel |
+|---|---|---|
+| Seguridad de la información (CISO) | `ciso` | Valida los controles de seguridad del plan de tratamiento |
+| Legal | `legal` | Revisa la clasificación AI Act y las excepciones del Art. 6.3 |
+| Riesgos corporativos | `corporate_risk` | Forma parte del Comité de Riesgos de IA |
+| Responsable del tratamiento | `data_controller` | Prepara y aprueba la DPIA, con el dictamen del DPO. No puede ser el DPO |
+| Función de calidad | `quality` | Aprueba la documentación técnica (Anexo IV) si la organización es proveedora |
+
+- **No usar:** «rol» para estas funciones, «cargo».
+- **En el código:** `fluxion.governance_designations` (enum `governance_function`).
 
 ### Core
 - **Definición:** funcionalidades incluidas siempre, en todos los planes y sin contratar nada aparte.

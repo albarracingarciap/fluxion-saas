@@ -40,6 +40,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B08 · AISIA: mínimo (DP-05) | Integrado en `main` | `fase1/b08-aisia-minimo` | 2026-10-20 | No |
 | B23b · Funciones de gobierno, responsables por sistema y comités | Integrado en `main` | `fase1/b23b-gobierno` | 2026-10-20 | **Sí** · `20261020130000_gobierno_designaciones_comites.sql` |
 | Decisiones DP-06 a DP-10 (fuera del plan de bloques) | Integrado en `main` | `docs/decisiones-dp06-dp10` | 2026-10-20 | No |
+| Glosario: decisiones de DP-01, DP-10, B02, B23a y B23b | Integrado en `main` | `docs/glosario-decisiones` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -909,4 +910,23 @@ Las respuestas guardadas se conservan.
 **Documentación.** `producto/plan-resolucion-gaps.md` (tabla de decisiones),
 `producto/cuestionario-preliminar-reglas.md` (TODO convertidos en decisiones); `_pendientes.md`: 241, 242 y
 243 resueltos; 237 y 240 decididos y pendientes de llevar al glosario; 238 y 239 a revisión jurídica.
+
+---
+
+## Glosario: decisiones de DP-01, DP-10, B02, B23a y B23b
+
+**Fecha:** 2026-10-20 · **Rama:** `docs/glosario-decisiones` · **Migración:** no
+
+A petición del responsable, `glosario.md` incorpora lo decidido e implementado:
+- **Nivel de riesgo AI Act:** GPAI deja de ser un nivel (DP-10); entradas nuevas **Categoría GPAI** y
+  **Ámbito del AI Act** (Dentro del ámbito, Fuera del ámbito, No es un sistema de IA), con lo pendiente de B13.
+- **Control** y entrada nueva **Control propio** (B02).
+- **Nivel de aprobación:** aprobadores de DP-01 y delegación de la dirección en Zona I.
+- **Comité** (tipo técnico, quórum, desempate) y entradas nuevas **Comité técnico / validación de modelos**,
+  **Asesor (voz sin voto)** y **Quórum** (B23b).
+- **Miembro** y **Rol** con roles múltiples, varios Administradores e incompatibilidad DPO + Responsable del
+  SGAI (B23a); entrada nueva **Función de gobierno** (B23b).
+- Entrada nueva **Responsable de supervisión humana** (B23b).
+
+`_pendientes.md`: 8, 237, 240, 249, 250 y 251 resueltos; 247 queda abierto solo por `_inventario.md`.
 
