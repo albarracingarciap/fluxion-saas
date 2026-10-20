@@ -45,7 +45,7 @@ async function ctx() {
   const fluxion = createFluxionClient()
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role')
+    .select('id, organization_id, role, roles')
     .eq('user_id', user.id)
     .single()
 

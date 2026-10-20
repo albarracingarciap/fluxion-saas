@@ -1684,7 +1684,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                             item.status === 'evaluated' &&
                             item.requires_second_review &&
                             data.viewerUserId !== data.evaluation.evaluator_id &&
-                            canResolveFmeaSecondReview(data.viewerRole);
+                            canResolveFmeaSecondReview({ roles: data.viewerRoles });
 
                           return (
                             <div

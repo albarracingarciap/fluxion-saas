@@ -79,7 +79,7 @@ export async function buildSoAData(organizationId: string) {
   // 2.d Fetch org members for owner selector
   const { data: profileRows } = await fluxion
     .from('profiles')
-    .select('id, user_id, full_name, display_name, role')
+    .select('id, user_id, full_name, display_name, role, roles')
     .eq('organization_id', organizationId)
     .order('full_name')
 

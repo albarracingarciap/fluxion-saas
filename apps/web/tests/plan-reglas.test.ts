@@ -73,6 +73,19 @@ test('aprobador sin política: Responsable del SGAI activo y distinto de quien e
   assert.equal(pickPlanApprover(miembros, 'level_3', 'analista'), 'sgai-1')
 })
 
+test('el rol de aprobador cuenta aunque no sea el principal (roles múltiples)', () => {
+  const miembros: ApproverCandidate[] = [
+    { user_id: 'admin-sgai', role: 'org_admin', roles: ['org_admin', 'sgai_manager'], is_active: true },
+  ]
+  assert.equal(pickPlanApprover(miembros, 'level_1', 'analista'), 'admin-sgai')
+})
+
+test('roles múltiples en las reglas de preparación y segunda revisión', () => {
+  assert.equal(canPrepareTreatmentPlan({ role: 'org_admin', roles: ['org_admin', 'risk_analyst'] }), true)
+  assert.equal(canPrepareTreatmentPlan({ role: 'org_admin', roles: ['org_admin'] }), false)
+  assert.equal(canResolveFmeaSecondReview({ role: 'caio', roles: ['caio', 'sgai_manager'] }), true)
+})
+
 test('sin candidato no se asigna a nadie', () => {
   const miembros = [miembro('dpo', 'dpo'), miembro('admin', 'org_admin'), miembro('sgai', 'sgai_manager', false)]
   assert.equal(pickPlanApprover(miembros, 'level_1', 'otro'), null)

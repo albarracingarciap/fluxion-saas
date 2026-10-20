@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, Loader2, UserX, UserCheck, X, Clock, Users } from 'lucide-react';
+import { Search, Loader2, UserX, UserCheck, X, Clock, Users } from 'lucide-react';
 import {
   MemberAvatar, RoleBadge, ROLE_LABELS, selectCls, SelectArrow, formatDate,
   type Member,
@@ -14,13 +14,14 @@ interface Props {
   inactiveMembers: Member[]
   currentUserId: string
   isAdmin: boolean
-  onRoleChange: (memberId: string, role: string) => Promise<void>
+  /** Asigna todos los roles del miembro; devuelve el error del servidor si lo hay. */
+  onRolesChange: (memberId: string, roles: string[]) => Promise<{ error?: string }>
   onDeactivate: (memberId: string) => Promise<void>
   onReactivate: (memberId: string) => Promise<void>
   onSelectMember: (memberId: string) => void
 }
 
-export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRoleChange, onDeactivate, onReactivate, onSelectMember }: Props) {
+export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRolesChange, onDeactivate, onReactivate, onSelectMember }: Props) {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -33,7 +34,7 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
     const q = search.trim().toLowerCase()
     return members.filter((m) => {
       const matchSearch = !q || (m.full_name ?? '').toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
-      const matchRole = !roleFilter || m.role === roleFilter
+      const matchRole = !roleFilter || (m.roles ?? [m.role]).includes(roleFilter)
       return matchSearch && matchRole
     })
   }, [members, search, roleFilter])
@@ -51,10 +52,15 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
     setPage(1)
   }
 
-  async function handleRoleChange(memberId: string, role: string) {
+  const [roleError, setRoleError] = useState<{ memberId: string; message: string } | null>(null);
+
+  async function handleRolesChange(memberId: string, roles: string[]) {
     setPendingRole(memberId)
-    await onRoleChange(memberId, role)
+    setRoleError(null)
+    const res = await onRolesChange(memberId, roles)
+    if (res.error) setRoleError({ memberId, message: res.error })
     setPendingRole(null)
+    return !res.error
   }
 
   async function handleConfirmDeactivate() {
@@ -192,28 +198,14 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
                     <span>{formatDate(member.created_at)}</span>
                   </div>
 
-                  <div className="w-[185px]">
-                    {isAdmin && member.user_id !== currentUserId ? (
-                      <div className="relative">
-                        <select
-                          value={member.role}
-                          disabled={pendingRole === member.id}
-                          onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                          className="w-full bg-ltcard border border-ltb rounded-[7px] py-1.5 px-2.5 text-[12px] font-sora text-ltt2 hover:border-brand-cyan transition-colors outline-none cursor-pointer appearance-none pr-7 disabled:opacity-50"
-                        >
-                          {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-lttm opacity-70">
-                          {pendingRole === member.id
-                            ? <Loader2 size={11} className="animate-spin" />
-                            : <ChevronDown size={11} />}
-                        </div>
-                      </div>
-                    ) : (
-                      <RoleBadge role={member.role} />
-                    )}
+                  <div className="w-[230px]">
+                    <RolesEditor
+                      roles={member.roles ?? [member.role]}
+                      editable={isAdmin}
+                      pending={pendingRole === member.id}
+                      error={roleError?.memberId === member.id ? roleError.message : null}
+                      onSave={(roles) => handleRolesChange(member.id, roles)}
+                    />
                   </div>
 
                   <div className="w-7 flex items-center justify-center">
@@ -283,7 +275,7 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <RoleBadge role={member.role} />
+                  {(member.roles ?? [member.role]).map((r) => <RoleBadge key={r} role={r} />)}
                   {isAdmin && (
                     <button
                       onClick={() => handleReactivate(member.id)}
@@ -303,5 +295,87 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
         </div>
       )}
     </>
+  )
+}
+
+
+// ─── Editor de roles (B23a) ──────────────────────────────────────────────────
+// Un miembro puede tener varios roles. El primero de la lista es el principal.
+// El servidor valida las incompatibilidades (DPO + Responsable del SGAI) y que
+// la organización conserve al menos un Administrador activo.
+
+function RolesEditor({
+  roles,
+  editable,
+  pending,
+  error,
+  onSave,
+}: {
+  roles: string[]
+  editable: boolean
+  pending: boolean
+  error: string | null
+  onSave: (roles: string[]) => Promise<boolean>
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<string[]>(roles)
+
+  function toggle(role: string) {
+    setDraft((d) => (d.includes(role) ? d.filter((r) => r !== role) : [...d, role]))
+  }
+
+  async function guardar() {
+    // Se conserva el orden: los roles que ya tenía primero (mantiene el principal).
+    const ordenados = [...roles.filter((r) => draft.includes(r)), ...draft.filter((r) => !roles.includes(r))]
+    if (await onSave(ordenados)) setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex flex-wrap items-center gap-1">
+        {roles.map((r) => <RoleBadge key={r} role={r} />)}
+        {editable && (
+          <button
+            type="button"
+            onClick={() => { setDraft(roles); setOpen((o) => !o) }}
+            disabled={pending}
+            className="ml-1 rounded-[6px] border border-ltb px-1.5 py-0.5 font-sora text-[11px] text-lttm hover:border-brand-cyan hover:text-brand-cyan transition-colors disabled:opacity-50"
+            title="Editar roles"
+          >
+            {pending ? <Loader2 size={11} className="animate-spin" /> : 'Editar'}
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1 font-sora text-[11px] text-re leading-snug">{error}</p>}
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-[240px] rounded-[10px] border border-ltb bg-ltcard p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+          <p className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mb-2">Roles del miembro</p>
+          <div className="space-y-1 max-h-[260px] overflow-y-auto">
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <label key={value} className="flex items-center gap-2 font-sora text-[12.5px] text-ltt cursor-pointer">
+                <input type="checkbox" checked={draft.includes(value)} onChange={() => toggle(value)} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 font-sora text-[10.5px] text-lttm leading-snug">
+            DPO y Responsable del SGAI no pueden recaer en la misma persona.
+          </p>
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="px-2.5 py-1 font-sora text-[12px] text-lttm hover:text-ltt">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={guardar}
+              disabled={pending || draft.length === 0}
+              className="rounded-[7px] bg-brand-cyan px-3 py-1 font-sora text-[12px] font-semibold text-white disabled:opacity-50"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

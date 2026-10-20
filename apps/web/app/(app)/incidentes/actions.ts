@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { enqueueChannelMessage } from '@/lib/channels/send'
 import { createNotification } from '@/lib/notifications/sender'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 /**
  * Incidentes de IA.
@@ -61,12 +62,12 @@ async function ctx(requireGovernance = false) {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, full_name')
+    .select('id, organization_id, role, roles, full_name')
     .eq('user_id', user.id)
     .single()
 
   if (!profile) return { error: 'No autenticado' as const, profile: null }
-  if (requireGovernance && !GOVERNANCE_ROLES.includes(profile.role)) {
+  if (requireGovernance && !hasAnyRole(profile, GOVERNANCE_ROLES)) {
     return { error: 'Solo los roles de gobierno pueden clasificar o notificar incidentes.' as const, profile: null }
   }
 
@@ -160,7 +161,7 @@ export async function reportIncident(input: {
     .select('id')
     .eq('organization_id', profile.organization_id)
     .eq('is_active', true)
-    .in('role', GOVERNANCE_ROLES)
+    .overlaps('roles', GOVERNANCE_ROLES as unknown as string[])
 
   for (const p of (people ?? []) as Array<{ id: string }>) {
     await createNotification({

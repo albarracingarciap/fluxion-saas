@@ -57,7 +57,9 @@ plataforma resuelve ambas cosas:
 
 ## Roles
 
-Cada miembro tiene un único rol en su organización. Solo el administrador puede cambiar roles.
+Un miembro puede tener varios roles en su organización, y sus permisos son la suma de todos. Solo un
+administrador puede cambiar roles; puede haber varios administradores y la organización conserva siempre
+al menos uno. DPO y Responsable del SGAI no pueden recaer en la misma persona.
 
 | Rol | Descripción |
 |---|---|

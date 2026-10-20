@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { createHash, randomBytes } from 'crypto'
 import { logAuditEvent } from '@/lib/audit'
 import type { AccountPrefs, NotificationPrefs, SessionInfo } from './tabs/shared'
+import { hasRole, hasAnyRole } from '@/lib/auth/roles'
 
 // ── Internal helpers ────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ async function getCurrentUserProfile() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, preferences')
+    .select('id, organization_id, role, roles, preferences')
     .eq('user_id', user.id)
     .single()
 
@@ -246,7 +247,7 @@ export async function getAuditLog({
 > {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden ver el registro de auditoría.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Solo administradores pueden ver el registro de auditoría.' }
 
   const fluxion = createFluxionClient()
   const from    = (page - 1) * PAGE_SIZE
@@ -287,7 +288,7 @@ export async function updateRetentionPolicy(data: {
 }): Promise<{ success?: true; error?: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden modificar las políticas de retención.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Solo administradores pueden modificar las políticas de retención.' }
 
   const fluxion = createFluxionClient()
   const { error: updateError } = await fluxion
@@ -337,7 +338,7 @@ export async function getSecuritySettings(): Promise<SecuritySettings | { error:
 export async function updateSecuritySettings(data: SecuritySettings): Promise<{ success?: true; error?: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Solo administradores pueden modificar la seguridad.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Solo administradores pueden modificar la seguridad.' }
 
   const fluxion = createFluxionClient()
   const { data: currentOrg } = await fluxion
@@ -388,7 +389,7 @@ export type ApiKeyRow = {
 export async function getApiKeys(): Promise<{ keys: ApiKeyRow[] } | { error: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const fluxion = createFluxionClient()
   const { data, error: qErr } = await fluxion
@@ -408,7 +409,7 @@ export async function createApiKey(data: {
 }): Promise<{ key: string; id: string } | { error: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const rawKey   = `flx_${randomBytes(32).toString('hex')}`
   const keyHash  = createHash('sha256').update(rawKey).digest('hex')
@@ -450,7 +451,7 @@ export async function createApiKey(data: {
 export async function revokeApiKey(keyId: string): Promise<{ success?: true; error?: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const fluxion = createFluxionClient()
   const { error: updateErr } = await fluxion
@@ -490,7 +491,7 @@ export type WebhookRow = {
 export async function getWebhooks(): Promise<{ webhooks: WebhookRow[] } | { error: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const fluxion = createFluxionClient()
   const { data, error: qErr } = await fluxion
@@ -510,7 +511,7 @@ export async function createWebhook(data: {
 }): Promise<{ secret: string; id: string } | { error: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const secret = `whsec_${randomBytes(32).toString('hex')}`
 
@@ -550,7 +551,7 @@ export async function createWebhook(data: {
 export async function deleteWebhook(webhookId: string): Promise<{ success?: true; error?: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const fluxion = createFluxionClient()
   const { error: deleteErr } = await fluxion
@@ -578,7 +579,7 @@ export async function deleteWebhook(webhookId: string): Promise<{ success?: true
 export async function testWebhook(webhookId: string): Promise<{ success?: true; status?: number; error?: string }> {
   const { user, profile, error } = await getCurrentUserProfile()
   if (error || !user || !profile) return { error: error ?? 'No autorizado' }
-  if (profile.role !== 'org_admin') return { error: 'Sin permisos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Sin permisos.' }
 
   const fluxion = createFluxionClient()
   const { data: webhook } = await fluxion
@@ -665,7 +666,7 @@ export async function updateAppSettings(data: {
 
   if (profileError) return { error: 'Error al guardar: ' + profileError.message }
 
-  if (profile.role === 'org_admin') {
+  if (hasRole(profile, 'org_admin')) {
     const { data: currentOrg } = await fluxion
       .from('organizations')
       .select('settings')
@@ -786,7 +787,7 @@ export async function saveConnectorConnection(input: {
 }): Promise<{ id: string } | { error: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager'])) return { error: 'Sin permisos.' }
 
   const name = input.name.trim()
   const baseUrl = input.base_url.trim().replace(/\/+$/, '')
@@ -859,7 +860,7 @@ export async function saveConnectorConnection(input: {
 export async function deleteConnectorConnection(id: string): Promise<{ success?: true; error?: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager'])) return { error: 'Sin permisos.' }
 
   const admin = createConnectorAdminClient()
   // El trigger de la base de datos borra también su secreto del Vault.
@@ -897,7 +898,7 @@ export async function deleteConnectorConnection(id: string): Promise<{ success?:
 export async function requestConnectorSync(id: string): Promise<{ success?: true; error?: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager'])) return { error: 'Sin permisos.' }
 
   const admin = createConnectorAdminClient()
 
@@ -1007,7 +1008,7 @@ export async function saveNotificationChannel(input: {
 }): Promise<{ id: string } | { error: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager'])) return { error: 'Sin permisos.' }
 
   const name = input.name.trim()
   if (!name) return { error: 'El nombre es obligatorio.' }
@@ -1064,7 +1065,7 @@ export async function saveNotificationChannel(input: {
 export async function deleteNotificationChannel(id: string): Promise<{ success?: true; error?: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager'].includes(profile.role)) return { error: 'Sin permisos.' }
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager'])) return { error: 'Sin permisos.' }
 
   const admin = createConnectorAdminClient()
   const { error: delErr } = await admin
@@ -1197,7 +1198,7 @@ export async function saveApprovalPolicy(input: {
 }): Promise<{ id: string } | { error: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager', 'caio'].includes(profile.role)) {
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager', 'caio'])) {
     return { error: 'Sin permisos.' }
   }
 
@@ -1292,7 +1293,7 @@ export async function saveApprovalPolicy(input: {
 export async function deleteApprovalPolicy(id: string): Promise<{ success?: true; error?: string }> {
   const { profile, error } = await getCurrentUserProfile()
   if (error || !profile) return { error: error ?? 'No autorizado' }
-  if (!['org_admin', 'sgai_manager', 'caio'].includes(profile.role)) {
+  if (!hasAnyRole(profile, ['org_admin', 'sgai_manager', 'caio'])) {
     return { error: 'Sin permisos.' }
   }
 
@@ -1407,7 +1408,7 @@ export async function saveApprovalDelegation(input: {
   const desde = input.fromProfileId ?? profile.id
 
   // Delegar la autoridad de otro es un acto administrativo, no personal.
-  if (desde !== profile.id && !['org_admin', 'sgai_manager'].includes(profile.role)) {
+  if (desde !== profile.id && !hasAnyRole(profile, ['org_admin', 'sgai_manager'])) {
     return { error: 'Solo puedes delegar tu propia autoridad.' }
   }
 
@@ -1475,7 +1476,7 @@ export async function deleteApprovalDelegation(id: string): Promise<{ success?: 
   if (!fila) return { error: 'La delegación no existe.' }
 
   const propia = fila.from_profile_id === profile.id
-  if (!propia && !['org_admin', 'sgai_manager'].includes(profile.role)) {
+  if (!propia && !hasAnyRole(profile, ['org_admin', 'sgai_manager'])) {
     return { error: 'Solo puedes retirar tus propias delegaciones.' }
   }
 

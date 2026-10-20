@@ -6,7 +6,10 @@ import { ShieldAlert, Shield, UserCheck, Eye } from 'lucide-react';
 export type Member = {
   id: string
   user_id: string
+  /** Rol principal (= roles[0]) */
   role: string
+  /** Todos los roles del miembro (B23a) */
+  roles: string[]
   created_at: string
   full_name: string | null
   avatar_url: string | null

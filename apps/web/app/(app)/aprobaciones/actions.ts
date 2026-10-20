@@ -13,6 +13,7 @@ import type { ApprovalObjectType } from '@/lib/approvals/catalog'
 import { applyApprovalOutcome } from '@/lib/approvals/effects'
 import { generateApprovalMinutes } from '@/lib/approvals/minutes'
 import { notifyApprovalStep, notifyApprovalClosed } from '@/lib/approvals/notify'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 export type ApprovalRequestRow = {
   id:                 string
@@ -56,7 +57,7 @@ async function contexto() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, full_name, email')
+    .select('id, organization_id, role, roles, full_name, email')
     .eq('user_id', user.id)
     .single()
 
@@ -333,7 +334,7 @@ export async function cancelApproval(requestId: string, reason: string):
   // La cancela quien la abrió o un administrador. La función de base no puede
   // decidirlo: no conoce al usuario.
   const permitido = solicitud.requested_by === profile.id
-    || ['org_admin', 'sgai_manager'].includes(profile.role)
+    || hasAnyRole(profile, ['org_admin', 'sgai_manager'])
 
   if (!permitido) return { error: 'Solo quien la solicitó o un administrador puede cancelarla.' }
   if (!reason.trim()) return { error: 'Indica por qué se cancela.' }

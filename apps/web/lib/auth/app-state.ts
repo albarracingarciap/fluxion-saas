@@ -14,7 +14,7 @@ export async function getAppAuthState() {
 
   const { data: profile, error: profileError } = await fluxion
     .from('profiles')
-    .select('id, user_id, organization_id, role, onboarding_completed, full_name, avatar_url, is_active, copilot_enabled')
+    .select('id, user_id, organization_id, role, roles, onboarding_completed, full_name, avatar_url, is_active, copilot_enabled')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -34,7 +34,7 @@ export async function getAppAuthState() {
 
   // membership shim: mantiene compatibilidad con código existente que lee
   // membership.role y membership.organization_id. Se eliminará en Fase 7.
-  const membership = { organization_id: profile.organization_id, role: profile.role }
+  const membership = { organization_id: profile.organization_id, role: profile.role, roles: profile.roles }
 
   return {
     user,

@@ -4,6 +4,7 @@ import { buildFmeaEvaluationData, requireFmeaContext } from '@/lib/fmea/data';
 import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
 import { FmeaEvaluationClient } from './fmea-evaluation-client';
+import { rolesOf } from '@/lib/auth/roles';
 
 type FmeaEvaluationPageProps = {
   params: {
@@ -21,7 +22,7 @@ export default async function FmeaEvaluationPage({ params }: FmeaEvaluationPageP
       aiSystemId: params.id,
       evaluationId: params.evaluationId,
       viewerUserId: user.id,
-      viewerRole: membership.role,
+      viewerRoles: rolesOf(membership),
     }),
     buildSystemCausalGraph(params.id, membership.organization_id),
   ]);

@@ -135,8 +135,11 @@ export function MemberDrawer({ memberId, onClose }: Props) {
                   {data.profile.job_title && (
                     <p className="font-sora text-[12px] text-lttm mt-0.5">{data.profile.job_title}</p>
                   )}
-                  <div className="mt-2">
-                    <RoleBadge role={data.profile.role} />
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(((data.profile as any).roles as string[] | undefined) ?? [data.profile.role]).map((r: string) => (
+                      <RoleBadge key={r} role={r} />
+                    ))}
                   </div>
                   {!data.profile.is_active && (
                     <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 bg-red-dim border border-reb rounded-[5px] text-re font-plex text-[10px] uppercase tracking-[0.5px]">

@@ -11,6 +11,7 @@ import { HistoryModal } from './history-modal'
 import { AisiaAnalysisModal } from './aisia-analysis-modal'
 import { transitionSoAStatus, checkSoACompleteness } from './actions'
 import type { SoAMetadata, SoAControlRecord } from '@/lib/templates/data'
+import { hasAnyRole } from '@/lib/auth/roles'
 
 const ROLES_CAN_SUBMIT = new Set(['sgai_manager', 'caio', 'dpo', 'compliance_analyst', 'org_admin'])
 const ROLES_CAN_APPROVE = new Set(['org_admin', 'sgai_manager', 'caio'])
@@ -18,7 +19,7 @@ const ROLES_CAN_APPROVE = new Set(['org_admin', 'sgai_manager', 'caio'])
 type Props = {
   metadata: SoAMetadata
   availableTags: string[]
-  userRole: string
+  userRoles: string[]
   lifecycleStatus: string
   controls: SoAControlRecord[]
 }
@@ -27,7 +28,7 @@ type ConfirmDialog = {
   missingCodes: string[]
 }
 
-export function HeaderActions({ metadata, availableTags, userRole, lifecycleStatus, controls }: Props) {
+export function HeaderActions({ metadata, availableTags, userRoles, lifecycleStatus, controls }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isAisiaOpen, setIsAisiaOpen] = useState(false)
@@ -74,8 +75,8 @@ export function HeaderActions({ metadata, availableTags, userRole, lifecycleStat
     })
   }
 
-  const canSubmit = ROLES_CAN_SUBMIT.has(userRole)
-  const canApprove = ROLES_CAN_APPROVE.has(userRole)
+  const canSubmit = hasAnyRole({ roles: userRoles }, ROLES_CAN_SUBMIT)
+  const canApprove = hasAnyRole({ roles: userRoles }, ROLES_CAN_APPROVE)
 
   return (
     <>

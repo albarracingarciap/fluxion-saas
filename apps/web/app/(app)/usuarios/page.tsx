@@ -13,7 +13,7 @@ import {
   inviteUserBulk,
   createUser,
   resendInvitation,
-  updateMemberRole,
+  updateMemberRoles,
   deactivateMember,
   reactivateMember,
   cancelInvitation,
@@ -48,6 +48,7 @@ export default function UsersPage() {
   const [invitations, setInvitations]       = useState<Invitation[]>([])
   const [currentUserId, setCurrentUserId]   = useState('')
   const [currentUserRole, setCurrentUserRole] = useState('')
+  const [currentUserRoles, setCurrentUserRoles] = useState<string[]>([])
 
   const [isInviting, setIsInviting]     = useState(false)
   const [bulkMode, setBulkMode]         = useState(false)
@@ -88,6 +89,8 @@ export default function UsersPage() {
       setCurrentUserId((result as any).currentUserId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setCurrentUserRole((result as any).currentUserRole)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setCurrentUserRoles((result as any).currentUserRoles ?? [])
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setPageError((result as any).error ?? 'Error al cargar los datos.')
@@ -157,13 +160,17 @@ export default function UsersPage() {
     return { token: res.success ? (res as any).token : undefined, error: (res as any).error }
   }
 
-  async function handleRoleChange(memberId: string, role: string) {
-    await updateMemberRole(memberId, role)
-    loadData()
+  async function handleRolesChange(memberId: string, roles: string[]) {
+    const res = await updateMemberRoles(memberId, roles)
+    if (!('error' in res)) loadData()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { error: (res as any).error as string | undefined }
   }
 
   async function handleDeactivate(memberId: string) {
-    await deactivateMember(memberId)
+    const res = await deactivateMember(memberId)
+    // Antes los errores no se mostraban (por ejemplo, desactivar al último Administrador).
+    if (res && 'error' in res && res.error) window.alert(res.error)
     loadData()
   }
 
@@ -184,7 +191,7 @@ export default function UsersPage() {
     setTimeout(() => setCopiedToken(null), 2000)
   }
 
-  const isAdmin = currentUserRole === 'org_admin'
+  const isAdmin = currentUserRoles.includes('org_admin') || currentUserRole === 'org_admin'
 
   // Pending invite count badge
   const pendingCount = invitations.filter((i) => new Date(i.expires_at) >= new Date()).length
@@ -592,7 +599,7 @@ export default function UsersPage() {
                 inactiveMembers={inactiveMembers}
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
-                onRoleChange={handleRoleChange}
+                onRolesChange={handleRolesChange}
                 onDeactivate={handleDeactivate}
                 onReactivate={handleReactivate}
                 onSelectMember={(id) => setSelectedMemberId(id)}

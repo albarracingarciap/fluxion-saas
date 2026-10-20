@@ -110,8 +110,8 @@ export type FmeaEvaluationData = {
   evaluation: FmeaEvaluationRecord;
   items: FmeaEvaluationItemRecord[];
   viewerUserId: string;
-  /** Rol de quien mira: decide si puede resolver segundas revisiones (DP-01). */
-  viewerRole: string | null;
+  /** Roles de quien mira: deciden si puede resolver segundas revisiones (DP-01). */
+  viewerRoles: string[];
   /** El plan de esta evaluación está en aprobación o aprobado: la evaluación ya no admite cambios (B05). */
   lockedByPlan: boolean;
   activationSummary: {
@@ -135,7 +135,7 @@ export async function requireFmeaContext() {
 
   const { data: membership, error: membershipError } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 
@@ -352,10 +352,10 @@ export async function buildFmeaEvaluationData(params: {
   aiSystemId: string;
   evaluationId: string;
   viewerUserId: string;
-  viewerRole?: string | null;
+  viewerRoles?: string[];
 }) {
   const { organizationId, aiSystemId, evaluationId, viewerUserId } = params;
-  const viewerRole = params.viewerRole ?? null;
+  const viewerRoles = params.viewerRoles ?? [];
   const fluxion = createFluxionClient();
   const compliance = createComplianceClient();
 
@@ -417,7 +417,7 @@ export async function buildFmeaEvaluationData(params: {
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
     fluxion
       .from('profiles')
-      .select('user_id, full_name, role')
+      .select('user_id, full_name, role, roles')
       .eq('organization_id', organizationId)
       .order('full_name', { ascending: true, nullsFirst: false }),
     itemIds.length > 0
@@ -478,7 +478,7 @@ export async function buildFmeaEvaluationData(params: {
       evaluation,
       items: [],
       viewerUserId,
-      viewerRole,
+      viewerRoles,
       lockedByPlan,
       activationSummary: {
         activatedCount,
@@ -659,7 +659,7 @@ export async function buildFmeaEvaluationData(params: {
     evaluation,
     items,
     viewerUserId,
-    viewerRole,
+    viewerRoles,
     lockedByPlan,
     activationSummary: {
       activatedCount,

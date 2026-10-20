@@ -11,6 +11,8 @@ import {
 } from '@/lib/modules/registry';
 
 import type { RiskAppetite } from '@/lib/organization/options';
+import { hasRole, hasAnyRole } from '@/lib/auth/roles'
+import { rolesOf } from '@/lib/auth/roles'
 
 interface SgaiSettings {
   sgai_responsible?: string
@@ -68,12 +70,12 @@ export async function updateOrganizationProfile(formData: {
 
   const { data: membership, error: memberError } = await fluxion
     .from('profiles')
-    .select('role')
+    .select('role, roles')
     .eq('user_id', user.id)
     .eq('organization_id', formData.id)
     .single();
 
-  if (memberError || !membership || membership.role !== 'org_admin') {
+  if (memberError || !membership || !hasRole(membership, 'org_admin')) {
     return { error: 'No tienes permisos de administrador para realizar esta acción.' };
   }
 
@@ -165,7 +167,7 @@ export async function getCommittees() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('organization_id, role')
+    .select('organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 
@@ -195,7 +197,7 @@ export async function getCommittees() {
   // Org profiles for the member picker
   const { data: orgProfiles } = await fluxion
     .from('profiles')
-    .select('id, full_name, role, avatar_url')
+    .select('id, full_name, role, roles, avatar_url')
     .eq('organization_id', profile.organization_id)
     .order('full_name', { ascending: true });
 
@@ -203,6 +205,7 @@ export async function getCommittees() {
     success: true,
     organizationId: profile.organization_id,
     currentUserRole: profile.role,
+    currentUserRoles: rolesOf(profile),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     committees: (committees ?? []).map((c: any) => ({
       ...c,
@@ -231,11 +234,11 @@ export async function upsertCommittee(data: {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('role')
+    .select('role, roles')
     .eq('user_id', user.id)
     .single();
 
-  if (!profile || !COMMITTEE_MANAGE_ROLES.includes(profile.role)) {
+  if (!profile || !hasAnyRole(profile, COMMITTEE_MANAGE_ROLES)) {
     return { error: 'No tienes permisos para gestionar comités.' };
   }
 
@@ -294,11 +297,11 @@ export async function addCommitteeMember(data: {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, role')
+    .select('id, role, roles')
     .eq('user_id', user.id)
     .single();
 
-  if (!profile || !COMMITTEE_MANAGE_ROLES.includes(profile.role)) {
+  if (!profile || !hasAnyRole(profile, COMMITTEE_MANAGE_ROLES)) {
     return { error: 'No tienes permisos.' };
   }
 
@@ -332,11 +335,11 @@ export async function removeCommitteeMember(memberId: string) {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('role')
+    .select('role, roles')
     .eq('user_id', user.id)
     .single();
 
-  if (!profile || !COMMITTEE_MANAGE_ROLES.includes(profile.role)) {
+  if (!profile || !hasAnyRole(profile, COMMITTEE_MANAGE_ROLES)) {
     return { error: 'No tienes permisos.' };
   }
 
@@ -405,12 +408,12 @@ export async function setOrganizationModule(input: {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, full_name, email')
+    .select('id, organization_id, role, roles, full_name, email')
     .eq('user_id', user.id)
     .single()
 
   if (!profile) return { error: 'No se encontró el perfil.' }
-  if (profile.role !== 'org_admin') return { error: 'Solo un administrador puede cambiar los módulos.' }
+  if (!hasRole(profile, 'org_admin')) return { error: 'Solo un administrador puede cambiar los módulos.' }
 
   if (!isModuleKey(input.moduleKey)) return { error: 'Módulo desconocido.' }
 

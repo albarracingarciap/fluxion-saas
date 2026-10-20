@@ -49,6 +49,7 @@ import { ClassificationHistorySection } from '@/components/classification/Classi
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
 import { useAuthStore } from '@/lib/store/authStore';
+import { hasAnyRole, rolesOf } from '@/lib/auth/roles';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -1037,7 +1038,7 @@ function IsoTab({
   soaControls,
   isInSoaScope,
   soaScopeSystemTags,
-  userRole,
+  userRoles,
   onInitAisia,
   isInitingAisia,
   aisiaError,
@@ -1055,7 +1056,7 @@ function IsoTab({
   soaControls: SoaControlState[];
   isInSoaScope: boolean;
   soaScopeSystemTags: string[];
-  userRole: string | null | undefined;
+  userRoles: string[];
   onInitAisia: () => void;
   isInitingAisia: boolean;
   aisiaError: string | null;
@@ -1355,7 +1356,7 @@ function IsoTab({
                 )}
 
                 {/* Acciones — solo para aprobadores */}
-                {userRole && (APPROVER_ROLES as readonly string[]).includes(userRole) && (
+                {hasAnyRole({ roles: userRoles }, APPROVER_ROLES) && (
                   <div className="space-y-2">
                     {/* Sin formulario abierto: botones principales */}
                     {approvalAction === null && (
@@ -3262,7 +3263,7 @@ export function SystemDetailClient({
                   soaControls={soaControls}
                   isInSoaScope={isInSoaScope}
                   soaScopeSystemTags={soaScopeSystemTags}
-                  userRole={profile?.role}
+                  userRoles={rolesOf(profile)}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
                   aisiaError={aisiaError}

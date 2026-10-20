@@ -8,6 +8,7 @@
  */
 import type { FmeaZone } from './domain';
 import { PLAN_APPROVER_ROLES } from '../auth/roles-flujo';
+import { hasRole } from '../auth/roles';
 
 export type TreatmentApprovalLevel = 'level_1' | 'level_2' | 'level_3';
 
@@ -71,7 +72,7 @@ export function getApproverRolePriority(level: TreatmentApprovalLevel): readonly
   return PLAN_APPROVER_ROLES[level] ?? PLAN_APPROVER_ROLES.level_1;
 }
 
-export type ApproverCandidate = { user_id: string; role: string; is_active: boolean | null };
+export type ApproverCandidate = { user_id: string; role: string; roles?: readonly string[] | null; is_active: boolean | null };
 
 /**
  * Elige el aprobador entre los miembros: activo, con un rol aprobador del nivel
@@ -85,11 +86,10 @@ export function pickPlanApprover(
   actorUserId: string,
 ): string | null {
   const roles = getApproverRolePriority(approvalLevel);
-  const candidates = members.filter(
-    (member) => member.is_active !== false && member.user_id !== actorUserId && roles.includes(member.role),
-  );
+  const candidates = members.filter((member) => member.is_active !== false && member.user_id !== actorUserId);
+  // Cuenta cualquiera de los roles del miembro, no solo el principal (B23a).
   for (const role of roles) {
-    const match = candidates.find((member) => member.role === role);
+    const match = candidates.find((member) => hasRole(member, role));
     if (match) return match.user_id;
   }
   return null;

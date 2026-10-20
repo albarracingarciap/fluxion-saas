@@ -18,6 +18,7 @@ import {
   DEFAULT_ACCOUNT_PREFS, DEFAULT_NOTIF_PREFS,
   type AccountPrefs, type NotificationPrefs,
 } from './tabs/shared'
+import { hasRole, type RoleHolder } from '@/lib/auth/roles'
 
 // ── Tab config ──────────────────────────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ export default function AjustesPage() {
   const [prefsLoaded, setPrefsLoaded]     = useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isAdmin = (profile as any)?.role === 'org_admin'
+  const isAdmin = hasRole(profile as RoleHolder, 'org_admin')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orgRetentionMonths = {

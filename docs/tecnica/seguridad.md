@@ -126,7 +126,11 @@ flowchart LR
 
 ### Autorización
 
-**Roles.** `fluxion.org_role`, en `profiles.role` (por defecto `viewer`):
+**Roles.** `fluxion.org_role`. Cada miembro tiene una lista, `profiles.roles` (B23a); `profiles.role` es el
+rol principal (= `roles[1]`) y lo sincroniza el trigger `trg_profiles_sync_roles`. Las políticas RLS y las
+funciones de aprobación comprueban la lista (`roles && ARRAY[…]`), y la web, con `lib/auth/roles.ts`
+(`hasRole`, `hasAnyRole`). Restricción `chk_profiles_dpo_no_sgai`: DPO y Responsable del SGAI no pueden
+coincidir.
 
 | Rol | Valor |
 |---|---|
