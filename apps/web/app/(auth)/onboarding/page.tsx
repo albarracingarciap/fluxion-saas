@@ -130,7 +130,7 @@ export default function OnboardingWizard() {
           <h1 className="font-fraunces text-[22px] font-semibold text-ltt">Configuración Inicial</h1>
           <p className="font-sora text-[14px] text-ltt2 mt-1">Completa estos pasos para adaptar Fluxion a tu organización.</p>
         </div>
-        <Image src="/fluxion.png" alt="Fluxion Logo" width={126} height={36} className="h-9 w-auto opacity-80" priority />
+        <Image src="/compaas-ia.png" alt="CompaaS IA" width={125} height={36} className="h-9 w-auto opacity-80" priority />
       </div>
 
       <div className="flex">

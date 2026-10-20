@@ -438,8 +438,8 @@ export function Sidebar({ initialOrgState = DEFAULT_SIDEBAR_ORG_STATE }: { initi
             collapsed ? "w-10 h-10 p-1.5" : "flex-1 p-2 h-[52px]"
           }`}>
             {collapsed
-              ? <Image src="/logo_2.png" alt="Fluxion" width={28} height={28} className="object-contain" />
-              : <Image src="/fluxion.png" alt="Fluxion" width={120} height={36} className="h-9 w-auto object-contain" />
+              ? <Image src="/compaas-ia-simbolo.png" alt="CompaaS IA" width={28} height={28} className="object-contain" />
+              : <Image src="/compaas-ia.png" alt="CompaaS IA" width={125} height={36} className="h-9 w-auto object-contain" />
             }
           </div>
           <button

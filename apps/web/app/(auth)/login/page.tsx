@@ -18,9 +18,9 @@ export default function LoginPage({
     <div className="flex flex-col space-y-6 w-full max-w-[400px] bg-ltcard border border-ltb p-8 rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06]">
       <div className="flex flex-col space-y-2 text-center items-center">
         <Image
-          src="/fluxion.png"
-          alt="Fluxion Logo"
-          width={140}
+          src="/compaas-ia.png"
+          alt="CompaaS IA"
+          width={139}
           height={40}
           className="h-10 w-auto mb-4"
           priority

@@ -29,6 +29,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B00b · Tests de la lógica central | Integrado en `main` | `prep/b00b-tests` | 2026-10-20 | No |
 | P1 · Identificadores de perfil y de usuario | Integrado en `main` | `prep/p1-identificadores` | 2026-10-20 | No |
 | T9 · `migrate.sh` atómico | Integrado en `main` | `prep/t9-migrate-atomico` | 2026-10-20 | No (cambia el script de migraciones) |
+| Logo CompaaS IA (fuera del plan) | Integrado en `main` | `feat/logo-compaas` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -438,3 +439,27 @@ ejecutado contra una base de datos real.
 
 **Acción para ti.** El servidor usa una copia en `/root/migrate.sh`. Hay que actualizarla:
 `cp infra/db/migrate.sh /root/migrate.sh && chmod +x /root/migrate.sh`.
+
+---
+
+## Logo CompaaS IA (fuera del plan)
+
+**Fecha:** 2026-10-20 · **Rama:** `feat/logo-compaas` · **Migración:** no
+
+**Petición.** Sustituir el logo de Fluxion por el nuevo logo CompaaS IA («by Fluxion»).
+
+**Cambios.**
+
+| Fichero | Cambio |
+|---|---|
+| `apps/web/public/compaas-ia.png` (nuevo) | Logotipo sin márgenes, 833×240 px, generado desde `CompaaS_IA.png` (el original se conserva como fuente) |
+| `apps/web/public/compaas-ia-simbolo.png` (nuevo) | Símbolo (círculo con el check) recortado del logotipo con máscara circular, 256×256 px |
+| `apps/web/app/favicon.ico` | Favicon nuevo a partir del símbolo (16, 32, 48 y 64 px) |
+| `app/(auth)/login/page.tsx`, `app/(auth)/onboarding/page.tsx` | Logotipo nuevo |
+| `components/layout/sidebar.tsx` | Logotipo nuevo con el menú expandido y símbolo con el menú plegado |
+| `apps/web/public/fluxion.png`, `logo_2.png` | Eliminados: ya no se usan |
+
+**Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos nuevos. No se ha visto en el navegador.
+
+**Pendiente de decidir.** Los textos siguen diciendo «Fluxion»: título de la pestaña («Fluxion SaaS»),
+«Bienvenido a Fluxion» en el inicio de sesión, metadatos del registro, correos y PDF.
