@@ -24,7 +24,7 @@ fuente:
 # Tareas programadas
 
 Trabajos que Fluxion ejecuta periódicamente. Hay nueve:
-- seis son endpoints `/api/cron/*` de la web, que llama el crontab del servidor;
+- siete son endpoints `/api/cron/*` de la web, que llama el crontab del servidor;
 - tres son funciones SQL que ejecuta pg_cron dentro de la base de datos.
 
 ## Componentes
@@ -115,7 +115,7 @@ Solo da por buena una respuesta 200.
 Alternativa: Dokploy Schedules, con el mismo comando.
 
 **Comprobación:**
-- `crontab -l | grep -c app-cron.sh` debe devolver 6;
+- `crontab -l | grep -c app-cron.sh` debe devolver 7;
 - `tail /var/log/fluxion-cron.log`;
 - un `HTTP 401` indica que el secreto no coincide;
 - para pg_cron, consultar `cron.job_run_details` y `telemetry.rollup_runs`.
