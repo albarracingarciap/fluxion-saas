@@ -1015,7 +1015,7 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 
   const { fluxion, user, membership, evaluation } = context;
 
-  // DP-01 (pendiente de confirmar): la segunda revisión la resuelve el
+  // DP-01 (confirmado el 2026-10-20): la segunda revisión la resuelve el
   // Responsable del SGAI, distinto del evaluador.
   if (!canResolveFmeaSecondReview(membership)) {
     return { error: 'No tienes permisos para realizar la segunda revisión: la resuelve el Responsable del SGAI.' };
