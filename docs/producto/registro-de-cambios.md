@@ -33,6 +33,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Textos CompaaS IA: títulos y bienvenida (fuera del plan) | Integrado en `main` | `feat/textos-compaas` | 2026-10-20 | No |
 | B23a · Roles múltiples por miembro | Integrado en `main` | `fase1/b23a-roles-multiples` | 2026-10-20 | **Sí** · `20261020090000_roles_multiples.sql` |
 | B07 · Ciclo único de la evaluación de riesgos | Integrado en `main` | `fase1/b07-ciclo-evaluacion` | 2026-10-20 | **Sí** · `20261020100000_fmea_ciclo_evaluacion.sql` |
+| Corrección: editor de roles recortado en Usuarios (fuera del plan) | Integrado en `main` | `fix/usuarios-editor-roles` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -615,4 +616,20 @@ TODO 31, 32, 98 y 100 de `_pendientes.md` resueltos.
   versionable (B08): el resto de GAP-32.
 - Cambiar una aceptación a otra opción en la revisión periódica crea la tarea, pero no pide control ni
   severidad residual si pasa a «Mitigar».
+
+---
+
+## Corrección: editor de roles recortado en Usuarios (fuera del plan)
+
+**Fecha:** 2026-10-20 · **Rama:** `fix/usuarios-editor-roles` · **Migración:** no
+
+**Problema.** En **Configuración › Usuarios › Miembros**, el panel **Editar** de los roles (B23a) se abría
+dentro de la tarjeta de la tabla, que recorta lo que sobresale (`overflow-hidden`). En las últimas filas
+solo se veían los primeros roles y no se llegaba a **Guardar**.
+
+**Cambio.** `usuarios/tabs/miembros.tsx`: el panel se pinta en un portal con posición fija, alineado con el
+botón; se abre hacia arriba si no cabe debajo, se recoloca al desplazar o redimensionar y se cierra al
+pulsar fuera o con Escape.
+
+**Verificación.** `tsc --noEmit` sin errores y `next lint` sin avisos. No se ha probado en el navegador.
 
