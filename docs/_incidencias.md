@@ -255,7 +255,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | T6 | `app-cron.sh`: los fallos de conexión no quedan en el log; no usa bloqueo; la instalación duplica las tareas si se repite | Error | Media | Análisis | 213 |
 | T7 | `outbox` sin límite de duración ni bloqueo; `cost-budgets` registra el umbral antes de avisar; una recurrencia con error bloquea las demás | Error | Media | Análisis | 212 |
 | T8 | No hay tarea de conservación de telemetría; los fallos de `telemetry-rollup` no se registran | Carencia | Media | Análisis | 200, 212 |
-| T9 | `migrate.sh`: aplicar y registrar no son atómicos | Error | Media | Análisis | 221 |
+| T9 | **✔ Resuelta (bloque T9).** `migrate.sh`: aplicar y registrar no son atómicos | Error | Media | Análisis | 221 |
 | T10 | Kong publica sus puertos en el servidor (choque con el stack compartido) | Error | Media | Análisis | 219 |
 | T11 | La red de la telemetría depende de un sufijo de Dokploy escrito a mano | Error | Media | Análisis | 220 |
 | T12 | `NEXT_PUBLIC_APP_URL` no se pasa en la compilación (P12) | Error | Media | Análisis | 215, 218 |

@@ -129,7 +129,7 @@ Ver [Almacenamiento de ficheros](almacenamiento-ficheros.md).
 3. Crea `supabase_migrations.schema_migrations` si no existe.
 4. Recorre `supabase/migrations/*.sql` en orden y salta las versiones ya aplicadas. La versión es el
    prefijo antes del primer `_`.
-5. Aplica cada fichero en una transacción (`psql -v ON_ERROR_STOP=1 -1`) y después registra su versión.
+5. Aplica cada fichero **y su registro en la tabla de control en la misma transacción** (`psql -v ON_ERROR_STOP=1 --single-transaction -f -`): o se aplican las dos cosas o ninguna. Si una migración falla, el script se detiene sin registrarla ni seguir con las siguientes. Una migración que no admita transacción (por ejemplo `CREATE INDEX CONCURRENTLY`) debe llevar la línea `-- migrate: sin-transaccion`: se aplica sentencia a sentencia y se registra después.
 
 ```bash
 cp infra/db/migrate.sh /root/migrate.sh && chmod +x /root/migrate.sh
@@ -151,9 +151,6 @@ CT=<prefijo>-db /root/migrate.sh
 - **Requisito del fichero 03:** el stack debe haber arrancado una vez antes, para que GoTrue y storage-api
   creen sus tablas.
 - **Corpus del RAG:** se carga aparte. Ver [RAG y corpus normativo](rag.md#corpus).
-
-> TODO: confirmar el registro de las migraciones. Aplicar y registrar no van en la misma transacción: si
-> falla el registro, la migración se volverá a aplicar.
 
 ## API
 
