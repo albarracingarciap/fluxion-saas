@@ -87,8 +87,8 @@ El motor devuelve un resultado con estas partes:
 | **Fundamento** | Lista de reglas aplicadas, con las respuestas que las activaron | Principio 4 |
 | **Avisos** | Contradicciones y datos que faltan | Ver §5 |
 
-> TODO: confirmar los términos nuevos «Fuera del ámbito» y «Sistema basado en un modelo GPAI de
-> terceros». No están en el glosario.
+**Decidido (DP-10, 2026-10-20).** Se aceptan los términos «Fuera del ámbito» y «Sistema basado en un
+modelo GPAI de terceros». Falta incorporarlos a `glosario.md`.
 
 ### Orden de evaluación
 
@@ -181,8 +181,9 @@ una evaluación de la conformidad de terceros.
 |---|---|
 | `maquinaria`, `juguetes`, `embarcaciones_recreo`, `ascensores`, `atex`, `radioelectricos`, `presion`, `cable`, `epi`, `gas`, `sanitarios`, `sanitarios_iv` | `aviacion`, `dos_tres_ruedas`, `agricolas`, `marinos`, `motor_remolques`, `motor_seguridad`, ferroviario (falta, Q-03) |
 
-> TODO: confirmar cómo deben tratarse las obligaciones de los sistemas del Anexo I Sección B. El catálogo
-> de obligaciones no distingue el régimen del Art. 2.2.
+> TODO: confirmar con el responsable jurídico cómo deben tratarse las obligaciones de los sistemas del
+> Anexo I Sección B. El catálogo de obligaciones no distingue el régimen del Art. 2.2. (DP-10: pendiente de
+> revisión jurídica.)
 
 ### 4.4 Alto riesgo por el Anexo III (AI Act, Art. 6.2)
 
@@ -216,7 +217,8 @@ Bloque **Supuestos clase 2 · Bloque B**. Cada opción marcada es un supuesto de
 >   cita la evaluación de riesgos y la fijación de precios (5.c). Hasta revisarla, el motor la trata como
 >   5.c y lo indica en el fundamento.
 >
-> TODO: confirmar con el responsable jurídico el tratamiento de `c2b_seguros` · `admisibilidad`.
+> TODO: confirmar con el responsable jurídico el tratamiento de `c2b_seguros` · `admisibilidad`. Mientras
+> tanto (DP-10, 2026-10-20), la opción se ha retirado del cuestionario.
 
 ### 4.5 Excepción del Art. 6.3
 
@@ -278,8 +280,8 @@ GPAI deja de ser un nivel. El resultado lleva una **categoría GPAI** independie
 - Los sistemas existentes con nivel `gpai` se migran: `is_gpai = true` y nivel **Pendiente de clasificar**
   para que se reclasifiquen.
 
-> TODO: actualizar en `glosario.md` la entrada «Nivel de riesgo AI Act» según la decisión D3. Lo debe
-> validar el responsable del proyecto.
+**Decidido (DP-10, 2026-10-20).** GPAI es una categoría aparte, no un nivel de riesgo (D3). Falta actualizar
+la entrada «Nivel de riesgo AI Act» de `glosario.md`.
 
 ### 4.8 Rol en la cadena de valor (AI Act, Art. 3.3 a 3.7 y Art. 25)
 
@@ -313,10 +315,10 @@ Las obligaciones salen del catálogo (`compliance.obligations`), cruzando su alc
 | **RN-O06** | Art. 27 (FRIA) | Responsable del despliegue de alto riesgo del Anexo III (salvo el punto 2) que es organismo de derecho público o entidad privada que presta servicios públicos, o que despliega sistemas de los puntos 5.b o 5.c (Art. 27.1). Requiere la pregunta de Q-10 |
 | **RN-O07** | Art. 6.4 y 49.2 | Excepción del Art. 6.3 válida y rol Proveedor |
 
-> TODO: confirmar el catálogo de obligaciones.
-> - El Art. 50 es una sola obligación; para aplicar RN-O03 conviene dividirla en 50.1 a 50.4.
-> - El Art. 27 se sugiere hoy a cualquier responsable del despliegue de alto riesgo; RN-O06 lo restringe.
-> - No existe una obligación para la documentación de la excepción del Art. 6.3 (RN-O07).
+**Decidido (DP-10, 2026-10-20).** Cambios del catálogo de obligaciones, a aplicar en B13:
+- el Art. 50 se divide en 50.1 a 50.4 (RN-O03);
+- el Art. 27 solo se sugiere en los supuestos del Art. 27.1 (RN-O06);
+- obligación nueva para documentar la excepción del Art. 6.3 (Art. 6.4 y 49.2, RN-O07).
 
 ## 5. Reglas del cuestionario: completitud y coherencia
 
@@ -467,8 +469,8 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 | Historial | `ai_system_history` | Evento de RN-W09 |
 | Nivel de riesgo | `ai_systems.aiact_risk_level` | Sin el valor `gpai` (§4.7). Para «Fuera del ámbito» y «No es un sistema de IA» hace falta un valor nuevo o un campo de ámbito |
 
-> TODO: confirmar cómo se representa «Fuera del ámbito» en `aiact_risk_level` (valor nuevo del enum o
-> campo de ámbito aparte).
+**Decidido (DP-10, 2026-10-20).** «Fuera del ámbito» y «No es un sistema de IA» se guardan en un **campo de
+ámbito aparte**, no como valores nuevos de `aiact_risk_level`.
 
 ## 8. Cambios en el cuestionario
 
@@ -478,7 +480,7 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 | **Q-02** | Preguntas de excepción para `riesgo_delito`, `emociones`, `categorizacion_biometrica` y `rbi_tiempo_real`, con justificación | Excepciones del Art. 5.1 | RN-P04 a P08, P11 |
 | **Q-03** | Separar «es componente de seguridad» de «es en sí mismo un producto»; añadir **Interoperabilidad del sistema ferroviario** a `c2a_productos` | Art. 6.1 y Anexo I Sección B | RN-H01, H04 |
 | **Q-04** | Corregir el texto de `c2b_infra` según el Anexo III, punto 2 | Texto erróneo | RN-H12 |
-| **Q-05** | Revisar `c2b_seguros` · `admisibilidad` | No figura en el Anexo III | RN-H17 |
+| **Q-05** | Revisar `c2b_seguros` · `admisibilidad` (retirada del cuestionario el 2026-10-20, a la espera de revisión jurídica) | No figura en el Anexo III | RN-H17 |
 | **Q-06** | Bloque nuevo **Excepción del Art. 6.3**: ¿se invoca?, condiciones a) a d), «¿El sistema elabora perfiles de personas físicas?» y justificación. Solo visible con supuestos del Anexo III | Art. 6.3 | RN-E01 a E04 |
 | **Q-07** | Preguntas nuevas: «¿Genera o manipula imagen, audio o vídeo que constituya una ultrasuplantación?» y «¿Genera texto que se publica para informar al público sobre asuntos de interés público?» | Art. 50.4 | RN-T04 |
 | **Q-08** | Bloque nuevo **Modelo de IA de uso general**: ¿la organización desarrolla un modelo GPAI y lo introduce en el mercado?, cómputo de entrenamiento (más o menos de 10^25 FLOP, o desconocido), ¿licencia libre?, ¿el sistema usa un modelo GPAI de terceros? | D3 | RN-G01 a G06 |

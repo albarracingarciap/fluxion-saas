@@ -116,11 +116,11 @@ apartado 4. La fase 4 añade funcionalidad.
 | **DP-03** | Ciclo de vida único de la evaluación FMEA y el plan de tratamiento (F-06) | B07 | **Decidida** (2026-10-19): sí |
 | **DP-04** | ¿La AISIA pasa al Core? (GAP-06) | B15 | **Decidida** (2026-10-20): sí. La exige ISO/IEC 42001 (§6.1.4) y la Declaración depende de ella |
 | **DP-05** | AISIA como plantilla del expediente (F-09) | B15 | **Decidida** (2026-10-20): sí. B08 se reduce al mínimo |
-| **DP-06** | Consolidación de los informes del sistema (F-10) | B16 | Sí, retirar el dossier técnico como pantalla propia |
-| **DP-07** | ¿La exclusión de brechas pasa por aprobación? (La clasificación AI Act ya tiene aprobador en DP-01) | B11 | Sí para Riesgo sin tratar y Obligación sin cubrir |
-| **DP-08** | Plan parcial sobre los modos críticos (F-05, opción C de `circuito.md`) | B14 | Sí, en una segunda iteración de B14 |
-| **DP-09** | Alcance ISO 42001 de organización (cláusulas 4 a 10) | B20 | Las 10 obligaciones ISO del catálogo, a nivel organización |
-| **DP-10** | Términos y modelo de datos pendientes de la especificación del cuestionario (`_pendientes.md` 236 a 242) | B13 | Ver la especificación |
+| **DP-06** | Consolidación de los informes del sistema (F-10) | B16 | **Decidida** (2026-10-20): sí. Se retira el dossier técnico como pantalla; el registro UE pasa a plantilla del expediente; el informe de brechas, al análisis de brechas por sistema |
+| **DP-07** | ¿La exclusión de brechas pasa por aprobación? (La clasificación AI Act ya tiene aprobador en DP-01) | B11 | **Decidida** (2026-10-20): sí para «Riesgo sin tratar» y «Obligación sin cubrir»; aprueba el Responsable del SGAI. El resto sigue sin aprobación |
+| **DP-08** | Plan parcial sobre los modos críticos (F-05, opción C de `circuito.md`) | B14 | **Decidida** (2026-10-20): sí, en una segunda iteración de B14 (la primera, evaluación por familias por defecto) |
+| **DP-09** | Alcance ISO 42001 de organización (cláusulas 4 a 10) | B20 | **Decidida** (2026-10-20): las 10 obligaciones ISO del catálogo, a nivel organización, con sesiones de comité y acta |
+| **DP-10** | Términos y modelo de datos pendientes de la especificación del cuestionario (`_pendientes.md` 236 a 242) | B13 | **Decidida** (2026-10-20): ver la [especificación](cuestionario-preliminar-reglas.md), «Decisiones del 2026-10-20» |
 
 ## 5. Decisiones tomadas
 

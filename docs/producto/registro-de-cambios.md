@@ -39,6 +39,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B09 · Expediente documental: ciclo y rastro | Integrado en `main` | `fase1/b09-expediente` | 2026-10-20 | **Sí** · `20261020120000_expediente_ciclo.sql` |
 | B08 · AISIA: mínimo (DP-05) | Integrado en `main` | `fase1/b08-aisia-minimo` | 2026-10-20 | No |
 | B23b · Funciones de gobierno, responsables por sistema y comités | Integrado en `main` | `fase1/b23b-gobierno` | 2026-10-20 | **Sí** · `20261020130000_gobierno_designaciones_comites.sql` |
+| Decisiones DP-06 a DP-10 (fuera del plan de bloques) | Integrado en `main` | `docs/decisiones-dp06-dp10` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -884,4 +885,28 @@ y `tie_break`; los asesores quedan fuera de `approval_can_decide` y `approval_st
   cada paso.
 - Avisos al responsable de cada sistema y uso del responsable de supervisión humana en la etapa Evaluado (B18).
 - Glosario: términos nuevos (ver `_pendientes.md`).
+
+---
+
+## Decisiones DP-06 a DP-10
+
+**Fecha:** 2026-10-20 · **Rama:** `docs/decisiones-dp06-dp10` · **Migración:** no
+
+**Decisiones del responsable (2026-10-20)**, todas según la recomendación del plan:
+
+| Decisión | Contenido | Bloque |
+|---|---|---|
+| DP-06 | Informes del sistema consolidados: se retira el dossier técnico como pantalla; la ficha del registro UE pasa a plantilla del expediente (Anexo VIII); el informe de brechas pasa a ser el análisis de brechas por sistema | B16 |
+| DP-07 | Excluir una brecha «Riesgo sin tratar» u «Obligación sin cubrir» requiere aprobación del Responsable del SGAI; el resto, no | B11 |
+| DP-08 | Plan parcial sobre los modos críticos, en una segunda iteración de B14 | B14 |
+| DP-09 | Alcance ISO/IEC 42001 de organización: las 10 obligaciones ISO del catálogo, con sesiones de comité y acta | B20 |
+| DP-10 | Términos «Fuera del ámbito» y «Sistema basado en un modelo GPAI de terceros» aceptados; GPAI como categoría aparte; cambios del catálogo (Art. 50 en 50.1 a 50.4, Art. 27 solo en el 27.1, obligación de la excepción del Art. 6.3); «Fuera del ámbito» en un campo de ámbito aparte. Anexo I Sección B y `c2b_seguros` · `admisibilidad`, a revisión jurídica | B13 |
+
+**Cambio en la aplicación.** Se retira del cuestionario preliminar la opción «admisibilidad» de **Acceso a
+seguros de salud y vida** (`lib/preliminary-questionnaire/schema.ts`): no figura en el Anexo III, punto 5.c.
+Las respuestas guardadas se conservan.
+
+**Documentación.** `producto/plan-resolucion-gaps.md` (tabla de decisiones),
+`producto/cuestionario-preliminar-reglas.md` (TODO convertidos en decisiones); `_pendientes.md`: 241, 242 y
+243 resueltos; 237 y 240 decididos y pendientes de llevar al glosario; 238 y 239 a revisión jurídica.
 
