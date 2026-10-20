@@ -24,7 +24,8 @@ cubre lo que DP-01 necesita y la aplicación todavía no puede expresar: las fun
 roles, el responsable de supervisión humana de cada sistema y los comités con voz sin voto, quórum y comité
 técnico.
 
-Al final hay **seis decisiones** para el responsable del proyecto (§7).
+Al final hay **seis decisiones** para el responsable del proyecto (§7). **Aprobadas todas el 2026-10-20**
+tal como se proponen.
 
 ## 1. Punto de partida
 
@@ -139,7 +140,7 @@ aprobar planes de nivel 1»).
 
 ## 7. Decisiones para el responsable
 
-| # | Decisión | Propuesta |
+| # | Decisión | Propuesta (aprobada el 2026-10-20) |
 |---|---|---|
 | 1 | ¿Las funciones (CISO, Legal, Riesgos corporativos, Responsable del tratamiento, calidad) son designaciones y no roles? | Sí, designaciones (§2) |
 | 2 | ¿Esa es la lista de funciones, o falta o sobra alguna? | Las cinco de DP-01. Legal se separa de Cumplimiento solo como función, no como rol |

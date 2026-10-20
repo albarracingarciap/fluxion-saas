@@ -52,7 +52,7 @@ export default async function AisiaWizardPage({
     .from('aisia_assessments')
     .select(`
       id, ai_system_id, status, version, title,
-      created_by, submitted_at, approved_at, rejected_at,
+      created_by, submitted_by, submitted_at, approved_at, rejected_at,
       rejection_reason, created_at, updated_at,
       aisia_sections (
         id, assessment_id, section_code, data,
@@ -86,6 +86,7 @@ export default async function AisiaWizardPage({
     title:            aisiaRow.title ?? null,
     created_by:       aisiaRow.created_by,
     created_by_name:  null,
+    submitted_by:     aisiaRow.submitted_by ?? null,
     submitted_at:     aisiaRow.submitted_at ?? null,
     approved_at:      aisiaRow.approved_at ?? null,
     rejected_at:      aisiaRow.rejected_at ?? null,

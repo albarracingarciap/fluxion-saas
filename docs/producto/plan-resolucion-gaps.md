@@ -114,8 +114,8 @@ apartado 4. La fase 4 añade funcionalidad.
 | **DP-01** | Quién prepara, revisa y aprueba cada objeto; roles y comités | B01, B11, B23 | **Decidida** (2026-10-19). Ver §5 |
 | **DP-02** | Definición de «sistema totalmente evaluado» | B18 | **Decidida** (2026-10-19). Ver §5 |
 | **DP-03** | Ciclo de vida único de la evaluación FMEA y el plan de tratamiento (F-06) | B07 | **Decidida** (2026-10-19): sí |
-| **DP-04** | ¿La AISIA pasa al Core? (GAP-06) | B15 | Sí: la exige ISO/IEC 42001 (§6.1.4) y la Declaración depende de ella |
-| **DP-05** | AISIA como plantilla del expediente (F-09) | B15 | Sí |
+| **DP-04** | ¿La AISIA pasa al Core? (GAP-06) | B15 | **Decidida** (2026-10-20): sí. La exige ISO/IEC 42001 (§6.1.4) y la Declaración depende de ella |
+| **DP-05** | AISIA como plantilla del expediente (F-09) | B15 | **Decidida** (2026-10-20): sí. B08 se reduce al mínimo |
 | **DP-06** | Consolidación de los informes del sistema (F-10) | B16 | Sí, retirar el dossier técnico como pantalla propia |
 | **DP-07** | ¿La exclusión de brechas pasa por aprobación? (La clasificación AI Act ya tiene aprobador en DP-01) | B11 | Sí para Riesgo sin tratar y Obligación sin cubrir |
 | **DP-08** | Plan parcial sobre los modos críticos (F-05, opción C de `circuito.md`) | B14 | Sí, en una segunda iteración de B14 |
@@ -675,6 +675,9 @@ reevaluación, la calidad del rastro y la fricción.
   - `syncAisiaSoaControls` no modifica una Declaración que no esté en borrador: deja un aviso para la
     siguiente revisión.
 - **Talla:** M. Si se aprueba DP-05, este bloque se reduce al mínimo y su trabajo pasa a B15.
+- **Decidido (2026-10-20, DP-05 aprobada):** B08 mínimo (talla S): permisos y segregación en servidor,
+  la sincronización no toca una Declaración que no esté en borrador y la precarga de S1-S2 se guarda. La
+  nueva versión y «Sustituida» pasan a B15, con las versiones del expediente (B09).
 
 ### B09 · Expediente documental: ciclo y rastro
 
@@ -719,6 +722,9 @@ causa C1. **Talla:** M, repartida entre los bloques.
     regla de desempate por comité.
   - **Incompatibilidades:** validación al asignar roles y miembros de comité (DPO y Responsable del SGAI).
   - **Pantalla Roles y permisos** de Usuarios: pasa de descriptiva a reflejar el mapa de aprobaciones.
+- **Decidido (2026-10-20).** B23a hecho (roles múltiples). Para B23b se aprueba íntegra la
+  [propuesta](propuesta-b23b-roles-comites.md): funciones como designaciones, supervisión humana y
+  responsable por sistema, comités con asesores sin voto, quórum por mayoría y desempate del presidente.
 - **Datos:** migración de un rol a roles múltiples; tipos de comité; columnas de comité.
 - **Depende de:** B00, B01.
 - **Talla:** L. **Riesgo:** toca todas las comprobaciones de rol y las políticas RLS que lo leen.

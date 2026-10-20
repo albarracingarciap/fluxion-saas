@@ -37,6 +37,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Etiquetas de roles según el glosario (fuera del plan) | Integrado en `main` | `fix/etiquetas-roles` | 2026-10-20 | No |
 | B10 · Evidencias: revisión obligatoria y versiones | Integrado en `main` | `fase1/b10-evidencias` | 2026-10-20 | **Sí** · `20261020110000_evidencias_revision_versiones.sql` |
 | B09 · Expediente documental: ciclo y rastro | Integrado en `main` | `fase1/b09-expediente` | 2026-10-20 | **Sí** · `20261020120000_expediente_ciclo.sql` |
+| B08 · AISIA: mínimo (DP-05) | Integrado en `main` | `fase1/b08-aisia-minimo` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -781,4 +782,43 @@ resueltos.
 **Pendiente.**
 - Aprobadores por plantilla de DP-01 y aprobación por Flujos de aprobación (B11, B23b).
 - El resto de TODO de la vista (orden de pestañas, ficha del modelo en sistemas no GPAI, apartado IV.8).
+
+---
+
+## B08 · AISIA: mínimo (DP-05)
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b08-aisia-minimo` · **Migración:** no
+
+**Decisiones del responsable (2026-10-20).** DP-04 (la AISIA pasa al Core) y DP-05 (la AISIA será una
+plantilla del expediente) aprobadas. Con DP-05, B08 se reduce a lo imprescindible hasta B15: la versión nueva
+y el estado «Sustituida» llegan con las versiones del expediente (B09). Para B23b se aprueba íntegra la
+[propuesta](propuesta-b23b-roles-comites.md).
+
+**Problema** (GAP-22 y GAP-23 en parte, `E19`):
+- aprobar o rechazar la AISIA solo lo restringía la pantalla (Administrador, Responsable del SGAI o CAIO), y
+  quien la había preparado podía aprobarla;
+- al aprobarla, los controles A.5.2-A.5.5 de la Declaración de Aplicabilidad pasaban a «Implantado» aunque la
+  Declaración estuviera enviada o aprobada;
+- los valores de S1 y S2 que el asistente precargaba de la ficha no se guardaban si nadie los editaba.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| `lib/auth/roles-flujo.ts` | `AISIA_APPROVER_ROLES` (Responsable del SGAI hasta B11/B15; DP-01 asigna el Comité de IA) y `aisiaApprovalBlocker` |
+| `approveAisia`, `rejectAisia` | Comprueban en el servidor el rol y que quien decide no la creó ni la envió; rechazar exige motivo |
+| `lib/aisia/soa-sync.ts` (nuevo) | La sincronización con los controles A.5.2-A.5.5 solo actúa con la Declaración en borrador; si no, se avisa y se aplica al iniciar su siguiente revisión (`transitionSoAStatus('draft')`) |
+| `lib/aisia/prefill.ts` (nuevo, puro) | `initAisia` guarda S1 y S2 con los datos de la ficha |
+| Ficha › ISO 42001 | **Aprobar** y **Rechazar** solo para quien puede decidir; a los demás, el motivo. Aviso si la Declaración no está en borrador |
+| Tests | `tests/aisia.test.ts` (43 en total) |
+
+**Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 43/43,
+`check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/aisia.md`, `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md`
+(GAP-22 y GAP-23 en parte), `producto/plan-resolucion-gaps.md` (DP-04, DP-05 y B23b decididas); TODO 137
+resuelto y 136 en parte.
+
+**Pendiente (B15).** Plantilla `aisia` del expediente, versiones, acta y aprobación por el Comité de IA con
+Flujos de aprobación.
 

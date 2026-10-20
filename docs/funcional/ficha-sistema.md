@@ -45,7 +45,7 @@ las tareas que lo componen.
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Todos los roles | Toda la ficha | Todas las acciones, salvo las de aprobación de la AISIA |
-| Administrador, Responsable del SGAI, CAIO | Ídem | Además, aprobar o rechazar la AISIA |
+| Responsable del SGAI | Ídem | Además, aprobar o rechazar la AISIA que no haya preparado (B08) |
 
 Si el sistema no existe o es de otra organización, la vista devuelve «no encontrado».
 
@@ -229,7 +229,7 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **✏ Editar ficha** | Todos | Navega a [Edición de la ficha](ficha-sistema-edicion.md) | — |
 | **Iniciar evaluación AISIA** | Todos | `initAisia`: crea la AISIA con sus seis secciones | Historial «Evaluación AISIA iniciada» |
 | **Continuar evaluación →** / **Ver evaluación →** | Todos | Navega a la [AISIA](aisia.md) | — |
-| **✓ Aprobar evaluación** | Administrador, Responsable del SGAI, CAIO | `approveAisia`, con referencia de actas opcional | Historial «AISIA aprobada». Marca como implantados los controles A.5.2-A.5.5 de la Declaración si todos sus sistemas tienen AISIA aprobada |
+| **✓ Aprobar evaluación** | Responsable del SGAI que no la preparó | `approveAisia`, con referencia de actas opcional | Historial «AISIA aprobada». Con la Declaración en borrador, marca como implantados los controles A.5.2-A.5.5 si todos sus sistemas tienen AISIA aprobada; si no, lo deja para su siguiente revisión y lo avisa |
 | **✕ Rechazar** | Ídem | `rejectAisia`, con motivo obligatorio | Historial «AISIA rechazada» |
 | **✎ Corregir y reenviar** | Todos | `reopenAisia`: nueva versión en borrador | Navega a ella |
 | **+ Añadir evidencia** / **Nueva evidencia** | Todos | `createSystemEvidence` | Historial «Evidencia registrada» |
