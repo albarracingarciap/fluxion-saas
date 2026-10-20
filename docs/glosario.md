@@ -25,6 +25,7 @@ fuente:
   - apps/web/lib/modules/registry.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
+  - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
 ---
 
 # Glosario
@@ -380,9 +381,9 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `compliance.control_templates`; `compliance.failure_mode_control_refs`.
 
 ### Flujos de aprobación
-- **Definición:** circuito por el que pasan los objetos que requieren aprobación antes de darse por buenos: planes de tratamiento, evaluaciones de impacto, documentos, la Declaración de Aplicabilidad y evidencias. Admite pasos sucesivos, aprobadores por rol, persona o comité, y delegaciones. Está disponible en todos los planes.
+- **Definición:** circuito por el que pasan los objetos que requieren aprobación antes de darse por buenos: planes de tratamiento, evaluaciones de impacto, documentos, la Declaración de Aplicabilidad y evidencias. Cada objeto abre una solicitud al enviarse a aprobación y se decide en la bandeja de Aprobaciones. Una **política** fija los pasos sucesivos y quién aprueba en cada uno: un rol, una persona, un comité concreto, un tipo de comité o una función de gobierno; los dos últimos se resuelven al abrir la solicitud y, si el comité no está constituido o la función no está designada, decide un **rol de respaldo**. Admite delegaciones con fecha de fin. Cada organización recibe políticas por defecto con el mapa de aprobaciones del modelo de gobierno, y puede tener varias por tipo de objeto con condiciones distintas (nivel del plan, plantilla del expediente): se aplica la más específica. Está disponible en todos los planes.
 - **No usar:** «workflow», «validación».
-- **En el código:** `fluxion.approval_policies`, `approval_policy_steps`, `approval_requests`, `approval_decisions`, `approval_delegations`; enum `approval_object_type`.
+- **En el código:** `fluxion.approval_policies` (`conditions`, `is_default`), `approval_policy_steps` (`approver_type` ∈ `role`, `profile`, `committee`, `committee_type`, `function`; `fallback_role`), `approval_requests`, `approval_decisions`, `approval_delegations`; enum `approval_object_type`.
 
 ### Nivel de aprobación
 - **Definición:** nivel de autoridad que debe aprobar un plan de tratamiento, determinado por la zona de riesgo de partida.
@@ -396,7 +397,7 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Nivel 3 · Dirección | `level_3` | Zona I |
 
 - Quién aprueba cada nivel (DP-01): nivel 1, el Responsable del SGAI; nivel 2, el Comité de Riesgos de IA; nivel 3, la Revisión por la Dirección, que puede delegar la aprobación de los planes de Zona I con fecha de fin.
-- > **Pendiente de implementar.** Sin una política en Flujos de aprobación, los tres niveles los aprueba hoy el Responsable del SGAI distinto de quien prepara el plan; las políticas por defecto llegan con B11.
+- Se aplica con las políticas por defecto de Flujos de aprobación. Si el comité del nivel no está constituido, decide el rol de respaldo: el Responsable del SGAI en el nivel 2 y un Directivo en el nivel 3.
 
 ### Comité
 - **Definición:** órgano colegiado de gobierno de la IA de la organización. Tipos: Comité de IA, Comité de Riesgos de IA, Revisión por la Dirección y Comité técnico / validación de modelos (opcional). Sus miembros tienen un papel en el comité: Presidente, Secretario, Miembro o Asesor. Cada comité fija su quórum y su regla de desempate.
