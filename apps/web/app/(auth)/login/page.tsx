@@ -5,7 +5,7 @@ import Link from "next/link"
 import { login } from "../actions"
 
 export const metadata: Metadata = {
-  title: "Iniciar sesión | Fluxion",
+  title: "Iniciar sesión | CompaaS IA",
   description: "Accede a la plataforma de gobierno de IA Fluxion.",
 }
 
@@ -26,7 +26,7 @@ export default function LoginPage({
           priority
         />
         <h1 className="text-2xl font-semibold tracking-tight text-ltt font-fraunces">
-          Bienvenido a Fluxion
+          Bienvenido a CompaaS IA
         </h1>
         <p className="text-[13.5px] text-ltt2 font-sora">
           Introduce tus datos para acceder a tu organización.

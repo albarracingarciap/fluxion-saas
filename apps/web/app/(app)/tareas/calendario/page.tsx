@@ -4,7 +4,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { fetchTasks } from '@/lib/tasks/data'
 import { CalendarView } from '@/components/tasks/CalendarView'
 
-export const metadata = { title: 'Calendario de tareas · Fluxion' }
+export const metadata = { title: 'Calendario de tareas · CompaaS IA' }
 
 export default async function CalendarioPage() {
   const { user, membership } = await getAppAuthState()

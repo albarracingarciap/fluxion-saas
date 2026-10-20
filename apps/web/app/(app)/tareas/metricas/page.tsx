@@ -4,7 +4,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { fetchTasks } from '@/lib/tasks/data'
 import { MetricsView } from '@/components/tasks/MetricsView'
 
-export const metadata = { title: 'Métricas de tareas · Fluxion' }
+export const metadata = { title: 'Métricas de tareas · CompaaS IA' }
 
 export default async function MetricasPage() {
   const { user, membership } = await getAppAuthState()
