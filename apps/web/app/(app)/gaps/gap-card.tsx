@@ -201,6 +201,16 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
               >
                 {getGapSecondaryLabel(gap)}
               </Link>
+              {gap.pending_exclusion ? (
+              <Link
+                href="/gaps/excluded"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-amber-200 bg-amber-50 text-amber-700 font-sora text-[11px]"
+                title="La exclusión espera aprobación en Aprobaciones; mientras tanto la brecha sigue en la cola"
+              >
+                <ShieldOff size={12} />
+                Exclusión pendiente de aprobación
+              </Link>
+              ) : (
               <button
                 type="button"
                 onClick={() => setShowDispose(true)}
@@ -210,6 +220,7 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
                 <ShieldOff size={12} />
                 Excluir
               </button>
+              )}
               <Link
                 href={gap.detail_url}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-transparent bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[11px] hover:-translate-y-px transition-all"

@@ -44,6 +44,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11a · Flujos de aprobación: efectos y apertura por tipo de objeto | Integrado en `main` | `fase2/b11a-aprobaciones-objetos` | 2026-10-20 | **Sí** · `20261020140000_aprobaciones_objetos.sql` |
 | B11b · Flujos de aprobación: políticas por defecto de DP-01 | Integrado en `main` | `fase2/b11b-politicas-defecto` | 2026-10-20 | **Sí** · `20261020150000_aprobaciones_tipos_aprobador.sql` y `20261020150100_aprobaciones_politicas_defecto.sql` |
 | B11c · Flujos de aprobación: cancelación, caducidad y avisos | Integrado en `main` | `fase2/b11c-cancelacion-caducidad` | 2026-10-20 | **Sí** · `20261020160000_aprobaciones_caducidad.sql` |
+| B11d · Flujos de aprobación: consultas, pasos condicionales, Auditor y exclusión de brechas | Integrado en `main` | `fase2/b11d-consultas-condiciones` | 2026-10-20 | **Sí** · `20261020170000_aprobaciones_tipo_exclusion_brecha.sql` y `20261020170100_aprobaciones_consultas_condiciones.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -66,6 +67,8 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020150000_aprobaciones_tipos_aprobador.sql` | B11b (1/2) | Tipos de aprobador `committee_type` y `function`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
 | `supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql` | B11b (2/2) | Rol de respaldo y quórum de los pasos; varias políticas activas por tipo con condiciones (gana la más específica); resolución de comité por tipo y función al abrir; siembra de las políticas de DP-01 (trigger al crear la organización y para las existentes, solo en tipos sin política propia); abre solicitud para lo que ya esperaba aprobación | **Antes** de desplegar B11b. Revisa en Ajustes › Aprobaciones las políticas creadas y en Aprobaciones las solicitudes abiertas |
 | `supabase/migrations/20261020160000_aprobaciones_caducidad.sql` | B11c | `approval_policies.expires_after_days` y `approval_requests.expires_at` (fijada al abrir); la vista de la bandeja expone `expires_at` | **Antes** de desplegar B11c. Además, en el VPS, añadir al crontab la línea de `approval-expiry` (está en `infra/schedules/crontab`) |
+| `supabase/migrations/20261020170000_aprobaciones_tipo_exclusion_brecha.sql` | B11d (1/2) | Tipo de objeto `gap_disposition`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
+| `supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql` | B11d (2/2) | Pasos de consulta (`kind`) y condicionales (`condition`), contexto de la solicitud, `approval_decide` con dictamen, el Auditor no decide, `gap_dispositions.status` con su trigger, política de exclusión de brechas y consultas de DP-01 en las políticas por defecto sin editar; etiqueta y enlace de la exclusión en la bandeja | **Antes** de desplegar B11d: la aplicación lee `gap_dispositions.status` y `approval_policy_steps.kind`. Revisa en Ajustes › Aprobaciones las políticas con consulta |
 
 ---
 
@@ -1074,4 +1077,50 @@ correcto. No se ha probado en el navegador ni el envío real de correo (requiere
 
 **Pendiente.** B11d: pasos de consulta (dictamen del DPO, revisión del CISO), pasos condicionales, exclusión de
 brechas (DP-07), la clasificación y la política de IA como objetos aprobables; retirar la vía propia del plan.
+
+---
+
+## B11d · Flujos de aprobación: consultas, pasos condicionales, Auditor y exclusión de brechas
+
+**Fecha:** 2026-10-20 · **Rama:** `fase2/b11d-consultas-condiciones` ·
+**Migración:** **sí**, `20261020170000_aprobaciones_tipo_exclusion_brecha.sql` y después, en una ejecución
+aparte, `20261020170100_aprobaciones_consultas_condiciones.sql` (aplicar antes de desplegar)
+
+**Problema** (DP-01 I-04, I-05, I-08; DP-07; GAP-10):
+- las políticas solo tenían pasos de aprobación: el dictamen del DPO en la AISIA, la FRIA y la DPIA, o la
+  revisión del CISO, no tenían dónde constar;
+- todos los pasos entraban siempre: no había forma de pedir al CISO solo los planes con controles de seguridad;
+- el Auditor podía aprobar si tenía además el rol del paso o una delegación;
+- excluir un riesgo sin tratar o una obligación sin cubrir sacaba la brecha de la cola sin que nadie lo aprobara.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Motor (migración) | `approval_policy_steps.kind` (`approval`, `consultation`) y `condition`; `approval_requests.context`. `approval_resolve_snapshot(org, snap, context)` descarta los pasos cuya condición no se cumple y omite las consultas sin nadie a quien consultar (ni el solicitante ni el Auditor cuentan), y deja constancia en `omitted_steps`. `approval_decide`: en una consulta exige texto, no admite abstención y avanza con cualquier dictamen |
+| Auditor | `approval_can_decide` y `approval_step_candidates` excluyen el rol `auditor`, también por delegación |
+| Exclusión de brechas | Tipo de objeto `gap_disposition`; `gap_dispositions.status` (`active`, `pending`); trigger `trg_gap_disposition_rules` que impide activar desde la API una exclusión que gobierna una política. Excluir abre la solicitud si hay política (por defecto, Riesgo sin tratar y Obligación sin cubrir, aprueba el Responsable del SGAI); aprobada pasa a activa; rechazada, cancelada o caducada se borra. Retirarla cancela la solicitud (quien la pidió o Administrador, Responsable del SGAI, CAIO) |
+| Políticas por defecto | Consulta al DPO delante en la AISIA, la FRIA y la DPIA; consulta al CISO (función de gobierno) con la condición «el plan tiene controles de seguridad» en los niveles 1 y 2; política de exclusión de brechas. En las organizaciones existentes, la consulta solo se añade a las políticas por defecto sin editar |
+| Plan de tratamiento | El envío añade al contexto `has_security_controls` (`planHasSecurityControls`, con test): alguna acción «Mitigar» sobre un modo de fallo de la dimensión Seguridad |
+| Bandeja | En un paso de consulta, **Emitir dictamen** con texto obligatorio y **Favorable** / **Desfavorable**; «(consulta)» en el paso; el histórico dice «emitió un dictamen favorable / desfavorable» |
+| Acta | Los pasos dicen si son consulta, con etiquetas legibles de rol, función y tipo de comité; constan los pasos omitidos y por qué; los dictámenes se nombran como tales |
+| Ajustes | Tipo de paso (**Aprobación** o **Consulta (dictamen)**), casilla **Solo si el plan tiene controles de seguridad**, **Se aplica a las brechas**; la política necesita al menos un paso de aprobación sin condición |
+| Brechas | La brecha con exclusión pendiente sigue en la cola con **Exclusión pendiente de aprobación**; aviso en los modales de exclusión; sección **Pendientes de aprobación** en Brechas excluidas, con **Retirar exclusión** y **Ver en Aprobaciones** |
+
+**Verificación.** Migraciones probadas en el Postgres local, dos veces (idempotentes): una organización nueva
+recibe las 11 políticas con sus consultas; un plan de nivel 1 sin controles de seguridad omite al CISO por la
+condición y, con controles pero sin CISO designado, lo omite por no haber a quién consultar; con CISO
+designado, su dictamen desfavorable avanza al paso 2 y el Responsable del SGAI aprueba; sin texto o con
+abstención, el dictamen se rechaza; una AISIA sin DPO, o pedida por el único DPO, omite la consulta; el Auditor
+no puede decidir ni es candidato; una exclusión de capa `control` no abre solicitud; el trigger impide activar
+una exclusión pendiente o crearla activa desde la API. `tsc --noEmit` sin errores, `next lint` sin avisos,
+`npm test` 50/50, `check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/aprobaciones.md`, `funcional/ajustes.md`, `funcional/brechas.md`,
+`funcional/brechas-excluidas.md`, `negocio/flujos-de-aprobacion.md` (puesto al día con todo B11),
+`negocio/brechas.md`, `tecnica/modelo-datos.md`; TODO 253 (glosario).
+
+**Pendiente.** La clasificación AI Act y la política de IA como objetos aprobables pasan a B13 y B20, que crean
+esos objetos. Retirar la vía propia del plan (aprobador asignado) cuando no quede ningún plan sin política
+aplicable (posible B11e).
 

@@ -1167,7 +1167,7 @@ export async function getApprovalPolicies(): Promise<ApprovalPolicyRow[]> {
 
   const { data: pasos } = await admin
     .from('approval_policy_steps')
-    .select('id, policy_id, position, approver_type, approver_ref, quorum, allow_delegation, fallback_role')
+    .select('id, policy_id, position, approver_type, approver_ref, quorum, allow_delegation, fallback_role, kind, condition')
     .in('policy_id', politicas.map((p: { id: string }) => p.id))
     .order('position')
 
@@ -1225,6 +1225,14 @@ export async function saveApprovalPolicy(input: {
     if (paso.approver_type === 'committee_type' && paso.quorum !== null && paso.quorum !== undefined && paso.quorum < 1) {
       return { error: `El quórum del paso ${i + 1} debe ser al menos 1, o quedar vacío para usar el del comité.` }
     }
+  }
+
+  // Las consultas no deciden y los pasos condicionales pueden no entrar (B11d):
+  // tiene que quedar siempre alguien que apruebe.
+  const decide = input.steps.some((paso) =>
+    (paso.kind ?? 'approval') === 'approval' && Object.keys(paso.condition ?? {}).length === 0)
+  if (!decide) {
+    return { error: 'La política necesita al menos un paso de aprobación sin condición: las consultas no deciden.' }
   }
 
   // Cada tipo de objeto conserva al menos una política activa (B11b): sin
@@ -1286,6 +1294,8 @@ export async function saveApprovalPolicy(input: {
       allow_delegation: s.allow_delegation,
       fallback_role:    s.approver_type === 'committee_type' || s.approver_type === 'function'
                           ? (s.fallback_role ?? 'sgai_manager') : null,
+      kind:             s.kind ?? 'approval',
+      condition:        s.condition ?? {},
     }))
   )
 

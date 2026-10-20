@@ -94,3 +94,18 @@ export function pickPlanApprover(
   }
   return null;
 }
+
+/** Dimensión de riesgo de seguridad: la que revisa el CISO (DP-01). */
+export const SECURITY_DIMENSION_ID = 'seguridad';
+
+/**
+ * ¿Tiene el plan controles de seguridad? Sí, si alguna acción «Mitigar» trata
+ * un modo de fallo de la dimensión Seguridad. Es la condición del paso de
+ * consulta del CISO en las políticas de los niveles 1 y 2 (B11d): el contexto
+ * de la solicitud lleva `has_security_controls: 'true' | 'false'`.
+ */
+export function planHasSecurityControls(
+  actions: Array<{ option: string | null; dimension_id: string | null | undefined }>,
+): boolean {
+  return actions.some((a) => a.option === 'mitigar' && a.dimension_id === SECURITY_DIMENSION_ID);
+}

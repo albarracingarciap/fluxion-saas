@@ -25,6 +25,7 @@ fuente:
   - apps/web/lib/channels/send.ts
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
+  - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
 ---
 
 # Ajustes
@@ -188,11 +189,12 @@ documento técnico de webhooks.
 
 | Campo | Tipo | Obligatorio | Descripción y valores |
 |---|---|---|---|
-| **Tipo de objeto** | selector | Sí | Plan de tratamiento (por defecto) · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia. No se puede cambiar al editar |
+| **Tipo de objeto** | selector | Sí | Plan de tratamiento (por defecto) · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de brecha. No se puede cambiar al editar |
 | **Nombre** | texto | Sí | — |
 | **Se aplica a los niveles** | botones | No | Solo para planes de tratamiento: Nivel 1, 2 o 3. Sin marcar = todos |
 | **Se aplica a las plantillas** | botones | No | Solo para documentos: Anexo IV, FRIA, DPIA o Ficha del modelo. Sin marcar = todas |
-| **Cadena de aprobación** | lista de pasos | Al menos uno | Cada paso indica: **Por rol**, **Persona concreta**, **Comité concreto**, **Comité por tipo** o **Función de gobierno**; el aprobador; el **Quórum** (comités; en los comités por tipo, vacío = el del comité); el **Rol de respaldo** (comités por tipo y funciones); y **Admite delegación** (por defecto sí) |
+| **Se aplica a las brechas** | botones | No | Solo para exclusiones de brechas (B11d): Riesgo sin tratar, Obligación sin cubrir, Control sin implantar, Evidencia caducada. Sin marcar = todas. Las capas que no gobierne ninguna política se excluyen sin aprobación |
+| **Cadena de aprobación** | lista de pasos | Al menos uno de aprobación sin condición | Cada paso indica: el tipo, **Aprobación** o **Consulta (dictamen)** (B11d); **Por rol**, **Persona concreta**, **Comité concreto**, **Comité por tipo** o **Función de gobierno**; el aprobador o consultado; el **Quórum** (comités; en los comités por tipo, vacío = el del comité); el **Rol de respaldo** (comités por tipo y funciones, solo en pasos de aprobación: una consulta sin nadie a quien consultar se omite); en los planes, **Solo si el plan tiene controles de seguridad** (B11d); y **Admite delegación** (por defecto sí) |
 | **Quien solicita puede aprobar** | casilla | No | Por defecto no (segregación de funciones) |
 | **Activa** | casilla | No | Por defecto activa. Puede haber varias activas por tipo de objeto si tienen condiciones distintas; se aplica la más específica. Cada tipo conserva al menos una activa |
 
@@ -200,7 +202,12 @@ documento técnico de webhooks.
 mapa de aprobaciones de DP-01, marcada **Por defecto**: plan nivel 1, Responsable del SGAI; nivel 2, Comité de
 Riesgos de IA; nivel 3, Revisión por la Dirección; AISIA y FRIA, Comité de IA; DPIA, Responsable del
 tratamiento; Anexo IV, ficha del modelo y evidencias, Responsable del SGAI; Declaración de Aplicabilidad,
-Revisión por la Dirección. Se pueden editar como cualquier otra.
+Revisión por la Dirección; exclusión de brechas «Riesgo sin tratar» y «Obligación sin cubrir», Responsable del
+SGAI. Con consultas previas (B11d): DPO en la AISIA, la FRIA y la DPIA; CISO, si el plan tiene controles de
+seguridad, en los niveles 1 y 2. Se pueden editar como cualquier otra.
+
+En la lista, cada paso se describe como «[Consulta · ]{aprobador}[ · solo si el plan tiene controles de
+seguridad]», y las consultas por función o comité indican «(si no hay, se omite)».
 
 **Comité por tipo y función de gobierno.** Al abrir cada solicitud se resuelven al comité activo de ese tipo
 (con su quórum, o la mayoría de los miembros con voto) o a la persona designada en Organización ›
@@ -209,7 +216,10 @@ decide el rol de respaldo (por defecto, el Responsable del SGAI; en la Revisión
 Directivo). La resolución queda congelada en la solicitud.
 | **Caducidad de las solicitudes (días)** | número | No | Vacío = no caduca. Si nadie decide en ese plazo, la solicitud caduca, el objeto vuelve a borrador y se avisa (B11c) |
 
-Los cinco tipos de objeto abren solicitudes con estas políticas (B11a); ver [Aprobaciones](aprobaciones.md).
+Los seis tipos de objeto abren solicitudes con estas políticas (B11a, B11d); ver [Aprobaciones](aprobaciones.md).
+
+**Validación (B11d):** «La política necesita al menos un paso de aprobación sin condición: las consultas no
+deciden.»
 
 ## Acciones
 

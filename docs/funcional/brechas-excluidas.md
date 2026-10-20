@@ -13,6 +13,8 @@ fuente:
   - apps/web/lib/gaps/data.ts
   - apps/web/lib/gaps/csv.ts
   - supabase/migrations/00000000000001_schema.sql
+  - apps/web/app/(app)/gaps/gap-card.tsx
+  - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
 ---
 
 # Brechas excluidas
@@ -34,7 +36,8 @@ devolverlas a la cola si la decisión cambia.
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Todos los roles | Sí | Exportar, ver origen |
-| Administrador, Responsable del SGAI, CAIO | Ídem | Además, reactivar |
+| Administrador, Responsable del SGAI, CAIO | Ídem | Además, reactivar y retirar exclusiones pendientes |
+| Quien pidió una exclusión pendiente | Ídem | Retirarla (B11d) |
 
 > TODO: confirmar el comportamiento de **Reactivar** para el resto de roles. El botón aparece, pero la
 > base de datos no borra la exclusión y la vista no muestra ningún error.
@@ -46,8 +49,12 @@ devolverlas a la cola si la decisión cambia.
 - **Aceptados** (riesgo conocido y asumido);
 - **No aplica** (fuera del alcance definido).
 
-Dos secciones: **Aceptados · riesgo conocido y asumido** y **No aplica · fuera del alcance**. No hay
-filtros ni paginación.
+Tres secciones: **Pendientes de aprobación · siguen en la cola activa** (B11d; solo si hay alguna),
+**Aceptados · riesgo conocido y asumido** y **No aplica · fuera del alcance**. Los indicadores solo cuentan las
+exclusiones activas. No hay filtros ni paginación.
+
+Las pendientes llevan la etiqueta **Pendiente de aprobación**, muestran **Solicitado por** y **Fecha
+solicitud** en lugar de **Decidido por** y **Fecha decisión**, y añaden **Ver en Aprobaciones**.
 
 | Campo | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|
@@ -66,6 +73,8 @@ Solo aparecen las exclusiones vigentes de brechas que siguen existiendo.
 |---|---|---|---|
 | **Ver origen** | Todos | Navega al objeto de origen de la brecha | — |
 | **Reactivar** | Administrador, Responsable del SGAI, CAIO | Pide confirmación («¿Reactivar este gap?») y ejecuta `revertGapDispositionAction` | Borra la exclusión: la brecha vuelve a la cola |
+| **Retirar exclusión** (pendiente) | Quien la pidió, Administrador, Responsable del SGAI, CAIO | Pide confirmación («¿Retirar la exclusión? Se cancela su solicitud de aprobación.») | Cancela la solicitud y borra la exclusión. Sin permiso: «Solo quien pidió la exclusión, o un administrador, puede retirarla.» |
+| **Ver en Aprobaciones** (pendiente) | Todos | Navega a [Aprobaciones](aprobaciones.md) | — |
 | **Exportar CSV** | Todos | Descarga `gaps_excluidos_AAAA-MM-DD.csv` | Columnas de la cola más Tipo exclusión, Justificación, Decidido por, Fecha decisión y Caduca exclusión |
 | **Volver a análisis de gaps** | Todos | Navega al [Análisis de brechas](brechas.md) | — |
 
@@ -81,7 +90,10 @@ No aplica.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Vigente: excluir
+  [*] --> Vigente: excluir (sin política)
+  [*] --> Pendiente: excluir (con política, B11d)
+  Pendiente --> Vigente: se aprueba
+  Pendiente --> [*]: se rechaza, se cancela, caduca o se retira (se borra)
   Vigente --> [*]: reactivar (se borra)
   Vigente --> Caducada: pasa la fecha de caducidad
 ```

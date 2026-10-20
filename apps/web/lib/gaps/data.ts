@@ -136,6 +136,7 @@ type GapDispositionRow = {
   decided_by: string | null
   decided_at: string
   expires_at: string | null
+  status: 'active' | 'pending'
 }
 
 export type GapAssignableMember = {
@@ -158,6 +159,8 @@ export type GapDispositionRecord = {
   decided_at: string
   expires_at: string | null
   expired: boolean
+  /** pending = esperando aprobación (DP-07, B11d): la brecha sigue en la cola. */
+  status: 'active' | 'pending'
 }
 
 export type ExcludedGapRecord = UnifiedGapRecord & { disposition: GapDispositionRecord }
@@ -201,6 +204,8 @@ export type UnifiedGapRecord = {
   obligation_id: string | null
   raw_score: number | null
   causal_amplifiers: GapCausalAmplifier[] | null
+  /** Su exclusión espera aprobación (B11d). */
+  pending_exclusion?: boolean
 }
 
 export type GapExposureSystem = {
@@ -237,6 +242,8 @@ export type GapGroupRecord = {
 export type GapsDataResult = {
   gaps: UnifiedGapRecord[]
   excluded: ExcludedGapRecord[]
+  /** Exclusiones pendientes de aprobación (B11d): sus brechas siguen activas. */
+  excluded_pending: ExcludedGapRecord[]
   groups: GapGroupRecord[]
   members: GapAssignableMember[]
   grouping: GapGroupingMeta
@@ -346,7 +353,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       .eq('organization_id', organizationId),
     fluxion
       .from('gap_dispositions')
-      .select('id, gap_key, gap_layer, gap_source_id, disposition, rationale, decided_by, decided_at, expires_at')
+      .select('id, gap_key, gap_layer, gap_source_id, disposition, rationale, decided_by, decided_at, expires_at, status')
       .eq('organization_id', organizationId),
   ])
 
@@ -767,12 +774,16 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     })
   }
 
+  // Solo excluye una exclusión activa; la pendiente de aprobación deja la
+  // brecha en la cola, marcada (DP-07, B11d).
   const activeDispositionMap = new Map<string, GapDispositionRecord>()
+  const pendingDispositionMap = new Map<string, GapDispositionRecord>()
   for (const row of dispositions) {
     const expired = row.expires_at ? new Date(row.expires_at) <= now : false
     if (!expired) {
       const profile = profileMap.get(row.decided_by ?? '')
-      activeDispositionMap.set(row.gap_key, {
+      const map = (row.status ?? 'active') === 'pending' ? pendingDispositionMap : activeDispositionMap
+      map.set(row.gap_key, {
         id: row.id,
         gap_key: row.gap_key,
         gap_layer: row.gap_layer as GapLayer,
@@ -784,6 +795,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
         decided_at: row.decided_at,
         expires_at: row.expires_at,
         expired: false,
+        status: row.status ?? 'active',
       })
     }
   }
@@ -806,10 +818,15 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
 
     return b.created_at.localeCompare(a.created_at)
   })
-  const activeGaps = orderedGaps.filter((gap) => !activeDispositionMap.has(gap.key))
+  const activeGaps = orderedGaps
+    .filter((gap) => !activeDispositionMap.has(gap.key))
+    .map((gap) => (pendingDispositionMap.has(gap.key) ? { ...gap, pending_exclusion: true } : gap))
   const excludedGaps: ExcludedGapRecord[] = orderedGaps
     .filter((gap) => activeDispositionMap.has(gap.key))
     .map((gap) => ({ ...gap, disposition: activeDispositionMap.get(gap.key)! }))
+  const pendingExcludedGaps: ExcludedGapRecord[] = orderedGaps
+    .filter((gap) => pendingDispositionMap.has(gap.key))
+    .map((gap) => ({ ...gap, disposition: pendingDispositionMap.get(gap.key)! }))
 
   const groups = buildGapGroups(activeGaps)
 
@@ -899,6 +916,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   return {
     gaps: activeGaps,
     excluded: excludedGaps,
+    excluded_pending: pendingExcludedGaps,
     groups,
     members: members.map((member) => ({
       id: member.user_id,

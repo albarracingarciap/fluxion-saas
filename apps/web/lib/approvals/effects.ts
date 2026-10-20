@@ -42,6 +42,8 @@ export async function applyApprovalOutcome(params: {
       return aplicarADeclaracion(params)
     case 'evidence':
       return aplicarAEvidencia(params)
+    case 'gap_disposition':
+      return aplicarAExclusion(params)
     default:
       return {}
   }
@@ -229,6 +231,20 @@ async function aplicarAEvidencia(params: EfectoParams): Promise<{ aviso?: string
   return {}
 }
 
+// ── Exclusión de brechas (B11d, DP-07) ───────────────────────────────────────
+// Aprobada, la brecha sale de la cola. Rechazada, la exclusión se borra y la
+// brecha sigue en la cola; la solicitud y su motivo quedan en el histórico.
+
+async function aplicarAExclusion(params: EfectoParams): Promise<{ aviso?: string }> {
+  const admin = createNoCacheAdminClient()
+  const consulta = admin.from('gap_dispositions')
+  const { error } = params.outcome === 'approved'
+    ? await consulta.update({ status: 'active' }).eq('id', params.objectId).eq('status', 'pending')
+    : await consulta.delete().eq('id', params.objectId).eq('status', 'pending')
+  if (error) return aviso('la exclusión de la brecha no se pudo actualizar', error)
+  return {}
+}
+
 async function aplicarAPlan(params: {
   objectId:  string
   requestId: string
@@ -365,6 +381,12 @@ export async function applyApprovalCancellation(params: {
           `Evidencia "${e.title}": la solicitud de aprobación se canceló y vuelve a borrador. Motivo: ${params.reason}`,
           params.actorUserId, { evidence_id: e.id })
       }
+      return {}
+    }
+    case 'gap_disposition': {
+      const { error } = await admin.from('gap_dispositions')
+        .delete().eq('id', params.objectId).eq('status', 'pending')
+      if (error) return aviso('la exclusión de la brecha no se pudo retirar', error)
       return {}
     }
     default:

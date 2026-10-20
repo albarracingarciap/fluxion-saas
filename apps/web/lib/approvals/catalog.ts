@@ -16,6 +16,7 @@ export const APPROVAL_OBJECT_TYPES = [
   { key: 'document',         label: 'Documento regulatorio' },
   { key: 'soa',              label: 'Declaración de Aplicabilidad' },
   { key: 'evidence',         label: 'Evidencia' },
+  { key: 'gap_disposition',  label: 'Exclusión de brecha' },
 ] as const
 
 export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']
@@ -34,7 +35,39 @@ export type ApprovalStepRow = {
   allow_delegation:  boolean
   /** Rol de respaldo de los pasos por tipo de comité o por función (NULL = Responsable del SGAI). */
   fallback_role?:    string | null
+  /**
+   * `consultation` (B11d): emite un dictamen, favorable o desfavorable y siempre
+   * con texto, que consta pero no decide; la solicitud avanza. Si no hay nadie a
+   * quien consultar, el paso se omite.
+   */
+  kind?:             ApprovalStepKind
+  /** El paso solo entra si el contexto de la solicitud lo cumple. {} = siempre (B11d). */
+  condition?:        Record<string, string[]>
 }
+
+export type ApprovalStepKind = 'approval' | 'consultation'
+
+export const APPROVAL_STEP_KINDS: ReadonlyArray<{ key: ApprovalStepKind; label: string }> = [
+  { key: 'approval',     label: 'Aprobación' },
+  { key: 'consultation', label: 'Consulta (dictamen)' },
+]
+
+/**
+ * Condiciones de paso que la aplicación sabe rellenar en el contexto (B11d).
+ * `has_security_controls`: el plan tiene alguna acción «Mitigar» sobre un modo
+ * de fallo de la dimensión Seguridad.
+ */
+export const APPROVAL_STEP_CONDITIONS: ReadonlyArray<{ key: string; value: string; label: string }> = [
+  { key: 'has_security_controls', value: 'true', label: 'Solo si el plan tiene controles de seguridad' },
+]
+
+/** Capas de brecha que se pueden poner como condición de una política (B11d). */
+export const APPROVAL_GAP_LAYERS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'fmea',      label: 'Riesgo sin tratar' },
+  { key: 'normativo', label: 'Obligación sin cubrir' },
+  { key: 'control',   label: 'Control sin implantar' },
+  { key: 'caducidad', label: 'Evidencia caducada' },
+]
 
 /** Tipos de comité que se pueden pedir en una política (B11b). */
 export const APPROVAL_COMMITTEE_TYPES: ReadonlyArray<{ key: string; label: string }> = [

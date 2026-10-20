@@ -8,6 +8,7 @@ import {
   getDefaultDeadlineForZone,
   getReviewCadenceForZone,
   pickPlanApprover,
+  planHasSecurityControls,
   type ApproverCandidate,
 } from '../lib/fmea/treatment-plan-rules'
 import { canPrepareTreatmentPlan, canResolveFmeaSecondReview } from '../lib/auth/roles-flujo'
@@ -90,4 +91,14 @@ test('sin candidato no se asigna a nadie', () => {
   const miembros = [miembro('dpo', 'dpo'), miembro('admin', 'org_admin'), miembro('sgai', 'sgai_manager', false)]
   assert.equal(pickPlanApprover(miembros, 'level_1', 'otro'), null)
   assert.equal(pickPlanApprover([miembro('sgai', 'sgai_manager')], 'level_1', 'sgai'), null)
+})
+
+test('controles de seguridad del plan: consulta del CISO (B11d)', () => {
+  assert.equal(planHasSecurityControls([]), false)
+  assert.equal(planHasSecurityControls([{ option: 'mitigar', dimension_id: 'tecnica' }]), false)
+  assert.equal(planHasSecurityControls([{ option: 'aceptar', dimension_id: 'seguridad' }]), false)
+  assert.equal(planHasSecurityControls([
+    { option: 'aceptar', dimension_id: 'tecnica' },
+    { option: 'mitigar', dimension_id: 'seguridad' },
+  ]), true)
 })

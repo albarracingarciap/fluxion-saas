@@ -90,7 +90,9 @@ flowchart LR
 4. **[Disposición](../glosario.md#disposición-de-la-brecha).** Cuando una brecha no se va a cerrar, se
    puede declarar «Brecha asumida» o «Fuera de alcance», con una justificación de al menos 10
    caracteres. La decisión se puede revertir y la brecha pasa a la vista de brechas excluidas, también
-   exportable.
+   exportable. Excluir un riesgo sin tratar o una obligación sin cubrir equivale a aceptar un riesgo o un
+   incumplimiento, así que pasa por los [flujos de aprobación](flujos-de-aprobacion.md) (por defecto, la
+   aprueba el Responsable del SGAI): la brecha sigue en la cola hasta que se aprueba.
 5. **Cierre.** No hay que cerrar las brechas a mano: desaparecen cuando se resuelve la obligación, se
    trata el riesgo, se completa el control o se renueva la evidencia.
 6. **Instantáneas.** El análisis se puede guardar como instantánea fechada, consultar después y

@@ -24,6 +24,10 @@ fuente:
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
   - apps/web/app/api/cron/approval-expiry/route.ts
+  - supabase/migrations/20261020170000_aprobaciones_tipo_exclusion_brecha.sql
+  - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
+  - apps/web/lib/documents/derive-approval.ts
+  - apps/web/app/(app)/gaps/actions.ts
 ---
 
 # Aprobaciones
@@ -44,21 +48,23 @@ queda registrado a nombre de quien lo emite: es lo que convierte una aprobación
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Quien puede decidir el paso actual | **Me toca decidir** | Aprobar, rechazar, abstenerse |
+| Quien puede decidir el paso actual | **Me toca decidir** | Aprobar, rechazar, abstenerse; en un paso de consulta, **Emitir dictamen** |
 | Quien abrió la solicitud, Administrador, Responsable del SGAI | Ídem | Cancelar la solicitud |
 | Todos los roles | **Histórico** de la organización (últimas 50) | Consultar |
 
 Una persona puede decidir un paso si:
 - no ha abierto ella la solicitud, salvo que la política lo permita;
 - no ha votado ya en ese paso;
+- no tiene el rol Auditor (B11d: el Auditor nunca decide, tampoco por delegación);
+- no es asesor (voz sin voto) del comité;
 - y además cumple una de estas condiciones:
   - tiene el rol indicado en el paso;
   - está designada en la política;
   - es miembro del comité;
   - tiene una delegación vigente, si el paso la admite.
 
-**Qué abre solicitudes (B11a).** Los cinco tipos de objeto, cuando la organización tiene una política activa
-para su tipo:
+**Qué abre solicitudes (B11a, B11d).** Los seis tipos de objeto, cuando la organización tiene una política
+activa para su tipo:
 
 | Objeto | Se abre al | Pantalla del objeto mientras está pendiente |
 |---|---|---|
@@ -67,6 +73,7 @@ para su tipo:
 | Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política puede depender de la plantilla, `template_key`) | En lugar de **Aprobar expediente**, el motivo. **Volver a borrador** cancela la solicitud |
 | Declaración de Aplicabilidad | Enviarla a revisión (con todos los controles aplicables justificados) | **En Aprobaciones** en lugar de **Aprobar SoA**. **Iniciar nueva revisión** cancela la solicitud |
 | Evidencia | Enviarla a revisión (también en bloque) | «Se decide en Aprobaciones». Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
+| Exclusión de brecha (B11d) | Excluir una brecha (también en bloque) cuya capa gobierna una política; por defecto, «Riesgo sin tratar» y «Obligación sin cubrir» (DP-07). El contexto lleva `gap_layer` y el título de la brecha | La brecha sigue en la cola con **Exclusión pendiente de aprobación**, y en [Brechas excluidas](brechas-excluidas.md) en **Pendientes de aprobación**. **Retirar exclusión** cancela la solicitud |
 
 **Políticas por defecto (B11b).** Toda organización tiene una política para cada tipo de objeto, con el mapa
 de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
@@ -79,8 +86,27 @@ AISIA, expedientes y evidencias en revisión, y la Declaración en revisión) ab
 **Respaldo.** Si un paso pide un comité que no está constituido o una función de gobierno sin designar,
 decide el rol de respaldo de la política, y la tarjeta lo indica en ámbar.
 
-> **Pendiente de implementar.** Pasos de consulta sin voto (dictamen del DPO, revisión del CISO) y pasos
-> condicionales (B11d).
+**Pasos de consulta (B11d).** Un paso de tipo consulta pide un dictamen: favorable o desfavorable, siempre con
+texto y sin abstención. El dictamen consta en el histórico y en el acta, pero no decide: con cualquier dictamen
+la solicitud pasa al paso siguiente, y un dictamen desfavorable no la cierra. Si al abrir la solicitud no hay
+nadie a quien consultar (nadie con el rol, la función sin designar o el comité sin constituir), la consulta se
+omite: no tiene rol de respaldo. Tampoco cuentan como consultados quien solicita (salvo que la política le deje
+aprobar) ni el Auditor.
+
+**Pasos condicionales (B11d).** Un paso puede llevar una condición sobre el contexto de la solicitud; si no se
+cumple, el paso no entra. Hoy la aplicación rellena `has_security_controls` al enviar un plan: `true` si alguna
+acción «Mitigar» trata un modo de fallo de la dimensión Seguridad. Es la condición de la consulta al CISO en
+los planes de nivel 1 y 2.
+
+Los pasos omitidos (por condición o por no haber a quién consultar) constan en el acta como «Paso omitido».
+
+**Mapa por defecto con consultas (B11d):** DPO antes del aprobador en la AISIA, la FRIA y la DPIA; CISO,
+si el plan tiene controles de seguridad, en los planes de nivel 1 y 2; exclusión de brechas «Riesgo sin
+tratar» y «Obligación sin cubrir», el Responsable del SGAI. A las políticas por defecto ya existentes se les
+añadió la consulta solo si seguían sin editar (un único paso).
+
+> **Pendiente de implementar.** La clasificación AI Act y la política de IA como objetos aprobables (B13 y
+> B20).
 
 ## Campos
 
@@ -98,13 +124,14 @@ Zona I.
 |---|---|---|
 | Título | Objeto de la solicitud: nombre del sistema (plan), título (AISIA, expediente, evidencia) o «Declaración de Aplicabilidad ISO/IEC 42001» | `v_approval_requests.object_label` |
 | **Ver {objeto} →** | Abre la pantalla del objeto para revisarlo antes de decidir | `object_href` |
-| Tipo | Plan de tratamiento · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia | `object_type` |
+| Título (exclusión de brecha) | «Exclusión de brecha · {título de la brecha}», guardado en el contexto: se conserva aunque la exclusión se borre al rechazarse | `context.gap_title` |
+| Tipo | Plan de tratamiento · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de brecha | `object_type` |
 | Estado (cerradas) | Aprobada · Rechazada · Cancelada | `status` |
-| Datos | «{política} · Paso N de M · {votos} de {quórum} votos (en comités) · Solicitada por {persona} el {fecha}» | `policy_snapshot`, `current_position` |
+| Datos | «{política} · Paso N de M [(consulta)] · {votos} de {quórum} votos (en comités) · Solicitada por {persona} el {fecha}» | `policy_snapshot`, `current_position`, `current_step.kind` |
 | Motivo | Por qué le toca decidir: «Te corresponde por tu rol», «Estás designado en la política», «Eres miembro del comité» o «Por delegación» | `approval_can_decide` |
 | Motivo de cierre | «Motivo: «…»» | `closed_reason` |
 | **Descargar acta** | Si se ha generado un [acta](../glosario.md#acta) | `minutes_render_id` |
-| **Histórico de decisiones** | «Paso N · {persona} aprobó / rechazó / se abstuvo [· por cuenta de {titular}] · {fecha}», con el motivo | `approval_decisions` |
+| **Histórico de decisiones** | «Paso N · {persona} aprobó / rechazó / se abstuvo [· por cuenta de {titular}] · {fecha}», con el motivo. En los pasos de consulta, «emitió un dictamen favorable / desfavorable» | `approval_decisions`, `policy_snapshot.steps[].kind` |
 
 **Si no hay solicitudes:**
 - **Me toca decidir:** «No tienes nada pendiente de decidir.»
@@ -120,6 +147,7 @@ Zona I.
 | **Aprobar** | Decisor | `decideApproval` | Si se alcanza el quórum, el paso se cierra y se avanza al siguiente. En el último paso, la solicitud queda aprobada |
 | **Rechazar** | Decisor | Pide el motivo («Qué hay que corregir para que esto pueda aprobarse») y **Confirmar rechazo** | Cierra la solicitud como rechazada |
 | **Abstenerse** | Decisor | Registra la abstención | «Consta, pero no acerca la aprobación» |
+| **Emitir dictamen** (paso de consulta) | Consultado | Abre **Dictamen** con texto obligatorio y **Desfavorable** / **Favorable** | El dictamen consta y la solicitud pasa al paso siguiente (o se aprueba, si era el último) |
 | **Cancelar solicitud** | Solicitante (en **Mis solicitudes**), Administrador y Responsable del SGAI | Pide el motivo y cancela | Cierra la solicitud como cancelada, devuelve el objeto a borrador (con historial) y avisa al solicitante, si no fue él, y a quien tenía que decidir |
 
 **Al cerrarse una solicitud:**
@@ -133,6 +161,7 @@ Zona I.
    | Expediente documental | Aprobado, con quien decidió | Vuelve a borrador |
    | Declaración de Aplicabilidad | Aprobada, con quien decidió | Vuelve a borrador |
    | Evidencia | Válida, con quien decidió | Rechazada, con el motivo |
+   | Exclusión de brecha | La exclusión pasa a activa: la brecha sale de la cola | La exclusión se borra: la brecha sigue en la cola |
 
    Cada efecto deja su evento en el historial del sistema (salvo la Declaración, que tiene su propio
    historial).
@@ -165,8 +194,9 @@ Cada decisión queda en el registro de auditoría. Las decisiones no se pueden m
 - **Políticas:**
   - tipo de objeto y nombre;
   - niveles (planes de tratamiento) o plantillas (expedientes) a los que se aplica;
-  - cadena de pasos, cada uno por rol, persona, comité concreto, tipo de comité o función de gobierno, con
-    quórum, rol de respaldo y delegación;
+  - capas de brecha a las que se aplica (exclusiones de brechas, B11d);
+  - cadena de pasos, cada uno de aprobación o de consulta, por rol, persona, comité concreto, tipo de comité
+    o función de gobierno, con quórum, rol de respaldo (solo aprobación), condición y delegación;
   - si quien solicita puede aprobar;
   - caducidad de las solicitudes;
   - si la política está activa.
@@ -179,6 +209,8 @@ Ver [Ajustes](ajustes.md).
 | Situación | Mensaje |
 |---|---|
 | Rechazar sin motivo | **Confirmar rechazo** deshabilitado; en servidor, «Rechazar exige un motivo: quien rehaga el objeto necesita saber qué corregir.» |
+| Dictamen sin texto | **Favorable** y **Desfavorable** deshabilitados; en servidor, «Un dictamen necesita su texto: es lo que leerá quien decida después.» |
+| Abstenerse en una consulta | «En una consulta no cabe abstenerse: el dictamen es favorable o desfavorable.» |
 | Cancelar sin permiso | «Solo quien la solicitó o un administrador puede cancelarla.» |
 | Cancelar sin motivo | «Indica por qué se cancela.» |
 | Solicitud inexistente | «La solicitud no existe.» |
@@ -191,7 +223,7 @@ política activa por tipo de objeto.
 ```mermaid
 stateDiagram-v2
   [*] --> Pendiente: enviar a aprobación
-  Pendiente --> Pendiente: voto o abstención (avanza de paso al alcanzar el quórum)
+  Pendiente --> Pendiente: voto o abstención (avanza de paso al alcanzar el quórum) o dictamen (avanza siempre)
   Pendiente --> Aprobada: quórum en el último paso
   Pendiente --> Rechazada: un rechazo
   Pendiente --> Cancelada: cancelar
@@ -202,5 +234,6 @@ stateDiagram-v2
 - [Plan de tratamiento](plan-de-tratamiento.md): envío a aprobación.
 - [Ajustes](ajustes.md), pestaña Aprobaciones.
 - [Organización](organizacion.md): comités.
+- [Análisis de brechas](brechas.md) y [Brechas excluidas](brechas-excluidas.md): exclusiones con aprobación.
 - [Expediente documental](expediente-documental.md): actas generadas.
 - Negocio: [Flujos de aprobación](../negocio/flujos-de-aprobacion.md).
