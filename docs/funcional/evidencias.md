@@ -16,6 +16,8 @@ fuente:
   - apps/web/lib/evidences/expiry-alerts.ts
   - apps/web/lib/evidences/versions.ts
   - apps/web/lib/evidences/versions-actions.ts
+  - apps/web/lib/evidences/review-rules.ts
+  - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
   - apps/web/lib/storage/objects.ts
   - apps/web/app/api/cron/evidence-expiry/route.ts
   - supabase/migrations/00000000000001_schema.sql
@@ -42,10 +44,15 @@ por revisar, cuáles caducan, cuáles no tienen responsable y cuáles no respald
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Todas |
-| Directivo, Auditor, Lector | Sí, con todos los botones | Crear evidencias y adjuntar ficheros. Editar, revisar o eliminar no tiene efecto, y la vista no avisa |
+| Responsable del SGAI | Sí | Todas. Es el único que aprueba o rechaza, y no las evidencias que aporta él mismo |
+| Administrador, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Crear, editar, enviar a revisión, reabrir y eliminar |
+| Directivo, Auditor, Lector | Sí | Crear evidencias y adjuntar ficheros. Editar, revisar o eliminar devuelve «No tienes permisos para modificar esta evidencia.» |
 
-> **Pendiente de definir.** Qué roles pueden validar o rechazar evidencias.
+Quién aprueba sigue DP-01: el Responsable del SGAI, distinto de quien aporta la evidencia (su responsable).
+La base de datos lo comprueba también (`trg_evidence_review_rules`). A quien no puede decidir, la vista le
+muestra «Pendiente de revisión del Responsable del SGAI» en lugar de **Aprobar** y **Rechazar**.
+
+> **Pendiente de implementar.** El «revisor designado» de DP-01 como alternativa al Responsable del SGAI.
 
 ## Campos
 
@@ -96,9 +103,9 @@ por revisar, cuáles caducan, cuáles no tienen responsable y cuáles no respald
 |---|---|---|---|---|
 | **Título** | texto | Sí | — | `title` |
 | **Tipo** | selector | — | Documento técnico, DPIA, Política (por defecto en las de organización), Contrato, Informe de auditoría, Registro formativo, Resultado de pruebas, Log de monitorización, Evaluación de riesgos, Certificado, Otro | `evidence_type` |
-| **Estado** | selector | — | Borrador (por defecto), Pendiente de revisión, Válida, Caducada, Rechazada | `status` |
+| **Estado** | informativo | — | No se elige: toda evidencia nace en borrador y el estado cambia con el ciclo de revisión. Al editar, avisa de que cambiar el contenido la devuelve a borrador | `status` |
 | **URL del documento** | URL | Sí, si no hay fichero | — | `external_url` |
-| **Archivo adjunto** | fichero | No | PDF, imagen, Word, Excel, PowerPoint, texto o CSV. La vista indica máximo 20 MB | `storage_path`, `mime_type`, `file_size_bytes` |
+| **Archivo adjunto** | fichero | No | PDF, imagen, Word, Excel, PowerPoint, texto o CSV. Máximo 20 MB, comprobado al elegirlo y en el servidor | `storage_path`, `mime_type`, `file_size_bytes` |
 | **Descripción** | texto largo | No | — | `description` |
 | **Versión** | texto | No | — | `version` |
 | **Tags** | etiquetas | No | Intro o coma para añadir; se guardan en minúsculas | `tags` |
@@ -109,35 +116,42 @@ Los ficheros se suben en tres pasos:
 2. El navegador sube el fichero directamente al almacenamiento.
 3. El servidor comprueba que el fichero ha llegado y lo registra.
 
-> TODO: confirmar varios comportamientos del formulario.
-> - **Estado:** permite fijar «Válida» sin pasar por la revisión.
-> - **Edición:** el fichero se sube al elegirlo, aunque después se cancele.
+**Cambios de contenido.** Si cambia el fichero, la URL, las fechas, la versión, el tipo, el título o la
+descripción de una evidencia pendiente de revisión, válida, caducada o rechazada, vuelve a «Borrador» y se
+borran el revisor y las notas de revisión: lo que se validó ya no es lo que hay. Cambiar solo las etiquetas
+no cambia el estado.
+
+**Alta de organización con fichero:** si el fichero no se puede adjuntar, la evidencia queda creada en
+borrador y el formulario lo indica, para adjuntarlo al editarla.
+
+> TODO: confirmar dos comportamientos del fichero.
+> - **Edición:** el fichero se sube al elegirlo, aunque después se cancele (y la evidencia vuelve a borrador).
 > - **Fichero:** quitar el fichero o eliminar la evidencia no borra el fichero del almacenamiento.
-> - **Tamaño:** el límite es de 20 MB en la vista, pero de 100 MB en el servidor.
-> - **Alta de organización:** si la subida del fichero falla, el error no se muestra y la evidencia queda en
->   borrador sin fichero.
 
 ## Acciones
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **+ Evidencia organizacional** | Todos | `createOrganizationEvidence`: evidencia de toda la organización, con el usuario como responsable | Sin URL ni fichero queda en borrador |
-| **Editar evidencia** | Roles con permiso | `updateSystemEvidence` | Registra una versión. Historial «Evidencia actualizada» en el sistema |
-| **Enviar a revisión** · **Aprobar** · **Rechazar** (con motivo) · **Reabrir** | Roles con permiso | `reviewSystemEvidence` | Registra revisor y fecha. Historial «Revisión solicitada», «Evidencia aprobada», «Evidencia rechazada» o «Evidencia reabierta» |
+| **+ Evidencia organizacional** | Todos | `createOrganizationEvidence`: evidencia de toda la organización, con el usuario como responsable | Nace en borrador |
+| **Editar evidencia** | Roles con permiso | `updateSystemEvidence` | Versión registrada. Si cambia el contenido de una evidencia ya enviada, vuelve a borrador. Historial «Evidencia actualizada» en el sistema |
+| **Enviar a revisión** · **Reabrir** | Roles con permiso | `reviewSystemEvidence` | Versión registrada. Historial «Revisión solicitada» o «Evidencia reabierta» |
+| **Aprobar** · **Rechazar** (con motivo) | Responsable del SGAI que no la aportó | `reviewSystemEvidence` | La base de datos registra revisor y fecha. Versión registrada. Historial «Evidencia aprobada» o «Evidencia rechazada» |
 | **Eliminar evidencia** | Roles con permiso | Pide confirmación y ejecuta `deleteSystemEvidence` | Borra también sus versiones, alertas y vínculos. Historial «Evidencia eliminada» |
 | Vista previa | Todos | Abre el fichero (PDF o imagen) o lo descarga | — |
-| **Ver historial de versiones** | Todos | Panel con los cambios de la evidencia y su diferencia campo a campo | — |
-| Selección › **Enviar a revisión** / **Aprobar** | Roles con permiso | `bulkReviewEvidences`: solo las que admiten el cambio | Sin revisor ni historial |
+| **Ver historial de versiones** | Todos | Panel con los cambios de la evidencia y su diferencia campo a campo, incluido el fichero (por su nombre) | — |
+| Selección › **Enviar a revisión** / **Aprobar** (este, solo para el Responsable del SGAI) | Roles con permiso | `bulkReviewEvidences`: solo las que admiten el cambio; al aprobar, omite las que aportó quien aprueba | Revisor, fecha y versión registrados por la base de datos. Sin historial del sistema |
 | Selección › **Vincular obligación** | Roles con permiso | Vincula las seleccionadas a una obligación de la organización | — |
 | Selección › **CSV** | Todos | Descarga `evidencias_AAAA-MM-DD.csv` | — |
 | Descartar alerta (X) | Todos | Oculta la alerta de caducidad | — |
 
-> TODO: confirmar que el historial de versiones se guarda. La tabla de versiones no admite inserciones con
-> los permisos del usuario, así que probablemente no se registra ningún cambio y el historial siempre está
-> vacío.
+**Versiones.** Las guarda la base de datos en cada cambio de contenido o de estado, venga de donde venga
+(también la aprobación en bloque y la caducidad diaria): `trg_evidence_versions` escribe en
+`system_evidence_versions` el estado anterior al cambio, con el tipo de cambio (Creada, Editada, Enviada a
+revisión, Aprobada, Rechazada, Reabierta o Caducada) y el perfil de quien lo hizo. Las evidencias anteriores
+a esta versión no tienen historial previo.
 
-> TODO: confirmar el comportamiento sin permiso. Si un rol sin permiso edita, revisa o elimina, la base de
-> datos no aplica el cambio y la vista no lo indica.
+**Errores.** Si la base de datos rechaza o no aplica un cambio (permisos, transición no permitida), la fila
+muestra el mensaje en lugar de darlo por hecho.
 
 ### Alertas de caducidad
 
@@ -157,8 +171,11 @@ Una alerta descartada no vuelve a aparecer.
 | Fuera de borrador sin fichero ni URL | «Una evidencia que no está en borrador necesita un fichero adjunto o una URL.» |
 | Alta de organización sin fichero ni URL | «Adjunta un fichero o indica la URL del documento.» |
 | Rechazo sin motivo | «Las notas de rechazo son obligatorias.» |
-| Transición no permitida | «No se puede aplicar "…" desde el estado "…".» |
-| Fichero de más de 100 MB | «El fichero supera el máximo de 100 MB.» |
+| Transición no permitida | «Esta acción no se puede aplicar a una evidencia en estado «…».» |
+| Aprobar o rechazar sin el rol | «Solo el Responsable del SGAI puede aprobar o rechazar evidencias.» |
+| Aprobar o rechazar la propia | «Quien aporta una evidencia no puede revisarla.» |
+| Cambio sin permiso | «No tienes permisos para modificar esta evidencia.» / «No tienes permisos para eliminar esta evidencia.» |
+| Fichero de más de 20 MB | «El fichero supera el máximo de 20 MB.» |
 | Almacenamiento no configurado | «El almacenamiento de ficheros no está configurado en este entorno.» |
 | Fichero que no llegó | «El fichero no llegó al almacenamiento. Inténtalo de nuevo.» |
 
@@ -171,8 +188,16 @@ stateDiagram-v2
   Pendiente_de_revisión --> Válida: aprobar
   Pendiente_de_revisión --> Rechazada: rechazar
   Rechazada --> Borrador: reabrir
+  Rechazada --> Pendiente_de_revisión: enviar a revisión
   Válida --> Caducada: tarea diaria
+  Válida --> Borrador: cambiar el contenido
+  Caducada --> Borrador: cambiar el contenido
+  Pendiente_de_revisión --> Borrador: cambiar el contenido
 ```
+
+Fuera de estas transiciones, la base de datos rechaza el cambio de estado. Las evidencias «Válidas» que nadie
+revisó antes de esta regla llevan la etiqueta `sin-revision`; las del expediente generado (etiqueta
+`generado`) se crean válidas porque salen de un documento aprobado.
 
 ## Vistas relacionadas
 

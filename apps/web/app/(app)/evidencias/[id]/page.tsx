@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
+import { hasRole } from '@/lib/auth/roles'
+import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules'
 import { getEvidenceDetail } from '@/lib/evidences/detail'
 import {
   ReviewActions,
@@ -171,7 +173,10 @@ export default async function EvidenceDetailPage({
                 </Link>
               )}
             </div>
-            <ReviewActions evidence={ev} />
+            <ReviewActions
+              evidence={ev}
+              canDecide={hasRole(membership, EVIDENCE_REVIEWER_ROLE) && ev.owner_id !== user.id}
+            />
             <DeleteAction evidence={ev} />
           </div>
         </div>

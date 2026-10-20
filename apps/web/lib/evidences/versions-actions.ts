@@ -21,6 +21,7 @@ export async function getEvidenceVersions(
       evidence_type,
       status,
       external_url,
+      storage_path,
       version,
       issued_at,
       expires_at,

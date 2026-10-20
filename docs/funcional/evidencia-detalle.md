@@ -10,6 +10,7 @@ fuente:
   - apps/web/app/(app)/evidencias/[id]/evidence-detail-client.tsx
   - apps/web/lib/evidences/detail.ts
   - apps/web/app/(app)/evidencias/actions.ts
+  - apps/web/lib/evidences/review-rules.ts
 ---
 
 # Detalle de evidencia
@@ -66,14 +67,14 @@ Si la evidencia no existe o es de otra organización, la vista devuelve «no enc
 | **Vista previa** | Todos | Abre el fichero (PDF o imagen) o lo descarga | — |
 | **Abrir URL** | Todos | Abre el enlace externo | — |
 | **Ver sistema** | Todos | Navega a la pestaña Evidencias de la [Ficha del sistema](ficha-sistema.md) | — |
-| **Enviar a revisión** · **Aprobar** · **Rechazar** (con motivo) · **Reabrir borrador** | Roles con permiso | Ciclo de revisión, como en la [Biblioteca de evidencias](evidencias.md#acciones) | — |
-| **Eliminar** | Roles con permiso | Pide confirmación («¿Eliminar permanentemente?») y elimina | Vuelve a la biblioteca |
+| **Enviar a revisión** · **Reabrir borrador** | Roles con permiso | Ciclo de revisión, como en la [Biblioteca de evidencias](evidencias.md#acciones) | — |
+| **Aprobar** · **Rechazar** (con motivo) | Responsable del SGAI que no la aportó | Ídem. A los demás se les muestra «Pendiente de revisión del Responsable del SGAI (distinto de quien la aporta).» | — |
+| **Eliminar** | Roles con permiso | Pide confirmación («¿Eliminar permanentemente?») y elimina | Vuelve a la biblioteca; si falla, se queda y muestra el error |
 
 La vista no permite editar la evidencia, cambiar el fichero ni gestionar sus vínculos: eso se hace desde
 la biblioteca o desde la ficha del sistema.
 
-> TODO: confirmar el tratamiento de errores. Ni la revisión ni la eliminación muestran sus errores, y tras
-> eliminar se vuelve a la biblioteca aunque haya fallado.
+Los errores de revisión y de eliminación se muestran junto a los botones (B10).
 
 ## Validaciones
 

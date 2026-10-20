@@ -4,10 +4,26 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import {
+  EVIDENCE_REVIEW_TRANSITIONS,
+  evidenceReviewBlocker,
+  statusAfterEdit,
+  type EvidenceReviewAction,
+} from '@/lib/evidences/review-rules';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
-const VALID_STATUSES = ['draft', 'valid', 'expired', 'pending_review', 'rejected'] as const;
+/** Sin permiso por RLS, la base de datos no modifica nada y no da error: se avisa. */
+const SIN_PERMISO = 'No tienes permisos para modificar esta evidencia.';
+
+/**
+ * Mensaje legible de un error de la base de datos. Las reglas del ciclo de
+ * revisión (`trg_evidence_review_rules`) ya devuelven el texto para el usuario.
+ */
+function dbError(error: { message: string; code?: string }): string {
+  if (error.code === '23514' || error.code === '42501') return error.message;
+  return 'No se pudo guardar la evidencia: ' + error.message;
+}
 
 async function getAuthContext() {
   const supabase = createClient();
@@ -40,7 +56,6 @@ export type UpdateSystemEvidenceInput = {
   description?: string;
   evidenceType: string;
   externalUrl: string;
-  status?: string;
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
@@ -48,6 +63,12 @@ export type UpdateSystemEvidenceInput = {
   tags?: string[];
 };
 
+/**
+ * Edita una evidencia. El estado no se elige aquí (B10): si cambia el
+ * contenido de una evidencia enviada, validada, caducada o rechazada, vuelve a
+ * borrador para revisarse de nuevo. La versión anterior la guarda la base de
+ * datos (`trg_evidence_versions`).
+ */
 export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
   const ctx = await getAuthContext();
   if ('error' in ctx) return ctx;
@@ -66,62 +87,65 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
     }
   }
 
-  // Snapshot del estado actual antes de modificar
   const { data: current } = await fluxion
     .from('system_evidences')
-    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes, storage_path')
+    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, storage_path')
     .eq('id', input.evidenceId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  // Fichero o URL: hace falta uno de los dos para que la evidencia salga de
-  // borrador. La comprobación va aquí y no solo en la base de datos para poder
-  // decir qué falta, en vez de devolver una violación de restricción.
-  const nextStatus = VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
-    ? input.status
-    : 'draft';
-  const nextPath = input.storagePath !== undefined ? input.storagePath : current?.storage_path ?? null;
+  if (!current) return { error: 'Evidencia no encontrada.' };
 
-  if (nextStatus !== 'draft' && !url && !nextPath) {
+  const next = {
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    evidence_type: input.evidenceType.trim(),
+    external_url: url || null,
+    version: input.version?.trim() || null,
+    issued_at: input.issuedAt || null,
+    expires_at: input.expiresAt || null,
+    storage_path: input.storagePath !== undefined ? input.storagePath : current.storage_path,
+  };
+
+  // Las fechas llegan como AAAA-MM-DD; la base de datos las devuelve con hora.
+  const mismoDia = (a: string | null, b: string | null) => (a ?? '').slice(0, 10) === (b ?? '').slice(0, 10);
+  const contentChanged =
+    next.title !== current.title
+    || next.description !== (current.description ?? null)
+    || next.evidence_type !== current.evidence_type
+    || next.external_url !== (current.external_url ?? null)
+    || next.version !== (current.version ?? null)
+    || !mismoDia(next.issued_at, current.issued_at)
+    || !mismoDia(next.expires_at, current.expires_at)
+    || next.storage_path !== (current.storage_path ?? null);
+
+  const nextStatus = statusAfterEdit(current.status, contentChanged);
+
+  // Fichero o URL: hace falta uno de los dos fuera de borrador. Se comprueba
+  // aquí para poder decir qué falta, en vez de devolver una violación de
+  // restricción.
+  if (nextStatus !== 'draft' && !next.external_url && !next.storage_path) {
     return { error: 'Una evidencia que no está en borrador necesita un fichero adjunto o una URL.' };
   }
 
-  const { error } = await fluxion
+  const backToDraft = nextStatus !== current.status;
+
+  const { data: updated, error } = await fluxion
     .from('system_evidences')
     .update({
-      title: input.title.trim(),
-      description: input.description?.trim() || null,
-      evidence_type: input.evidenceType.trim(),
-      external_url: url || null,
+      ...next,
       status: nextStatus,
-      version: input.version?.trim() || null,
-      issued_at: input.issuedAt || null,
-      expires_at: input.expiresAt || null,
-      ...(input.storagePath !== undefined ? { storage_path: input.storagePath } : {}),
+      // Lo que se revisó ya no es lo que hay.
+      ...(backToDraft ? { reviewed_by: null, reviewed_at: null, validation_notes: null } : {}),
       ...(input.tags !== undefined ? { tags: input.tags.map((t) => t.trim().toLowerCase()).filter(Boolean) } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.evidenceId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
 
-  if (error) return { error: error.message };
-
-  if (current) {
-    await fluxion.from('system_evidence_versions').insert({
-      evidence_id: input.evidenceId,
-      changed_by: user.id,
-      change_type: 'edit',
-      title: current.title,
-      description: current.description,
-      evidence_type: current.evidence_type,
-      status: current.status,
-      external_url: current.external_url,
-      version: current.version,
-      issued_at: current.issued_at,
-      expires_at: current.expires_at,
-      validation_notes: current.validation_notes,
-    });
-  }
+  if (error) return { error: dbError(error) };
+  if (!updated || updated.length === 0) return { error: SIN_PERMISO };
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -129,8 +153,9 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
       organization_id: profile.organization_id,
       event_type: 'evidence_updated',
       event_title: 'Evidencia actualizada',
-      event_summary: `Se actualizó la evidencia "${input.title.trim()}".`,
-      payload: { evidence_id: input.evidenceId, status: input.status },
+      event_summary: `Se actualizó la evidencia "${input.title.trim()}".`
+        + (backToDraft ? ' Vuelve a borrador para revisarse de nuevo.' : ''),
+      payload: { evidence_id: input.evidenceId, status: nextStatus, previous_status: current.status },
       actor_user_id: user.id,
     },
   ]);
@@ -138,7 +163,7 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
   revalidatePath(`/inventario/${input.aiSystemId}`);
   revalidatePath('/evidencias');
 
-  return { success: true };
+  return { success: true, status: nextStatus, backToDraft };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,13 +184,15 @@ export async function deleteSystemEvidence(evidenceId: string, aiSystemId: strin
 
   if (!evidence) return { error: 'Evidencia no encontrada.' };
 
-  const { error } = await fluxion
+  const { data: deleted, error } = await fluxion
     .from('system_evidences')
     .delete()
     .eq('id', evidenceId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
 
-  if (error) return { error: error.message };
+  if (error) return { error: dbError(error) };
+  if (!deleted || deleted.length === 0) return { error: 'No tienes permisos para eliminar esta evidencia.' };
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -235,13 +262,16 @@ export async function unlinkEvidenceFromFailureMode(
 // Review flow
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ReviewAction = 'request_review' | 'approve' | 'reject' | 'reopen';
+export type ReviewAction = EvidenceReviewAction;
 
-const REVIEW_TRANSITIONS: Record<ReviewAction, { from: string[]; to: string }> = {
-  request_review: { from: ['draft', 'rejected'], to: 'pending_review' },
-  approve:        { from: ['pending_review'],    to: 'valid' },
-  reject:         { from: ['pending_review'],    to: 'rejected' },
-  reopen:         { from: ['rejected'],          to: 'draft' },
+const REVIEW_TRANSITIONS = EVIDENCE_REVIEW_TRANSITIONS;
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  pending_review: 'Pendiente de revisión',
+  valid: 'Válida',
+  rejected: 'Rechazada',
+  expired: 'Caducada',
 };
 
 const REVIEW_EVENT_LABELS: Record<ReviewAction, { type: string; title: string }> = {
@@ -269,7 +299,7 @@ export async function reviewSystemEvidence(
 
   const { data: evidence } = await fluxion
     .from('system_evidences')
-    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes')
+    .select('title, status, owner_user_id')
     .eq('id', evidenceId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -277,7 +307,12 @@ export async function reviewSystemEvidence(
   if (!evidence) return { error: 'Evidencia no encontrada.' };
 
   if (!transition.from.includes(evidence.status)) {
-    return { error: `No se puede aplicar "${action}" desde el estado "${evidence.status}".` };
+    return { error: `Esta acción no se puede aplicar a una evidencia en estado «${STATUS_LABELS[evidence.status] ?? evidence.status}».` };
+  }
+
+  if (action === 'approve' || action === 'reject') {
+    const blocker = evidenceReviewBlocker({ actor: profile, actorUserId: user.id, ownerUserId: evidence.owner_user_id });
+    if (blocker) return { error: blocker };
   }
 
   const updates: Record<string, unknown> = {
@@ -285,9 +320,8 @@ export async function reviewSystemEvidence(
     updated_at: new Date().toISOString(),
   };
 
+  // Quién y cuándo revisó lo rellena la base de datos (trg_evidence_review_rules).
   if (action === 'approve' || action === 'reject') {
-    updates.reviewed_by = user.id;
-    updates.reviewed_at = new Date().toISOString();
     updates.validation_notes = notes?.trim() || null;
   }
 
@@ -297,39 +331,19 @@ export async function reviewSystemEvidence(
     updates.validation_notes = null;
   }
 
-  const { error } = await fluxion
+  const { data: updated, error } = await fluxion
     .from('system_evidences')
     .update(updates)
     .eq('id', evidenceId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
 
-  if (error) return { error: error.message };
-
-  const CHANGE_TYPE_MAP: Record<ReviewAction, string> = {
-    request_review: 'review_requested',
-    approve: 'approved',
-    reject: 'rejected',
-    reopen: 'reopened',
-  };
-
-  await fluxion.from('system_evidence_versions').insert({
-    evidence_id: evidenceId,
-    changed_by: user.id,
-    change_type: CHANGE_TYPE_MAP[action],
-    title: evidence.title,
-    description: evidence.description,
-    evidence_type: evidence.evidence_type,
-    status: evidence.status,
-    external_url: evidence.external_url,
-    version: evidence.version,
-    issued_at: evidence.issued_at,
-    expires_at: evidence.expires_at,
-    validation_notes: evidence.validation_notes,
-  });
+  if (error) return { error: dbError(error) };
+  if (!updated || updated.length === 0) return { error: SIN_PERMISO };
 
   const { type, title } = REVIEW_EVENT_LABELS[action];
 
-  await insertAiSystemHistoryEvents(fluxion, [
+  if (aiSystemId) await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: aiSystemId,
       organization_id: profile.organization_id,
@@ -356,7 +370,6 @@ export type CreateOrganizationEvidenceInput = {
   description?: string;
   evidenceType: string;
   externalUrl: string;
-  status?: string;
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
@@ -388,12 +401,8 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
     return { error: 'Adjunta un fichero o indica la URL del documento.' };
   }
 
-  // Sin ubicación todavía, la evidencia nace en borrador: hasta que el fichero
-  // esté subido no respalda nada. El estado elegido se aplica al editarla.
-  const chosenStatus = VALID_STATUSES.includes(input.status as typeof VALID_STATUSES[number])
-    ? input.status
-    : 'draft';
-  const status = (!url && !input.storagePath) ? 'draft' : chosenStatus;
+  // Toda evidencia nace en borrador y se valida con la revisión (B10).
+  const status = 'draft';
 
   const { data, error } = await fluxion
     .from('system_evidences')
@@ -416,7 +425,7 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
     .select('id')
     .single();
 
-  if (error) return { error: error.message };
+  if (error) return { error: dbError(error) };
 
   revalidatePath('/evidencias');
 
@@ -433,13 +442,15 @@ export async function setEvidenceStoragePath(evidenceId: string, storagePath: st
   if ('error' in ctx) return ctx;
   const { profile, fluxion } = ctx;
 
-  const { error } = await fluxion
+  const { data: updated, error } = await fluxion
     .from('system_evidences')
     .update({ storage_path: storagePath, updated_at: new Date().toISOString() })
     .eq('id', evidenceId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
 
-  if (error) return { error: error.message };
+  if (error) return { error: dbError(error) };
+  if (!updated || updated.length === 0) return { error: SIN_PERMISO };
 
   revalidatePath('/evidencias');
   return { success: true };
@@ -449,14 +460,7 @@ export async function setEvidenceStoragePath(evidenceId: string, storagePath: st
 // Bulk actions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type BulkReviewAction = 'request_review' | 'approve' | 'reject' | 'reopen';
-
-const BULK_REVIEW_TRANSITIONS: Record<BulkReviewAction, { from: string[]; to: string }> = {
-  request_review: { from: ['draft', 'rejected'], to: 'pending_review' },
-  approve:        { from: ['pending_review'],    to: 'valid' },
-  reject:         { from: ['pending_review'],    to: 'rejected' },
-  reopen:         { from: ['rejected'],          to: 'draft' },
-};
+export type BulkReviewAction = EvidenceReviewAction;
 
 export async function bulkReviewEvidences(
   evidenceIds: string[],
@@ -466,20 +470,31 @@ export async function bulkReviewEvidences(
 
   const ctx = await getAuthContext();
   if ('error' in ctx) return { updated: 0, skipped: 0, error: ctx.error };
-  const { profile, fluxion } = ctx;
+  const { user, profile, fluxion } = ctx;
 
-  const transition = BULK_REVIEW_TRANSITIONS[action];
+  const transition = EVIDENCE_REVIEW_TRANSITIONS[action];
+  const isDecision = action === 'approve' || action === 'reject';
 
-  // Fetch current statuses to filter only valid transitions
+  // Sin el rol revisor no se aprueba ni se rechaza nada (DP-01).
+  if (isDecision) {
+    const blocker = evidenceReviewBlocker({ actor: profile, actorUserId: user.id, ownerUserId: null });
+    if (blocker) return { updated: 0, skipped: evidenceIds.length, error: blocker };
+  }
+
   const { data: rows, error: fetchErr } = await fluxion
     .from('system_evidences')
-    .select('id, status')
+    .select('id, status, owner_user_id')
     .in('id', evidenceIds)
     .eq('organization_id', profile.organization_id);
 
   if (fetchErr) return { updated: 0, skipped: 0, error: fetchErr.message };
 
-  const eligible = (rows ?? []).filter((r) => transition.from.includes(r.status)).map((r) => r.id);
+  // Se omiten las que no admiten la transición y, al decidir, las que aportó
+  // quien revisa: nadie revisa sus propias evidencias.
+  const eligible = (rows ?? [])
+    .filter((r) => transition.from.includes(r.status))
+    .filter((r) => !isDecision || r.owner_user_id !== user.id)
+    .map((r) => r.id);
   const skipped = evidenceIds.length - eligible.length;
 
   if (eligible.length === 0) return { updated: 0, skipped };
@@ -489,25 +504,26 @@ export async function bulkReviewEvidences(
     status: transition.to,
     updated_at: now,
   };
-  if (action === 'approve' || action === 'reject') {
-    updates.reviewed_at = now;
-  }
+  // Quién y cuándo revisó lo rellena la base de datos (trg_evidence_review_rules).
   if (action === 'reopen') {
     updates.reviewed_by = null;
     updates.reviewed_at = null;
     updates.validation_notes = null;
   }
 
-  const { error: updateErr } = await fluxion
+  const { data: updatedRows, error: updateErr } = await fluxion
     .from('system_evidences')
     .update(updates)
     .in('id', eligible)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
 
-  if (updateErr) return { updated: 0, skipped, error: updateErr.message };
+  if (updateErr) return { updated: 0, skipped, error: dbError(updateErr) };
+  const updated = updatedRows?.length ?? 0;
+  if (updated === 0) return { updated: 0, skipped, error: SIN_PERMISO };
 
   revalidatePath('/evidencias');
-  return { updated: eligible.length, skipped };
+  return { updated, skipped: skipped + (eligible.length - updated) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

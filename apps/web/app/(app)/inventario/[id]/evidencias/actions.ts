@@ -13,15 +13,10 @@ type CreateSystemEvidenceInput = {
   description?: string;
   evidenceType: string;
   externalUrl: string;
-  status?: string;
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
 };
-
-function isValidEvidenceStatus(value: string | undefined) {
-  return ['draft', 'valid', 'expired', 'pending_review', 'rejected'].includes(value ?? '');
-}
 
 export async function createSystemEvidence(input: CreateSystemEvidenceInput) {
   const supabase = createClient();
@@ -73,7 +68,8 @@ export async function createSystemEvidence(input: CreateSystemEvidenceInput) {
     title: input.title.trim(),
     description: input.description?.trim() || null,
     evidence_type: input.evidenceType.trim(),
-    status: isValidEvidenceStatus(input.status) ? input.status : 'draft',
+    // Toda evidencia nace en borrador y se valida con la revisión (B10).
+    status: 'draft',
     external_url: input.externalUrl.trim(),
     version: input.version?.trim() || null,
     owner_user_id: user.id,

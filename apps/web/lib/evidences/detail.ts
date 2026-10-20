@@ -211,7 +211,7 @@ export async function getEvidenceDetail(
     fluxion
       .from('system_evidence_versions')
       .select(
-        'id, evidence_id, changed_by, changed_at, change_type, title, description, evidence_type, status, external_url, version, issued_at, expires_at, validation_notes',
+        'id, evidence_id, changed_by, changed_at, change_type, title, description, evidence_type, status, external_url, storage_path, version, issued_at, expires_at, validation_notes',
       )
       .eq('evidence_id', evidenceId)
       .order('changed_at', { ascending: false }),
@@ -302,6 +302,7 @@ export async function getEvidenceDetail(
             evidence_type: ev.evidence_type,
             status: ev.status,
             external_url: ev.external_url,
+            storage_path: ev.storage_path,
             version: ev.version,
             issued_at: ev.issued_at,
             expires_at: ev.expires_at,

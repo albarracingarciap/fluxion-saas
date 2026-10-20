@@ -35,6 +35,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B07 · Ciclo único de la evaluación de riesgos | Integrado en `main` | `fase1/b07-ciclo-evaluacion` | 2026-10-20 | **Sí** · `20261020100000_fmea_ciclo_evaluacion.sql` |
 | Corrección: editor de roles recortado en Usuarios (fuera del plan) | Integrado en `main` | `fix/usuarios-editor-roles` | 2026-10-20 | No |
 | Etiquetas de roles según el glosario (fuera del plan) | Integrado en `main` | `fix/etiquetas-roles` | 2026-10-20 | No |
+| B10 · Evidencias: revisión obligatoria y versiones | Integrado en `main` | `fase1/b10-evidencias` | 2026-10-20 | **Sí** · `20261020110000_evidencias_revision_versiones.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -50,6 +51,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql` | B03 | Corrige el responsable de la tarea en los dos triggers; crea la tarea al decidir la opción; genera las tareas que faltan | Antes o después de desplegar B03 (el código funciona sin ella, pero sin tareas nuevas). Revisa el número de tareas creadas por el relleno final |
 | `supabase/migrations/20261020090000_roles_multiples.sql` | B23a | Columna `profiles.roles`, trigger de sincronización con `role`, incompatibilidad DPO + Responsable del SGAI, reescritura de las 67 políticas RLS y de dos funciones de aprobación | **Antes** de desplegar B23a: la aplicación lee `profiles.roles` |
 | `supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql` | B07 | Funciones `plan_estado_por_acciones` y `fmea_aplicar_aprobacion_plan`; trigger de estado del plan en `treatment_actions`; propagación tarea → acción en un trigger AFTER; aplica la aprobación a los planes ya aprobados cuya evaluación seguía en revisión | **Antes** de desplegar B07: aprobar un plan llama a `fmea_aplicar_aprobacion_plan`. Revisa cuántas evaluaciones pasan a «Aprobada» |
+| `supabase/migrations/20261020110000_evidencias_revision_versiones.sql` | B10 | Reglas del ciclo de revisión en `system_evidences` (alta en borrador, transiciones, aprueba el Responsable del SGAI distinto del autor); versiones registradas por trigger, con fichero y caducidad; etiqueta `sin-revision` en las válidas sin revisar | **Antes** de desplegar B10: la aplicación ya no escribe las versiones. Revisa cuántas evidencias reciben `sin-revision` |
 
 ---
 
@@ -661,4 +663,63 @@ mayúsculas distintas («Analista de Riesgos»). Además, el chip de la organiza
 múltiples): se actualiza cuando lo indique el responsable.
 
 **Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 32/32.
+
+---
+
+## B10 · Evidencias: revisión obligatoria y versiones
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b10-evidencias` ·
+**Migración:** **sí**, `supabase/migrations/20261020110000_evidencias_revision_versiones.sql` (aplicar antes de desplegar)
+
+**Problema** (GAP-26 en parte, F-15; `E4`, `E6`, `I16`, `P5`):
+- al crear o editar una evidencia, en la biblioteca y en la ficha, se podía elegir «Válida»: el ciclo de
+  revisión se podía saltar;
+- cualquier rol con permiso de edición aprobaba, también sus propias evidencias, y la aprobación en bloque no
+  guardaba quién revisaba;
+- el historial de versiones estaba siempre vacío: la tabla no admite inserciones por RLS y la aplicación
+  guardaba el usuario donde la clave foránea pide el perfil; los dos fallos se perdían en silencio;
+- cambiar el fichero de una evidencia válida la dejaba válida;
+- 20 MB en la vista y 100 MB en el servidor;
+- revisar, eliminar o editar sin permiso no hacía nada y la vista no avisaba; si el fichero del alta de
+  organización no subía, tampoco.
+
+**Decisión aplicada.** DP-01: las evidencias las aprueba el Responsable del SGAI, distinto de quien las
+aporta. El «revisor designado» queda pendiente.
+
+**Cambios en la base de datos** (migración):
+- `trg_evidence_review_rules` (BEFORE INSERT/UPDATE): con usuario autenticado, alta en borrador o pendiente de
+  revisión; el estado solo cambia por el ciclo (más la vuelta a borrador al cambiar el contenido); aprobar o
+  rechazar exige `sgai_manager` y no ser el responsable de la evidencia, y rellena revisor y fecha. Sin usuario
+  (caducidad diaria, expediente generado) no aplica.
+- `trg_evidence_versions` (AFTER INSERT/UPDATE): registra cada versión (estado anterior al cambio, tipo de
+  cambio, perfil de quien lo hace). `system_evidence_versions` gana `storage_path` y el tipo `expired`.
+- Las evidencias «Válidas» sin revisor reciben la etiqueta `sin-revision` (salvo las generadas del
+  expediente). No cambian de estado.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| `lib/evidences/review-rules.ts` (nuevo, puro) | Transiciones, `statusAfterEdit`, `evidenceReviewBlocker`, límite de 20 MB y rol revisor |
+| Server actions de evidencias | El alta siempre en borrador; la edición no recibe estado y devuelve a borrador si cambia el contenido; revisar comprueba rol y autor con mensajes claros; ya no escriben versiones; detectan cuándo RLS no aplicó el cambio («No tienes permisos…») |
+| Subida de ficheros | Límite único de 20 MB (al elegir el fichero y en el servidor); un fichero nuevo en una evidencia ya enviada o validada la devuelve a borrador |
+| Biblioteca, detalle y ficha | Sin selector de **Estado** (texto que explica el ciclo); **Aprobar** y **Rechazar** solo para el Responsable del SGAI que no la aportó, y a los demás un aviso; errores de revisión, eliminación y subida visibles |
+| Historial de versiones | Muestra el cambio de fichero (por su nombre) y la caducidad |
+| Tests | `tests/evidencias-revision.test.ts` (37 en total) |
+
+**Verificación.**
+- Migración probada en el Postgres local: rechaza crear una evidencia válida y caducarla a mano; un analista
+  no aprueba; el Responsable del SGAI aprueba y queda como revisor; las versiones se registran (creada,
+  enviada, aprobada, editada) con autor; cambiar solo etiquetas no crea versión; marca `sin-revision`; es
+  idempotente.
+- `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 37/37, `check-server-actions.sh` correcto.
+
+**Documentación.** `funcional/evidencias.md`, `funcional/evidencia-detalle.md`, `funcional/ficha-sistema.md`,
+`negocio/biblioteca-evidencias.md`, `funcional/flujo-completo-evaluacion.md` (GAP-26 en parte),
+`tecnica/modelo-datos.md`; TODO 86, 123, 124, 126 y 140 resueltos y el 122 en parte.
+
+**Pendiente.**
+- Revisor designado (DP-01) y validación por Flujos de aprobación (B11).
+- El fichero se sube al elegirlo aunque se cancele la edición, y quitarlo no lo borra del almacenamiento.
+- Aviso de caducidad a los responsables (GAP-27) y biblioteca única con las evidencias del plan (GAP-19).
 

@@ -24,15 +24,25 @@ import {
 
 // ─── Review flow ─────────────────────────────────────────────────────────────
 
-export function ReviewActions({ evidence }: { evidence: EvidenceDetail }) {
+/**
+ * `canDecide`: quien mira puede aprobar o rechazar esta evidencia (Responsable
+ * del SGAI que no la aportó, DP-01). Lo calcula la página.
+ */
+export function ReviewActions({ evidence, canDecide }: { evidence: EvidenceDetail; canDecide: boolean }) {
   const router = useRouter()
   const [isReviewing, startReviewTransition] = useTransition()
   const [rejectNotes, setRejectNotes] = useState('')
   const [showRejectInput, setShowRejectInput] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handle = (action: ReviewAction, notes?: string) => {
+    setError(null)
     startReviewTransition(async () => {
-      await reviewSystemEvidence(evidence.id, evidence.system_id ?? '', action, notes)
+      const result = await reviewSystemEvidence(evidence.id, evidence.system_id ?? '', action, notes)
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
       setShowRejectInput(false)
       setRejectNotes('')
       router.refresh()
@@ -54,7 +64,13 @@ export function ReviewActions({ evidence }: { evidence: EvidenceDetail }) {
         </button>
       )}
 
-      {status === 'pending_review' && !showRejectInput && (
+      {status === 'pending_review' && !canDecide && (
+        <span className="font-sora text-[12px] text-lttm">
+          Pendiente de revisión del Responsable del SGAI (distinto de quien la aporta).
+        </span>
+      )}
+
+      {status === 'pending_review' && canDecide && !showRejectInput && (
         <>
           <button
             onClick={() => handle('approve')}
@@ -75,7 +91,7 @@ export function ReviewActions({ evidence }: { evidence: EvidenceDetail }) {
         </>
       )}
 
-      {status === 'pending_review' && showRejectInput && (
+      {status === 'pending_review' && canDecide && showRejectInput && (
         <div className="flex flex-col gap-2 w-full max-w-sm">
           <textarea
             rows={2}
@@ -111,6 +127,8 @@ export function ReviewActions({ evidence }: { evidence: EvidenceDetail }) {
           Reabrir borrador
         </button>
       )}
+
+      {error && <p className="w-full font-sora text-[12px] text-re">{error}</p>}
     </div>
   )
 }
@@ -121,23 +139,33 @@ export function DeleteAction({ evidence }: { evidence: EvidenceDetail }) {
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [isDeleting, startDeleteTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
   const handle = () => {
+    setError(null)
     startDeleteTransition(async () => {
-      await deleteSystemEvidence(evidence.id, evidence.system_id ?? '')
+      const result = await deleteSystemEvidence(evidence.id, evidence.system_id ?? '')
+      if (result?.error) {
+        setError(result.error)
+        setConfirming(false)
+        return
+      }
       router.push('/evidencias')
     })
   }
 
   if (!confirming) {
     return (
-      <button
-        onClick={() => setConfirming(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[12px] text-lttm bg-ltbg border border-ltb hover:bg-red-dim hover:text-re hover:border-reb transition-colors"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-        Eliminar
-      </button>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          onClick={() => setConfirming(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[12px] text-lttm bg-ltbg border border-ltb hover:bg-red-dim hover:text-re hover:border-reb transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Eliminar
+        </button>
+        {error && <p className="font-sora text-[11.5px] text-re">{error}</p>}
+      </div>
     )
   }
 
@@ -254,6 +282,7 @@ const CHANGE_COLORS: Record<string, string> = {
   rejected: 'bg-red-dim text-re border-reb',
   reopened: 'bg-ltbg text-lttm border-ltb',
   created: 'bg-cyan-dim text-brand-cyan border-cyan-border',
+  expired: 'bg-red-dim text-re border-reb',
 }
 
 export function VersionHistory({ versions }: { versions: EvidenceVersionWithDiff[] }) {
