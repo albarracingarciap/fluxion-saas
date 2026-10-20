@@ -81,9 +81,6 @@ Fluxion distingue diez [roles](../glosario.md#rol). El detalle está en
 | Auditor | Consulta de solo lectura de todos los módulos y evidencias |
 | Lector | Consulta sin modificar |
 
-> TODO: confirmar los nombres de negocio de «Responsable del SGAI» y «Responsable del sistema»
-> (en la aplicación aparecen como «SGAI Manager» y «System Owner»).
-
 ## Flujo de trabajo
 
 El recorrido tiene una fase de puesta en marcha y cuatro fases que se repiten por cada sistema y por

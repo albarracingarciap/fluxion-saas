@@ -5,19 +5,8 @@ import {
   inputCls, selectCls,
   type ProfileFormData, type ManagerOption,
 } from './shared'
+import { ROLE_LABELS } from '@/lib/auth/role-labels'
 
-const ROLE_LABELS: Record<string, string> = {
-  org_admin:          'Administrador',
-  sgai_manager:       'SGAI Manager',
-  caio:               'CAIO',
-  dpo:                'DPO',
-  system_owner:       'System Owner',
-  risk_analyst:       'Analista de Riesgos',
-  compliance_analyst: 'Analista de Cumplimiento',
-  executive:          'Directivo',
-  auditor:            'Auditor',
-  viewer:             'Lector',
-}
 
 const BIO_MAX_LENGTH = 280
 

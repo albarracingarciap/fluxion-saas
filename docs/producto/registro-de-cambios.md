@@ -34,6 +34,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B23a · Roles múltiples por miembro | Integrado en `main` | `fase1/b23a-roles-multiples` | 2026-10-20 | **Sí** · `20261020090000_roles_multiples.sql` |
 | B07 · Ciclo único de la evaluación de riesgos | Integrado en `main` | `fase1/b07-ciclo-evaluacion` | 2026-10-20 | **Sí** · `20261020100000_fmea_ciclo_evaluacion.sql` |
 | Corrección: editor de roles recortado en Usuarios (fuera del plan) | Integrado en `main` | `fix/usuarios-editor-roles` | 2026-10-20 | No |
+| Etiquetas de roles según el glosario (fuera del plan) | Integrado en `main` | `fix/etiquetas-roles` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -632,4 +633,32 @@ botón; se abre hacia arriba si no cabe debajo, se recoloca al desplazar o redim
 pulsar fuera o con Escape.
 
 **Verificación.** `tsc --noEmit` sin errores y `next lint` sin avisos. No se ha probado en el navegador.
+
+---
+
+## Etiquetas de roles según el glosario (fuera del plan)
+
+**Fecha:** 2026-10-20 · **Rama:** `fix/etiquetas-roles` · **Migración:** no
+
+**Problema.** Había cuatro copias de la tabla de nombres de roles (Usuarios, Perfil, Ajustes › Aprobaciones y
+barra superior), con nombres en inglés que no coinciden con el glosario («SGAI Manager», «System Owner») y
+mayúsculas distintas («Analista de Riesgos»). Además, el chip de la organización del menú lateral mostraba
+«Miembro» para casi todos los roles, porque comparaba con nombres de rol que no existen.
+
+**Decisión del responsable (2026-10-20).** Unificar las etiquetas con las del glosario.
+
+**Cambios.**
+- `lib/auth/role-labels.ts` (nuevo): `ROLE_LABELS` y `getRoleLabel`, única fuente: Administrador,
+  Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento,
+  Directivo, Auditor y Lector.
+- Usuarios, Perfil, Ajustes › Aprobaciones y la barra superior la usan; el menú lateral muestra el rol
+  principal con su nombre.
+- Test en `tests/roles.test.ts` (32 en total).
+- Documentación: `funcional/usuarios.md`, `funcional/navegacion.md`, `negocio/vision-general.md` y
+  `negocio/plataforma.md`; TODO 15, 17 y 19 de `_pendientes.md` resueltos y el 60 en parte.
+
+**Pendiente.** La entrada «Rol» del glosario conserva su TODO sobre estos nombres y la del punto 250 (roles
+múltiples): se actualiza cuando lo indique el responsable.
+
+**Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 32/32.
 

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { ShieldAlert, Shield, UserCheck, Eye } from 'lucide-react';
+import { ROLE_LABELS } from '@/lib/auth/role-labels'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,18 +45,7 @@ export type Invitation = {
 
 // ─── Role catalog ─────────────────────────────────────────────────────────────
 
-export const ROLE_LABELS: Record<string, string> = {
-  org_admin:          'Administrador',
-  sgai_manager:       'SGAI Manager',
-  caio:               'CAIO',
-  dpo:                'DPO',
-  system_owner:       'System Owner',
-  risk_analyst:       'Analista de Riesgos',
-  compliance_analyst: 'Analista de Cumplimiento',
-  executive:          'Directivo',
-  auditor:            'Auditor',
-  viewer:             'Lector',
-}
+export { ROLE_LABELS }
 
 export const ROLE_DESCRIPTIONS: Record<string, string> = {
   org_admin:          'Acceso completo. Gestiona miembros, roles, organización y todos los módulos.',

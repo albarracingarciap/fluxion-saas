@@ -15,19 +15,8 @@ import {
   type ApprovalApproverOptions,
 } from '@/lib/approvals/catalog'
 import { FieldLabel, inputCls, selectCls, SelectArrow } from './shared'
+import { ROLE_LABELS } from '@/lib/auth/role-labels'
 
-const ROLE_LABELS: Record<string, string> = {
-  org_admin:          'Administrador',
-  sgai_manager:       'SGAI Manager',
-  caio:               'CAIO',
-  dpo:                'DPO',
-  system_owner:       'System Owner',
-  risk_analyst:       'Analista de Riesgos',
-  compliance_analyst: 'Analista de Cumplimiento',
-  executive:          'Directivo',
-  auditor:            'Auditor',
-  viewer:             'Lector',
-}
 
 // Solo para planes de tratamiento. Es la única condición que tiene sentido hoy:
 // el nivel lo calcula el propio plan a partir del riesgo residual, y es lo que
