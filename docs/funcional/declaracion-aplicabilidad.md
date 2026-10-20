@@ -133,8 +133,7 @@ Cada guardado de un control queda en **Ver Historial › Cambios en controles**,
 > - **Aplicar propuestas:** también borra la justificación de los controles que quedan excluidos.
 > - **Vista de impresión:** muestra «Fluxion SaaS» como organización y «Página 1 de 1» fijos.
 
-> **Pendiente de implementar.** Aprobación de la Declaración mediante
-> [Flujos de aprobación](../glosario.md#flujos-de-aprobación).
+Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene. Para enviarla con política, todos los controles aplicables deben estar justificados.
 
 ## Validaciones
 

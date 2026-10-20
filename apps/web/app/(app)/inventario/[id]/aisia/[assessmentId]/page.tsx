@@ -87,6 +87,7 @@ export default async function AisiaWizardPage({
     created_by:       aisiaRow.created_by,
     created_by_name:  null,
     submitted_by:     aisiaRow.submitted_by ?? null,
+    in_approval_circuit: false,
     submitted_at:     aisiaRow.submitted_at ?? null,
     approved_at:      aisiaRow.approved_at ?? null,
     rejected_at:      aisiaRow.rejected_at ?? null,

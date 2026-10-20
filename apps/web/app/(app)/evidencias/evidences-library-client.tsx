@@ -166,6 +166,8 @@ type Props = {
   currentUserId: string;
   /** Tiene el rol que aprueba o rechaza evidencias (Responsable del SGAI, DP-01). */
   canReview: boolean;
+  /** Evidencias cuya revisión se decide en Flujos de aprobación (B11a). */
+  inApprovalCircuitIds?: string[];
 };
 
 /** Comprueba el tamaño antes de subir: el servidor aplica el mismo límite. */
@@ -175,7 +177,8 @@ function fileTooLarge(file: File): string | null {
     : null;
 }
 
-export function EvidencesLibraryClient({ evidences, organizationId, currentUserId, canReview }: Props) {
+export function EvidencesLibraryClient({ evidences, organizationId, currentUserId, canReview, inApprovalCircuitIds = [] }: Props) {
+  const enCircuito = new Set(inApprovalCircuitIds);
   const router = useRouter();
   const [editingEvidence, setEditingEvidence] = useState<OrganizationEvidenceRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
@@ -656,14 +659,19 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
                       Enviar a revisión
                     </button>
                   )}
-                  {evidence.status === 'pending_review' && !(canReview && evidence.owner_id !== currentUserId) && (
+                  {evidence.status === 'pending_review' && enCircuito.has(evidence.id) && (
+                    <a href="/aprobaciones" className="font-sora text-[10.5px] text-brand-cyan hover:underline max-w-[220px] text-right leading-tight">
+                      Se decide en Aprobaciones
+                    </a>
+                  )}
+                  {evidence.status === 'pending_review' && !enCircuito.has(evidence.id) && !(canReview && evidence.owner_id !== currentUserId) && (
                     <span className="font-sora text-[10.5px] text-lttm max-w-[220px] text-right leading-tight">
                       {canReview
                         ? 'La revisa otro Responsable del SGAI: no se revisan las evidencias propias.'
                         : 'Pendiente de revisión del Responsable del SGAI.'}
                     </span>
                   )}
-                  {evidence.status === 'pending_review' && canReview && evidence.owner_id !== currentUserId && (
+                  {evidence.status === 'pending_review' && !enCircuito.has(evidence.id) && canReview && evidence.owner_id !== currentUserId && (
                     <div className="flex flex-col items-end gap-1.5">
                       <div className="flex items-center gap-1.5">
                         <button

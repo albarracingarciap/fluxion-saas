@@ -145,8 +145,7 @@ El texto de la vista indica que no se puede borrar durante los diez años del Ar
 Las evidencias «Válidas» de PDF generados antes de esta regla con el expediente sin aprobar llevan la
 etiqueta `sin-revision`.
 
-> **Pendiente de implementar.** Aprobación del expediente mediante
-> [Flujos de aprobación](../glosario.md#flujos-de-aprobación).
+Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene. Para enviarlo con política, no puede quedar ningún apartado obligatorio sin cubrir.
 
 ## Validaciones
 

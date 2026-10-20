@@ -262,6 +262,8 @@ export type AisiaAssessmentEntry = {
   created_by: string;
   created_by_name: string | null;
   submitted_by: string | null;
+  /** La decisión se toma en Flujos de aprobación (B11a). */
+  in_approval_circuit?: boolean;
   submitted_at: string | null;
   approved_at: string | null;
   rejected_at: string | null;
@@ -1369,13 +1371,21 @@ function IsoTab({
                   </div>
                 )}
 
+                {/* En Flujos de aprobación: la decisión se toma en la bandeja (B11a) */}
+                {aisia.in_approval_circuit && (
+                  <p className="font-sora text-[12px] text-ltt2">
+                    La decisión se toma en{' '}
+                    <Link href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</Link>,
+                    con la política de aprobación de la organización.
+                  </p>
+                )}
                 {/* Acciones — solo para quien puede decidir: Responsable del SGAI que no la preparó (B08) */}
-                {aisiaBlocker !== null && (
+                {!aisia.in_approval_circuit && aisiaBlocker !== null && (
                   <p className="font-sora text-[12px] text-lttm">
                     {aisiaBlocker}
                   </p>
                 )}
-                {aisiaBlocker === null && (
+                {!aisia.in_approval_circuit && aisiaBlocker === null && (
                   <div className="space-y-2">
                     {/* Sin formulario abierto: botones principales */}
                     {approvalAction === null && (

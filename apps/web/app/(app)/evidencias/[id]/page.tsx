@@ -19,6 +19,7 @@ import {
   FilePreviewButton,
   VersionHistory,
 } from './evidence-detail-client'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,16 @@ export default async function EvidenceDetailPage({
 
   const { id } = await params
   const ev = await getEvidenceDetail(id, membership.organization_id)
+
+  // ¿Se decide en Flujos de aprobación? (B11a)
+  const { data: solicitudViva } = await createFluxionClient()
+    .from('approval_requests')
+    .select('id')
+    .eq('object_type', 'evidence')
+    .eq('object_id', id)
+    .eq('status', 'pending')
+    .maybeSingle()
+  const enCircuito = Boolean(solicitudViva)
   if (!ev) notFound()
 
   const statusMeta = STATUS_META[ev.status] ?? STATUS_META.draft
@@ -175,7 +186,8 @@ export default async function EvidenceDetailPage({
             </div>
             <ReviewActions
               evidence={ev}
-              canDecide={hasRole(membership, EVIDENCE_REVIEWER_ROLE) && ev.owner_id !== user.id}
+              canDecide={!enCircuito && hasRole(membership, EVIDENCE_REVIEWER_ROLE) && ev.owner_id !== user.id}
+              inApprovalCircuit={enCircuito}
             />
             <DeleteAction evidence={ev} />
           </div>

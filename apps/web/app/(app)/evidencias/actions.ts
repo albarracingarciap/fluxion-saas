@@ -5,6 +5,12 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import {
+  EN_CIRCUITO,
+  cancelLiveApprovalRequest,
+  liveApprovalRequest,
+  openApprovalRequest,
+} from '@/lib/approvals/open';
+import {
   EVIDENCE_REVIEW_TRANSITIONS,
   evidenceReviewBlocker,
   statusAfterEdit,
@@ -34,7 +40,7 @@ async function getAuthContext() {
 
   const { data: profile, error: profileError } = await fluxion
     .from('profiles')
-    .select('organization_id, role, roles')
+    .select('id, organization_id, role, roles')
     .eq('user_id', user.id)
     .single();
 
@@ -146,6 +152,11 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
 
   if (error) return { error: dbError(error) };
   if (!updated || updated.length === 0) return { error: SIN_PERMISO };
+
+  // Si estaba en Flujos de aprobación, lo que se iba a aprobar ya no es lo que hay (B11a).
+  if (backToDraft && current.status === 'pending_review') {
+    await cancelLiveApprovalRequest('evidence', input.evidenceId, 'La evidencia se modificó y vuelve a borrador.');
+  }
 
   await insertAiSystemHistoryEvents(fluxion, [
     {
@@ -311,6 +322,7 @@ export async function reviewSystemEvidence(
   }
 
   if (action === 'approve' || action === 'reject') {
+    if (await liveApprovalRequest('evidence', evidenceId)) return { error: EN_CIRCUITO };
     const blocker = evidenceReviewBlocker({ actor: profile, actorUserId: user.id, ownerUserId: evidence.owner_user_id });
     if (blocker) return { error: blocker };
   }
@@ -340,6 +352,21 @@ export async function reviewSystemEvidence(
 
   if (error) return { error: dbError(error) };
   if (!updated || updated.length === 0) return { error: SIN_PERMISO };
+
+  // Con una política de Flujos de aprobación, la revisión se decide allí (B11a).
+  if (action === 'request_review') {
+    const apertura = await openApprovalRequest({
+      organizationId: profile.organization_id,
+      objectType: 'evidence',
+      objectId: evidenceId,
+      requestedByProfileId: profile.id,
+    });
+    if ('error' in apertura) {
+      // Sin solicitud no puede quedarse pendiente esperando a nadie: vuelve a borrador.
+      await fluxion.from('system_evidences').update({ status: 'draft' }).eq('id', evidenceId);
+      return { error: apertura.error };
+    }
+  }
 
   const { type, title } = REVIEW_EVENT_LABELS[action];
 
@@ -491,9 +518,22 @@ export async function bulkReviewEvidences(
 
   // Se omiten las que no admiten la transición y, al decidir, las que aportó
   // quien revisa: nadie revisa sus propias evidencias.
+  // Las que están en Flujos de aprobación se deciden allí (B11a).
+  let enCircuito = new Set<string>();
+  if (isDecision) {
+    const { data: vivas } = await fluxion
+      .from('approval_requests')
+      .select('object_id')
+      .eq('object_type', 'evidence')
+      .eq('status', 'pending')
+      .in('object_id', evidenceIds);
+    enCircuito = new Set((vivas ?? []).map((v: { object_id: string }) => v.object_id));
+  }
+
   const eligible = (rows ?? [])
     .filter((r) => transition.from.includes(r.status))
     .filter((r) => !isDecision || r.owner_user_id !== user.id)
+    .filter((r) => !enCircuito.has(r.id))
     .map((r) => r.id);
   const skipped = evidenceIds.length - eligible.length;
 
@@ -521,6 +561,17 @@ export async function bulkReviewEvidences(
   if (updateErr) return { updated: 0, skipped, error: dbError(updateErr) };
   const updated = updatedRows?.length ?? 0;
   if (updated === 0) return { updated: 0, skipped, error: SIN_PERMISO };
+
+  if (action === 'request_review') {
+    for (const row of updatedRows ?? []) {
+      await openApprovalRequest({
+        organizationId: profile.organization_id,
+        objectType: 'evidence',
+        objectId: (row as { id: string }).id,
+        requestedByProfileId: profile.id,
+      });
+    }
+  }
 
   revalidatePath('/evidencias');
   return { updated, skipped: skipped + (eligible.length - updated) };

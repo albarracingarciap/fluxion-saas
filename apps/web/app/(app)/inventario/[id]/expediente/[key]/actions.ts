@@ -15,6 +15,13 @@ import {
   type DocumentAction,
 } from '@/lib/documents/lifecycle-rules'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
+import {
+  EN_CIRCUITO,
+  cancelLiveApprovalRequest,
+  hasApprovalPolicy,
+  liveApprovalRequest,
+  openApprovalRequest,
+} from '@/lib/approvals/open'
 
 /**
  * Expedientes regulatorios por sistema: Anexo IV, FRIA, DPIA y ficha de modelo.
@@ -268,6 +275,24 @@ export async function changeDocumentStatus(input: {
     }
   }
 
+  // Con una política de Flujos de aprobación, la aprobación se decide allí (B11a).
+  const gobernado = await hasApprovalPolicy(doc.organization_id, 'document', { template_key: doc.template_key })
+
+  if (input.action === 'approve' && (await liveApprovalRequest('document', doc.id))) {
+    return { error: EN_CIRCUITO }
+  }
+
+  // En el circuito, quien aprueba solo puede decir sí o no: los huecos se
+  // comprueban antes de enviarlo, no al votar.
+  if (input.action === 'submit' && gobernado) {
+    const composed = await composeDocument(input.documentId)
+    if (!composed) return { error: 'No se pudo componer el expediente.' }
+    if (composed.gaps.length > 0) {
+      const refs = composed.gaps.map((g) => g.ref).join(', ')
+      return { error: `No se puede enviar a aprobación con apartados obligatorios sin cubrir: ${refs}.` }
+    }
+  }
+
   if (input.action === 'approve') {
     if (!isTemplateKey(doc.template_key)) return { error: 'Plantilla desconocida.' }
 
@@ -301,6 +326,24 @@ export async function changeDocumentStatus(input: {
     return { error: dbError(updErr, 'No se pudo cambiar el estado del expediente.') }
   }
   if (!updated || updated.length === 0) return { error: 'No tienes permisos para cambiar este expediente.' }
+
+  if (input.action === 'submit' && gobernado) {
+    const apertura = await openApprovalRequest({
+      organizationId: doc.organization_id,
+      objectType: 'document',
+      objectId: doc.id,
+      requestedByProfileId: profile.id,
+      context: { template_key: doc.template_key },
+    })
+    if ('error' in apertura) {
+      // Sin solicitud, el expediente no puede quedarse «en revisión» esperando a nadie.
+      await fluxion.from('documents').update({ status: 'draft' }).eq('id', doc.id)
+      return { error: apertura.error }
+    }
+  }
+  if (input.action === 'return') {
+    await cancelLiveApprovalRequest('document', doc.id, 'Devuelto a borrador por quien lo preparó.')
+  }
 
   if (doc.ai_system_id) {
     const { type, title } = ACTION_EVENTS[input.action]
@@ -375,6 +418,10 @@ export async function reopenDocument(input: {
 export async function getDocumentApprovalContext(documentId: string): Promise<{ canApprove: boolean; reason: string | null }> {
   const { profile, fluxion } = await ctx()
   if (!profile) return { canApprove: false, reason: 'No autenticado' }
+
+  if (await liveApprovalRequest('document', documentId)) {
+    return { canApprove: false, reason: 'La aprobación se decide en Aprobaciones, con la política de la organización.' }
+  }
 
   const { data: doc } = await fluxion
     .from('documents')

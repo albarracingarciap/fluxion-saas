@@ -85,9 +85,9 @@ retención y estado de la DPIA). Si la ficha no tiene un dato, el campo queda va
 > **Pendiente de implementar.** Nueva versión a partir de una AISIA aprobada: llega con su paso a plantilla
 > del expediente (B15, DP-05), que ya tiene versiones.
 
-> **Pendiente de implementar.**
-> - Propuesta de contenido por IA para las secciones.
-> - Aprobación mediante [Flujos de aprobación](../glosario.md#flujos-de-aprobación).
+> **Pendiente de implementar.** Propuesta de contenido por IA para las secciones.
+
+Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene.
 
 ## Validaciones
 
