@@ -39,6 +39,7 @@ import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
 import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
 import { FamiliasPanel } from './familias-panel';
+import { EvaluationVersionBar } from '../../evaluation-version-bar';
 
 const DIMENSION_META: Record<string, { label: string; badge: string }> = {
   tecnica: { label: 'Técnica', badge: 'bg-cyan-dim border-cyan-border text-brand-cyan' },
@@ -1387,6 +1388,13 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           )}
         </div>
       </div>
+
+      <EvaluationVersionBar
+        systemId={data.system.id}
+        evaluationId={data.evaluation.id}
+        version={data.evaluation.version}
+        versions={data.versions}
+      />
 
       <div className="mb-5 rounded-[12px] border border-ltb bg-white overflow-hidden shadow-[0_2px_14px_rgba(0,0,0,0.04)]">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,1.4fr)_3fr] divide-y xl:divide-y-0 xl:divide-x divide-ltb">

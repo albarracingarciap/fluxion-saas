@@ -58,6 +58,7 @@ export {
   pickPlanApprover,
 } from './treatment-plan-rules';
 import type { RoleHolder } from '@/lib/auth/roles';
+import { loadEvaluationVersions, type EvaluationVersionsInfo } from './versions';
 export type { TreatmentApprovalLevel } from './treatment-plan-rules';
 
 export type TreatmentPlanRecord = {
@@ -293,6 +294,8 @@ export type TreatmentPlanData = {
   action_reviews: ActionReview[];
   pending_reviews_count: number;
   overdue_reviews_count: number;
+  /** Versiones de la evaluación del sistema (B07). */
+  versions: EvaluationVersionsInfo | null;
 };
 
 /**
@@ -941,6 +944,13 @@ export async function buildTreatmentPlanData(params: {
     action_reviews: actionReviews,
     pending_reviews_count: pendingReviewsCount,
     overdue_reviews_count: overdueReviewsCount,
+    versions: await loadEvaluationVersions({
+      fluxion,
+      organizationId: params.organizationId,
+      aiSystemId: params.aiSystemId,
+      evaluationId: params.evaluationId,
+      viewer: params.currentUserRole ?? null,
+    }),
   } satisfies TreatmentPlanData;
 }
 

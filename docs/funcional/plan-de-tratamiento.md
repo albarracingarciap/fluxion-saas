@@ -20,7 +20,11 @@ fuente:
   - apps/web/lib/fmea/treatment-plan-snapshots.ts
   - apps/web/lib/treatment-plans/csv.ts
   - apps/web/lib/approvals/effects.ts
+  - apps/web/lib/fmea/lifecycle.ts
+  - apps/web/lib/fmea/lifecycle-rules.ts
+  - apps/web/app/(app)/inventario/[id]/fmea/evaluation-version-bar.tsx
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
 ---
 
 # Plan de tratamiento
@@ -123,12 +127,12 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Guardado automático (30 s tras cada cambio) | Editor del plan | Guarda las acciones modificadas y el riesgo residual, sin validar | — |
 | **Guardar borrador** | Editor del plan | Guarda el riesgo residual y la zona objetivo | Historial «Borrador del plan guardado» |
 | **Enviar a aprobación** / **Enviar a alta dirección** (nivel 3) | Editor del plan | `submitTreatmentPlanForApproval`. En nivel 3 pide la referencia del acta o comité | Plan «En aprobación», con aprobador asignado. Si hay política en [Flujos de aprobación](../glosario.md#flujos-de-aprobación), abre la solicitud y avisa al primer paso. Guarda una [instantánea](../glosario.md#instantánea) |
-| **Aprobar plan** | Aprobador asignado | Con notas de comité opcionales | Plan «Aprobado». Instantánea. Historial «Plan de tratamiento aprobado» |
+| **Aprobar plan** | Aprobador asignado | Con notas de comité opcionales | Plan «Aprobado». Instantánea. Historial «Plan de tratamiento aprobado». Después, la aprobación de la evaluación de riesgos (ver [Estados](#estados)) |
 | **Devolver al autor** | Aprobador asignado | Con motivo obligatorio | Plan a «Borrador», con el motivo visible. Instantánea. Historial «Plan devuelto al autor» |
-| Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada». En Mitigar abre **Registrar S residual alcanzado** |
+| Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada» (también si se completa desde [Tareas](tareas.md)). En Mitigar abre **Registrar S residual alcanzado** |
 | **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción | Cierra la acción y, si la hay, la tarea. Si hay evidencia, la severidad residual pasa al ítem del FMEA |
 | Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción | Sin evento ni historial |
-| **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review» |
+| **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review». Si una aceptación pasa a tratarse, la acción vuelve a «Pendiente» y el plan se reabre |
 | **Reasignar** · **Due date** · **Cambiar opción** (en bloque) | Editor del plan | Sobre las acciones seleccionadas no cerradas. Mitigar no se admite en bloque | Eventos por acción e historial del cambio masivo |
 | **Exportar CSV** · **Imprimir PDF** | Todos | Descargan las acciones o imprimen la página | — |
 
@@ -169,23 +173,54 @@ guardado automático. Los controles nuevos (de plantilla o propios) se crean con
 
 ## Estados
 
+La evaluación FMEA y su plan forman una sola evaluación de riesgos con un ciclo común (DP-03, bloque
+B07). Toda evaluación enviada tiene plan, también sin candidatos a tratamiento: entonces el plan no tiene
+acciones («No hay acciones de tratamiento pendientes») y su aprobación es la de la evaluación.
+
 ```mermaid
 stateDiagram-v2
   [*] --> Borrador: envío del FMEA
   Borrador --> En_aprobación: enviar
-  En_aprobación --> Aprobado: aprobar
   En_aprobación --> Borrador: devolver
+  En_aprobación --> Aprobado: aprobar
+  Aprobado --> En_ejecución: quedan acciones abiertas
+  Aprobado --> Cerrado: ninguna acción abierta
+  En_ejecución --> Cerrado: última acción cerrada
+  Cerrado --> En_ejecución: una acción se reabre
+  En_ejecución --> Sustituido: versión nueva aprobada
 ```
 
-- **Estados del plan sin flujo:** «En ejecución», «Cerrado» y «Sustituido» existen, pero ningún flujo los
-  asigna.
-- **Estados de la acción que se usan:** «Pendiente» y «Completada».
+**Al aprobarse el plan** (aprobador asignado o [flujo de aprobación](aprobaciones.md)), en una sola
+transacción de la base de datos (`fmea_aplicar_aprobacion_plan`):
+1. Las acciones «Aceptar» quedan «Aceptadas», con el aprobador y la fecha como aprobación de la aceptación.
+2. La [evaluación FMEA](fmea-evaluacion.md) pasa a «Aprobada», con su próxima revisión según la cadencia.
+3. Las versiones anteriores de la evaluación pasan a «Sustituida». Sus planes abiertos pasan a
+   «Sustituido» y sus acciones abiertas se cancelan, con sus tareas. Los planes ya cerrados se quedan
+   cerrados.
+4. El plan pasa a «En ejecución» o, si no tiene acciones abiertas, a «Cerrado».
+
+Se guardan las instantáneas «Ejecución iniciada» o «Plan cerrado» del plan y «Reemplazado por nuevo plan» de
+los planes sustituidos, y
+el historial del sistema registra «Evaluación de riesgos aprobada» y, si procede, «Versión anterior
+sustituida».
+
+**Después**, el estado de ejecución lo mantiene la base de datos: una acción abierta es la que no está
+«Completada», «Aceptada» ni «Cancelada»; el plan está «En ejecución» mientras quede alguna y «Cerrado»
+cuando no queda ninguna. Si una acción se reabre, el plan vuelve a «En ejecución».
+
+- **Estados de la acción que se usan:** «Pendiente», «En curso» (desde la tarea), «Completada»,
+  «Aceptada» y «Cancelada».
+- **Versiones:** la barra de versiones de la [Evaluación FMEA](fmea-evaluacion.md#versiones) aparece
+  también aquí, con **Nueva versión** en la versión vigente.
+
+> **Pendiente de implementar.** Las instantáneas «Ejecución iniciada» y «Plan cerrado» solo se guardan al aprobarse el
+> plan; si se cierra más tarde, al cerrar su última acción, no se guarda instantánea.
 
 ### Historial de auditoría
 
 | Elemento | Contenido |
 |---|---|
-| Instantáneas | Enviado a aprobación · Aprobado · Devuelto al autor |
+| Instantáneas | Enviado a aprobación · Aprobado · Devuelto al autor · Ejecución iniciada · Plan cerrado · Reemplazado por nuevo plan |
 | Decisiones | Opción seleccionada · Responsable cambiado · Fecha objetivo cambiada · S residual alcanzado registrado · Slippage aceptado · Tarea actualizada |
 | Detalle de cada instantánea | Plan y acciones en ese momento, con **Comparar con anterior** |
 

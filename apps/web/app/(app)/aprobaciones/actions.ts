@@ -57,7 +57,7 @@ async function contexto() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, roles, full_name, email')
+    .select('id, user_id, organization_id, role, roles, full_name, email')
     .eq('user_id', user.id)
     .single()
 
@@ -281,6 +281,7 @@ export async function decideApproval(input: {
         requestId:  input.requestId,
         outcome:    resultado,
         reason:     input.reason?.trim() || null,
+        actorUserId: profile.user_id,
       })
       aviso = efecto.aviso
     }

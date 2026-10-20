@@ -347,6 +347,9 @@ export async function buildDashboardData(organizationId: string) {
     else if (latestPlan?.status === 'in_review') workflowLabel = 'Plan en aprobación';
     else if (latestFmea?.state === 'draft') workflowLabel = 'FMEA en borrador';
     else if (latestFmea?.state === 'in_review') workflowLabel = 'FMEA en revisión';
+    // Evaluación aprobada (B07): plan en ejecución o evaluación vigente.
+    else if (latestPlan?.status === 'approved' || latestPlan?.status === 'in_progress') workflowLabel = 'Plan en ejecución';
+    else if (latestFmea?.state === 'approved') workflowLabel = 'Evaluación vigente';
 
     return {
       ...system,

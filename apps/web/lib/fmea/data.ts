@@ -4,6 +4,7 @@ import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { createClient } from '@/lib/supabase/server';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { loadEvaluationVersions, type EvaluationVersionsInfo } from './versions';
 
 export type FmeaItemHistoryEntry = {
   id: string;
@@ -114,6 +115,8 @@ export type FmeaEvaluationData = {
   viewerRoles: string[];
   /** El plan de esta evaluación está en aprobación o aprobado: la evaluación ya no admite cambios (B05). */
   lockedByPlan: boolean;
+  /** Versiones de la evaluación del sistema (B07). */
+  versions: EvaluationVersionsInfo | null;
   activationSummary: {
     activatedCount: number;
     prioritizedCount: number;
@@ -151,14 +154,50 @@ export async function requireFmeaContext() {
   };
 }
 
+/** Resultado de abrir o crear la evaluación FMEA de un sistema. */
+export type FmeaEvaluationOpenResult = {
+  evaluationId: string | null;
+  created: boolean;
+  missingFailureModes: boolean;
+  missingPrioritizedModes?: boolean;
+  error?: string;
+  seedStrategy?: 'prioritized' | null;
+  prioritizedCount?: number;
+  activatedCount?: number;
+  excludedBusiness?: number;
+};
+
+type PreviousItemValues = {
+  failure_mode_id: string;
+  s_default_frozen: number;
+  o_value: number | null;
+  d_real_value: number | null;
+  s_actual: number | null;
+  narrative_justification: string | null;
+  status: string;
+  requires_second_review: boolean;
+  second_review_status: string;
+  second_reviewed_by: string | null;
+  second_reviewed_at: string | null;
+  second_review_notes: string | null;
+  estimate_source: string | null;
+};
+
+/**
+ * Evaluación que se abre al entrar en el FMEA de un sistema (B07).
+ *
+ * Por orden: la versión en curso (borrador o en revisión); si no hay, la
+ * vigente (aprobada), que se abre en solo lectura; y si el sistema no tiene
+ * ninguna, se crea la versión 1. Una versión nueva de una evaluación aprobada
+ * no se crea al entrar: se pide expresamente (`startFmeaReevaluationAction`).
+ */
 export async function ensureActiveFmeaEvaluation(params: {
   organizationId: string;
   aiSystemId: string;
   userId: string;
-}) {
+}): Promise<FmeaEvaluationOpenResult> {
   const { organizationId, aiSystemId, userId } = params;
   const fluxion = createFluxionClient();
-  const compliance = createComplianceClient();
 
   const { data: activeEvaluation } = await fluxion
     .from('fmea_evaluations')
@@ -170,9 +209,21 @@ export async function ensureActiveFmeaEvaluation(params: {
     .limit(1)
     .maybeSingle();
 
-  if (activeEvaluation) {
+  const { data: currentEvaluation } = activeEvaluation
+    ? { data: activeEvaluation }
+    : await fluxion
+        .from('fmea_evaluations')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('system_id', aiSystemId)
+        .eq('state', 'approved')
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+  if (currentEvaluation) {
     return {
-      evaluationId: activeEvaluation.id,
+      evaluationId: currentEvaluation.id,
       created: false,
       missingFailureModes: false,
       seedStrategy: null,
@@ -180,6 +231,29 @@ export async function ensureActiveFmeaEvaluation(params: {
       activatedCount: 0,
     };
   }
+
+  return createFmeaEvaluationVersion({ organizationId, aiSystemId, userId });
+}
+
+/**
+ * Crea una versión nueva de la evaluación FMEA de un sistema con sus modos de
+ * fallo priorizados (solo los regulatorios).
+ *
+ * Con `copyFromEvaluationId` (reevaluación, B07), cada modo que ya estaba en
+ * esa versión arranca con sus valores, su justificación y su segunda revisión:
+ * se revisa lo que haya cambiado, no se vuelve a empezar. Al cambiar un valor,
+ * el guardado del ítem vuelve a calcular la segunda revisión. Los modos nuevos
+ * arrancan pendientes. También se copian las estimaciones por familia.
+ */
+export async function createFmeaEvaluationVersion(params: {
+  organizationId: string;
+  aiSystemId: string;
+  userId: string;
+  copyFromEvaluationId?: string | null;
+}): Promise<FmeaEvaluationOpenResult> {
+  const { organizationId, aiSystemId, userId, copyFromEvaluationId = null } = params;
+  const fluxion = createFluxionClient();
+  const compliance = createComplianceClient();
 
   const { data: systemModes } = await fluxion
     .from('system_failure_modes')
@@ -287,24 +361,73 @@ export async function ensureActiveFmeaEvaluation(params: {
   // filtrar aqui es lo que deja fuera al riesgo de negocio de verdad.
   const sDefaultByMode = new Map(regulatoryRows.map((row) => [row.id, row.s_default]));
 
+  // Reevaluación: valores de la versión de la que se parte, por modo de fallo.
+  // Solo se copian los ítems evaluados; los pospuestos o pendientes vuelven a
+  // empezar.
+  const previousByMode = new Map<string, PreviousItemValues>();
+  if (copyFromEvaluationId) {
+    const { data: previousItems } = await fluxion
+      .from('fmea_items')
+      .select('failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, narrative_justification, status, requires_second_review, second_review_status, second_reviewed_by, second_reviewed_at, second_review_notes, estimate_source')
+      .eq('evaluation_id', copyFromEvaluationId)
+      .eq('status', 'evaluated');
+    for (const row of (previousItems ?? []) as PreviousItemValues[]) {
+      previousByMode.set(row.failure_mode_id, row);
+    }
+  }
+
+  let copiedItems = 0;
   const itemPayload = failureModeIds
     .filter((failureModeId) => sDefaultByMode.has(failureModeId))
-    .map((failureModeId) => ({
-      evaluation_id: evaluationInsert.id,
-      failure_mode_id: failureModeId,
-      s_default_frozen: sDefaultByMode.get(failureModeId),
-      o_value: null,
-      d_real_value: null,
-      s_actual: null,
-      narrative_justification: null,
-      status: 'pending',
-      requires_second_review: false,
-    }));
+    .map((failureModeId) => {
+      const previous = previousByMode.get(failureModeId);
+      // Se conserva la S por defecto congelada de la versión anterior: los
+      // valores copiados se calcularon sobre ella.
+      if (previous) {
+        copiedItems++;
+        return {
+          evaluation_id: evaluationInsert.id,
+          failure_mode_id: failureModeId,
+          s_default_frozen: previous.s_default_frozen,
+          o_value: previous.o_value,
+          d_real_value: previous.d_real_value,
+          s_actual: previous.s_actual,
+          narrative_justification: previous.narrative_justification,
+          status: 'evaluated',
+          requires_second_review: previous.requires_second_review,
+          second_review_status: previous.second_review_status,
+          second_reviewed_by: previous.second_reviewed_by,
+          second_reviewed_at: previous.second_reviewed_at,
+          second_review_notes: previous.second_review_notes,
+          estimate_source: previous.estimate_source,
+        };
+      }
+      return {
+        evaluation_id: evaluationInsert.id,
+        failure_mode_id: failureModeId,
+        s_default_frozen: sDefaultByMode.get(failureModeId),
+        o_value: null,
+        d_real_value: null,
+        s_actual: null,
+        narrative_justification: null,
+        status: 'pending',
+        requires_second_review: false,
+        // Mismas columnas en todas las filas: en un insert múltiple, la que
+        // falte se escribe como NULL, no con su valor por defecto.
+        second_review_status: 'not_required',
+        second_reviewed_by: null,
+        second_reviewed_at: null,
+        second_review_notes: null,
+        estimate_source: null,
+      };
+    });
 
   if (itemPayload.length > 0) {
     const { error: itemInsertError } = await fluxion.from('fmea_items').insert(itemPayload);
 
     if (itemInsertError) {
+      // Sin ítems, la versión no sirve y bloquearía la siguiente: se retira.
+      await fluxion.from('fmea_evaluations').delete().eq('id', evaluationInsert.id);
       return {
         evaluationId: null,
         created: false,
@@ -314,18 +437,39 @@ export async function ensureActiveFmeaEvaluation(params: {
     }
   }
 
+  if (copyFromEvaluationId) {
+    const { data: familyEstimates } = await fluxion
+      .from('fmea_family_estimates')
+      .select('family_label, o_value, d_value, justification, created_by')
+      .eq('evaluation_id', copyFromEvaluationId);
+
+    if (familyEstimates && familyEstimates.length > 0) {
+      const { error: familyError } = await fluxion.from('fmea_family_estimates').insert(
+        familyEstimates.map((row) => ({ ...row, evaluation_id: evaluationInsert.id }))
+      );
+      // No bloquea: los valores ya están copiados en cada ítem.
+      if (familyError) {
+        console.error('[fmea/data] no se pudieron copiar las estimaciones por familia:', familyError.message);
+      }
+    }
+  }
+
   await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: aiSystemId,
       organization_id: organizationId,
       event_type: 'fmea_evaluation_created',
-      event_title: 'Evaluación FMEA iniciada',
-      event_summary: `Se abrió un nuevo ciclo FMEA con ${itemPayload.length} modos de fallo activados.`,
+      event_title: copyFromEvaluationId ? 'Nueva versión de la evaluación FMEA' : 'Evaluación FMEA iniciada',
+      event_summary: copyFromEvaluationId
+        ? `Se abrió la versión ${version} de la evaluación FMEA con ${itemPayload.length} modos de fallo; ${copiedItems} parten de los valores de la versión vigente.`
+        : `Se abrió un nuevo ciclo FMEA con ${itemPayload.length} modos de fallo activados.`,
       actor_user_id: userId,
       payload: {
         evaluation_id: evaluationInsert.id,
         version,
         items_seeded: itemPayload.length,
+        items_copied: copiedItems,
+        copied_from_evaluation_id: copyFromEvaluationId,
         seed_strategy: seedStrategy,
         prioritized_count: prioritizedModeIds.length,
         activated_count: systemModes.length,
@@ -385,6 +529,14 @@ export async function buildFmeaEvaluationData(params: {
     .limit(1)
     .maybeSingle();
   const lockedByPlan = !!lockingPlan;
+
+  const versions = await loadEvaluationVersions({
+    fluxion,
+    organizationId,
+    aiSystemId,
+    evaluationId,
+    viewer: { roles: viewerRoles },
+  });
 
   const { data: activationRows } = await fluxion
     .from('system_failure_modes')
@@ -480,6 +632,7 @@ export async function buildFmeaEvaluationData(params: {
       viewerUserId,
       viewerRoles,
       lockedByPlan,
+      versions,
       activationSummary: {
         activatedCount,
         prioritizedCount,
@@ -661,6 +814,7 @@ export async function buildFmeaEvaluationData(params: {
     viewerUserId,
     viewerRoles,
     lockedByPlan,
+    versions,
     activationSummary: {
       activatedCount,
       prioritizedCount,

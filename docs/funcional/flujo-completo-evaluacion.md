@@ -120,8 +120,8 @@ una versión ligera.
 > - **Proveedor de modelo GPAI:** qué documentos del Art. 53 se exigen en **Evaluado**.
 
 > **ℹ Aclaración.** Hoy ninguna etapa se puede alcanzar de forma verificable a partir de **Evaluado**: la
-> evaluación FMEA nunca se aprueba (GAP-13), la AISIA no tiene versión ligera y no existe el dato de
-> responsable de la supervisión humana.
+> AISIA no tiene versión ligera y no existe el dato de responsable de la supervisión humana. La evaluación
+> FMEA ya se aprueba (GAP-13, resuelto en B07).
 
 ## 1. Mapa general
 
@@ -496,14 +496,14 @@ flowchart LR
 - **Evidencias:** ninguna obligatoria. Desde la ficha se pueden vincular evidencias a modos de fallo.
 - **Rastro:** historial del ítem y del sistema; **Exportar PDF** (página imprimible).
 
-> **ℹ Aclaración.** «En revisión» es el estado final real de la evaluación. Lo que se aprueba después es
-> el plan de tratamiento. Si no hay candidatos a tratamiento, la evaluación queda «En revisión» y no se
-> crea plan.
+> **ℹ Aclaración.** La evaluación y su plan de tratamiento son una sola evaluación de riesgos (DP-03): al
+> aprobarse el plan, la evaluación pasa a «Aprobada» y es la vigente del sistema. Sin candidatos a
+> tratamiento se crea igualmente un plan sin acciones, que se envía a aprobación y se cierra al aprobarse.
 
-> **⚠ GAP-13 · Ciclo de vida de la evaluación incompleto.** Ninguna acción pasa la evaluación a «Aprobada»
-> ni a «Sustituida», así que no se puede crear una versión 2 y la comparativa es inalcanzable. Además,
-> guardar (también el guardado automático) devuelve a «Borrador» una evaluación ya enviada (`R3`, `R4`).
-> El guardado automático rellena O = 3 y D = 3 en ítems pendientes (`R5`).
+> **✔ GAP-13 · Resuelto en B05 y B07.** B05 corrigió la vuelta a borrador al guardar y la severidad de
+> los ítems pendientes. B07 completa el ciclo: la evaluación pasa a «Aprobada» al aprobarse su plan y a
+> «Sustituida» al aprobarse una versión posterior; **Nueva versión** abre la versión 2, que se puede
+> comparar con la vigente.
 
 ---
 
@@ -612,8 +612,11 @@ Con el plan aprobado:
 >
 > **Pendiente de implementar.** Biblioteca de evidencias única (`_inventario.md` §10.3, decisión 30).
 
-> **⚠ GAP-20 · El plan nunca se cierra.** Los estados «En curso», «Cerrado» y «Sustituido» existen, pero
-> nada los asigna (`R12`).
+> **✔ GAP-20 · Resuelto en B07.** Al aprobarse, el plan pasa a «En ejecución» o, sin acciones abiertas, a
+> «Cerrado»; la base de datos lo cierra al cerrar su última acción y lo reabre si una acción vuelve a
+> abrirse. Al aprobarse una versión nueva de la evaluación, el plan anterior pasa a «Sustituido» y sus
+> acciones abiertas se cancelan. También se corrigió que completar desde Tareas la tarea de una acción
+> fallaba siempre.
 
 ### 7.4 Revisión periódica
 
@@ -869,10 +872,9 @@ flowchart TD
 del expediente, y dejar las anteriores como sustituidas.
 
 > **⚠ GAP-32 · La reevaluación no es posible de punta a punta.**
-> - **FMEA:** no se crea una versión nueva mientras la anterior siga en borrador o en revisión, y nunca
->   sale de ahí (GAP-13).
+> - **FMEA y plan:** ✔ resuelto en B07. **Nueva versión** abre la versión siguiente desde la vigente,
+>   partiendo de sus valores; al aprobarse, la anterior y su plan pasan a «Sustituida» y «Sustituido».
 > - **AISIA:** una aprobada no se puede rehacer (GAP-23).
-> - **Plan:** nunca pasa a «Sustituido» (GAP-20).
 > - **Disparadores:** la fecha de próxima revisión, los incidentes y los cambios en la ficha no avisan
 >   ni abren una reevaluación. El expediente sí avisa si la ficha cambió después de la última edición.
 >
@@ -943,8 +945,8 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-15 | 5 | ✔ Resuelto en B02: no se podía mitigar (controles sugeridos vacíos) | — | `R1`, `R9` |
 | GAP-18 | 5 | ✔ Resuelto en B03: las acciones no se podían cerrar ni registrar residual | — | `R2` |
 | GAP-28 | 9 | ✔ Resuelto en B04: la Declaración de Aplicabilidad no se podía enviar ni aprobar | — | `E1` |
-| GAP-32 | 10 | La reevaluación no es posible (FMEA, AISIA, plan) | Corta | `R3`, `E19`, `R12` |
-| GAP-13 | 4 | Evaluación FMEA sin estado final (B07). Resuelto en B05: vuelta a borrador al guardar y severidad en pendientes | Corta | `R3` |
+| GAP-32 | 10 | La reevaluación no es posible: AISIA y disparadores (FMEA y plan resueltos en B07) | Corta | `E19` |
+| GAP-13 | 4 | ✔ Resuelto en B05 y B07: evaluación FMEA sin estado final | — | `R3` |
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
@@ -959,7 +961,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-29 | 9 | Estado de controles de la Declaración desconectado del tratamiento | Debilita | — |
 | GAP-30 | 9 | Exclusión de brechas sin aprobación | Debilita | `R13` |
 | GAP-33 | 4 a 9 | FMEA, AISIA y Declaración no se conservan como evidencia | Debilita | — |
-| GAP-20 | 5 | El plan nunca se cierra | Debilita | `R12` |
+| GAP-20 | 5 | ✔ Resuelto en B07: el plan nunca se cerraba | — | `R12` |
 | GAP-21 | 5 | Escalados sin aviso y destinatario del recordatorio (la fecha de «Diferir» se resolvió en B05) | Debilita | `R11` |
 | GAP-25 | 7 | Registro UE no cubre el Anexo VIII | Debilita | `E12`, `E13` |
 | GAP-06 | 1 | Declaración (Core) depende de la AISIA (módulo) | Debilita (futuro) | — |

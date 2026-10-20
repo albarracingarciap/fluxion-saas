@@ -14,7 +14,9 @@ fuente:
   - apps/web/app/(app)/planes/page.tsx
   - apps/web/app/(app)/planes/revisiones-pendientes/page.tsx
   - apps/web/app/api/cron/review-reminders/route.ts
+  - apps/web/lib/fmea/lifecycle-rules.ts
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - docs/producto/plan-de-accion.md
 ---
 
@@ -67,18 +69,21 @@ stateDiagram-v2
   Borrador --> En_revisión: enviar a aprobación
   En_revisión --> Aprobado: aprobar
   En_revisión --> Borrador: rechazar
-  Aprobado --> En_curso
-  En_curso --> Cerrado
-  Aprobado --> Sustituido: nueva evaluación
-  En_curso --> Sustituido: nueva evaluación
+  Aprobado --> En_ejecución: quedan acciones abiertas
+  Aprobado --> Cerrado: ninguna acción abierta
+  En_ejecución --> Cerrado: última acción cerrada
+  Cerrado --> En_ejecución: una acción se reabre
+  En_ejecución --> Sustituido: nueva versión aprobada
 ```
 
-> TODO: confirmar cómo pasa un plan a «En curso» y a «Cerrado». Los estados existen en la aplicación,
-> pero no se ha encontrado en el código la transición desde «Aprobado».
+El plan y el [análisis de modos de fallo](analisis-modos-de-fallo.md) forman una sola evaluación de
+riesgos: al aprobarse el plan, la evaluación queda aprobada y vigente. Si la evaluación no tiene modos que
+tratar, el plan se envía igualmente a aprobación, sin acciones, y se cierra al aprobarse.
 
 1. **Creación.** Al enviar el [análisis de modos de fallo](analisis-modos-de-fallo.md) a revisión,
    Fluxion crea el plan en borrador con una acción por cada modo de severidad actual 7 o más, o que
-   pasó por segunda revisión. El plan registra:
+   pasó por segunda revisión. Si se corrige la evaluación tras un rechazo, el plan se ajusta al
+   reenviarla. El plan registra:
    - la zona de partida;
    - el [suelo AI Act](../glosario.md#suelo-ai-act);
    - el nivel de aprobación;
@@ -103,10 +108,12 @@ stateDiagram-v2
 5. **Aprobación.** El aprobador asignado aprueba el plan, con notas del comité si las hay, o lo rechaza.
    Si la organización ha configurado una política en [Flujos de aprobación](../glosario.md#flujos-de-aprobación),
    la decisión se toma desde allí con sus pasos y aprobadores. Cada transición guarda una
-   [instantánea](../glosario.md#instantánea) del plan.
+   [instantánea](../glosario.md#instantánea) del plan. La aprobación del plan aprueba también las
+   aceptaciones de riesgo que contiene.
 6. **Ejecución.**
-   - Cada acción, salvo las aceptadas, está pensada para tener su tarea. Cuando la tarea se completa, la
-     acción se cierra.
+   - Cada acción, salvo las aceptadas, tiene su tarea. Cuando la tarea se completa, la acción se cierra.
+   - El plan está en ejecución mientras quede alguna acción abierta y se cierra solo cuando no queda
+     ninguna.
 
    - En las mitigaciones se implanta el control, se adjunta la evidencia y se registra la severidad
      residual alcanzada.
@@ -116,7 +123,9 @@ stateDiagram-v2
    - Cada lunes, Fluxion avisa a cada responsable de las revisiones que vencen en los próximos 30 días
      o ya vencidas.
    - Un aviso en la parte superior de la aplicación recuerda las revisiones atrasadas.
-8. **Vista de conjunto.** La vista **Planes de tratamiento** reúne todos los planes de la
+8. **Nueva versión.** Cuando se aprueba una nueva versión de la evaluación, el plan anterior queda
+   sustituido y sus acciones pendientes se cancelan: lo que siga haciendo falta está en el plan nuevo.
+9. **Vista de conjunto.** La vista **Planes de tratamiento** reúne todos los planes de la
    organización. **Revisiones pendientes** agrupa las acciones que toca revisar.
 
 > TODO: confirmar cuándo la severidad residual pasa a contar para la zona del sistema. El diseño de

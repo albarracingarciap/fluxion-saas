@@ -86,6 +86,9 @@ function getStageLabel(params: {
   if (params.planStatus === 'in_review') return 'Plan en aprobación'
   if (params.fmeaState === 'draft') return 'FMEA en borrador'
   if (params.fmeaState === 'in_review') return 'FMEA en revisión'
+  // Evaluación aprobada (B07): el plan está en ejecución o cerrado.
+  if (params.planStatus === 'approved' || params.planStatus === 'in_progress') return 'Plan en ejecución'
+  if (params.fmeaState === 'approved') return 'Evaluación vigente'
   if (params.prioritizedCount > 0) return 'Pendiente de iniciar'
   return 'Sin cola priorizada'
 }
@@ -97,7 +100,7 @@ function getAction(params: {
   fmeaState: string | null
   prioritizedCount: number
 }) {
-  if (params.evaluationId && ['draft', 'in_review'].includes(params.planStatus ?? '')) {
+  if (params.evaluationId && ['draft', 'in_review', 'approved', 'in_progress'].includes(params.planStatus ?? '')) {
     return {
       href: `/inventario/${params.systemId}/fmea/${params.evaluationId}/plan`,
       label: 'Abrir plan',
@@ -108,6 +111,13 @@ function getAction(params: {
     return {
       href: `/inventario/${params.systemId}/fmea/${params.evaluationId}/evaluar`,
       label: 'Continuar FMEA',
+    }
+  }
+
+  if (params.evaluationId && params.fmeaState === 'approved') {
+    return {
+      href: `/inventario/${params.systemId}/fmea/${params.evaluationId}/plan`,
+      label: 'Ver evaluación',
     }
   }
 
@@ -261,18 +271,23 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
 
   const itemRows = (itemRowsData ?? []) as EvaluationItemRow[]
 
+  // La evaluación de referencia es la última versión (B07): al aprobarse una
+  // versión nueva, la anterior se actualiza a sustituida y por fecha de
+  // modificación podría parecer la más reciente.
   const latestEvaluationBySystem = new Map<string, EvaluationRow>()
-  for (const row of [...evaluations].sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
+  for (const row of [...evaluations].sort((a, b) => b.version - a.version)) {
     if (!latestEvaluationBySystem.has(row.system_id)) {
       latestEvaluationBySystem.set(row.system_id, row)
     }
   }
 
+  // El plan es el de esa evaluación.
+  const planByEvaluation = new Map<string, TreatmentPlanRow>()
+  for (const row of plans) planByEvaluation.set(row.evaluation_id, row)
   const latestPlanBySystem = new Map<string, TreatmentPlanRow>()
-  for (const row of [...plans].sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
-    if (!latestPlanBySystem.has(row.system_id)) {
-      latestPlanBySystem.set(row.system_id, row)
-    }
+  for (const evaluation of Array.from(latestEvaluationBySystem.values())) {
+    const plan = planByEvaluation.get(evaluation.id)
+    if (plan) latestPlanBySystem.set(evaluation.system_id, plan)
   }
 
   const itemsByEvaluation = new Map<string, EvaluationItemRow[]>()
