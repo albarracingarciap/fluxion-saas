@@ -4,7 +4,7 @@ import Link from "next/link"
 import { signup } from "../actions"
 
 export const metadata: Metadata = {
-  title: "Registro | Fluxion",
+  title: "Registro | CompaaS IA",
   description: "Crea tu cuenta corporativa de gobierno de IA en Fluxion.",
 }
 

@@ -2,7 +2,7 @@ import { listBudgets, getSystemsForBudget } from './actions'
 import { PresupuestosClient } from './presupuestos-client'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Presupuestos de IA · Fluxion' }
+export const metadata = { title: 'Presupuestos de IA · CompaaS IA' }
 
 export default async function PresupuestosPage() {
   const [budgets, systems] = await Promise.all([listBudgets(), getSystemsForBudget()])

@@ -10,7 +10,7 @@ import {
 } from '@/lib/treatment-plans/data'
 import { PlansViewClient } from './plans-view-client'
 
-export const metadata = { title: 'Planes de tratamiento · Fluxion' }
+export const metadata = { title: 'Planes de tratamiento · CompaaS IA' }
 
 type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>

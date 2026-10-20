@@ -2,7 +2,7 @@ import { listQuestionnaires } from './actions'
 import { QuestionnaireListClient } from './list-client'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Cuestionario preliminar · Fluxion' }
+export const metadata = { title: 'Cuestionario preliminar · CompaaS IA' }
 
 export default async function CuestionarioPreliminarPage() {
   const data = await listQuestionnaires()

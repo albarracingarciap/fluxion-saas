@@ -4,7 +4,7 @@ import { AlertTriangle, Eye, Gauge, ShieldCheck, Timer, Users } from 'lucide-rea
 import { getHitlOverview, detectarSesgo, SESGO } from '@/lib/hitl/data'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Supervisión humana · Fluxion' }
+export const metadata = { title: 'Supervisión humana · CompaaS IA' }
 
 const RANGOS = [30, 90, 180]
 

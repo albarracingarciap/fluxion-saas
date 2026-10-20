@@ -4,7 +4,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { fetchTasks } from '@/lib/tasks/data'
 import { KanbanView } from '@/components/tasks/KanbanView'
 
-export const metadata = { title: 'Kanban · Fluxion' }
+export const metadata = { title: 'Kanban · CompaaS IA' }
 
 export default async function KanbanPage() {
   const { user, membership } = await getAppAuthState()

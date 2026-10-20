@@ -6,7 +6,7 @@ import {
 import { getTelemetrySummary } from '@/lib/telemetry/data'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Observabilidad · Fluxion' }
+export const metadata = { title: 'Observabilidad · CompaaS IA' }
 
 const RANGOS = [7, 30, 90]
 

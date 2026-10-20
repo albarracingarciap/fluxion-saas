@@ -8,7 +8,7 @@ import { createComplianceClient } from '@/lib/supabase/compliance'
 import { fetchPendingReviewActions } from '@/lib/treatment-plans/data'
 import { PendingReviewsClient } from './pending-reviews-client'
 
-export const metadata = { title: 'Revisiones pendientes · Fluxion' }
+export const metadata = { title: 'Revisiones pendientes · CompaaS IA' }
 
 export default async function RevisionesPendientesPage() {
   const { user, membership } = await getAppAuthState()

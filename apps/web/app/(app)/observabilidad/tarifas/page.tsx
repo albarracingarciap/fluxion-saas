@@ -2,7 +2,7 @@ import { listPrices } from './actions'
 import { TarifasClient } from './tarifas-client'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Tarifas de modelos · Fluxion' }
+export const metadata = { title: 'Tarifas de modelos · CompaaS IA' }
 
 export default async function TarifasPage() {
   const { prices, missing } = await listPrices()

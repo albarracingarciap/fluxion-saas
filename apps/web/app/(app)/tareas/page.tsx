@@ -4,7 +4,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { fetchTasks, computeTaskSummary } from '@/lib/tasks/data'
 import { TasksView } from '@/components/tasks/TasksView'
 
-export const metadata = { title: 'Tareas · Fluxion' }
+export const metadata = { title: 'Tareas · CompaaS IA' }
 
 export default async function TareasPage() {
   const { user, membership } = await getAppAuthState()

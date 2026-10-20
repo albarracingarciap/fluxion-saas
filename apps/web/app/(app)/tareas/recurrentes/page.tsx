@@ -4,7 +4,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { getRecurrencesAction } from '@/app/(app)/tareas/actions'
 import { RecurrentTasksView } from '@/components/tasks/RecurrentTasksView'
 
-export const metadata = { title: 'Tareas recurrentes · Fluxion' }
+export const metadata = { title: 'Tareas recurrentes · CompaaS IA' }
 
 export default async function RecurrentesPage() {
   const { user, membership } = await getAppAuthState()

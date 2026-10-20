@@ -5,7 +5,7 @@ import { getBusinessRisks } from './actions'
 import { RiesgosNegocioClient } from './riesgos-client'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Riesgos de negocio · Fluxion' }
+export const metadata = { title: 'Riesgos de negocio · CompaaS IA' }
 
 export default async function RiesgosNegocioPage({ params }: { params: { id: string } }) {
   const data = await getBusinessRisks(params.id)

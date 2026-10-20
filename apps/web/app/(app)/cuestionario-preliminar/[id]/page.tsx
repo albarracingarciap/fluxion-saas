@@ -5,7 +5,7 @@ import { getQuestionnaire } from '../actions'
 import { QuestionnaireForm } from '../questionnaire-form'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Cuestionario preliminar · Fluxion' }
+export const metadata = { title: 'Cuestionario preliminar · CompaaS IA' }
 
 export default async function CuestionarioPage({ params }: { params: { id: string } }) {
   const data = await getQuestionnaire(params.id)

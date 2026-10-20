@@ -3,7 +3,7 @@ import { getFullCausalGraph } from '@/lib/causal-graph/system-graph';
 import { CatalogClient } from './catalog-client';
 
 export const metadata: Metadata = {
-  title: 'Catálogo Causal | Fluxion',
+  title: 'Catálogo Causal | CompaaS IA',
   description: 'Grafo dinámico de todas las relaciones de causalidad en la taxonomía.',
 };
 

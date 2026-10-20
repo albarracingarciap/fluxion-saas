@@ -4,7 +4,7 @@ import { getMyPendingApprovals, getApprovalHistory } from './actions'
 import { AprobacionesClient } from './aprobaciones-client'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Aprobaciones · Fluxion' }
+export const metadata = { title: 'Aprobaciones · CompaaS IA' }
 
 export default async function AprobacionesPage() {
   const [pendientes, historico] = await Promise.all([

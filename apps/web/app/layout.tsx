@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fluxion SaaS",
+  title: "CompaaS IA",
   description: "Plataforma B2B de Gobierno de Inteligencia Artificial",
 };
 

@@ -30,6 +30,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | P1 · Identificadores de perfil y de usuario | Integrado en `main` | `prep/p1-identificadores` | 2026-10-20 | No |
 | T9 · `migrate.sh` atómico | Integrado en `main` | `prep/t9-migrate-atomico` | 2026-10-20 | No (cambia el script de migraciones) |
 | Logo CompaaS IA (fuera del plan) | Integrado en `main` | `feat/logo-compaas` | 2026-10-20 | No |
+| Textos CompaaS IA: títulos y bienvenida (fuera del plan) | Integrado en `main` | `feat/textos-compaas` | 2026-10-20 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -461,5 +462,21 @@ ejecutado contra una base de datos real.
 
 **Verificación.** `tsc --noEmit` sin errores; `next lint` sin avisos nuevos. No se ha visto en el navegador.
 
-**Pendiente de decidir.** Los textos siguen diciendo «Fluxion»: título de la pestaña («Fluxion SaaS»),
-«Bienvenido a Fluxion» en el inicio de sesión, metadatos del registro, correos y PDF.
+**Pendiente de decidir.** Los textos siguen diciendo «Fluxion» (ver el bloque siguiente para los ya cambiados).
+
+---
+
+## Textos CompaaS IA: títulos de pestaña y bienvenida (fuera del plan)
+
+**Fecha:** 2026-10-20 · **Rama:** `feat/textos-compaas` · **Migración:** no
+
+**Cambios.**
+- Título general de la pestaña: «Fluxion SaaS» → «CompaaS IA» (`app/layout.tsx`).
+- Títulos de pestaña de 20 páginas: «… · Fluxion» y «… | Fluxion» → «… · CompaaS IA» y «… | CompaaS IA»
+  (inicio de sesión, registro, tareas, planes, aprobaciones, observabilidad, cuestionario preliminar, etc.).
+- Inicio de sesión: «Bienvenido a Fluxion» → «Bienvenido a CompaaS IA».
+
+**Verificación.** `tsc --noEmit` sin errores.
+
+**Pendiente (más adelante, a petición del responsable).** Resto de textos con «Fluxion»: descripción del
+registro, mensaje de prueba de canales de Slack y Teams, correos, PDF generados y documentación.
