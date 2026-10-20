@@ -37,9 +37,9 @@ Las versiones no se eligen:
 
 Si no existe, la vista devuelve «no encontrado».
 
-> TODO: confirmar el acceso a esta vista. Hoy es inalcanzable: ninguna evaluación llega a «Aprobada» ni a
-> «Sustituida» (ver [Evaluación FMEA](fmea-evaluacion.md#estados)), de modo que nunca existe una versión
-> anterior que comparar.
+Desde el bloque B07 la vista es alcanzable: al aprobarse una evaluación, la anterior pasa a «Sustituida»,
+y una versión nueva (**Nueva versión**, ver [Evaluación FMEA](fmea-evaluacion.md#versiones)) se compara
+con la vigente mientras está en curso.
 
 ## Campos
 

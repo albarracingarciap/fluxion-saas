@@ -7,6 +7,8 @@ audiencia: tecnica
 version: 0.1
 fuente:
   - apps/web/app/(app)/inventario/[id]/fmea/page.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/actions.ts
+  - apps/web/app/(app)/inventario/[id]/fmea/evaluation-version-bar.tsx
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/page.tsx
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/familias-panel.tsx
@@ -15,7 +17,11 @@ fuente:
   - apps/web/lib/fmea/domain.ts
   - apps/web/lib/fmea/data.ts
   - apps/web/lib/fmea/treatment-plan.ts
+  - apps/web/lib/fmea/lifecycle-rules.ts
+  - apps/web/lib/fmea/lifecycle.ts
+  - apps/web/lib/fmea/versions.ts
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
+  - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
 ---
 
 # Evaluación FMEA
@@ -32,7 +38,7 @@ sistema de forma trazable y obtener las acciones que deben tratarse.
 ## Acceso y permisos
 
 - **Ruta de entrada:** `/inventario/[id]/fmea`.
-  - Reutiliza la evaluación en curso o crea una nueva.
+  - Abre la evaluación en curso, si no la vigente; solo crea la versión 1 si el sistema no tiene ninguna.
   - Después redirige a `…/fmea/[evaluationId]/evaluar` o, si ya hay plan, al plan.
   - Con `?item=` abre ese ítem.
 - **Navegación:**
@@ -62,8 +68,11 @@ de confirmar). Para el resto de roles el botón no se muestra.
 | El sistema no tiene modos activados | «Activa antes los modos de fallo» y **Volver al sistema** |
 | No hay modos priorizados | «Todavía no hay una cola priorizada para este sistema…» |
 | Todos los priorizados son de negocio | «Los modos priorizados de este sistema son todos de riesgo de negocio, que no forman parte del FMEA regulatorio.» |
-| Hay una evaluación en borrador o en revisión | Se reutiliza |
-| En otro caso | Se crea una evaluación nueva (versión siguiente) con un ítem por modo priorizado. Historial «Evaluación FMEA iniciada» |
+| Hay una evaluación en borrador o en revisión | Se abre esa |
+| No la hay, pero sí una aprobada | Se abre la vigente (la última aprobada), en solo lectura |
+| El sistema no tiene ninguna evaluación | Se crea la versión 1 con un ítem por modo priorizado. Historial «Evaluación FMEA iniciada» |
+
+Una versión nueva no se crea al entrar: se abre con **Nueva versión** (ver [Versiones](#versiones)).
 
 ## Campos
 
@@ -183,18 +192,25 @@ Solo la puede resolver un usuario distinto del evaluador.
 | **Aplicar a N modos** / **Retirar estimación** | Roles con permiso | Estimación por familia | Recarga la página |
 | **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
 | **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
-| **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) | — |
+| **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) (desde la versión 2) | — |
+| **Nueva versión** | Analista de riesgos, Responsable del sistema | `startFmeaReevaluationAction`, con confirmación. Solo en la versión vigente y si no hay otra en curso | Ver [Versiones](#versiones) |
 
-**Envío a revisión:**
-- **Sin candidatos a tratamiento:** la evaluación pasa a «En revisión» y se vuelve a la ficha.
-- **Con candidatos** (modos con severidad 7 o más, o que pasaron segunda revisión): se crea el
-  [plan de tratamiento](plan-de-tratamiento.md) en borrador con una acción por candidato. El plan lleva:
+**Envío a revisión.** La evaluación pasa a «En revisión» y siempre se crea (o, en un reenvío, se
+actualiza) su [plan de tratamiento](plan-de-tratamiento.md) en borrador: la evaluación y el plan son una
+sola evaluación de riesgos y se aprueban juntos (DP-03, bloque B07).
+- **Acciones:** una por candidato (modos con severidad 7 o más, o que pasaron segunda revisión). Sin
+  candidatos, el plan no tiene acciones; se envía igualmente a aprobación y se cierra al aprobarse.
+- **Plan:** lleva:
   - código PTR-año-nnn;
   - zona;
   - nivel de aprobación;
   - aprobador asignado;
   - fecha límite (30, 90, 180 o 365 días);
   - cadencia de revisión.
+- **Reenvío** (plan devuelto a borrador y evaluación corregida): se recalculan zona, nivel de aprobación,
+  cadencia y recuentos; si cambia el nivel, se vuelve a asignar aprobador. Las acciones de modos que han
+  dejado de ser candidatos se retiran y sus tareas se cancelan.
+- **Evaluador:** se mantiene quien abrió la evaluación; quien la reenvía no lo sustituye.
 - **Prioridades:** se recalculan con la severidad residual.
 - **Navegación:** se abre el plan.
 
@@ -204,8 +220,33 @@ evaluación queda en solo lectura.
 
 Los ítems pendientes se guardan tal como están: el guardado automático no les asigna severidad actual.
 
-> **Pendiente de implementar.** Ciclo de vida completo (estados «Aprobada» y «Sustituida», versión 2 y
-> comparativa), decidido en DP-03 (bloque B07).
+**Aprobación.** Al aprobarse el plan, por el aprobador asignado o por un
+[flujo de aprobación](aprobaciones.md), la evaluación pasa a «Aprobada» con su aprobador, la fecha y la
+próxima revisión según la cadencia del plan (mensual, trimestral, semestral o anual). Historial
+«Evaluación de riesgos aprobada».
+
+### Versiones
+
+Una barra sobre los indicadores sitúa la evaluación entre las versiones del sistema (no aparece en la
+primera evaluación mientras está en curso):
+
+| Estado de la versión | Barra |
+|---|---|
+| Aprobada | «Versión N · Vigente», fecha de aprobación y próxima revisión (en rojo si ha vencido). Botón **Nueva versión** para quien puede abrirla; si no, indica quién la abre. Si ya hay otra en curso, enlace **Ir a la versión M en curso** |
+| En borrador o en revisión, con una vigente | «Versión N · En curso»: «Sustituirá a la versión M cuando se apruebe su plan» y enlace **Ver versión vigente** |
+| Sustituida | «Versión N · Sustituida», solo lectura, y enlace **Ver versión vigente** |
+
+**Nueva versión** crea la versión siguiente con los modos priorizados en ese momento (solo los
+regulatorios):
+- los modos que estaban confirmados en la vigente arrancan con sus valores, su justificación y su segunda
+  revisión; al cambiar un valor, el guardado vuelve a calcular la segunda revisión;
+- los modos nuevos arrancan pendientes;
+- se copian las estimaciones por familia;
+- historial «Nueva versión de la evaluación FMEA», con el número de modos copiados.
+
+La versión anterior sigue vigente hasta que se aprueba el plan de la nueva. Entonces pasa a «Sustituida»;
+su plan, si seguía abierto, también, y sus acciones abiertas se cancelan con sus tareas (historial
+«Versión anterior sustituida»).
 
 ## Validaciones
 
@@ -232,6 +273,8 @@ stateDiagram-v2
     [*] --> Borrador
     Borrador --> En_revisión: enviar
     En_revisión --> Borrador: guardar
+    En_revisión --> Aprobada: plan aprobado
+    Aprobada --> Sustituida: plan de la versión nueva aprobado
   }
   state Ítem {
     [*] --> Pendiente
@@ -243,7 +286,7 @@ stateDiagram-v2
   }
 ```
 
-Los estados «Aprobada» y «Sustituida» existen, pero ningún flujo los asigna.
+Las evaluaciones «Aprobada» y «Sustituida» son de solo lectura.
 
 ## Vistas relacionadas
 

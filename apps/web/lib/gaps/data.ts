@@ -1,5 +1,6 @@
 import { buildArticleToFailureModeMap, extractArticleCode } from '@/lib/causal-graph/amplifiers'
 import { createComplianceClient } from '@/lib/supabase/compliance'
+import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import {
   buildGapGroups,
@@ -364,20 +365,24 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const members = (membersResult.data ?? []) as GapOrganizationMemberRow[]
   const dispositions = (dispositionsResult.data ?? []) as GapDispositionRow[]
 
+  // Evaluación de referencia de cada sistema (B07): la vigente o, si aún no
+  // hay ninguna aprobada, la última versión. El plan es el de esa evaluación.
+  const evaluationsBySystem = new Map<string, GapEvaluationRow[]>()
+  for (const row of evaluations) {
+    const bucket = evaluationsBySystem.get(row.system_id) ?? []
+    bucket.push(row)
+    evaluationsBySystem.set(row.system_id, bucket)
+  }
   const latestEvaluationBySystem = new Map<string, GapEvaluationRow>()
-  for (const row of [...evaluations]
-    .filter((item) => item.state !== 'superseded')
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
-    if (!latestEvaluationBySystem.has(row.system_id)) {
-      latestEvaluationBySystem.set(row.system_id, row)
-    }
+  for (const [systemId, rows] of Array.from(evaluationsBySystem.entries())) {
+    const reference = pickReferenceEvaluation(rows)
+    if (reference) latestEvaluationBySystem.set(systemId, reference)
   }
 
   const latestPlanBySystem = new Map<string, GapPlanRow>()
-  for (const row of [...plans]
-    .filter((item) => item.status !== 'superseded')
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
-    if (!latestPlanBySystem.has(row.system_id)) {
+  for (const row of plans) {
+    if (row.status === 'superseded') continue
+    if (latestEvaluationBySystem.get(row.system_id)?.id === row.evaluation_id) {
       latestPlanBySystem.set(row.system_id, row)
     }
   }

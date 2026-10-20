@@ -13,6 +13,9 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/modos-de-fallo/actions.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/actions.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
+  - apps/web/app/(app)/inventario/[id]/fmea/actions.ts
+  - apps/web/lib/fmea/lifecycle-rules.ts
+  - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - apps/web/app/(app)/evaluaciones/page.tsx
   - supabase/migrations/00000000000005_seed_compliance.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
@@ -117,9 +120,16 @@ flowchart LR
 6. **Envío a revisión.** La evaluación solo se puede enviar cuando no quedan modos pendientes ni
    pospuestos, todas las justificaciones obligatorias están escritas y las segundas revisiones están
    aprobadas. Al enviarla, los modos con severidad actual de 7 o más, y los que pasaron por segunda
-   revisión, pasan al [plan de tratamiento](plan-de-tratamiento.md).
-7. **Versiones.** Cada reevaluación crea una versión nueva, que se puede comparar con las anteriores. La
-   evaluación se puede exportar en un formato imprimible.
+   revisión, pasan al [plan de tratamiento](plan-de-tratamiento.md). La evaluación y su plan forman una
+   sola evaluación de riesgos del sistema: siempre se envían juntos a aprobación, aunque no haya ningún
+   modo que tratar.
+7. **Aprobación.** Al aprobarse el plan, la evaluación queda aprobada y pasa a ser la **vigente** del
+   sistema, con su fecha de próxima revisión según la zona: mensual, trimestral, semestral o anual.
+8. **Versiones.** Desde la evaluación vigente, el Analista de riesgos o el Responsable del sistema abren
+   una **nueva versión**. Parte de los valores de la vigente, de modo que solo se revisa lo que ha
+   cambiado, y se puede comparar con ella. La vigente lo sigue siendo hasta que se aprueba la nueva;
+   entonces queda **sustituida**, en solo lectura, junto con su plan. La evaluación se puede exportar en
+   un formato imprimible.
 
 | Zona | Nombre | Qué implica |
 |---|---|---|
@@ -133,10 +143,6 @@ curso, las segundas revisiones pendientes y los planes.
 
 Los riesgos que amenazan el retorno o la viabilidad del sistema, y no el cumplimiento, no se evalúan
 aquí: van al registro de [riesgos de negocio](../glosario.md#riesgo-de-negocio), con su propia escala.
-
-> TODO: confirmar cuándo se considera «aprobada» una evaluación. La aplicación prevé los estados
-> borrador, en revisión, aprobada y sustituida, pero no se ha encontrado en el código el paso a
-> «aprobada». Lo que se aprueba es el plan de tratamiento.
 
 > **Pendiente de implementar.**
 > - Revisión de la priorización por IA.

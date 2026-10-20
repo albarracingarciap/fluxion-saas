@@ -32,6 +32,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Logo CompaaS IA (fuera del plan) | Integrado en `main` | `feat/logo-compaas` | 2026-10-20 | No |
 | Textos CompaaS IA: títulos y bienvenida (fuera del plan) | Integrado en `main` | `feat/textos-compaas` | 2026-10-20 | No |
 | B23a · Roles múltiples por miembro | Integrado en `main` | `fase1/b23a-roles-multiples` | 2026-10-20 | **Sí** · `20261020090000_roles_multiples.sql` |
+| B07 · Ciclo único de la evaluación de riesgos | Integrado en `main` | `fase1/b07-ciclo-evaluacion` | 2026-10-20 | **Sí** · `20261020100000_fmea_ciclo_evaluacion.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -46,6 +47,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261019090000_plan_control_libre.sql` | B02 | `controls.template_id` opcional; columnas `title` y `description`; restricción plantilla o título | **Antes** de desplegar B02: el plan de tratamiento y las brechas leen `controls.title` |
 | `supabase/migrations/20261019100000_plan_tareas_de_acciones.sql` | B03 | Corrige el responsable de la tarea en los dos triggers; crea la tarea al decidir la opción; genera las tareas que faltan | Antes o después de desplegar B03 (el código funciona sin ella, pero sin tareas nuevas). Revisa el número de tareas creadas por el relleno final |
 | `supabase/migrations/20261020090000_roles_multiples.sql` | B23a | Columna `profiles.roles`, trigger de sincronización con `role`, incompatibilidad DPO + Responsable del SGAI, reescritura de las 67 políticas RLS y de dos funciones de aprobación | **Antes** de desplegar B23a: la aplicación lee `profiles.roles` |
+| `supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql` | B07 | Funciones `plan_estado_por_acciones` y `fmea_aplicar_aprobacion_plan`; trigger de estado del plan en `treatment_actions`; propagación tarea → acción en un trigger AFTER; aplica la aprobación a los planes ya aprobados cuya evaluación seguía en revisión | **Antes** de desplegar B07: aprobar un plan llama a `fmea_aplicar_aprobacion_plan`. Revisa cuántas evaluaciones pasan a «Aprobada» |
 
 ---
 
@@ -533,3 +535,84 @@ cualquier otro y puede haber más de un Administrador.
 **Pendiente (B23b).** Responsable de supervisión humana por sistema, comité técnico, voz sin voto en comités y
 funciones de gobierno (CISO, Legal, Responsable del tratamiento). Las invitaciones asignan un solo rol; el
 resto se añade en **Miembros**.
+
+---
+
+## B07 · Ciclo único de la evaluación de riesgos
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b07-ciclo-evaluacion` ·
+**Migración:** **sí**, `supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql` (aplicar antes de desplegar)
+
+**Problema.** La evaluación FMEA y su plan no tenían un ciclo de vida completo (GAP-13, GAP-20, parte de
+GAP-32; F-06 y F-07):
+- la evaluación se quedaba «En revisión» para siempre: nada la aprobaba, así que no había versión vigente,
+  no se podía abrir la versión 2 y la comparativa era inalcanzable;
+- el plan se quedaba «Aprobado»: nada lo pasaba a «En ejecución», «Cerrado» ni «Sustituido»;
+- las acciones «Aceptar» se quedaban «Pendiente» y el plan no habría podido cerrarse nunca;
+- sin candidatos a tratamiento no se creaba plan y la evaluación no pasaba por ninguna aprobación;
+- reenviar una evaluación corregida no ajustaba el plan (zona, nivel, acciones sobrantes) y cambiaba el
+  evaluador.
+
+**Decisión aplicada.** DP-03 (2026-10-19): la evaluación FMEA y el plan forman una sola evaluación de
+riesgos del sistema.
+
+**Desviación respecto al plan.** El plan proponía marcar la versión anterior como sustituida al **crear**
+la nueva. Se hace al **aprobar** la nueva: así el sistema conserva una evaluación aprobada mientras dura la
+reevaluación, y el plan en ejecución no se interrumpe hasta que hay otro aprobado.
+
+**Bug encontrado y corregido.** Completar desde **Tareas** la tarea de una acción del plan fallaba siempre:
+`trg_task_done_propagate` (BEFORE UPDATE en `tasks`) completaba la acción, y su trigger AFTER volvía a
+actualizar la misma tarea, que Postgres rechaza («tuple to be updated was already modified by an operation
+triggered by the current command»). La propagación pasa a un trigger AFTER.
+
+**Cambios en la base de datos** (migración):
+- `fmea_aplicar_aprobacion_plan(plan, aprobador)`, en una transacción: acciones «Aceptar» → `accepted` con
+  `acceptance_approved_by/at`; evaluación → `approved` con aprobador, fecha y `next_review_at` según la
+  cadencia; versiones anteriores → `superseded`, sus planes abiertos → `superseded` y sus acciones abiertas
+  → `cancelled` (con sus tareas); plan → `in_progress` o `closed`. Solo `service_role`.
+- `plan_estado_por_acciones` y el trigger `trg_treatment_action_plan_status`: un plan aprobado está
+  `in_progress` mientras quede una acción que no sea `completed`, `accepted` ni `cancelled`, y `closed` si
+  no queda ninguna; se reabre si una acción vuelve a abrirse.
+- `trg_task_done_propagate_action` (AFTER, `SECURITY DEFINER`): la propagación tarea → acción.
+- Datos: se aplica la aprobación a los planes aprobados cuya evaluación seguía «En revisión», de la versión
+  más antigua a la más reciente.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| `lib/fmea/lifecycle-rules.ts` (nuevo, puro) | Reglas del ciclo: estado del plan según sus acciones, próxima revisión, cuándo se puede abrir una versión nueva, evaluación de referencia y etiquetas |
+| `lib/fmea/lifecycle.ts` (nuevo) | `applyRiskEvaluationApproval`: llama a la función de la base de datos, guarda las instantáneas (ejecución iniciada o plan cerrado; reemplazado) y el historial del sistema |
+| Aprobación del plan | La aprueban igual las dos vías: aprobador asignado (`approveTreatmentPlanAction`) y Flujos de aprobación (`lib/approvals/effects.ts`, que ahora recibe quién decidió) |
+| Envío de la evaluación | Siempre crea o actualiza el plan, también sin candidatos (plan sin acciones). En un reenvío recalcula zona, nivel, cadencia y recuentos, vuelve a asignar aprobador si cambia el nivel, retira las acciones de modos que ya no son candidatos y cancela sus tareas. Conserva el evaluador |
+| Entrada al FMEA | Abre la versión en curso o, si no hay, la vigente; solo crea la versión 1. Ya no hay creación implícita de versiones |
+| **Nueva versión** (`startFmeaReevaluationAction`) | Desde la vigente, para Analista de riesgos y Responsable del sistema. Copia los valores, justificaciones y segundas revisiones de los modos confirmados y las estimaciones por familia; los modos nuevos arrancan pendientes |
+| Barra de versiones (evaluación y plan) | Vigente con próxima revisión (en rojo si vence), en curso o sustituida; enlaces a la vigente y a la versión en curso; botón **Nueva versión** |
+| Revisión periódica | Una aceptación que pasa a tratarse vuelve a «Pendiente» y reabre el plan |
+| Evaluaciones, Dashboard | Etapas «Plan en ejecución» y «Evaluación vigente»; la fila usa la última versión y su plan (antes, el último modificado) |
+| Brechas, documentos, ficha | Usan la evaluación de referencia (la vigente; si no hay, la última) y su plan. La ficha muestra el plan en ejecución mientras una reevaluación no tiene plan |
+| Tests | `tests/ciclo-evaluacion.test.ts` (31 en total) |
+
+**Verificación.**
+- Migración probada en el Postgres local con todas las migraciones del repositorio: la migración de datos
+  aprueba una evaluación con plan aprobado (aceptación aprobada, próxima revisión a tres meses, plan en
+  ejecución); completar la tarea de la última acción cierra el plan y reabrir la acción lo devuelve a
+  ejecución; aprobar la versión 2 sustituye la 1 y su plan, cancela su acción abierta y su tarea, y cierra
+  el plan vacío de la 2. Es idempotente.
+- `tsc --noEmit` sin errores, `next lint` sin avisos nuevos, `npm test` 31/31, `check-server-actions.sh`
+  correcto.
+
+**Documentación.** `funcional/fmea-evaluacion.md` (entrada, envío, aprobación, versiones, estados),
+`funcional/plan-de-tratamiento.md` (estados y aprobación), `funcional/fmea-comparativa.md`,
+`funcional/evaluaciones.md`, `funcional/flujo-completo-evaluacion.md` (GAP-13 y GAP-20 resueltos; GAP-32
+parcial), `negocio/analisis-modos-de-fallo.md`, `negocio/plan-de-tratamiento.md`, `tecnica/modelo-datos.md`;
+TODO 31, 32, 98 y 100 de `_pendientes.md` resueltos.
+
+**Pendiente.**
+- Instantáneas de inicio y cierre cuando el plan cambia de estado después de la aprobación (al cerrar su
+  última acción).
+- Disparadores de reevaluación (próxima revisión vencida, incidentes, cambios en la ficha) y AISIA
+  versionable (B08): el resto de GAP-32.
+- Cambiar una aceptación a otra opción en la revisión periódica crea la tarea, pero no pide control ni
+  severidad residual si pasa a «Mitigar».
+

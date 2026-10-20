@@ -1,6 +1,7 @@
 import 'server-only'
 import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 
+import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 /**
@@ -369,24 +370,26 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       .maybeSingle()
     system = sys ?? null
 
-    const { data: evalRow } = await fluxion
+    // Evaluación de referencia (B07): la vigente; si no hay ninguna aprobada,
+    // la última versión. Una reevaluación en curso no entra en el documento.
+    const { data: evalRows } = await fluxion
       .from('fmea_evaluations')
-      .select('id, state, cached_zone, approved_at, next_review_at')
+      .select('id, state, version, cached_zone, approved_at, next_review_at')
       .eq('system_id', doc.ai_system_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const evalRow = pickReferenceEvaluation((evalRows ?? []) as Array<{ id: string; state: string; version: number }>)
     evaluation = evalRow ?? null
 
-    const { data: planRow } = await fluxion
-      .from('treatment_plans')
-      .select(
-        'code, status, modes_count_total, modes_count_zone_i, modes_count_zone_ii, actions_total, actions_completed, accepted_risk_count, residual_risk_notes',
-      )
-      .eq('system_id', doc.ai_system_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // El plan de esa misma evaluación.
+    const { data: planRow } = evalRow
+      ? await fluxion
+          .from('treatment_plans')
+          .select(
+            'code, status, modes_count_total, modes_count_zone_i, modes_count_zone_ii, actions_total, actions_completed, accepted_risk_count, residual_risk_notes',
+          )
+          .eq('system_id', doc.ai_system_id)
+          .eq('evaluation_id', evalRow.id)
+          .maybeSingle()
+      : { data: null }
     plan = planRow ?? null
 
     // 180 días: el art. 26.6 obliga a conservar los registros al menos seis

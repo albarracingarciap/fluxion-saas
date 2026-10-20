@@ -56,7 +56,7 @@ los planes vencidos y las segundas revisiones pendientes.
 | Campo | Contenido |
 |---|---|
 | Sistema | Nombre, código, nivel de riesgo AI Act y estado |
-| Etapa | Plan en borrador · Plan en aprobación · FMEA en borrador · FMEA en revisión · Pendiente de iniciar · Sin cola priorizada |
+| Etapa | Plan en borrador · Plan en aprobación · FMEA en borrador · FMEA en revisión · Plan en ejecución · Evaluación vigente · Pendiente de iniciar · Sin cola priorizada |
 | Cola | Número de modos prioritarios y en observación |
 | Etiquetas | Vencido · zona · zona objetivo del plan · número de tareas |
 | **FMEA** | Versión y estado, o «Sin iniciar» |
@@ -64,7 +64,11 @@ los planes vencidos y las segundas revisiones pendientes.
 | **2ª revisión** | Ítems pendientes de segunda revisión |
 | **Deadline** | Fecha límite del plan, «Vencido» o «Sin plan» |
 | **Última actividad** | Última modificación de la evaluación o del plan |
-| Acción | Abrir plan · Continuar FMEA · Iniciar FMEA · Abrir sistema |
+| Acción | Abrir plan · Continuar FMEA · Ver evaluación · Iniciar FMEA · Abrir sistema |
+
+La fila muestra la última versión de la evaluación del sistema y el plan de esa versión (bloque B07). Con
+una versión nueva en curso, la etapa es la de esa versión; la vigente se consulta desde la propia
+evaluación.
 
 ### Atención inmediata
 

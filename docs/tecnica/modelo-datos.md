@@ -30,6 +30,7 @@ fuente:
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
+  - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - recursos/db/README.md
 ---
 
@@ -164,10 +165,10 @@ erDiagram
 | `compliance.causal_families`, `causal_nodes`, `causal_relationships`, `causal_node_failure_mode_links` | [Familia causal](../glosario.md#familia-causal), [relación causal](../glosario.md#relación-causal), [grafo causal](../glosario.md#grafo-causal) | Familias A-H; cada relación une dos nodos dentro de una familia, con `type` ∈ `causes`, `amplifies`, `enables`, `correlates`; los nodos se vinculan a modos de fallo | `00000000000005` |
 | `compliance.control_templates`, `failure_mode_control_refs` | [Plantilla de control](../glosario.md#plantilla-de-control) | CTL-001 a CTL-059; vínculo entre modo de fallo y control | `00000000000005` |
 | `fluxion.system_failure_modes` | [Activación](../glosario.md#activación-de-modos-de-fallo) y [priorización](../glosario.md#priorización) | Único por (sistema, modo); `activation_source`, `priority_status`, `priority_score` | `00000000000001` |
-| `fluxion.fmea_evaluations` | [Análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) | `state`, `version`, `cached_zone` ([zona de riesgo](../glosario.md#zona-de-riesgo)) | `00000000000001` |
+| `fluxion.fmea_evaluations` | [Análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) | `state`, `version`, `cached_zone` ([zona de riesgo](../glosario.md#zona-de-riesgo)), `approver_id`, `approved_at`, `next_review_at`. `approved` = vigente; las versiones anteriores pasan a `superseded` al aprobarse una nueva | `00000000000001`, `20261020100000` |
 | `fluxion.fmea_items` | — | `o_value` ([O](../glosario.md#ocurrencia-o)), `d_real_value` ([D_real](../glosario.md#detectabilidad-real-d_real)), `s_default_frozen`, `s_actual`, `s_residual`, `second_review_status`. Sin `organization_id`: hereda la organización de la evaluación | `00000000000001` |
 | `fluxion.fmea_family_estimates` | [Estimación por familia](../glosario.md#estimación-por-familia) | Único por (`evaluation_id`, `family_label`); justificación de al menos 50 caracteres | `20260908090000` |
-| `fluxion.treatment_plans` | [Plan de tratamiento](../glosario.md#plan-de-tratamiento) | Uno por evaluación; `status`, `zone_at_creation`, `zone_target`, `ai_act_floor`, `approval_level`, `deadline` | `00000000000001` |
+| `fluxion.treatment_plans` | [Plan de tratamiento](../glosario.md#plan-de-tratamiento) | Uno por evaluación, también sin acciones; `status`, `zone_at_creation`, `zone_target`, `ai_act_floor`, `approval_level`, `deadline`. `in_progress` y `closed` los mantiene `trg_treatment_action_plan_status` | `00000000000001`, `20261020100000` |
 | `fluxion.treatment_actions` | [Acción de tratamiento](../glosario.md#acción-de-tratamiento) | Única por (plan, ítem); `option` ([opción de tratamiento](../glosario.md#opción-de-tratamiento)), `status`. CHECK: aceptar exige 100 caracteres de justificación y no se admite con severidad 9 | `00000000000001` |
 | `fluxion.treatment_action_events`, `treatment_action_reviews`, `treatment_plan_snapshots` | [Revisión periódica](../glosario.md#revisión-periódica), [instantánea](../glosario.md#instantánea) | Eventos de solo inserción; revisiones de acciones aceptadas o pospuestas; instantáneas en cada transición | `00000000000001` |
 | `fluxion.controls` | [Control](../glosario.md#control) | `template_id` → `control_templates` (nulo en los controles propios, que llevan `title` y `description`), `system_id`, `status` | `00000000000001`, `20261019090000` |
@@ -278,6 +279,9 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.auth_user_org_id()` | Devuelve la organización del usuario autenticado. Se usa en políticas RLS |
 | `fluxion.calculate_failure_mode_priority(...)` | Puntuación de priorización de un modo de fallo |
 | `fluxion.recalculate_plan_zone_target(uuid)` | Zona objetivo de un plan a partir de las severidades residuales |
+| `fluxion.fmea_aplicar_aprobacion_plan(plan, aprobador)` | Aprobación de la evaluación de riesgos (B07): aceptaciones aprobadas, evaluación `approved` con `next_review_at`, versiones anteriores y sus planes abiertos `superseded` (acciones abiertas canceladas) y plan `in_progress` o `closed`. Solo `service_role` |
+| `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
+| `fluxion.trg_task_done_propagate_action()` | Trigger AFTER en `tasks`: al completar la tarea de una acción, completa la acción (antes era BEFORE y abortaba la actualización) |
 | `fluxion.process_task_recurrences()` | Genera las tareas recurrentes (pg_cron) |
 | `fluxion.incident_notification_days(...)`, `set_incident_deadline()` | Plazo del AI Act, Art. 73 |
 | `fluxion.approval_policy_for`, `approval_open`, `approval_decide`, `approval_cancel`, `approval_can_decide`, `approval_step_candidates` | Motor de flujos de aprobación |

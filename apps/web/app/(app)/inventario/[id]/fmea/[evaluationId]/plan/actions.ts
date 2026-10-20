@@ -38,6 +38,7 @@ import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import { notifyApprovalStep } from '@/lib/approvals/notify';
 import { createNotification } from '@/lib/notifications/sender';
 import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
+import { applyRiskEvaluationApproval } from '@/lib/fmea/lifecycle';
 import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
@@ -1282,10 +1283,16 @@ export async function approveTreatmentPlanAction(input: {
     },
   ]);
 
+  // Ciclo único (B07): evaluación aprobada, versión anterior sustituida y plan
+  // en ejecución o cerrado.
+  const ciclo = await applyRiskEvaluationApproval({ planId: plan.id, approverUserId: user.id });
+
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`);
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
   revalidatePath(`/inventario/${input.aiSystemId}`);
 
+  if (ciclo.aviso) return { error: ciclo.aviso };
   return { success: true };
 }
 
@@ -2051,6 +2058,9 @@ export async function reviewAcceptanceAction(
   };
   if (newOption) {
     updatePayload.option = newOption;
+    // Una aceptación que pasa a tratarse vuelve a ser trabajo pendiente: deja
+    // de contar como cerrada y reabre el plan si estaba cerrado (B07).
+    if (action.status === 'accepted') updatePayload.status = 'pending';
   }
 
   const { error: updateError } = await fluxion

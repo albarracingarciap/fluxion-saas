@@ -31,6 +31,7 @@ import { BulkChangeOptionModal } from './bulk-change-option-modal';
 import { exportTreatmentActionsCsv } from '@/lib/treatment-plans/csv';
 import { PlanHistoryTab } from './plan-history-tab'
 import { ReviewAcceptanceModal } from './review-acceptance-modal';
+import { EvaluationVersionBar } from '../../evaluation-version-bar';
 
 import {
   saveTreatmentActionDecision,
@@ -597,6 +598,13 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
         }
       />
 
+      <EvaluationVersionBar
+        systemId={data.system.id}
+        evaluationId={data.evaluation.id}
+        version={data.evaluation.version}
+        versions={data.versions}
+      />
+
       <PlanStatsBar
         plan={data.plan}
         projectedZone={projectedZone}
@@ -745,6 +753,8 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
             <h2 className="font-fraunces text-3xl font-semibold text-ltt mb-3">No hay acciones de tratamiento pendientes</h2>
             <p className="font-sora text-[14px] text-ltt2 leading-relaxed">
               Esta evaluación no ha generado modos con severidad suficiente para crear acciones de tratamiento.
+              {data.plan.status === 'draft' &&
+                ' Envía el plan a aprobación: su aprobación es la de la evaluación, y el plan se cierra al aprobarse.'}
             </p>
           </div>
         )}

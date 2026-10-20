@@ -27,6 +27,7 @@ import {
   getReviewCadenceForZone,
 } from '@/lib/fmea/treatment-plan';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import { createClient } from '@/lib/supabase/server';
 import { createFmeaItemTaskAction } from '@/app/(app)/tareas/actions';
 
@@ -471,60 +472,56 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       (item.s_actual >= 7 || item.requires_second_review)
   );
 
-  // ── Ruta sin candidatos: no hay plan que crear, transición directa ──────────
-  if (candidateItems.length === 0) {
-    const { error: stateError } = await fluxion
-      .from('fmea_evaluations')
-      .update({ cached_zone: input.cachedZone, state: 'in_review', evaluator_id: user.id })
-      .eq('id', input.evaluationId);
-
-    if (stateError) return { error: stateError.message };
-
-    await insertAiSystemHistoryEvents(fluxion, [
-      {
-        ai_system_id: input.aiSystemId,
-        organization_id: membership.organization_id,
-        event_type: 'fmea_submitted_for_review',
-        event_title: 'Evaluación FMEA enviada a revisión',
-        event_summary: 'La evaluación manual se envió a revisión sin acciones candidatas de tratamiento.',
-        actor_user_id: user.id,
-        payload: {
-          evaluation_id: input.evaluationId,
-          cached_zone: input.cachedZone,
-          treatment_plan_id: null,
-          treatment_actions_count: 0,
-          residual_downgrades: 0,
-        },
-      },
-    ]);
-
-    revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
-    revalidatePath(`/inventario/${input.aiSystemId}`);
-    return { success: true, planPath: `/inventario/${input.aiSystemId}` };
-  }
-
-  // ── Ruta con candidatos: crear plan y acciones ANTES de cambiar estado ──────
+  // Ciclo único (B07, DP-03): la evaluación siempre va a aprobación con su
+  // plan. Sin candidatos, el plan no tiene acciones y su aprobación es la de la
+  // propia evaluación; al aprobarse, se cierra.
   const { data: existingPlan } = await fluxion
     .from('treatment_plans')
-    .select('id, approver_id')
+    .select('id, approver_id, status')
+    .eq('organization_id', membership.organization_id)
     .eq('evaluation_id', input.evaluationId)
     .maybeSingle();
+
+  if (existingPlan && existingPlan.status !== 'draft') {
+    return { error: 'El plan de esta evaluación ya está en aprobación o aprobado.' };
+  }
+
+  const createdAt = new Date();
+  const sMax = Math.max(
+    ...items.map((item) => item.s_actual).filter((v): v is number => typeof v === 'number'),
+    2
+  );
+  const zoneIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 9).length;
+  const zoneIIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 8).length;
+  const approvalLevel = getApprovalLevelForZone(input.cachedZone);
+  const pivotNodeIds = candidateItems
+    .slice()
+    .sort((l, r) => (r.s_actual ?? 0) - (l.s_actual ?? 0))
+    .slice(0, 3)
+    .map((item) => item.id);
+
+  // Lo que depende del resultado de la evaluación. En un reenvío (plan devuelto
+  // a borrador y evaluación corregida) se recalcula: la zona y el nivel de
+  // aprobación pueden haber cambiado.
+  const planFromEvaluation = {
+    zone_at_creation: input.cachedZone,
+    zone_target: input.cachedZone,
+    ai_act_floor: getAiActFloorForSystem(system.aiact_risk_level),
+    s_max_at_creation: sMax,
+    modes_count_total: items.length,
+    modes_count_zone_i: zoneIItems,
+    modes_count_zone_ii: zoneIIItems,
+    actions_total: candidateItems.length,
+    pivot_node_ids: pivotNodeIds,
+    approval_level: approvalLevel,
+    review_cadence: getReviewCadenceForZone(input.cachedZone),
+  };
 
   let treatmentPlanId = existingPlan?.id ?? null;
   let createdTreatmentPlan = false;
   let approverId = existingPlan?.approver_id ?? null;
 
   if (!treatmentPlanId) {
-    const createdAt = new Date();
-    const sMax = Math.max(
-      ...items.map((item) => item.s_actual).filter((v): v is number => typeof v === 'number'),
-      2
-    );
-    const zoneIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 9).length;
-    const zoneIIItems = items.filter((item) => item.status === 'evaluated' && item.s_actual === 8).length;
-    const aiActFloor = getAiActFloorForSystem(system.aiact_risk_level);
-    const approvalLevel = getApprovalLevelForZone(input.cachedZone);
-
     approverId = await resolvePlanApprover({
       fluxion,
       organizationId: membership.organization_id,
@@ -534,12 +531,6 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
     // Sin aprobador disponible el plan se crea igualmente: se exige al enviarlo
     // a aprobación, salvo que lo gobierne una política (Flujos de aprobación).
-
-    const pivotNodeIds = candidateItems
-      .slice()
-      .sort((l, r) => (r.s_actual ?? 0) - (l.s_actual ?? 0))
-      .slice(0, 3)
-      .map((item) => item.id);
 
     const code = await generateTreatmentPlanCode({ organizationId: membership.organization_id, createdAt });
 
@@ -551,21 +542,11 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         evaluation_id: input.evaluationId,
         code,
         status: 'draft',
-        zone_at_creation: input.cachedZone,
-        zone_target: input.cachedZone,
-        ai_act_floor: aiActFloor,
-        s_max_at_creation: sMax,
-        modes_count_total: items.length,
-        modes_count_zone_i: zoneIItems,
-        modes_count_zone_ii: zoneIIItems,
-        actions_total: candidateItems.length,
+        ...planFromEvaluation,
         actions_completed: 0,
-        pivot_node_ids: pivotNodeIds,
         accepted_risk_count: 0,
-        approval_level: approvalLevel,
         approver_id: approverId,
         deadline: getDefaultDeadlineForZone(input.cachedZone, createdAt),
-        review_cadence: getReviewCadenceForZone(input.cachedZone),
         created_by: user.id,
       })
       .select('id')
@@ -577,6 +558,51 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
     treatmentPlanId = newPlan.id;
     createdTreatmentPlan = true;
+  } else {
+    // El aprobador asignado se mantiene salvo que cambie el nivel: entonces se
+    // vuelve a resolver más abajo.
+    const { data: previousPlan } = await fluxion
+      .from('treatment_plans')
+      .select('approval_level')
+      .eq('id', treatmentPlanId)
+      .single();
+    if (previousPlan && previousPlan.approval_level !== approvalLevel) approverId = null;
+
+    const { error: planUpdateError } = await fluxion
+      .from('treatment_plans')
+      .update({ ...planFromEvaluation, approver_id: approverId })
+      .eq('id', treatmentPlanId);
+    if (planUpdateError) return { error: planUpdateError.message };
+
+    // Acciones de modos que ya no son candidatos tras corregir la evaluación.
+    // Se retiran (el plan nunca se aprobó) y sus tareas se cancelan. Con el
+    // cliente de servicio: RLS solo deja borrar acciones a algunos roles de
+    // gobierno, y quien reenvía es quien prepara.
+    const candidateIds = new Set(candidateItems.map((item) => item.id));
+    const { data: planActions } = await fluxion
+      .from('treatment_actions')
+      .select('id, fmea_item_id, task_id')
+      .eq('plan_id', treatmentPlanId);
+    const staleActions = (planActions ?? []).filter((action) => !candidateIds.has(action.fmea_item_id));
+
+    if (staleActions.length > 0) {
+      const admin = createNoCacheAdminClient();
+      const staleTaskIds = staleActions.map((action) => action.task_id).filter((id): id is string => Boolean(id));
+      if (staleTaskIds.length > 0) {
+        await admin
+          .from('tasks')
+          .update({ status: 'cancelled' })
+          .eq('organization_id', membership.organization_id)
+          .in('id', staleTaskIds);
+      }
+      const { error: deleteError } = await admin
+        .from('treatment_actions')
+        .delete()
+        .eq('organization_id', membership.organization_id)
+        .eq('plan_id', treatmentPlanId)
+        .in('id', staleActions.map((action) => action.id));
+      if (deleteError) return { error: deleteError.message };
+    }
   }
 
   if (treatmentPlanId && !approverId) {
@@ -619,10 +645,15 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
     }
   }
 
-  // Plan y acciones OK — ahora sí cambiamos el estado de la evaluación (3.1)
+  // Plan y acciones OK — ahora sí cambiamos el estado de la evaluación (3.1).
+  // El evaluador es quien abrió la evaluación; quien la reenvía no lo sustituye.
   const { error: stateError } = await fluxion
     .from('fmea_evaluations')
-    .update({ cached_zone: input.cachedZone, state: 'in_review', evaluator_id: user.id })
+    .update({
+      cached_zone: input.cachedZone,
+      state: 'in_review',
+      evaluator_id: context.evaluation.evaluator_id ?? user.id,
+    })
     .eq('id', input.evaluationId);
 
   if (stateError) return { error: stateError.message };

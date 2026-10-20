@@ -651,14 +651,27 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     soaScopeSystemTags.length > 0 &&
     systemTags.some((tag) => soaScopeSystemTags.includes(tag));
 
-  // Fetch treatment plan data for the latest evaluation
-  const { data: latestEvaluation } = await fluxion
+  // Plan de la evaluación que se enseña en la ficha (B07): la última versión
+  // con plan; si una reevaluación aún no tiene plan, se sigue viendo el de la
+  // versión vigente, que es el que está en ejecución.
+  const { data: systemEvaluations } = await fluxion
     .from('fmea_evaluations')
     .select('id')
+    .eq('organization_id', membership.organization_id)
     .eq('system_id', params.id)
-    .order('version', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('version', { ascending: false });
+
+  const evaluationIds = (systemEvaluations ?? []).map((row) => row.id as string);
+  const { data: evaluationPlans } = evaluationIds.length
+    ? await fluxion
+        .from('treatment_plans')
+        .select('evaluation_id')
+        .eq('organization_id', membership.organization_id)
+        .in('evaluation_id', evaluationIds)
+    : { data: [] as Array<{ evaluation_id: string }> };
+  const withPlan = new Set((evaluationPlans ?? []).map((row) => row.evaluation_id as string));
+  const latestEvaluation =
+    (systemEvaluations ?? []).find((row) => withPlan.has(row.id as string)) ?? systemEvaluations?.[0] ?? null;
 
   let treatmentPlanData = null;
   if (latestEvaluation) {

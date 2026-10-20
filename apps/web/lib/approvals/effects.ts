@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { applyRiskEvaluationApproval } from '@/lib/fmea/lifecycle'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import type { ApprovalObjectType } from './catalog'
 
@@ -22,6 +23,8 @@ export async function applyApprovalOutcome(params: {
   requestId:  string
   outcome:    'approved' | 'rejected'
   reason?:    string | null
+  /** auth.users.id de quien emitió la decisión que cerró la solicitud. */
+  actorUserId?: string | null
 }): Promise<{ aviso?: string }> {
   switch (params.objectType) {
     case 'treatment_plan':
@@ -38,6 +41,7 @@ async function aplicarAPlan(params: {
   requestId: string
   outcome:   'approved' | 'rejected'
   reason?:   string | null
+  actorUserId?: string | null
 }): Promise<{ aviso?: string }> {
   const admin = createNoCacheAdminClient()
 
@@ -61,7 +65,13 @@ async function aplicarAPlan(params: {
       console.error('[approvals/effects] plan aprobado sin poder actualizarse:', error)
       return { aviso: 'La aprobación quedó registrada, pero el plan no se pudo actualizar: ' + error.message }
     }
-    return {}
+
+    // Ciclo único (B07): lo mismo que en la vía del aprobador asignado.
+    // El aprobador de la evaluación es quien emitió la decisión final.
+    return applyRiskEvaluationApproval({
+      planId:         params.objectId,
+      approverUserId: params.actorUserId ?? null,
+    })
   }
 
   // Rechazo: mismo destino que la vía antigua — vuelve al autor, no se queda
