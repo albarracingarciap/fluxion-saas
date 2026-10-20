@@ -87,13 +87,14 @@ export async function generateApprovalMinutes(requestId: string): Promise<{
 
   const { data: perfil } = await admin
     .from('profiles')
-    .select('full_name')
+    .select('full_name, user_id')
     .eq('id', request.requested_by)
     .maybeSingle()
 
   const render = await generateRender({
     documentId:  doc.id,
     profileId:   request.requested_by,
+    userId:      perfil?.user_id ?? null,
     profileName: perfil?.full_name ?? 'Sistema',
   })
 

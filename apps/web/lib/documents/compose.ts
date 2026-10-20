@@ -45,6 +45,9 @@ export type ComposedDocument = {
     status: string
     template_key: string
     template_version: number
+    /** Versión del expediente (B09): reabrir uno aprobado crea la siguiente. */
+    version: number
+    approved_at: string | null
     updated_at: string
   }
   system: { id: string; name: string } | null
@@ -336,7 +339,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
 
   const { data: doc } = await fluxion
     .from('documents')
-    .select('id, title, status, template_key, template_version, content, ai_system_id, approval_request_id, updated_at')
+    .select('id, title, status, template_key, template_version, version, approved_at, content, ai_system_id, approval_request_id, updated_at')
     .eq('id', documentId)
     .maybeSingle()
 
@@ -481,6 +484,8 @@ ${evidencia}`
       status: doc.status,
       template_key: doc.template_key,
       template_version: doc.template_version,
+      version: Number(doc.version ?? 1),
+      approved_at: (doc.approved_at as string | null) ?? null,
       updated_at: doc.updated_at,
     },
     system: system ? { id: String(system.id), name: String(system.name) } : null,

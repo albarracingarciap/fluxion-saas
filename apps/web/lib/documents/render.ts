@@ -6,6 +6,7 @@ import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fl
 import { BUCKET_DOCUMENTS, objectKey, putObject, s3Configured } from '@/lib/storage/objects'
 import { composeDocument } from './compose'
 import { buildDocumentHtml, buildFooterHtml } from './render-html'
+import { templateMeta } from './templates'
 
 /**
  * Generación del entregable.
@@ -58,6 +59,8 @@ async function renderPdf(html: string, footerHtml: string): Promise<Buffer> {
 export async function generateRender(input: {
   documentId: string
   profileId: string
+  /** auth.users.id de quien genera: responsable de la evidencia que se crea. */
+  userId: string | null
   profileName: string
 }): Promise<RenderResult> {
   if (!s3Configured()) {
@@ -92,6 +95,7 @@ export async function generateRender(input: {
     .maybeSingle()
 
   const generatedAt = new Date()
+  const meta = templateMeta(doc.template_key)
 
   // El identificador se genera aquí y no lo pone la base de datos, porque tiene
   // que ir impreso dentro del documento: es lo que permite casar un PDF suelto
@@ -110,7 +114,7 @@ export async function generateRender(input: {
     .insert({
       ai_system_id: doc.ai_system_id,
       organization_id: doc.organization_id,
-      report_type: 'annex_iv',
+      report_type: doc.template_key,
       title: composed.document.title,
       payload: composed as unknown as Record<string, unknown>,
       generated_by: input.profileId,
@@ -141,7 +145,7 @@ export async function generateRender(input: {
     organizationId: doc.organization_id,
     scope: 'documents',
     entityId: doc.id,
-    filename: `anexo-iv-${stamp}.pdf`,
+    filename: `${meta.slug}-${stamp}.pdf`,
   })
 
   let stored: { checksum: string; size: number }
@@ -164,6 +168,11 @@ export async function generateRender(input: {
   const expires = new Date(generatedAt)
   expires.setMonth(expires.getMonth() + validity)
 
+  // La evidencia solo nace válida si el expediente está aprobado: el PDF de un
+  // borrador no prueba nada hasta que alguien lo revise (B09, E16). Quien la
+  // genera queda como responsable, así que no puede aprobarla él (B10).
+  const aprobado = composed.document.status === 'approved'
+
   const { data: evidence } = await admin
     .from('system_evidences')
     .insert({
@@ -171,19 +180,19 @@ export async function generateRender(input: {
       ai_system_id: doc.ai_system_id,
       scope: doc.ai_system_id ? 'system' : 'organization',
       title: `${composed.document.title} · ${stamp}`,
-      description: `Expediente del Anexo IV generado desde Fluxion. Cobertura: ${Math.round(composed.completeness * 100)} % de los apartados obligatorios.`,
+      description: `Expediente ${meta.label} (versión ${composed.document.version}, ${aprobado ? 'aprobado' : 'sin aprobar'}) generado desde Fluxion. Cobertura: ${Math.round(composed.completeness * 100)} % de los apartados obligatorios.`,
       evidence_type: 'regulatory_document',
-      status: 'valid',
+      status: aprobado ? 'valid' : 'pending_review',
       storage_path: key,
       storage_backend: 's3',
       storage_bucket: BUCKET_DOCUMENTS,
       checksum_sha256: stored.checksum,
       mime_type: 'application/pdf',
       file_size_bytes: stored.size,
-      owner_user_id: null,
+      owner_user_id: input.userId,
       issued_at: stamp,
       expires_at: expires.toISOString().slice(0, 10),
-      tags: ['anexo-iv', 'generado'],
+      tags: [meta.slug, 'generado'],
     })
     .select('id')
     .single()

@@ -10,9 +10,10 @@ import {
 
 import type { ComposedDocument, ComposedSection } from '@/lib/documents/compose'
 import {
-  saveDocumentSection, setDocumentStatus, generateDocumentRender,
+  saveDocumentSection, changeDocumentStatus, reopenDocument, generateDocumentRender,
   type RenderRow, type GeneratedDocRow,
 } from './actions'
+import type { DocumentAction } from '@/lib/documents/lifecycle-rules'
 import type { TemplateOption } from '@/lib/documents/templates'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -181,13 +182,15 @@ const FRAMEWORK_LABEL: Record<string, string> = {
   ai_act: 'AI Act', gdpr: 'RGPD', iso42001: 'ISO 42001',
 }
 
-export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados }: {
+export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados, approval }: {
   doc: ComposedDocument
   renders: RenderRow[]
   generados: GeneratedDocRow[]
   templates: TemplateOption[]
   templateKey: string
   aiSystemId: string
+  /** Si quien mira puede aprobar y, si no, por qué (DP-01). */
+  approval: { canApprove: boolean; reason: string | null }
 }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -204,14 +207,29 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
   }
 
   const actual = templates.find((t) => t.key === templateKey)
-  const readOnly = doc.document.status === 'approved'
+  // Solo se edita en borrador (B09).
+  const readOnly = doc.document.status !== 'draft'
+  const status = doc.document.status
   const pct = Math.round(doc.completeness * 100)
   const barColor = pct === 100 ? 'bg-gr' : pct >= 60 ? 'bg-or' : 'bg-re'
 
-  function changeStatus(status: 'draft' | 'in_review' | 'approved') {
+  function changeStatus(action: DocumentAction) {
     setError(null)
     start(async () => {
-      const res = await setDocumentStatus({ documentId: doc.document.id, status, aiSystemId, templateKey })
+      const res = await changeDocumentStatus({ documentId: doc.document.id, action, aiSystemId, templateKey })
+      if ('error' in res) setError(res.error)
+      else router.refresh()
+    })
+  }
+
+  function reopen() {
+    if (!window.confirm(
+      `Se abrirá la versión ${doc.document.version + 1} en borrador con el mismo contenido. `
+      + `La versión ${doc.document.version} aprobada queda como sustituida y sus PDF se conservan. ¿Continuar?`,
+    )) return
+    setError(null)
+    start(async () => {
+      const res = await reopenDocument({ documentId: doc.document.id, aiSystemId, templateKey })
       if ('error' in res) setError(res.error)
       else router.refresh()
     })
@@ -268,37 +286,62 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
               {STATUS_LABEL[doc.document.status]}
             </span>
             <span className="font-plex text-[10.5px] text-lttm">
-              · plantilla v{doc.document.template_version}
+              · versión {doc.document.version} · plantilla v{doc.document.template_version}
+              {status === 'approved' && doc.document.approved_at
+                ? ` · aprobado el ${new Date(doc.document.approved_at).toLocaleDateString('es-ES')}`
+                : ''}
             </span>
           </div>
 
-          {!readOnly ? (
-            <div className="flex gap-2">
-              {doc.document.status !== 'in_review' && (
+          <div className="flex gap-2 flex-wrap">
+            {status === 'draft' && (
+              <button
+                onClick={() => changeStatus('submit')} disabled={pending}
+                className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12.5px] text-lttm disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {pending && <Loader2 size={12} className="animate-spin" />} Enviar a revisión
+              </button>
+            )}
+            {status === 'in_review' && (
+              <>
                 <button
-                  onClick={() => changeStatus('in_review')} disabled={pending}
+                  onClick={() => changeStatus('return')} disabled={pending}
                   className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12.5px] text-lttm disabled:opacity-50"
                 >
-                  Pasar a revisión
+                  Volver a borrador
                 </button>
-              )}
+                {approval.canApprove ? (
+                  <button
+                    onClick={() => changeStatus('approve')} disabled={pending || doc.gaps.length > 0}
+                    title={doc.gaps.length > 0 ? 'Quedan apartados obligatorios sin cubrir' : undefined}
+                    className="px-3 py-1.5 rounded-[7px] bg-brand-cyan text-white font-sora text-[12.5px] disabled:opacity-40 flex items-center gap-1.5"
+                  >
+                    {pending && <Loader2 size={12} className="animate-spin" />} Aprobar expediente
+                  </button>
+                ) : (
+                  <span className="font-sora text-[12px] text-lttm self-center max-w-[280px]">
+                    {approval.reason ?? 'Pendiente de aprobación.'}
+                  </span>
+                )}
+              </>
+            )}
+            {status === 'approved' && (
               <button
-                onClick={() => changeStatus('approved')} disabled={pending || doc.gaps.length > 0}
-                title={doc.gaps.length > 0 ? 'Quedan apartados obligatorios sin cubrir' : undefined}
-                className="px-3 py-1.5 rounded-[7px] bg-brand-cyan text-white font-sora text-[12.5px] disabled:opacity-40 flex items-center gap-1.5"
+                onClick={reopen} disabled={pending}
+                className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12.5px] text-lttm disabled:opacity-50"
               >
-                {pending && <Loader2 size={12} className="animate-spin" />} Aprobar expediente
+                Reabrir (versión nueva)
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => changeStatus('draft')} disabled={pending}
-              className="px-3 py-1.5 rounded-[7px] border border-ltb font-sora text-[12.5px] text-lttm disabled:opacity-50"
-            >
-              Reabrir para editar
-            </button>
-          )}
+            )}
+          </div>
         </div>
+
+        {status === 'in_review' && (
+          <p className="font-sora text-[12px] text-lttm flex items-center gap-1.5">
+            <Info size={12} className="shrink-0" />
+            En revisión no se edita. Para cambiar algo, vuelve a borrador.
+          </p>
+        )}
 
         <div className="flex items-center gap-3">
           <div className="h-1.5 flex-1 rounded-full bg-ltb overflow-hidden">
@@ -386,6 +429,9 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-sora text-[12.5px] text-ltt">
                       {new Date(r.rendered_at).toLocaleString('es-ES')}
+                    </span>
+                    <span className="font-plex text-[10.5px] text-lttm">
+                      v{r.document_version} · {STATUS_LABEL[r.document_status] ?? r.document_status}
                     </span>
                     <span className="font-plex text-[10.5px] text-lttm">{formatBytes(r.byte_size)}</span>
                     {r.gaps.length > 0 ? (

@@ -32,6 +32,7 @@ fuente:
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
+  - supabase/migrations/20261020120000_expediente_ciclo.sql
   - recursos/db/README.md
 ---
 
@@ -244,7 +245,7 @@ erDiagram
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
 | `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`; `organization_id` nulo significa plantilla de Fluxion | `20260819200000` |
-| `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` | `20260819210000` |
+| `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |
 | `fluxion.system_report_snapshots` | [Instantánea](../glosario.md#instantánea) de [informes del sistema](../glosario.md#informes-del-sistema) | `report_type`, `payload jsonb` | `00000000000001` |
 | `fluxion.ai_incidents`, `ai_incident_systems`, `incident_deadline_alerts` | [Incidente](../glosario.md#incidente), [incidente grave](../glosario.md#incidente-grave) | `reference` INC-AAAA-NNN y `notification_deadline`, ambos por trigger ([plazo de notificación](../glosario.md#plazo-de-notificación)); `category`, `status`, `is_serious` | `20260818170000` |
@@ -284,6 +285,8 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
 | `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10): con usuario autenticado, alta en `draft` o `pending_review`, solo transiciones del ciclo de revisión, y aprobar o rechazar exige `sgai_manager` y no ser `owner_user_id`; rellena `reviewed_by` y `reviewed_at`. Las escrituras sin usuario (cron, expediente) no pasan por él |
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
+| `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` → `approved` → `superseded`; aprobar exige `sgai_manager` y no ser autor de ningún apartado, y rellena `approved_by`/`approved_at` |
+| `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
 | `fluxion.trg_task_done_propagate_action()` | Trigger AFTER en `tasks`: al completar la tarea de una acción, completa la acción (antes era BEFORE y abortaba la actualización) |
 | `fluxion.process_task_recurrences()` | Genera las tareas recurrentes (pg_cron) |
 | `fluxion.incident_notification_days(...)`, `set_incident_deadline()` | Plazo del AI Act, Art. 73 |

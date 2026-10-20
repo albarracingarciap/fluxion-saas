@@ -18,6 +18,8 @@ fuente:
   - supabase/migrations/20260819210000_documents.sql
   - supabase/migrations/20260819230000_document_renders.sql
   - supabase/migrations/20260820120000_templates_fria_dpia_modelcard.sql
+  - supabase/migrations/20261020120000_expediente_ciclo.sql
+  - apps/web/lib/documents/lifecycle-rules.ts
 ---
 
 # Expediente documental
@@ -49,10 +51,15 @@ entregables PDF inmutables que se registran como evidencia.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Redactar, cambiar el estado, generar y descargar PDF |
+| Responsable del SGAI | Sí | Todas. Aprueba los expedientes que no ha redactado |
+| Resto de roles | Sí | Redactar, enviar a revisión, volver a borrador, reabrir, generar y descargar PDF |
 
-> **Pendiente de definir.** Qué roles pueden aprobar y reabrir un expediente. Hoy cualquier usuario de la
-> organización puede hacerlo.
+Aprobar sigue DP-01: quien redacta no aprueba (ningún apartado escrito por quien aprueba). Hasta B11
+aprueba el Responsable del SGAI en todas las plantillas; la base de datos lo comprueba también
+(`trg_document_lifecycle_rules`). A quien no puede aprobar, la vista le muestra el motivo en lugar del botón.
+
+> **Pendiente de implementar.** Aprobadores de DP-01 por plantilla: la DPIA, el responsable del tratamiento
+> con dictamen del DPO; la FRIA, el Comité de IA (B11 y B23b).
 
 Al abrir la vista, si el sistema no tiene un documento vivo para esa plantilla, se crea uno en borrador
 con la versión activa más reciente de la plantilla.
@@ -104,10 +111,11 @@ de aprobación. No se pueden editar, solo descargar.
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Escribir o completar** (lápiz) | Todos | Abre el editor del apartado, también en los derivados. **Guardar** guarda el texto, y si queda vacío lo borra | Oculto si el documento está aprobado |
-| **Pasar a revisión** | Todos | Borrador → En revisión | — |
-| **Aprobar expediente** | Todos | Borrador o En revisión → Aprobado. Deshabilitado si hay huecos («Quedan apartados obligatorios sin cubrir») | Guarda quién lo aprueba y cuándo |
-| **Reabrir para editar** | Todos | Aprobado → Borrador | Borra la aprobación |
+| **Escribir o completar** (lápiz) | Todos | Abre el editor del apartado, también en los derivados. **Guardar** guarda el texto, y si queda vacío lo borra. Registra quién lo redacta | Solo en borrador |
+| **Enviar a revisión** | Todos | Borrador → En revisión. En revisión no se edita | Historial «Expediente enviado a revisión» |
+| **Volver a borrador** | Todos | En revisión → Borrador | Historial «Expediente devuelto a borrador» |
+| **Aprobar expediente** | Responsable del SGAI que no lo ha redactado | En revisión → Aprobado. Deshabilitado si hay huecos («Quedan apartados obligatorios sin cubrir») | La base de datos guarda quién lo aprueba y cuándo. Historial «Expediente aprobado» |
+| **Reabrir (versión nueva)** | Todos, con confirmación | `document_reopen`: la versión aprobada pasa a «Sustituido» y se abre la siguiente en borrador con el mismo contenido | Historial «Expediente reabierto». Los PDF de la versión aprobada se conservan |
 | **Generar PDF** | Todos | Genera un entregable en cualquier estado | Ver abajo |
 | **Descargar** | Todos | Descarga el PDF con un enlace temporal | — |
 | **← {sistema}** | Todos | Vuelve a la [Ficha del sistema](ficha-sistema.md) | — |
@@ -120,22 +128,22 @@ Al pulsar **Generar PDF**:
 4. El PDF se guarda en el almacenamiento de documentos.
 5. Se crea una evidencia:
    - **Tipo:** documento regulatorio.
-   - **Estado:** **válida**.
+   - **Estado:** **válida** si el expediente está aprobado; si no, **pendiente de revisión**.
+   - **Responsable:** quien genera el PDF (no puede aprobarla él).
+   - **Etiquetas:** la de la plantilla (`anexo-iv`, `fria`, `dpia`, `ficha-modelo`) y `generado`.
    - **Caducidad:** la vigencia de la plantilla, 12 meses.
-6. Se registra el entregable, que es inmutable.
+6. Se registra el entregable, que es inmutable, con la versión y el estado del expediente.
+
+El PDF lleva el rótulo y la referencia legal de su plantilla (Anexo IV: Reglamento (UE) 2024/1689, Anexo IV
+y Art. 11.1; FRIA: Art. 27; DPIA: Reglamento (UE) 2016/679, Art. 35; ficha del modelo: Art. 53.1.b y
+Anexo XII), el estado en español, la versión y la fecha de aprobación. El fichero se llama
+`{plantilla}-{fecha}.pdf`. La lista de entregables incluye los de todas las versiones, con su versión y
+estado.
 
 El texto de la vista indica que no se puede borrar durante los diez años del Art. 18.
 
-> TODO: confirmar varios datos del PDF y de los cambios de estado.
-> - **Rótulo del PDF:** dice «Anexo IV» en portada y pie para todas las plantillas, incluidas FRIA, DPIA,
->   ficha del modelo y actas.
-> - **Datos guardados con el PDF:** la instantánea y la evidencia se guardan siempre como Anexo IV.
-> - **Estado en el PDF:** aparece sin traducir.
-> - **Evidencias que genera:** nacen válidas, sin revisión, a diferencia de las de los informes del
->   sistema.
-> - **Historial:** los cambios de estado no dejan rastro.
-> - **Vuelta a borrador:** no se puede volver a borrador desde «En revisión».
-> - **Estado «Sustituido»:** existe, pero nada lo asigna.
+Las evidencias «Válidas» de PDF generados antes de esta regla con el expediente sin aprobar llevan la
+etiqueta `sin-revision`.
 
 > **Pendiente de implementar.** Aprobación del expediente mediante
 > [Flujos de aprobación](../glosario.md#flujos-de-aprobación).
@@ -145,7 +153,11 @@ El texto de la vista indica que no se puede borrar durante los diez años del Ar
 | Situación | Mensaje |
 |---|---|
 | Plantilla sin versión activa | «No hay ninguna plantilla activa para "{key}". Revisa las migraciones.» |
-| Editar un expediente aprobado | «El expediente está aprobado. Reábrelo para poder editarlo.» |
+| Editar un expediente aprobado | «El expediente está aprobado. Reábrelo para crear una versión nueva y editarla.» |
+| Editar en revisión | «El expediente está en revisión. Vuelve a borrador para editarlo.» |
+| Transición no permitida | «Esta acción no se puede aplicar a un expediente en estado «…».» |
+| Aprobar sin el rol | «Solo el Responsable del SGAI puede aprobar expedientes.» |
+| Aprobar quien lo redactó | «Quien redacta el expediente no puede aprobarlo.» |
 | Apartado inexistente en la plantilla | «El apartado {ref} no existe en esta versión de la plantilla.» |
 | Aprobar con huecos | «No se puede aprobar con apartados obligatorios sin cubrir: {refs}.» |
 | Almacenamiento no configurado | «El almacenamiento de documentos no está configurado.» |
@@ -160,11 +172,14 @@ Si no se puede crear o componer el documento, la vista muestra el error y **Volv
 ```mermaid
 stateDiagram-v2
   [*] --> Borrador: abrir la vista
-  Borrador --> En_revisión: pasar a revisión
-  Borrador --> Aprobado: aprobar (sin huecos)
+  Borrador --> En_revisión: enviar a revisión
+  En_revisión --> Borrador: volver a borrador
   En_revisión --> Aprobado: aprobar (sin huecos)
-  Aprobado --> Borrador: reabrir
+  Aprobado --> Sustituido: reabrir (nace la versión siguiente en borrador)
 ```
+
+Cada cambio de estado queda en el historial del sistema. Fuera de estas transiciones, la base de datos lo
+rechaza; las actas de aprobación, que genera el sistema, nacen aprobadas.
 
 ## Vistas relacionadas
 

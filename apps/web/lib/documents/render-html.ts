@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { ComposedDocument } from './compose'
+import { DOCUMENT_STATUS_LABELS, templateMeta } from './templates'
 
 /**
  * HTML autocontenido del expediente, para el renderizador.
@@ -81,12 +82,14 @@ export type RenderContext = {
 
 export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): string {
   const fecha = ctx.generatedAt.toLocaleString('es-ES')
+  // Rótulo y referencia legal de la plantilla (B09, E15).
+  const meta = templateMeta(doc.document.template_key)
 
   const aviso =
     doc.gaps.length > 0
       ? `<div class="warn">
            <strong>Expediente incompleto.</strong> Faltan ${doc.gaps.length} apartados
-           obligatorios del Anexo IV en el momento de generar este documento:
+           obligatorios (${esc(meta.label)}) en el momento de generar este documento:
            <ul>${doc.gaps.map((g) => `<li><span class="ref">${esc(g.ref)}</span> · ${esc(g.title)}</li>`).join('')}</ul>
          </div>`
       : ''
@@ -127,13 +130,16 @@ export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): st
 <style>${CSS}</style></head>
 <body>
   <div class="cover">
-    <div class="meta">Reglamento (UE) 2024/1689 · Anexo IV · Artículo 11, apartado 1</div>
+    <div class="meta">${esc(meta.legalRef)}</div>
     <h1>${esc(doc.document.title)}</h1>
     <dl>
       <dt>Organización</dt><dd>${esc(ctx.organizationName)}</dd>
       <dt>Sistema de IA</dt><dd>${esc(doc.system?.name ?? '—')}</dd>
-      <dt>Estado</dt><dd>${esc(doc.document.status)}</dd>
-      <dt>Plantilla</dt><dd>Anexo IV, versión ${doc.document.template_version}</dd>
+      <dt>Estado</dt><dd>${esc(DOCUMENT_STATUS_LABELS[doc.document.status] ?? doc.document.status)}${
+        doc.document.approved_at ? ` el ${esc(new Date(doc.document.approved_at).toLocaleDateString('es-ES'))}` : ''
+      }</dd>
+      <dt>Versión</dt><dd>${doc.document.version}</dd>
+      <dt>Plantilla</dt><dd>${esc(meta.label)}, versión ${doc.document.template_version}</dd>
       <dt>Cobertura</dt><dd>${Math.round(doc.completeness * 100)} % de los apartados obligatorios</dd>
       <dt>Generado</dt><dd>${esc(fecha)} por ${esc(ctx.generatedBy)}</dd>
       <dt>Referencia</dt><dd class="mono">${esc(ctx.renderId)}</dd>
@@ -155,7 +161,7 @@ export function buildDocumentHtml(doc: ComposedDocument, ctx: RenderContext): st
 export function buildFooterHtml(doc: ComposedDocument, renderId: string): string {
   return `<div style="font-size:7pt;color:#5b6b7f;width:100%;padding:0 16mm;
     display:flex;justify-content:space-between;font-family:sans-serif;">
-    <span>${esc(doc.document.title)} · Anexo IV · ${esc(renderId.slice(0, 8))}</span>
+    <span>${esc(doc.document.title)} · ${esc(templateMeta(doc.document.template_key).label)} · ${esc(renderId.slice(0, 8))}</span>
     <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
   </div>`
 }

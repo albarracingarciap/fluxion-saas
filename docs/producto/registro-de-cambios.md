@@ -36,6 +36,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Corrección: editor de roles recortado en Usuarios (fuera del plan) | Integrado en `main` | `fix/usuarios-editor-roles` | 2026-10-20 | No |
 | Etiquetas de roles según el glosario (fuera del plan) | Integrado en `main` | `fix/etiquetas-roles` | 2026-10-20 | No |
 | B10 · Evidencias: revisión obligatoria y versiones | Integrado en `main` | `fase1/b10-evidencias` | 2026-10-20 | **Sí** · `20261020110000_evidencias_revision_versiones.sql` |
+| B09 · Expediente documental: ciclo y rastro | Integrado en `main` | `fase1/b09-expediente` | 2026-10-20 | **Sí** · `20261020120000_expediente_ciclo.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -52,6 +53,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020090000_roles_multiples.sql` | B23a | Columna `profiles.roles`, trigger de sincronización con `role`, incompatibilidad DPO + Responsable del SGAI, reescritura de las 67 políticas RLS y de dos funciones de aprobación | **Antes** de desplegar B23a: la aplicación lee `profiles.roles` |
 | `supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql` | B07 | Funciones `plan_estado_por_acciones` y `fmea_aplicar_aprobacion_plan`; trigger de estado del plan en `treatment_actions`; propagación tarea → acción en un trigger AFTER; aplica la aprobación a los planes ya aprobados cuya evaluación seguía en revisión | **Antes** de desplegar B07: aprobar un plan llama a `fmea_aplicar_aprobacion_plan`. Revisa cuántas evaluaciones pasan a «Aprobada» |
 | `supabase/migrations/20261020110000_evidencias_revision_versiones.sql` | B10 | Reglas del ciclo de revisión en `system_evidences` (alta en borrador, transiciones, aprueba el Responsable del SGAI distinto del autor); versiones registradas por trigger, con fichero y caducidad; etiqueta `sin-revision` en las válidas sin revisar | **Antes** de desplegar B10: la aplicación ya no escribe las versiones. Revisa cuántas evidencias reciben `sin-revision` |
+| `supabase/migrations/20261020120000_expediente_ciclo.sql` | B09 | `documents.version` y `previous_id`; reglas del ciclo del expediente (transiciones, edición solo en borrador, aprueba el Responsable del SGAI que no lo redactó); `document_reopen`; etiqueta `sin-revision` en evidencias válidas de PDF de expedientes sin aprobar | **Antes** de desplegar B09: la aplicación lee `documents.version` y llama a `document_reopen`. Aplicar después de la de B10 |
 
 ---
 
@@ -722,4 +724,61 @@ aporta. El «revisor designado» queda pendiente.
 - Revisor designado (DP-01) y validación por Flujos de aprobación (B11).
 - El fichero se sube al elegirlo aunque se cancele la edición, y quitarlo no lo borra del almacenamiento.
 - Aviso de caducidad a los responsables (GAP-27) y biblioteca única con las evidencias del plan (GAP-19).
+
+---
+
+## B09 · Expediente documental: ciclo y rastro
+
+**Fecha:** 2026-10-20 · **Rama:** `fase1/b09-expediente` ·
+**Migración:** **sí**, `supabase/migrations/20261020120000_expediente_ciclo.sql` (aplicar antes de desplegar, después de la de B10)
+
+**Problema** (GAP-24 en parte, F-15; `E15`, `E16`):
+- cualquier miembro aprobaba el expediente, también desde borrador y también quien lo había redactado;
+- no se podía volver a borrador desde «En revisión», y en revisión se seguía editando;
+- reabrir un aprobado lo devolvía a borrador y lo sobrescribía: «Sustituido» no se asignaba nunca y la
+  versión aprobada se perdía;
+- los cambios de estado no dejaban historial;
+- cada PDF creaba una evidencia «Válida» aunque el expediente estuviera en borrador;
+- todos los PDF (FRIA, DPIA, ficha del modelo, actas) decían «Anexo IV» en portada, pie, nombre del fichero,
+  instantánea y evidencia, y el estado salía sin traducir.
+
+**Decisión aplicada.** DP-01: quien prepara no aprueba; el Anexo IV lo aprueba el Responsable del SGAI. Los
+aprobadores de la DPIA (responsable del tratamiento con dictamen del DPO) y de la FRIA (Comité de IA) no son
+roles de la aplicación todavía: hasta B11 aprueba el Responsable del SGAI todas las plantillas, como hizo B01
+con el plan.
+
+**Cambios en la base de datos** (migración):
+- `documents.version` y `documents.previous_id`.
+- `trg_document_lifecycle_rules` (BEFORE INSERT/UPDATE): con usuario autenticado, alta en borrador; contenido
+  editable solo en borrador; transiciones borrador ⇄ revisión → aprobado → sustituido; aprobar exige
+  `sgai_manager` y no ser autor de ningún apartado, y rellena aprobador y fecha. Las actas (sin usuario) no
+  pasan por estas reglas.
+- `document_reopen`: en una transacción, el aprobado pasa a sustituido y nace la versión siguiente en borrador
+  con su contenido.
+- Evidencias «Válidas» de PDF generados con el expediente sin aprobar: etiqueta `sin-revision`.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| `lib/documents/lifecycle-rules.ts` (nuevo, puro) | Transiciones, aprobadores por plantilla (constante hasta B11), `documentApprovalBlocker` y autores del contenido |
+| `lib/documents/templates.ts` | Rótulo, referencia legal y nombre de fichero por plantilla (y para las actas); etiquetas de estado |
+| Server actions | `changeDocumentStatus` (enviar, devolver, aprobar) con comprobaciones e historial del sistema; `reopenDocument`; `getDocumentApprovalContext`; editar solo en borrador; los entregables se listan de todas las versiones |
+| PDF (`render.ts`, `render-html.ts`) | Rótulo, referencia legal, estado en español, versión y fecha de aprobación; fichero `{plantilla}-{fecha}.pdf`; instantánea con el tipo de la plantilla; evidencia pendiente de revisión salvo con el expediente aprobado, con quien genera como responsable |
+| Pantalla del expediente | Botones por estado (**Enviar a revisión**, **Volver a borrador**, **Aprobar expediente**, **Reabrir (versión nueva)**); a quien no puede aprobar, el motivo; versión y fecha de aprobación; versión y estado de cada entregable |
+| Tests | `tests/expediente-ciclo.test.ts` (41 en total) |
+
+**Verificación.**
+- Migración probada en el Postgres local tras las de B23a, B07 y B10: rechaza aprobar desde borrador, editar en
+  revisión y que apruebe quien redactó; otro Responsable del SGAI aprueba y queda registrado; `document_reopen`
+  deja la versión 1 sustituida y crea la 2 en borrador con el contenido; es idempotente.
+- `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 41/41, `check-server-actions.sh` correcto.
+
+**Documentación.** `funcional/expediente-documental.md`, `negocio/documentacion-del-sistema.md`,
+`funcional/flujo-completo-evaluacion.md` (GAP-24 en parte), `tecnica/modelo-datos.md`; TODO 135 y 143
+resueltos.
+
+**Pendiente.**
+- Aprobadores por plantilla de DP-01 y aprobación por Flujos de aprobación (B11, B23b).
+- El resto de TODO de la vista (orden de pestañas, ficha del modelo en sistemas no GPAI, apartado IV.8).
 

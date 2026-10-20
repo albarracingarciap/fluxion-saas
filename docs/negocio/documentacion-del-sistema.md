@@ -8,6 +8,8 @@ version: 0.1
 fuente:
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/actions.ts
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-client.tsx
+  - apps/web/lib/documents/lifecycle-rules.ts
+  - supabase/migrations/20261020120000_expediente_ciclo.sql
   - apps/web/lib/documents/templates.ts
   - apps/web/lib/documents/compose.ts
   - apps/web/lib/documents/render.ts
@@ -54,11 +56,13 @@ herramienta y no por los apartados de la norma, los huecos son difíciles de ver
 | Responsable del sistema | Redacta los apartados que no se deducen de los datos |
 | Analista de cumplimiento | Revisa el documento y lo envía a revisión |
 | DPO | Interviene en la DPIA y en la relación de la FRIA con la protección de datos |
-| Aprobador | Aprueba el documento |
+| Responsable del SGAI | Aprueba el documento, si no ha redactado ningún apartado |
 | Auditor | Consulta los documentos aprobados y sus PDF |
 
-> **Pendiente de definir.** Qué roles pueden aprobar un documento. Hoy lo puede hacer cualquier miembro
-> de la organización.
+Quien redacta no aprueba. Hoy aprueba el Responsable del SGAI todos los documentos.
+
+> **Pendiente de implementar.** Los aprobadores decididos para cada documento: la DPIA, el responsable del
+> tratamiento con dictamen del DPO; la FRIA, el Comité de IA.
 
 ## Flujo de trabajo
 
@@ -88,21 +92,19 @@ flowchart LR
    redacción de la organización. Los datos deducidos se actualizan solos cuando cambia el sistema.
 3. **Redacción.** La organización redacta los apartados manuales. Solo se guarda lo que escriben las
    personas; el resto se compone en cada momento a partir de los datos.
-4. **Revisión y aprobación.** El documento pasa por borrador, en revisión y aprobado. Fluxion impide
-   aprobarlo mientras falte algún apartado obligatorio e indica cuáles. Un documento aprobado se puede
-   reabrir para editarlo.
-
-   > TODO: confirmar el versionado de los documentos. Hoy no se crean versiones nuevas: al reabrir, se
-   > edita el mismo documento.
-5. **Generación del PDF.** Del documento se genera un PDF con el nombre de la organización. Cada PDF:
+4. **Revisión y aprobación.** El documento se redacta en borrador, se envía a revisión (donde ya no se
+   edita; si hay que cambiar algo, vuelve a borrador) y se aprueba. Fluxion impide aprobarlo mientras falte
+   algún apartado obligatorio e indica cuáles. Cada paso queda en el historial del sistema.
+5. **Versiones.** Un documento aprobado no se modifica: al reabrirlo nace una versión nueva en borrador con
+   el mismo contenido, y la aprobada queda como sustituida, con sus PDF.
+6. **Generación del PDF.** Del documento se genera un PDF con el nombre de la organización, el rótulo y la
+   referencia legal de su documento, su versión y su estado. Cada PDF:
    - es inmutable;
    - lleva una huella del fichero y otra del contenido;
-   - se guarda como evidencia del sistema.
+   - se guarda como evidencia del sistema: válida si el documento está aprobado, y pendiente de revisión si
+     no lo está.
 
-   Se pueden descargar los PDF generados anteriormente.
-
-   > TODO: confirmar el rótulo de los PDF. Todos se titulan «Anexo IV», también los de FRIA, DPIA y ficha
-   > del modelo.
+   Se pueden descargar los PDF generados anteriormente, de todas las versiones.
 
 Fluxion no deja enviar al servicio de PDF ningún enlace ni credencial de la aplicación: recibe el
 documento ya construido.
