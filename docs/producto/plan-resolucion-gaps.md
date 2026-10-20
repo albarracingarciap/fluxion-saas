@@ -126,7 +126,7 @@ apartado 4. La fase 4 añade funcionalidad.
 
 ### DP-01 · Roles, comités y circuito de aprobación
 
-Fuente: hoja de trabajo del responsable del proyecto (capturas del 2026-10-19). Modelo basado en las tres
+Fuente: hoja de trabajo del responsable del proyecto (capturas del 2026-10-19; textos completos confirmados el 2026-10-20). Modelo basado en las tres
 líneas de defensa. Ni el AI Act ni ISO/IEC 42001 prescriben un organigrama: ISO/IEC 42001 (§5.3) exige
 asignar roles, responsabilidades y autoridades, y el AI Act exige funciones concretas (Art. 4, 14, 17, 26
 y 27).
@@ -136,10 +136,10 @@ corresponden a las zonas del plan de tratamiento (III-IV, II e I).
 
 | Objeto | Prepara | Revisa o consulta | Aprueba |
 |---|---|---|---|
-| Clasificación AI Act | Responsable del sistema | Legal / Cumplimiento | Responsable del SGAI; si es alto riesgo o se invoca el Art. 6.3, … |
+| Clasificación AI Act | Responsable del sistema | Legal / Cumplimiento | Responsable del SGAI; si es alto riesgo o se invoca el Art. 6.3, Comité de IA |
 | Evaluación de riesgos y plan · nivel 1 | Analista + Responsable del sistema | CISO si hay controles de seguridad | Responsable del SGAI |
 | Evaluación de riesgos y plan · nivel 2 (Zona II) | Analista + Responsable del sistema | CISO si hay controles de seguridad | Comité de Riesgos de IA |
-| Evaluación de riesgos y plan · nivel 3 (Zona I) | Analista + Responsable del sistema | Comité de Riesgos de IA | Revisión por la Dirección |
+| Evaluación de riesgos y plan · nivel 3 (Zona I, severidad 9) | Analista + Responsable del sistema | Comité de Riesgos de IA | Revisión por la Dirección |
 | AISIA / FRIA | Analista | DPO (dictamen), Legal | Comité de IA |
 | DPIA | Responsable del tratamiento | DPO (dictamen obligatorio) | Responsable del tratamiento (negocio) |
 | Documentación técnica (Anexo IV) | Responsable del sistema | Responsable del SGAI | Responsable del SGAI (o función de calidad, si es proveedor) |
@@ -151,10 +151,10 @@ corresponden a las zonas del plan de tratamiento (III-IV, II e I).
 
 | Comité | Composición típica | Función | Cadencia |
 |---|---|---|---|
-| Comité de IA (dirección o ética) | CAIO (preside), negocio, Legal, DPO (voz sin voto), CISO, … | Casos de uso nuevos, alto riesgo, excepciones del Art. 6.3, … | Mensual o por demanda |
-| Comité de Riesgos de IA | Responsable del SGAI (preside), Riesgos corporativos, CISO, … | Planes de tratamiento de nivel 2, aceptación de riesgos altos, … | Trimestral |
-| Revisión por la Dirección | Alta dirección, CAIO, Responsable del SGAI | Lo que exige ISO/IEC 42001 §9.3: estado del SGAI, objetivos, no … | Al menos anual |
-| Comité técnico / validación de modelos | MLOps, ciencia de datos, Responsable del sistema | Revisión de la calidad técnica antes del Comité de Riesgos | Por demanda |
+| Comité de IA (dirección o ética) | CAIO (preside), negocio, Legal, DPO (voz sin voto), CISO, Responsable del SGAI (secretaría) | Casos de uso nuevos, alto riesgo, excepciones del Art. 6.3, cuestiones éticas | Mensual o por demanda |
+| Comité de Riesgos de IA | Responsable del SGAI (preside), Riesgos corporativos, CISO, Cumplimiento, responsables de sistema implicados | Planes de tratamiento de nivel 2, aceptación de riesgos altos, seguimiento de acciones | Trimestral |
+| Revisión por la Dirección | Alta dirección, CAIO, Responsable del SGAI | Lo que exige ISO/IEC 42001 §9.3: estado del SGAI, objetivos, no conformidades, riesgos críticos, recursos | Al menos anual |
+| Comité técnico / validación de modelos (opcional) | MLOps, ciencia de datos, Responsable del sistema | Revisión de la calidad técnica antes del Comité de Riesgos | Por demanda |
 
 **Roles individuales:**
 
@@ -162,10 +162,10 @@ corresponden a las zonas del plan de tratamiento (III-IV, II e I).
 |---|---|---|---|---|
 | Alta dirección (CEO, consejo) | Fija la política de IA y el apetito al riesgo; asigna recursos | ISO/IEC 42001 §5.1, §5.2 | Aprueba la política de IA y los riesgos críticos residuales | Gobierno |
 | CAIO / Responsable de IA | Dirige la estrategia y el portafolio de IA | Práctica habitual | Propone; preside el Comité de IA | 1.ª |
-| Responsable del SGAI | Mantiene el sistema de gestión: inventario, Declaración de … | ISO/IEC 42001 §5.3 | Aprueba el nivel 1; custodia el circuito | 2.ª |
+| Responsable del SGAI | Mantiene el sistema de gestión: inventario, Declaración de Aplicabilidad, métricas, informes a dirección | ISO/IEC 42001 §5.3 | Aprueba el nivel 1; custodia el circuito | 2.ª |
 | Responsable del sistema | Responde de un sistema concreto en todo su ciclo de vida | ISO/IEC 42001 A.3.2 | Prepara la evaluación y el plan; no aprueba lo suyo | 1.ª |
 | Analista de riesgos de IA | Ejecuta FMEA, AISIA y evaluaciones de impacto | ISO/IEC 42001 §6.1, §8.2 | Evalúa; no aprueba | 2.ª |
-| Responsable de supervisión humana | Persona competente que puede intervenir o detener el … | AI Act, Art. 14, 26.2 | Valida que la supervisión es viable antes del despliegue | 1.ª |
+| Responsable de supervisión humana | Persona competente que puede intervenir o detener el sistema | AI Act, Art. 14, 26.2 | Valida que la supervisión es viable antes del despliegue | 1.ª |
 | DPO | Asesora y supervisa en materia de datos personales | RGPD, Art. 37-39 | Consultivo: emite dictamen en DPIA y FRIA; no aprueba | 2.ª (independiente) |
 | Cumplimiento / Legal | Interpreta obligaciones y clasificación AI Act | — | Valida la clasificación y las excepciones (Art. 6.3) | 2.ª |
 | Seguridad de la información (CISO) | Ciberseguridad y robustez | AI Act, Art. 15 | Valida los controles de seguridad del plan | 2.ª |
@@ -176,8 +176,8 @@ corresponden a las zonas del plan de tratamiento (III-IV, II e I).
 | Regla | Contenido | Base |
 |---|---|---|
 | Segregación | Quien prepara no aprueba. Quien aprueba un riesgo no lo audita | Tres líneas de defensa; ISO/IEC 42001 §9.2 |
-| DPO consultivo, no ejecutor | El DPO emite dictamen; no edita ni aprueba planes de tratamiento | RGPD, Art. 38.3 y 38.6 |
-| Quórum y voto | Definir quórum, quién vota y quién solo opina (DPO, auditor externo) y cómo se resuelve … | Validez de las decisiones de comité |
+| DPO consultivo, no ejecutor | El DPO emite dictamen; no edita ni aprueba planes de tratamiento (antes solo el DPO editaba el plan; lo corrigió B01) | RGPD, Art. 38.3 y 38.6 |
+| Quórum y voto | Definir quórum, quién vota y quién solo opina (DPO, auditor externo) y cómo se resuelve un empate (voto del presidente o escalado) | Validez de las decisiones de comité |
 | Delegación con caducidad | Por ausencia, siempre con fecha de fin y nunca hacia quien preparó el objeto | Evitar bloqueos sin romper la segregación |
 | Acta | Cada decisión de comité con orden del día, asistentes, votos y motivación | Evidencia para auditoría |
 
@@ -193,9 +193,8 @@ corresponden a las zonas del plan de tratamiento (III-IV, II e I).
 Incompatibles: preparar y aprobar el mismo objeto (rompe la segregación); DPO y Responsable del SGAI en la
 misma persona (conflicto de intereses, RGPD Art. 38.6).
 
-> TODO: completar los textos que aparecen cortados en las capturas (marcados con «…»), en especial el
-> aprobador de la clasificación cuando es de alto riesgo o se invoca el Art. 6.3. Por la función del
-> Comité de IA, se presume que es ese comité.
+Los comités son orientativos: las organizaciones grandes suelen añadir el comité técnico o de validación
+de modelos antes del de riesgos.
 
 **Qué implica para Fluxion** (se desarrolla en B01, B11 y el bloque nuevo B23):
 
