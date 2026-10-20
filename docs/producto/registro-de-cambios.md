@@ -42,6 +42,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Decisiones DP-06 a DP-10 (fuera del plan de bloques) | Integrado en `main` | `docs/decisiones-dp06-dp10` | 2026-10-20 | No |
 | Glosario: decisiones de DP-01, DP-10, B02, B23a y B23b | Integrado en `main` | `docs/glosario-decisiones` | 2026-10-20 | No |
 | B11a · Flujos de aprobación: efectos y apertura por tipo de objeto | Integrado en `main` | `fase2/b11a-aprobaciones-objetos` | 2026-10-20 | **Sí** · `20261020140000_aprobaciones_objetos.sql` |
+| B11b · Flujos de aprobación: políticas por defecto de DP-01 | Integrado en `main` | `fase2/b11b-politicas-defecto` | 2026-10-20 | **Sí** · `20261020150000_aprobaciones_tipos_aprobador.sql` y `20261020150100_aprobaciones_politicas_defecto.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -61,6 +62,8 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020120000_expediente_ciclo.sql` | B09 | `documents.version` y `previous_id`; reglas del ciclo del expediente (transiciones, edición solo en borrador, aprueba el Responsable del SGAI que no lo redactó); `document_reopen`; etiqueta `sin-revision` en evidencias válidas de PDF de expedientes sin aprobar | **Antes** de desplegar B09: la aplicación lee `documents.version` y llama a `document_reopen`. Aplicar después de la de B10 |
 | `supabase/migrations/20261020130000_gobierno_designaciones_comites.sql` | B23b | `governance_designations` con RLS; incompatibilidad DPO + Responsable del tratamiento; responsables en `ai_systems` (y casa `ai_owner` con un miembro si es inequívoco); comité técnico, quórum y desempate; asesores sin voto en `approval_can_decide` y `approval_step_candidates` | **Antes** de desplegar B23b. Aplicar después de las de B10 y B09. Contiene `ALTER TYPE … ADD VALUE`, válido dentro de la transacción de `migrate.sh` (Postgres 12+) |
 | `supabase/migrations/20261020140000_aprobaciones_objetos.sql` | B11a | La vista de la bandeja (`v_approval_requests`) resuelve el nombre de la AISIA, la Declaración y la evidencia, y añade `object_href` | **Antes** de desplegar B11a: la bandeja lee `object_href` |
+| `supabase/migrations/20261020150000_aprobaciones_tipos_aprobador.sql` | B11b (1/2) | Tipos de aprobador `committee_type` y `function`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
+| `supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql` | B11b (2/2) | Rol de respaldo y quórum de los pasos; varias políticas activas por tipo con condiciones (gana la más específica); resolución de comité por tipo y función al abrir; siembra de las políticas de DP-01 (trigger al crear la organización y para las existentes, solo en tipos sin política propia); abre solicitud para lo que ya esperaba aprobación | **Antes** de desplegar B11b. Revisa en Ajustes › Aprobaciones las políticas creadas y en Aprobaciones las solicitudes abiertas |
 
 ---
 
@@ -974,4 +977,54 @@ correcto. No se ha probado en el navegador.
 del plan); B11c (cancelación que devuelve a borrador y avisa, caducidad, avisos solo a nuevos decisores); B11d
 (pasos de consulta y condicionales; exclusión de brechas, DP-07). En la ficha del sistema, las evidencias en el
 circuito muestran el aviso al intentar decidir, no antes.
+
+---
+
+## B11b · Flujos de aprobación: políticas por defecto de DP-01
+
+**Fecha:** 2026-10-20 · **Rama:** `fase2/b11b-politicas-defecto` ·
+**Migraciones:** **sí**, `20261020150000_aprobaciones_tipos_aprobador.sql` y después
+`20261020150100_aprobaciones_politicas_defecto.sql` (aplicar en dos ejecuciones separadas, antes de desplegar)
+
+**Problema** (F-01; GAP-14, GAP-22, GAP-24, GAP-26 y GAP-28 en parte): sin políticas configuradas a mano, cada
+objeto se aprobaba por su vía propia; una política no podía decir «el Comité de Riesgos» o «el Responsable del
+tratamiento» sin conocer el comité o la persona concretos; y solo cabía una política activa por tipo, así que el
+plan no podía tener aprobadores distintos por nivel ni el expediente por plantilla.
+
+**Cambios en la base de datos:**
+- Tipos de aprobador **por tipo de comité** y **por función de gobierno**, con **rol de respaldo**. Al abrir la
+  solicitud se resuelven al comité activo (quórum fijado en el paso, el del comité o la mayoría de los miembros con
+  voto, sin superar los que pueden votar) o a la persona designada; si no hay, decide el rol de respaldo. Queda
+  congelado en la solicitud (`resolved_from`, `fallback`), así que `approval_can_decide` y
+  `approval_step_candidates` no cambian.
+- Varias políticas activas por tipo con condiciones distintas; `approval_policy_for` elige la más específica.
+- `approval_policies.is_default` y `seed_default_approval_policies`: las diez políticas de DP-01 (plan por nivel,
+  AISIA, expediente por plantilla, Declaración y evidencias). Se siembran al crear la organización (trigger) y aquí
+  para las existentes, solo en los tipos sin política propia.
+- Los objetos que esperaban aprobación por la vía antigua abren su solicitud con la política por defecto.
+
+**Cambios en la aplicación:**
+
+| Área | Cambio |
+|---|---|
+| Ajustes › Aprobaciones | Comité por tipo, función de gobierno y rol de respaldo; condición por plantilla en documentos; etiqueta **Por defecto**; varias políticas por tipo; no se puede desactivar ni borrar la única activa de un tipo |
+| Aprobaciones | Aviso en ámbar cuando decide el rol de respaldo |
+| Plan de tratamiento | Con solicitud viva, el panel remite a Aprobaciones en lugar de mostrar el aprobador asignado |
+| Usuarios › Roles y permisos | La columna «Hoy» del mapa refleja las políticas por defecto |
+
+**Verificación.** Migraciones probadas en el Postgres local tras todas las anteriores: siembra las diez políticas
+en cada organización (también en una nueva, por el trigger); el nivel 1 del plan elige su política; un comité de
+riesgos con dos miembros con voto y un asesor se resuelve con quórum 2; sin comité ni Responsable del tratamiento
+designado decide el Responsable del SGAI con la marca de respaldo; un plan en revisión por la vía antigua abrió su
+solicitud con quien lo preparó como solicitante; repetir la migración no duplica nada. `tsc --noEmit` sin errores,
+`next lint` sin avisos, `npm test` 49/49, `check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/ajustes.md`, `funcional/aprobaciones.md`; TODO 252 para el glosario («Flujos de
+aprobación» y «Nivel de aprobación»).
+
+**Pendiente.** B11c (cancelación que devuelve el objeto a borrador y avisa, caducidad, avisos solo a los nuevos
+decisores, acta en todo cierre); B11d (pasos de consulta como el dictamen del DPO o la revisión del CISO, pasos
+condicionales, exclusión de brechas de DP-07, la clasificación y la política de IA como objetos aprobables). La vía
+propia del plan (aprobador asignado) solo queda para los planes sin política aplicable; se retirará cuando B11d
+cubra todos los casos.
 

@@ -147,6 +147,15 @@ function Tarjeta({ row, decidible }: { row: ApprovalRequestRow; decidible: boole
             <p className="font-sora text-[11.5px] text-lttm mt-1.5">Motivo: «{row.closed_reason}»</p>
           )}
 
+          {row.status === 'pending' && row.current_step?.fallback && (
+            <p className="font-sora text-[11.5px] text-amber-700 mt-1.5">
+              {row.current_step.resolved_from?.approver_type === 'function'
+                ? 'La función de gobierno de la política está sin designar'
+                : 'El comité de la política no está constituido o no tiene miembros con voto'}
+              : decide el rol de respaldo.
+            </p>
+          )}
+
           {row.object_href && (
             <a
               href={row.object_href}

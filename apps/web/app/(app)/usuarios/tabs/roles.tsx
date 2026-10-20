@@ -67,7 +67,7 @@ function MapaAprobaciones() {
       <p className="font-sora text-[12.5px] text-ltt2 mb-4 leading-relaxed">
         Quién prepara, revisa y aprueba cada objeto según el modelo de gobierno de la organización, y quién ocupa
         hoy cada papel. Regla general: quien prepara no aprueba. La columna «Hoy» indica lo que ya aplica la
-        aplicación; el resto llega con los flujos de aprobación por defecto.
+        aplicación con las políticas por defecto de Flujos de aprobación (Ajustes › Aprobaciones).
       </p>
       {error && <p className="font-sora text-[12px] text-re mb-3">{error}</p>}
       <div className="overflow-x-auto rounded-[10px] border border-ltb">

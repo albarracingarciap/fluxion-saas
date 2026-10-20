@@ -296,6 +296,8 @@ export type TreatmentPlanData = {
   overdue_reviews_count: number;
   /** Versiones de la evaluación del sistema (B07). */
   versions: EvaluationVersionsInfo | null;
+  /** La aprobación se decide en Flujos de aprobación (B11). */
+  in_approval_circuit: boolean;
 };
 
 /**
@@ -944,6 +946,15 @@ export async function buildTreatmentPlanData(params: {
     action_reviews: actionReviews,
     pending_reviews_count: pendingReviewsCount,
     overdue_reviews_count: overdueReviewsCount,
+    in_approval_circuit: currentPlan.id
+      ? Boolean((await fluxion
+          .from('approval_requests')
+          .select('id')
+          .eq('object_type', 'treatment_plan')
+          .eq('object_id', currentPlan.id)
+          .eq('status', 'pending')
+          .maybeSingle()).data)
+      : false,
     versions: await loadEvaluationVersions({
       fluxion,
       organizationId: params.organizationId,
