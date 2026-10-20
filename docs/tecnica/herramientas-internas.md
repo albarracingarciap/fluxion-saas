@@ -36,8 +36,22 @@ aplicación desplegada ni se ejecutan de forma programada: las tareas recurrente
 | `npm run build` | `next build` |
 | `npm run start` | `next start` |
 | `npm run lint` | `next lint` con `next/core-web-vitals` y `next/typescript`. Las variables sin usar son error, salvo las que empiezan por `_` |
+| `npm test` | Tests de `tests/**/*.test.ts` con el ejecutor nativo de Node (`node --test`), que ejecuta TypeScript sin compilar |
 
-No hay scripts de test ni de comprobación de tipos.
+No hay script de comprobación de tipos: se usa `npx tsc --noEmit`.
+
+### Tests (`apps/web/tests/`)
+
+Cubren la lógica **pura**, la que no depende de la base de datos ni de Next:
+
+| Fichero | Qué comprueba |
+|---|---|
+| `fmea-domain.test.ts` | `lib/fmea/domain.ts`: severidad sugerida, justificación, segunda revisión, suelo AI Act y zona de riesgo |
+| `plan-reglas.test.ts` | `lib/fmea/treatment-plan-rules.ts` y `lib/auth/roles-flujo.ts`: nivel de aprobación, cadencia y plazo por zona, roles de DP-01 y elección del aprobador sin política |
+
+`tests/support/loader.mjs` resuelve el alias `@/` y las importaciones sin extensión, como hace Next, solo
+durante los tests. Para que una regla se pueda probar, debe vivir en un módulo sin dependencias de Supabase
+ni de Next (por ejemplo, `treatment-plan-rules.ts`, que `treatment-plan.ts` reexporta).
 
 ### Comprobaciones estáticas (`tools/`)
 
@@ -90,7 +104,7 @@ No aplica.
 
 | Herramienta | Requiere |
 |---|---|
-| Scripts de `apps/web` | Node.js, dependencias de `apps/web` (Next.js 14.2) |
+| Scripts de `apps/web` | Node.js, dependencias de `apps/web` (Next.js 14.2). `npm test` requiere Node 22.18 o superior (TypeScript nativo) |
 | `tools/check-server-actions.sh` | bash 3.2 o superior, git |
 | `tools/check-python.sh` | Python 3 con `pyflakes` |
 | `apps/web/scripts/*` | `tsx` (con `npx`), acceso a la base de datos |

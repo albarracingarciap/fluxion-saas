@@ -45,6 +45,7 @@ tools/                 Comprobaciones estáticas
 cd apps/web && npm install && npm run dev   # http://localhost:3000
 cd apps/web && npm run build
 cd apps/web && npm run lint
+cd apps/web && npm test                     # tests de la lógica pura (FMEA, plan, roles)
 ./tools/check-server-actions.sh             # los ficheros 'use server' solo exportan funciones async
 ./tools/check-python.sh                     # nombres indefinidos en Python (requiere pyflakes; PYTHON=… para otro intérprete)
 
@@ -53,9 +54,10 @@ pip install -r services/agents/requirements.txt
 uvicorn fluxion_agents.main:app --reload --port 8001
 ```
 
-No hay tests automatizados. Pasa `check-server-actions.sh` después de tocar cualquier `actions.ts`, y
-`check-python.sh` después de tocar Python: los dos fallos que detectan compilan sin error y solo rompen
-en ejecución.
+Los tests (`apps/web/tests/`) cubren solo la lógica pura, sin base de datos: reglas del FMEA, del plan de
+tratamiento y de roles. Pasa `npm test` después de tocar `lib/fmea/` o `lib/auth/`. Pasa
+`check-server-actions.sh` después de tocar cualquier `actions.ts`, y `check-python.sh` después de tocar
+Python: los dos fallos que detectan compilan sin error y solo rompen en ejecución.
 
 ### Convenciones de código
 
