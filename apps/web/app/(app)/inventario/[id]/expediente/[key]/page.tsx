@@ -4,7 +4,7 @@ import { AlertCircle } from 'lucide-react'
 
 import {
   getOrCreateDocument, listDocumentRenders, listTemplatesForSystem,
-  listGeneratedDocuments,
+  listGeneratedDocuments, getDocumentApprovalContext,
 } from './actions'
 import { isTemplateKey } from '@/lib/documents/templates'
 import { ExpedienteClient } from './expediente-client'
@@ -44,9 +44,10 @@ export default async function ExpedientePage({
     )
   }
 
-  const [renders, generados] = await Promise.all([
+  const [renders, generados, approval] = await Promise.all([
     listDocumentRenders(result.document.id),
     listGeneratedDocuments(params.id),
+    getDocumentApprovalContext(result.document.id),
   ])
 
   return (
@@ -57,6 +58,7 @@ export default async function ExpedientePage({
       templates={templates}
       templateKey={params.key}
       aiSystemId={params.id}
+      approval={approval}
     />
   )
 }

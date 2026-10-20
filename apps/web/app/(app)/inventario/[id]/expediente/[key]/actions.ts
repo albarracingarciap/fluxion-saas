@@ -7,7 +7,14 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { composeDocument, type ComposedDocument } from '@/lib/documents/compose'
 import type { TemplateOption } from '@/lib/documents/templates'
 import { generateRender } from '@/lib/documents/render'
-import { isTemplateKey } from '@/lib/documents/templates'
+import { DOCUMENT_STATUS_LABELS, isTemplateKey, templateMeta } from '@/lib/documents/templates'
+import {
+  DOCUMENT_TRANSITIONS,
+  documentApprovalBlocker,
+  documentAuthors,
+  type DocumentAction,
+} from '@/lib/documents/lifecycle-rules'
+import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 
 /**
  * Expedientes regulatorios por sistema: Anexo IV, FRIA, DPIA y ficha de modelo.
@@ -28,12 +35,21 @@ async function ctx() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, full_name')
+    .select('id, user_id, organization_id, full_name, role, roles')
     .eq('user_id', user.id)
     .single()
 
   if (!profile) return { error: 'No autenticado' as const, profile: null, fluxion }
   return { error: null, profile, fluxion }
+}
+
+/**
+ * Mensaje de un error de la base de datos. Las reglas del ciclo
+ * (`trg_document_lifecycle_rules`) ya devuelven el texto para el usuario.
+ */
+function dbError(error: { message: string; code?: string }, fallback: string): string {
+  if (error.code === '23514' || error.code === '42501' || error.code === 'P0001') return error.message
+  return fallback
 }
 
 /** Las plantillas del catálogo y si el sistema ya tiene expediente de cada una. */
@@ -165,8 +181,13 @@ export async function saveDocumentSection(input: {
     .maybeSingle()
 
   if (!doc) return { error: 'Expediente no encontrado.' }
+  // Solo se edita en borrador (B09): en revisión o aprobado, lo que se revisa
+  // tiene que ser lo que hay.
   if (doc.status === 'approved') {
-    return { error: 'El expediente está aprobado. Reábrelo para poder editarlo.' }
+    return { error: 'El expediente está aprobado. Reábrelo para crear una versión nueva y editarla.' }
+  }
+  if (doc.status === 'in_review') {
+    return { error: 'El expediente está en revisión. Vuelve a borrador para editarlo.' }
   }
 
   // Que la referencia exista en la plantilla. Sin esto, `content` acabaría
@@ -204,26 +225,62 @@ export async function saveDocumentSection(input: {
 
   if (updErr) {
     console.error('saveDocumentSection:', updErr)
-    return { error: 'No se pudo guardar el apartado.' }
+    return { error: dbError(updErr, 'No se pudo guardar el apartado.') }
   }
 
   revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { ok: true }
 }
 
-export async function setDocumentStatus(input: {
+const ACTION_EVENTS: Record<DocumentAction, { type: string; title: string }> = {
+  submit:  { type: 'document_submitted', title: 'Expediente enviado a revisión' },
+  return:  { type: 'document_returned',  title: 'Expediente devuelto a borrador' },
+  approve: { type: 'document_approved',  title: 'Expediente aprobado' },
+}
+
+/**
+ * Cambia el estado del expediente por el ciclo (B09): enviar a revisión,
+ * devolver a borrador o aprobar. Aprobar exige la revisión previa, ningún
+ * apartado obligatorio sin cubrir y que apruebe el Responsable del SGAI que no
+ * lo redactó (DP-01). Cada cambio deja rastro en el historial del sistema.
+ */
+export async function changeDocumentStatus(input: {
   documentId: string
-  status: 'draft' | 'in_review' | 'approved'
+  action: DocumentAction
   aiSystemId: string
   templateKey: string
 }): Promise<{ ok: true } | { error: string }> {
   const { error, profile, fluxion } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
 
-  // Un expediente no se aprueba con huecos obligatorios. Es la única puerta de
-  // este módulo que impide algo, y tiene que estar aquí y no solo en la
-  // pantalla: aprobar es el acto que un auditor va a mirar.
-  if (input.status === 'approved') {
+  const { data: doc } = await fluxion
+    .from('documents')
+    .select('id, status, title, template_key, content, ai_system_id, organization_id, version')
+    .eq('id', input.documentId)
+    .maybeSingle()
+
+  if (!doc) return { error: 'Expediente no encontrado.' }
+
+  const transition = DOCUMENT_TRANSITIONS[input.action]
+  if (doc.status !== transition.from) {
+    return {
+      error: `Esta acción no se puede aplicar a un expediente en estado «${DOCUMENT_STATUS_LABELS[doc.status] ?? doc.status}».`,
+    }
+  }
+
+  if (input.action === 'approve') {
+    if (!isTemplateKey(doc.template_key)) return { error: 'Plantilla desconocida.' }
+
+    const blocker = documentApprovalBlocker({
+      templateKey: doc.template_key,
+      actor: profile,
+      actorProfileId: profile.id,
+      authorProfileIds: documentAuthors(doc.content),
+    })
+    if (blocker) return { error: blocker }
+
+    // Un expediente no se aprueba con huecos obligatorios: es el acto que un
+    // auditor va a mirar.
     const composed = await composeDocument(input.documentId)
     if (!composed) return { error: 'No se pudo componer el expediente.' }
     if (composed.gaps.length > 0) {
@@ -232,30 +289,107 @@ export async function setDocumentStatus(input: {
     }
   }
 
-  const patch: Record<string, unknown> = {
-    status: input.status,
-    updated_at: new Date().toISOString(),
-  }
-  if (input.status === 'approved') {
-    patch.approved_by = profile.id
-    patch.approved_at = new Date().toISOString()
-  } else {
-    patch.approved_by = null
-    patch.approved_at = null
-  }
-
-  const { error: updErr } = await fluxion
+  // Quién y cuándo aprobó lo rellena la base de datos (trg_document_lifecycle_rules).
+  const { data: updated, error: updErr } = await fluxion
     .from('documents')
-    .update(patch)
+    .update({ status: transition.to, updated_at: new Date().toISOString() })
     .eq('id', input.documentId)
+    .select('id')
 
   if (updErr) {
-    console.error('setDocumentStatus:', updErr)
-    return { error: 'No se pudo cambiar el estado del expediente.' }
+    console.error('changeDocumentStatus:', updErr)
+    return { error: dbError(updErr, 'No se pudo cambiar el estado del expediente.') }
+  }
+  if (!updated || updated.length === 0) return { error: 'No tienes permisos para cambiar este expediente.' }
+
+  if (doc.ai_system_id) {
+    const { type, title } = ACTION_EVENTS[input.action]
+    await insertAiSystemHistoryEvents(fluxion, [
+      {
+        ai_system_id: doc.ai_system_id,
+        organization_id: doc.organization_id,
+        event_type: type,
+        event_title: title,
+        event_summary: `${templateMeta(doc.template_key).label} · versión ${doc.version ?? 1}: ${title.toLowerCase()}.`,
+        actor_user_id: profile.user_id,
+        payload: {
+          document_id: doc.id,
+          template_key: doc.template_key,
+          version: doc.version ?? 1,
+          from_status: doc.status,
+          to_status: transition.to,
+        },
+      },
+    ])
   }
 
   revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { ok: true }
+}
+
+/**
+ * Reabre un expediente aprobado (B09): el aprobado pasa a «Sustituido» y nace
+ * la versión siguiente en borrador con el mismo contenido. Lo hace
+ * `fluxion.document_reopen` en una transacción.
+ */
+export async function reopenDocument(input: {
+  documentId: string
+  aiSystemId: string
+  templateKey: string
+}): Promise<{ ok: true } | { error: string }> {
+  const { error, profile, fluxion } = await ctx()
+  if (error || !profile) return { error: error ?? 'No autenticado' }
+
+  const { data: doc } = await fluxion
+    .from('documents')
+    .select('id, template_key, ai_system_id, organization_id, version')
+    .eq('id', input.documentId)
+    .maybeSingle()
+  if (!doc) return { error: 'Expediente no encontrado.' }
+
+  const { data: nuevo, error: rpcErr } = await fluxion.rpc('document_reopen', { p_document_id: input.documentId })
+  if (rpcErr || !nuevo) {
+    console.error('reopenDocument:', rpcErr)
+    return { error: rpcErr ? dbError(rpcErr, 'No se pudo reabrir el expediente.') : 'No se pudo reabrir el expediente.' }
+  }
+
+  if (doc.ai_system_id) {
+    await insertAiSystemHistoryEvents(fluxion, [
+      {
+        ai_system_id: doc.ai_system_id,
+        organization_id: doc.organization_id,
+        event_type: 'document_reopened',
+        event_title: 'Expediente reabierto',
+        event_summary: `${templateMeta(doc.template_key).label}: la versión ${doc.version ?? 1} queda sustituida y se abre la versión ${(doc.version ?? 1) + 1} en borrador.`,
+        actor_user_id: profile.user_id,
+        payload: { document_id: nuevo, previous_document_id: doc.id, template_key: doc.template_key },
+      },
+    ])
+  }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
+  return { ok: true }
+}
+
+/** Si quien mira puede aprobar este expediente y, si no, por qué (para la interfaz). */
+export async function getDocumentApprovalContext(documentId: string): Promise<{ canApprove: boolean; reason: string | null }> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return { canApprove: false, reason: 'No autenticado' }
+
+  const { data: doc } = await fluxion
+    .from('documents')
+    .select('template_key, content')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!doc || !isTemplateKey(doc.template_key)) return { canApprove: false, reason: null }
+
+  const reason = documentApprovalBlocker({
+    templateKey: doc.template_key,
+    actor: profile,
+    actorProfileId: profile.id,
+    authorProfileIds: documentAuthors(doc.content),
+  })
+  return { canApprove: reason === null, reason }
 }
 
 export type RenderRow = {
@@ -266,16 +400,44 @@ export type RenderRow = {
   gaps: Array<{ ref: string; title: string }>
   document_status: string
   rendered_by_name: string | null
+  /** Versión del expediente con la que se generó (B09). */
+  document_version: number
 }
 
+/**
+ * Entregables del expediente, de todas sus versiones: al reabrir un aprobado
+ * nace otro documento, y los PDF de la versión aprobada siguen siendo la prueba.
+ */
 export async function listDocumentRenders(documentId: string): Promise<RenderRow[]> {
   const { profile, fluxion } = await ctx()
   if (!profile) return []
 
+  const { data: doc } = await fluxion
+    .from('documents')
+    .select('ai_system_id, template_key')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!doc) return []
+
+  let versionsQuery = fluxion
+    .from('documents')
+    .select('id, version')
+    .eq('template_key', doc.template_key)
+    .is('approval_request_id', null)
+  versionsQuery = doc.ai_system_id
+    ? versionsQuery.eq('ai_system_id', doc.ai_system_id)
+    : versionsQuery.eq('id', documentId)
+  const { data: versions } = await versionsQuery
+
+  const versionById = new Map(
+    ((versions ?? []) as Array<{ id: string; version: number | null }>).map((v) => [v.id, v.version ?? 1]),
+  )
+  const ids = versionById.size ? Array.from(versionById.keys()) : [documentId]
+
   const { data } = await fluxion
     .from('document_renders')
-    .select('id, rendered_at, byte_size, checksum_sha256, gaps, document_status, profiles:rendered_by(full_name)')
-    .eq('document_id', documentId)
+    .select('id, document_id, rendered_at, byte_size, checksum_sha256, gaps, document_status, profiles:rendered_by(full_name)')
+    .in('document_id', ids)
     .order('rendered_at', { ascending: false })
 
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
@@ -287,6 +449,7 @@ export async function listDocumentRenders(documentId: string): Promise<RenderRow
     document_status: String(r.document_status ?? ''),
     rendered_by_name:
       (r.profiles as { full_name?: string } | null)?.full_name ?? null,
+    document_version: versionById.get(String(r.document_id)) ?? 1,
   }))
 }
 
@@ -301,6 +464,7 @@ export async function generateDocumentRender(input: {
   const res = await generateRender({
     documentId: input.documentId,
     profileId: profile.id,
+    userId: profile.user_id,
     profileName: profile.full_name ?? 'Fluxion',
   })
 

@@ -705,13 +705,15 @@ ficha, la última evaluación FMEA y el último plan.
 - **Evidencia:** cada PDF crea una evidencia **válida** de tipo documento regulatorio con caducidad de
   12 meses y una instantánea inmutable.
 
-> **⚠ GAP-24 · Aprobación del expediente sin control.** Cualquier miembro aprueba y reabre; los cambios de
-> estado no dejan historial; no se puede volver a borrador desde «En revisión»; la evidencia nace válida
-> sin revisión (`E16`). Los PDF de FRIA, DPIA y ficha del modelo salen rotulados «Anexo IV» (`E15`).
+> **✔ GAP-24 · Resuelto en parte en B09.** Se aprueba desde «En revisión» (se puede volver a borrador) y
+> solo en borrador se edita; aprueba el Responsable del SGAI que no ha redactado el expediente; reabrir un
+> aprobado crea una versión nueva y deja la aprobada como «Sustituido»; cada cambio queda en el historial;
+> la evidencia del PDF nace pendiente de revisión salvo con el expediente aprobado, y cada PDF lleva el
+> rótulo de su plantilla (`E15`, `E16`).
 >
-> **Decidido (DP-01), pendiente de implementar.** El Anexo IV lo aprueba el Responsable del SGAI (o la
-> función de calidad si la organización es proveedora); la DPIA, el responsable del tratamiento con
-> dictamen del DPO; la FRIA, el Comité de IA.
+> **Pendiente de implementar.** Los aprobadores de DP-01 por plantilla: el Anexo IV, la función de
+> calidad si la organización es proveedora; la DPIA, el responsable del tratamiento con dictamen del DPO;
+> la FRIA, el Comité de IA (B11 y B23b).
 >
 > **Pendiente de implementar.** Aprobación del expediente mediante Flujos de aprobación.
 
@@ -955,7 +957,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-17 | 5 | Cancelación, caducidad y avisos del circuito de aprobación | Debilita | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
 | GAP-22 | 6 | AISIA aprobada sin segregación ni acta; toca la Declaración aprobada | Debilita | — |
-| GAP-24 | 7 | Expediente aprobado por cualquiera; evidencia válida sin revisión; rótulo «Anexo IV» | Debilita | `E15`, `E16` |
+| GAP-24 | 7 | Aprobadores del expediente por plantilla (ciclo, segregación, versiones, rótulo y evidencia resueltos en B09) | Debilita | — |
 | GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |
 | GAP-10 | 3 | Clasificación sin aprobación ni historial | Debilita | `I10` |
 | GAP-11 | 3 | Obligaciones no se actualizan desde las demás fases | Debilita | — |
