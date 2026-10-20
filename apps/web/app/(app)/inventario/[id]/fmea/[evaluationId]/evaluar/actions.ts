@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { canResolveFmeaSecondReview } from '@/lib/auth/roles-flujo';
+import { humanOversightBlocker } from '@/lib/governance/functions';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import type { TaskPriority } from '@/lib/tasks/types';
 import {
@@ -455,7 +456,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
   const { data: system, error: systemError } = await fluxion
     .from('ai_systems')
-    .select('id, aiact_risk_level')
+    .select('id, aiact_risk_level, human_oversight_owner_id')
     .eq('organization_id', membership.organization_id)
     .eq('id', input.aiSystemId)
     .maybeSingle();
@@ -463,6 +464,10 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
   if (systemError || !system) {
     return { error: 'No se pudo leer el sistema antes de enviar la evaluación.' };
   }
+
+  // B23b: en alto riesgo, sin responsable de supervisión humana no hay envío.
+  const sinSupervision = humanOversightBlocker(system.aiact_risk_level, system.human_oversight_owner_id);
+  if (sinSupervision) return { error: sinSupervision };
 
   // Determinar candidatos ANTES de cualquier cambio de estado (3.1)
   const candidateItems = items.filter(

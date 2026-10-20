@@ -257,6 +257,7 @@ su plan, si seguía abierto, también, y sus acciones abiertas se cancelan con s
 | Envío con ítems sin resolver | «La evaluación todavía no puede enviarse: quedan N pendiente(s) y M pospuesto(s) por resolver.» |
 | Envío con justificaciones pendientes | «Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.» |
 | Envío con segundas revisiones pendientes | «Quedan N modo(s) pendientes de 2ª revisión antes del envío.» |
+| Envío de un sistema de alto riesgo sin responsable de supervisión humana | «Este sistema es de alto riesgo: asigna el Responsable de supervisión humana en la ficha (AI Act, Art. 14 y 26.2) antes de enviar la evaluación.» |
 | Segunda revisión por el evaluador | «La segunda revisión debe realizarla un usuario distinto del evaluador principal.» |
 | Segunda revisión sin permiso | «No tienes permisos para realizar la segunda revisión.» |
 | Estimación por familia con cambios sin guardar | «Tienes cambios sin guardar en la lista de modos. Guárdalos antes de aplicar una estimación de familia.» |

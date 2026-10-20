@@ -29,6 +29,8 @@ export type AuditAction =
   | 'org.committee_member_removed'
   | 'org.module_granted'
   | 'org.module_revoked'
+  | 'org.governance_designation_changed'
+  | 'system.responsibles_changed'
   // Sesiones
   | 'session.revoked'
   | 'session.all_revoked'

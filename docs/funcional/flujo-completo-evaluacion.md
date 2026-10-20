@@ -120,8 +120,8 @@ una versión ligera.
 > - **Proveedor de modelo GPAI:** qué documentos del Art. 53 se exigen en **Evaluado**.
 
 > **ℹ Aclaración.** Hoy ninguna etapa se puede alcanzar de forma verificable a partir de **Evaluado**: la
-> AISIA no tiene versión ligera y no existe el dato de responsable de la supervisión humana. La evaluación
-> FMEA ya se aprueba (GAP-13, resuelto en B07).
+> AISIA no tiene versión ligera. La evaluación FMEA ya se aprueba (GAP-13, resuelto en B07) y el
+> responsable de la supervisión humana ya existe en la ficha (B23b).
 
 ## 1. Mapa general
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/authStore';
+import { hasRole } from '@/lib/auth/roles';
 import { updateOrganizationProfile } from './actions';
 import { CommitteesTab } from './CommitteesTab';
 import { IdentidadTab } from './tabs/identidad';
@@ -37,7 +38,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode; editable:
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function OrganizationPage() {
-  const { organization, role, loadUserData } = useAuthStore();
+  const { organization, profile, loadUserData } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabKey>('identidad');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -45,7 +46,8 @@ export default function OrganizationPage() {
 
   const [formData, setFormData] = useState<OrgFormData>(DEFAULT_ORG_FORM);
 
-  const isAdmin = role === 'org_admin';
+  // Con roles múltiples (B23a), el Administrador puede no tenerlo como rol principal.
+  const isAdmin = hasRole(profile, 'org_admin');
 
   useEffect(() => {
     if (organization) {

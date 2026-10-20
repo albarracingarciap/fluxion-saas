@@ -16,6 +16,8 @@ fuente:
   - apps/web/app/(app)/usuarios/tabs/shared.tsx
   - apps/web/lib/users/roles.ts
   - supabase/migrations/20260829090000_onboarding_nombre_y_modulos.sql
+  - apps/web/app/(app)/usuarios/mapa-actions.ts
+  - apps/web/lib/governance/approval-map.ts
 ---
 
 # Usuarios
@@ -91,8 +93,14 @@ El usuario se registra con un enlace de invitación.
 
 Tarjetas descriptivas de los diez roles: Administrador, Responsable del SGAI, CAIO, DPO, Responsable del
 sistema, Analista de riesgos, Analista de cumplimiento, Directivo, Auditor y Lector. Explica que un miembro puede tener
-varios roles y que sus permisos son la suma de todos. Es solo informativa: no hay una matriz de permisos
-configurable.
+varios roles y que sus permisos son la suma de todos. No hay una matriz de permisos configurable.
+
+**Mapa de aprobaciones** (B23b): tabla con el mapa de DP-01 (Clasificación AI Act, Evaluación de riesgos y
+plan por nivel, AISIA / FRIA, DPIA, Anexo IV, Declaración de Aplicabilidad, Evidencias y Política de IA).
+Para cada objeto, quién prepara, quién revisa o consulta y quién aprueba, con las personas que ocupan hoy
+cada rol, función de gobierno o comité (de los comités, solo los miembros con voto). Si un papel no tiene a
+nadie, muestra «sin asignar». La columna **Hoy** dice lo que ya aplica la aplicación; el resto llega con las
+políticas por defecto de Flujos de aprobación (B11).
 
 ### Auditoría
 

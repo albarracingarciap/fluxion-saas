@@ -175,7 +175,7 @@ export async function getCommittees() {
 
   const { data: committees, error: ce } = await fluxion
     .from('committees')
-    .select('id, type, name, description, cadence_months, is_active, established_at')
+    .select('id, type, name, description, cadence_months, is_active, established_at, quorum, tie_break')
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: true });
 
@@ -225,6 +225,9 @@ export async function upsertCommittee(data: {
   cadence_months: number
   established_at?: string
   is_active?: boolean
+  /** Miembros con voto necesarios; null = mayoría (B23b). */
+  quorum?: number | null
+  tie_break?: 'chair' | 'escalate'
 }) {
   const supabase = createClient();
   const fluxion = createFluxionClient();
@@ -242,6 +245,13 @@ export async function upsertCommittee(data: {
     return { error: 'No tienes permisos para gestionar comités.' };
   }
 
+  if (data.quorum !== undefined && data.quorum !== null && (!Number.isInteger(data.quorum) || data.quorum < 1)) {
+    return { error: 'El quórum debe ser un número entero mayor que cero.' };
+  }
+  if (data.tie_break && !['chair', 'escalate'].includes(data.tie_break)) {
+    return { error: 'Regla de desempate no válida.' };
+  }
+
   const payload = {
     organization_id: data.organization_id,
     type: data.type,
@@ -250,6 +260,8 @@ export async function upsertCommittee(data: {
     cadence_months: data.cadence_months,
     established_at: data.established_at || null,
     is_active: data.is_active ?? true,
+    quorum: data.quorum ?? null,
+    tie_break: data.tie_break ?? 'chair',
     updated_at: new Date().toISOString(),
   };
 

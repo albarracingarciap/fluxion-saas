@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, ShieldAlert, Users2, Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, X, UserPlus, Building2 } from 'lucide-react';
+import { Bot, ShieldAlert, Users2, Wrench, Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, X, UserPlus, Building2 } from 'lucide-react';
 import { getCommittees, upsertCommittee, addCommitteeMember, removeCommitteeMember } from './actions';
 import { hasAnyRole } from '@/lib/auth/roles';
+import {
+  COMMITTEE_TIE_BREAK_LABELS,
+  dpoVoteWarning,
+  effectiveQuorum,
+  votingMembers,
+} from '@/lib/governance/functions';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +35,9 @@ interface Committee {
   cadence_months: number;
   is_active: boolean;
   established_at: string | null;
+  /** Miembros con voto necesarios; null = mayoría (B23b). */
+  quorum: number | null;
+  tie_break: 'chair' | 'escalate';
   members: CommitteeMember[];
 }
 
@@ -36,6 +45,7 @@ interface OrgProfile {
   id: string;
   full_name: string | null;
   role: string;
+  roles?: string[] | null;
   avatar_url: string | null;
 }
 
@@ -60,6 +70,12 @@ const COMMITTEE_TYPES = [
     description: '§9.3 ISO 42001. Revisión periódica por la alta dirección del desempeño del SGAI.',
     Icon: Users2,
   },
+  {
+    type: 'technical_committee',
+    label: 'Comité técnico / validación de modelos',
+    description: 'Opcional. Revisa la calidad técnica de los sistemas antes del Comité de Riesgos (MLOps, ciencia de datos, responsables de sistema).',
+    Icon: Wrench,
+  },
 ];
 
 const CADENCE_OPTIONS = [
@@ -73,7 +89,8 @@ const COMMITTEE_ROLE_LABELS: Record<string, string> = {
   president: 'Presidente',
   secretary: 'Secretario',
   member:    'Miembro',
-  advisor:   'Asesor',
+  // Voz sin voto (DP-01): no vota ni cuenta para el quórum. Para el DPO y el auditor externo.
+  advisor:   'Asesor (voz sin voto)',
 };
 
 const COMMITTEE_ROLE_STYLES: Record<string, string> = {
@@ -145,6 +162,8 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
     cadence_months: 3,
     established_at: '',
     is_active:      true,
+    quorum:         '' as string,
+    tie_break:      'chair' as 'chair' | 'escalate',
   });
 
   const [memberForm, setMemberForm] = useState({
@@ -164,6 +183,8 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
         cadence_months: committee.cadence_months,
         established_at: committee.established_at ?? '',
         is_active:      committee.is_active,
+        quorum:         committee.quorum ? String(committee.quorum) : '',
+        tie_break:      committee.tie_break ?? 'chair',
       });
     }
   }, [committee]);
@@ -186,6 +207,8 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
       cadence_months: form.cadence_months,
       established_at: form.established_at || undefined,
       is_active:      form.is_active,
+      quorum:         form.quorum ? Number(form.quorum) : null,
+      tie_break:      form.tie_break,
     });
     setSaving(false);
     if (res.error) return toast(res.error);
@@ -198,6 +221,11 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
     if (!committee) return;
     if (memberType === 'internal' && !memberForm.profile_id) return toast('Selecciona un miembro.');
     if (memberType === 'external' && !memberForm.external_email) return toast('El email es obligatorio para miembros externos.');
+    if (memberType === 'internal') {
+      const perfil = orgProfiles.find((p) => p.id === memberForm.profile_id);
+      const aviso = perfil ? dpoVoteWarning(perfil, memberForm.committee_role) : null;
+      if (aviso && !window.confirm(`${aviso}\n\n¿Añadirlo igualmente con voto?`)) return;
+    }
     setSaving(true);
     const res = await addCommitteeMember({
       committee_id:    committee.id,
@@ -229,6 +257,8 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
   );
 
   const cadenceLabel = CADENCE_OPTIONS.find((o) => o.value === committee?.cadence_months)?.label ?? '';
+  const conVoto = committee ? votingMembers(committee.members).length : 0;
+  const quorumEfectivo = committee ? effectiveQuorum(committee.quorum, conVoto) : 0;
 
   return (
     <div className={`rounded-[12px] border transition-all ${committee ? 'border-ltb bg-ltcard' : 'border-ltb bg-ltcard/60 opacity-80'} shadow-[0_2px_12px_rgba(0,0,0,0.04)]`}>
@@ -256,6 +286,12 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
             {committee?.established_at && (
               <p className="font-sora text-[11.5px] text-lttm mt-1">
                 Constituido el {new Date(committee.established_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
+            )}
+            {committee && (
+              <p className="font-sora text-[11.5px] text-lttm mt-1">
+                Quórum: {quorumEfectivo} de {conVoto} con voto{committee.quorum ? '' : ' (mayoría)'} · Desempate:{' '}
+                {COMMITTEE_TIE_BREAK_LABELS[committee.tie_break] ?? committee.tie_break}
               </p>
             )}
           </div>
@@ -346,6 +382,29 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
                 onChange={(e) => setForm({ ...form, established_at: e.target.value })}
                 className={inputCls}
               />
+            </div>
+            <div>
+              <label className="block text-[11px] font-plex uppercase tracking-[0.6px] text-lttm mb-1.5">Quórum (miembros con voto)</label>
+              <input
+                type="number"
+                min={1}
+                value={form.quorum}
+                onChange={(e) => setForm({ ...form, quorum: e.target.value })}
+                className={inputCls}
+                placeholder="Vacío = mayoría de los miembros con voto"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-plex uppercase tracking-[0.6px] text-lttm mb-1.5">Desempate</label>
+              <select
+                value={form.tie_break}
+                onChange={(e) => setForm({ ...form, tie_break: e.target.value as 'chair' | 'escalate' })}
+                className={selectCls}
+              >
+                {Object.entries(COMMITTEE_TIE_BREAK_LABELS).map(([val, lbl]) => (
+                  <option key={val} value={val}>{lbl}</option>
+                ))}
+              </select>
             </div>
             {committee && (
               <div className="flex items-center gap-2">
@@ -614,7 +673,7 @@ export function CommitteesTab() {
     <div className="flex flex-col gap-5">
       <div className="mb-1">
         <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
-          Gestiona los tres órganos de gobernanza del SGAI. Cada tipo de comité puede constituirse una sola vez por organización y admite miembros internos (con cuenta Fluxion) y externos (auditores, directivos externos, etc.).
+          Gestiona los órganos de gobernanza del SGAI (el comité técnico es opcional). Cada tipo de comité puede constituirse una sola vez por organización y admite miembros internos y externos (auditores, directivos externos, etc.). Los asesores tienen voz pero no voto: así participan el DPO y el auditor externo.
         </p>
       </div>
 

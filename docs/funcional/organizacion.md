@@ -13,6 +13,9 @@ fuente:
   - apps/web/app/(app)/organizacion/tabs/datos-legales.tsx
   - apps/web/app/(app)/organizacion/tabs/perfil-regulatorio.tsx
   - apps/web/app/(app)/organizacion/tabs/gobernanza.tsx
+  - apps/web/app/(app)/organizacion/gobernanza-actions.ts
+  - apps/web/lib/governance/functions.ts
+  - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - apps/web/app/(app)/organizacion/tabs/operaciones.tsx
   - apps/web/app/(app)/organizacion/tabs/modulos.tsx
   - apps/web/app/(app)/organizacion/tabs/plan.tsx
@@ -42,8 +45,9 @@ DPO y el auditor externo, y qué comités se constituyen. Es también donde se a
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Administrador | Todas las pestañas | Editar los datos de la organización, subir el logotipo, gestionar comités y módulos |
-| Responsable del SGAI, CAIO | Todas las pestañas | Gestionar comités |
+| Administrador | Todas las pestañas | Editar los datos de la organización, subir el logotipo, designar funciones de gobierno, gestionar comités y módulos |
+| Responsable del SGAI | Todas las pestañas | Designar funciones de gobierno y gestionar comités |
+| CAIO | Todas las pestañas | Gestionar comités |
 | Resto de roles | Todas las pestañas, en solo lectura | — (aviso «Contacta a un administrador para modificar estos datos.») |
 
 ## Campos
@@ -88,11 +92,21 @@ La vista tiene ocho pestañas. Las cinco primeras se guardan con **Guardar cambi
 
 ### Gobernanza
 
+Desde B23b (DP-01) Gobernanza muestra **miembros**, no texto libre:
+
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
-| Responsable del SGAI: **Nombre completo**, **Email de contacto** | texto, email | No | — | `organizations.settings.sgai_responsible`, `settings.sgai_email` |
-| DPO: **Nombre completo**, **Email del DPO**, **Teléfono del DPO** | texto, email, teléfono | No | — | `organizations.dpo_name`, `dpo_email`, `dpo_phone` |
-| Auditor externo: **Nombre / Empresa auditora**, **Contacto**, **Certificación / Acreditación** | texto | No | — | `organizations.external_auditor_name`, `external_auditor_contact`, `external_auditor_cert` |
+| **Responsable del SGAI** | lista | — | Miembros activos con ese rol. Si no hay ninguno, avisa de que nadie puede aprobar los planes de nivel 1. Se asigna en [Usuarios](usuarios.md) | `profiles.roles` |
+| **Delegado de Protección de Datos (DPO)** | lista | — | Miembros activos con el rol DPO | `profiles.roles` |
+| **Teléfono de contacto del DPO** | teléfono | No | — | `organizations.dpo_phone` |
+| **Funciones de gobierno**: Seguridad de la información (CISO), Legal, Riesgos corporativos, Responsable del tratamiento, Función de calidad | selector de miembro | No | Una persona por función; se guarda al elegirla. La persona conserva su rol | `governance_designations` |
+| Auditor externo: **Nombre / Empresa auditora**, **Contacto**, **Certificación / Acreditación** | texto | No | Sigue en texto: no es miembro | `organizations.external_auditor_name`, `external_auditor_contact`, `external_auditor_cert` |
+
+**Reglas de las funciones.** El DPO no puede ser Responsable del tratamiento (RGPD, Art. 38.6): se rechaza al
+designarlo y al dar el rol DPO a quien ya lo es. Si quien ocupa una función es Auditor, se avisa (quien
+aprueba un riesgo no lo audita), sin bloquear. Cada cambio queda en la auditoría
+(`org.governance_designation_changed`). Los antiguos campos de texto del Responsable del SGAI y del DPO se
+conservan en la base de datos, pero ya no se muestran.
 
 ### Operaciones
 
@@ -108,22 +122,26 @@ La vista tiene ocho pestañas. Las cinco primeras se guardan con **Guardar cambi
 
 La vista advierte de que las retenciones son una política declarada y no borran datos.
 
-> TODO: confirmar el efecto de los campos de Gobernanza y Operaciones.
-> - Los responsables de gobierno, el ejercicio fiscal, el idioma, el color y el pie de página se guardan,
->   pero ninguna otra parte de la aplicación los usa todavía. Esto incluye los documentos generados.
+> TODO: confirmar el efecto de los campos de Operaciones.
+> - El ejercicio fiscal, el idioma, el color y el pie de página se guardan, pero ninguna otra parte de la
+>   aplicación los usa todavía. Esto incluye los documentos generados. Las funciones de gobierno las usa el
+>   mapa de aprobaciones de [Usuarios](usuarios.md) y las usarán las políticas por defecto (B11).
 > - Las ayudas citan efectos que no existen: «Agente 3», «ciclos de revisión FMEA», «cabeceras de
 >   informes».
 > - Las retenciones se editan también en [Ajustes](ajustes.md) › Auditoría.
 
 ### Comités
 
-Hay tres tipos. Cada uno se puede constituir una sola vez por organización:
+Hay cuatro tipos. Cada uno se puede constituir una sola vez por organización:
 
 | Tipo | Descripción |
 |---|---|
 | Comité de IA | Supervisión operacional del SGAI. Revisa inventario, riesgos y tratamientos |
 | Comité de Riesgos de IA | Integración con el comité de riesgos corporativo. Revisa FMEA y apetito al riesgo |
 | Revisión por la Dirección | ISO/IEC 42001, §9.3. Revisión periódica por la alta dirección |
+| Comité técnico / validación de modelos | Opcional. Revisa la calidad técnica antes del Comité de Riesgos (B23b) |
+
+Cada tarjeta muestra el **quórum** («Quórum: N de M con voto») y la regla de **desempate**.
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
@@ -131,10 +149,16 @@ Hay tres tipos. Cada uno se puede constituir una sola vez por organización:
 | **Descripción** | texto largo | No | — | `committees.description` |
 | **Cadencia de sesiones** | botones | No | Mensual · Trimestral (por defecto) · Semestral · Anual | `committees.cadence_months` |
 | **Fecha de constitución** | fecha | No | — | `committees.established_at` |
+| **Quórum (miembros con voto)** | número | No | Vacío = mayoría de los miembros con voto | `committees.quorum` |
+| **Desempate** | selector | — | Voto del presidente (por defecto) · Se eleva al órgano superior | `committees.tie_break` |
 | **Comité activo** | casilla | No | Solo al editar | `committees.is_active` |
 | Miembro interno: **Miembro** | selector | Sí | Miembros de la organización que no están ya en el comité | `committee_members.profile_id` |
 | Miembro externo: **Nombre completo**, **Email**, **Organización**, **Cargo / Descripción** | texto | Email obligatorio | — | `committee_members.external_*` |
-| **Rol en el comité** | selector | — | Presidente · Secretario · Miembro (por defecto) · Asesor | `committee_members.committee_role` |
+| **Rol en el comité** | selector | — | Presidente · Secretario · Miembro (por defecto) · Asesor (voz sin voto) | `committee_members.committee_role` |
+
+Los **asesores** tienen voz pero no voto: no cuentan para el quórum y Flujos de aprobación no los toma como
+candidatos ni les deja decidir. Así participan el DPO y el auditor externo (DP-01). Al añadir al DPO con otro
+papel, la vista pide confirmación.
 
 ### Plan
 
@@ -182,6 +206,10 @@ El administrador elige la **Duración de la prueba**: 30 (por defecto), 60, 90 o
 | Logotipo de formato no admitido | «Formato no soportado. Usa PNG, JPG, SVG o WebP.» |
 | Logotipo de más de 2 MB | «El archivo supera el límite de 2 MB.» |
 | Comité sin nombre | «El nombre es obligatorio.» |
+| Quórum no válido | «El quórum debe ser un número entero mayor que cero.» |
+| DPO como Responsable del tratamiento | «El DPO no puede ser Responsable del tratamiento (RGPD, Art. 38.6).» |
+| Designar a un miembro desactivado | «No se puede designar a un miembro desactivado.» |
+| Designar sin permiso | «Solo el Administrador o el Responsable del SGAI pueden designar funciones de gobierno.» |
 | Miembro interno sin seleccionar | «Selecciona un miembro.» |
 | Miembro externo sin correo | «El email es obligatorio para miembros externos.» |
 | Miembro duplicado | «Este miembro ya está en el comité.» |
