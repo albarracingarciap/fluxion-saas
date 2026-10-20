@@ -19,7 +19,7 @@ export const PLAN_PREPARER_ROLES: readonly OrgRole[] = ['risk_analyst', 'system_
 /**
  * Resuelven la segunda revisión del FMEA. No figura en el mapa de DP-01; por
  * coherencia con la segunda línea de defensa se asigna al Responsable del
- * SGAI, siempre distinto del evaluador (pendiente de confirmar).
+ * SGAI, siempre distinto del evaluador (confirmado el 2026-10-20).
  */
 export const FMEA_SECOND_REVIEW_ROLES: readonly OrgRole[] = ['sgai_manager']
 

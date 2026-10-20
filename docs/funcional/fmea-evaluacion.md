@@ -55,8 +55,8 @@ sistema de forma trazable y obtener las acciones que deben tratarse.
 | Responsable del SGAI | Ídem | Además, resolver segundas revisiones (no siendo el evaluador) |
 | Directivo, Auditor, Lector | Sí, con los botones visibles | La base de datos rechaza los cambios |
 
-La segunda revisión la resuelve el Responsable del SGAI, distinto del evaluador (bloque B01; DP-01, pendiente
-de confirmar). Para el resto de roles el botón no se muestra.
+La segunda revisión la resuelve el Responsable del SGAI, distinto del evaluador (bloque B01; DP-01,
+confirmado el 2026-10-20). Para el resto de roles el botón no se muestra.
 
 > **Pendiente de implementar.** Restringir la evaluación a quien prepara según DP-01 (Analista de riesgos y
 > Responsable del sistema). Hoy la base de datos admite la edición de los roles de la tabla.

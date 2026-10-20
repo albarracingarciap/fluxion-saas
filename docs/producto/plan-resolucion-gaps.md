@@ -212,13 +212,15 @@ de modelos antes del de riesgos.
 | I-10 | **El DPO deja de editar el plan** | Hoy es el único que puede | B01 |
 | I-11 | **Actas de cada decisión de comité** con orden del día y asistentes | Acta solo al cerrar una solicitud con paso de comité | B11, B20 |
 
-> **⚠ Tensión de plazos.** El nivel 3 lo aprueba la Revisión por la Dirección, con cadencia «al menos
-> anual», pero un plan de Zona I tiene un plazo de 30 días. Hace falta una regla de **sesión
-> extraordinaria** (o delegación expresa de la dirección para Zona I). Algo parecido, menos grave, ocurre
-> con el Comité de Riesgos (trimestral) frente al plazo de 90 días de la Zona II.
+> **Tensión de plazos (decidido el 2026-10-20).** El nivel 3 lo aprueba la Revisión por la Dirección, con
+> cadencia «al menos anual», pero un plan de Zona I tiene un plazo de 30 días. **Decisión: la dirección
+> delega expresamente la aprobación de los planes de Zona I**, con las reglas de la delegación del circuito
+> (fecha de fin y nunca hacia quien preparó el plan). Algo parecido, menos grave, ocurre con el Comité de
+> Riesgos (trimestral) frente al plazo de 90 días de la Zona II. Se implementa en B11 (políticas por
+> defecto con delegación).
 
-> TODO: confirmar quién resuelve la **segunda revisión** del FMEA, que no aparece en el mapa. Por
-> coherencia con la segunda línea, se propone el Responsable del SGAI, distinto del evaluador.
+**Segunda revisión del FMEA (decidido el 2026-10-20).** No figura en el mapa: la resuelve el Responsable
+del SGAI, distinto del evaluador (segunda línea), como ya hace la aplicación desde B01.
 
 ### DP-02 · Definición de «sistema totalmente evaluado»
 
@@ -568,7 +570,7 @@ cambios de modelo salvo B03.
   - Sustituir `['admin', 'editor', 'dpo', 'technical']` en `plan/actions.ts:130` y
     `evaluar/actions.ts:984` por los roles que **preparan**: Responsable del sistema y Analista de riesgos.
     El DPO deja de editar.
-  - Segunda revisión del FMEA: Responsable del SGAI, distinto del evaluador (pendiente de confirmar).
+  - Segunda revisión del FMEA: Responsable del SGAI, distinto del evaluador (confirmado el 2026-10-20).
   - Aprobador de la vía sin política (`getApproverRolePriority`, `lib/fmea/treatment-plan.ts:316`):
     nivel 1, Responsable del SGAI. Los niveles 2 y 3 son comités: sin política, se asigna también al
     Responsable del SGAI con el aviso «Este plan requiere el Comité de Riesgos / la Revisión por la
@@ -734,6 +736,9 @@ causa C1. **Talla:** M, repartida entre los bloques.
   - Cada objeto abre su solicitud al enviarse a aprobación (AISIA, expediente, Declaración, evidencia).
   - **Políticas por defecto** sembradas al crear la organización (trigger junto a `grant_trial_modules`)
     y migración para las existentes, con el **mapa de aprobaciones de DP-01**.
+  - **Delegación de la dirección para Zona I** (decidido el 2026-10-20): la política de nivel 3 admite que
+    la Revisión por la Dirección delegue la aprobación de los planes de Zona I, con fecha de fin y nunca en
+    quien preparó el plan.
   - **Pasos de consulta** sin voto que registran un dictamen; pueden ser obligatorios (DPO en DPIA) (I-04).
   - **Pasos condicionales** según el contexto del objeto: controles de seguridad en el plan, nivel de
     riesgo o excepción del Art. 6.3 en la clasificación (I-05). Amplía el contexto de `approval_policy_for`.
