@@ -177,15 +177,15 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 |---|---|---|---|---|
 | **Título** | texto | Sí | — | `system_evidences.title` |
 | **Tipo** | selector | — | Documentación técnica, DPIA, Política, Contrato, Test, Informe, Captura, Registro, Otro | `evidence_type` |
-| **Estado** | selector | — | Borrador, Pendiente de revisión, Válida, Caducada, Rechazada | `status` |
+| **Estado** | informativo | — | No se elige: se crea en borrador y cambia con el ciclo de revisión. Al editar, avisa de que cambiar el contenido la devuelve a borrador | `status` |
 | **URL externa** | URL | Sí | — | `external_url` |
 | **Descripción** | texto largo | No | — | `description` |
 | **Versión** | texto | No | — | `version` |
 | **Fecha de emisión**, **Caducidad** | fecha | No | — | `issued_at`, `expires_at` |
 
-> TODO: confirmar el campo **Estado** del modal. Permite fijar «Válida» directamente al crear o editar, sin
-> pasar por la revisión. Además, desde esta pestaña las evidencias solo se registran por URL; la subida de
-> ficheros está en la [Biblioteca de evidencias](evidencias.md).
+Desde esta pestaña las evidencias solo se registran por URL; la subida de ficheros está en la
+[Biblioteca de evidencias](evidencias.md). Las reglas de estado y de revisión son las de la biblioteca
+([Biblioteca de evidencias](evidencias.md#estados)).
 
 ### Pestaña Modos de fallo
 
@@ -233,8 +233,9 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **✕ Rechazar** | Ídem | `rejectAisia`, con motivo obligatorio | Historial «AISIA rechazada» |
 | **✎ Corregir y reenviar** | Todos | `reopenAisia`: nueva versión en borrador | Navega a ella |
 | **+ Añadir evidencia** / **Nueva evidencia** | Todos | `createSystemEvidence` | Historial «Evidencia registrada» |
-| Editar / eliminar evidencia | Todos | `updateSystemEvidence`, `deleteSystemEvidence` | Guarda una versión. Historial «Evidencia actualizada» o «Evidencia eliminada» |
-| **Enviar a revisión** · **Aprobar** · **Rechazar** · **Reabrir** | Todos | Ciclo de revisión de la evidencia ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)) | Historial del evento correspondiente |
+| Editar / eliminar evidencia | Todos | `updateSystemEvidence`, `deleteSystemEvidence` | Guarda una versión; si cambia el contenido de una evidencia ya enviada, vuelve a borrador. Historial «Evidencia actualizada» o «Evidencia eliminada». Los errores se muestran en la evidencia |
+| **Enviar a revisión** · **Reabrir** | Todos | Ciclo de revisión de la evidencia ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)) | Historial del evento correspondiente |
+| **Aprobar** · **Rechazar** | Responsable del SGAI que no la aportó (DP-01) | Ídem. A los demás se les muestra que está pendiente de su revisión | Historial del evento correspondiente |
 | **+ Modo de fallo** | Todos | Vincula o desvincula la evidencia a modos de fallo activados | — |
 | **Activar modos de fallo** | Todos | `activateSystemFailureModes`: [activación](../glosario.md#activación-de-modos-de-fallo) por reglas, una sola vez | Historial «Modos de fallo activados» |
 | **Recalcular con contexto actual** | Todos | `recalculateSystemFailureModes`, previa confirmación | Añade los modos nuevos y actualiza los calculados por reglas. Respeta las decisiones manuales. No elimina los que ya no aplican |

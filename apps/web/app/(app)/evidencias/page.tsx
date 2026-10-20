@@ -14,6 +14,8 @@ import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildEvidencesData, type OrganizationEvidenceRecord } from '@/lib/evidences/data'
 import { getActiveExpiryAlerts, type EvidenceExpiryAlert } from '@/lib/evidences/expiry-alerts'
 import { EvidencesLibraryClient } from './evidences-library-client'
+import { hasRole } from '@/lib/auth/roles'
+import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules'
 import { ExpiryAlertsBanner } from './expiry-alerts-client'
 
 type EvidencePageSearchParams = Promise<{
@@ -795,7 +797,12 @@ export default async function EvidencesPage({
                 </p>
               </div>
             ) : filteredLibrary.length > 0 ? (
-              <EvidencesLibraryClient evidences={filteredLibrary.slice(0, 24)} organizationId={membership.organization_id} />
+              <EvidencesLibraryClient
+                evidences={filteredLibrary.slice(0, 24)}
+                organizationId={membership.organization_id}
+                currentUserId={user.id}
+                canReview={hasRole(membership, EVIDENCE_REVIEWER_ROLE)}
+              />
             ) : (
               <div className="rounded-[12px] border border-dashed border-ltb bg-ltbg p-5">
                 <p className="font-sora text-[13px] font-semibold text-ltt">Sin resultados con el filtro actual</p>

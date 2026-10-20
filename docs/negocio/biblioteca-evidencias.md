@@ -13,6 +13,8 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/evidencias/actions.ts
   - apps/web/lib/evidences/data.ts
   - apps/web/lib/evidences/versions.ts
+  - apps/web/lib/evidences/review-rules.ts
+  - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
   - apps/web/lib/evidences/expiry-alerts.ts
   - apps/web/lib/evidences/storage.ts
   - apps/web/app/api/cron/evidence-expiry/route.ts
@@ -55,13 +57,14 @@ auditoría, reunirlas lleva semanas. Fluxion:
 | Rol | Responsabilidad |
 |---|---|
 | Responsable del sistema | Aporta las evidencias de sus sistemas y las mantiene vigentes |
-| Analista de cumplimiento | Revisa, valida o rechaza las evidencias y las vincula a las obligaciones |
-| DPO | Aporta y revisa las evidencias de protección de datos |
-| Responsable del SGAI | Aporta las evidencias de nivel organización y supervisa la vigencia |
+| Analista de cumplimiento | Prepara las evidencias y las vincula a las obligaciones |
+| DPO | Aporta las evidencias de protección de datos |
+| Responsable del SGAI | Aprueba o rechaza las evidencias, nunca las que aporta él mismo; aporta las de nivel organización y supervisa la vigencia |
 | Auditor | Consulta las evidencias, sus versiones y sus revisiones |
 
-> **Pendiente de definir.** Qué roles pueden validar o rechazar evidencias. Hoy lo puede hacer cualquier
-> miembro de la organización.
+Quien aporta una evidencia no la valida: la aprueba el Responsable del SGAI, distinto del autor.
+
+> **Pendiente de implementar.** Designar otro revisor de evidencias distinto del Responsable del SGAI.
 
 ## Flujo de trabajo
 
@@ -74,33 +77,35 @@ stateDiagram-v2
   Rechazada --> Pendiente_de_revisión: solicitar revisión
   Rechazada --> Borrador: reabrir
   Válida --> Caducada: vence la fecha
+  Válida --> Borrador: se cambia su contenido
+  Caducada --> Borrador: se renueva
 ```
 
 1. **Alta.** Una evidencia se crea desde la ficha de un sistema o desde la biblioteca. Se crea como
    evidencia del sistema o de la organización, con:
    - título, descripción, [tipo de evidencia](../glosario.md#tipo-de-evidencia) y etiquetas;
    - fecha de emisión y de caducidad;
-   - un fichero o un enlace externo.
+   - un fichero o un enlace externo, de hasta 20 MB.
 
-   Los ficheros se suben de forma segura y se guardan con su huella de integridad.
+   Toda evidencia nace en borrador: su estado no se elige, lo da la revisión. Los ficheros se suben de
+   forma segura y se guardan con su huella de integridad.
 2. **Evidencias generadas por Fluxion.** El dossier técnico, la ficha para el registro UE y el informe
    de brechas de un sistema se pueden guardar como evidencia en un clic. Los documentos de
    [Documentación del sistema](../glosario.md#documentación-del-sistema) quedan vinculados a una
    evidencia al generarse.
-3. **[Revisión](../glosario.md#estado-de-la-evidencia).** El autor solicita la revisión, y el revisor
-   aprueba (la evidencia pasa a «Válida») o rechaza con notas. Una evidencia rechazada se corrige y se
-   vuelve a enviar, o se reabre como borrador. Se pueden revisar varias a la vez.
+3. **[Revisión](../glosario.md#estado-de-la-evidencia).** El autor solicita la revisión, y el Responsable
+   del SGAI aprueba (la evidencia pasa a «Válida») o rechaza con notas. Una evidencia rechazada se corrige
+   y se vuelve a enviar, o se reabre como borrador. Se pueden revisar varias a la vez. Si se cambia el
+   contenido de una evidencia ya validada (otro fichero, otras fechas), vuelve a borrador y se revisa de
+   nuevo: lo validado tiene que ser lo que hay.
 4. **Vínculos.** Cada evidencia se vincula, una a una o varias a la vez, con:
    - las obligaciones que cubre;
    - los modos de fallo que respalda;
    - como validación de un control de la Declaración de Aplicabilidad.
 
    Para cada obligación, el catálogo indica qué tipos de evidencia se esperan.
-5. **Versiones.** Cada edición y cada cambio de estado deben guardarse en el historial de la evidencia,
-   que muestra qué cambió, quién lo cambió y cuándo.
-
-   > TODO: confirmar en una instalación real que el historial de versiones se registra. Según el código,
-   > es probable que no se esté guardando ninguna versión.
+5. **Versiones.** Cada edición y cada cambio de estado, también el cambio de fichero y la caducidad, se
+   guardan en el historial de la evidencia, que muestra qué cambió, quién lo cambió y cuándo.
 6. **Caducidad.** Cada mañana Fluxion revisa las fechas de caducidad:
    - genera alertas para las evidencias que caducan en 30 días, en 7 días o ya han caducado;
    - marca como «Caducada» las vencidas;

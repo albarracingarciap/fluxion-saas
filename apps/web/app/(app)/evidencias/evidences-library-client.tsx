@@ -48,6 +48,7 @@ import {
   type BulkReviewAction,
   type ObligationOption,
 } from './actions';
+import { MAX_EVIDENCE_FILE_BYTES, MAX_EVIDENCE_FILE_LABEL } from '@/lib/evidences/review-rules';
 
 const STATUS_META: Record<string, { label: string; pill: string }> = {
   draft:          { label: 'Borrador',          pill: 'bg-ltbg text-lttm border-ltb' },
@@ -95,7 +96,6 @@ type EditForm = {
   evidenceType: string;
   externalUrl: string;
   description: string;
-  status: string;
   version: string;
   issuedAt: string;
   expiresAt: string;
@@ -162,14 +162,25 @@ function TagEditor({
 type Props = {
   evidences: OrganizationEvidenceRecord[];
   organizationId: string;
+  /** auth.users.id de quien mira: no revisa las evidencias que aporta. */
+  currentUserId: string;
+  /** Tiene el rol que aprueba o rechaza evidencias (Responsable del SGAI, DP-01). */
+  canReview: boolean;
 };
 
-export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
+/** Comprueba el tamaño antes de subir: el servidor aplica el mismo límite. */
+function fileTooLarge(file: File): string | null {
+  return file.size > MAX_EVIDENCE_FILE_BYTES
+    ? `El fichero supera el máximo de ${MAX_EVIDENCE_FILE_LABEL}.`
+    : null;
+}
+
+export function EvidencesLibraryClient({ evidences, organizationId, currentUserId, canReview }: Props) {
   const router = useRouter();
   const [editingEvidence, setEditingEvidence] = useState<OrganizationEvidenceRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     title: '', evidenceType: 'technical_doc', externalUrl: '',
-    description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '',
+    description: '', version: '', issuedAt: '', expiresAt: '',
     storagePath: null, tags: [],
   });
   const [editError, setEditError] = useState<string | null>(null);
@@ -179,6 +190,8 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
   const [isDeleting, startDeleteTransition] = useTransition();
 
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  // Error de revisión o borrado de una fila: antes se perdían en silencio (P5).
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [isReviewing, startReviewTransition] = useTransition();
 
@@ -213,6 +226,8 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
     const file = e.target.files?.[0];
     if (!file || !editingEvidence) return;
     setUploadEditError(null);
+    const tooLarge = fileTooLarge(file);
+    if (tooLarge) { setUploadEditError(tooLarge); e.target.value = ''; return; }
     setIsUploadingEdit(true);
     const result = await uploadEvidenceFile(file, organizationId, editingEvidence.id);
     setIsUploadingEdit(false);
@@ -228,6 +243,8 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadOrgError(null);
+    const tooLarge = fileTooLarge(file);
+    if (tooLarge) { setUploadOrgError(tooLarge); e.target.value = ''; return; }
     // For new org evidences we don't have an ID yet — store the file locally and upload after creation
     setPendingOrgFile({ name: file.name, size: file.size, path: '' });
     // Mark as pending (upload happens post-creation in handleOrgSubmit)
@@ -257,7 +274,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
 
   // Org-scope evidence creation
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
-  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '', tags: [] as string[] });
+  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] as string[] });
   const [orgError, setOrgError] = useState<string | null>(null);
   const [isCreatingOrg, startOrgTransition] = useTransition();
 
@@ -268,7 +285,6 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
       evidenceType: evidence.evidence_type,
       externalUrl: evidence.external_url ?? '',
       description: evidence.description ?? '',
-      status: evidence.status,
       version: evidence.version ?? '',
       issuedAt: evidence.issued_at ?? '',
       expiresAt: evidence.expires_at ?? '',
@@ -300,7 +316,6 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         description: editForm.description,
         evidenceType: editForm.evidenceType,
         externalUrl: editForm.externalUrl,
-        status: editForm.status,
         version: editForm.version,
         issuedAt: editForm.issuedAt,
         expiresAt: editForm.expiresAt,
@@ -319,18 +334,26 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
   };
 
   const handleDelete = (evidence: OrganizationEvidenceRecord) => {
+    setRowError(null);
     startDeleteTransition(async () => {
       const result = await deleteSystemEvidence(evidence.id, evidence.system_id);
-      if (!result?.error) {
-        setDeletingId(null);
-        router.refresh();
+      setDeletingId(null);
+      if (result?.error) {
+        setRowError({ id: evidence.id, message: result.error });
+        return;
       }
+      router.refresh();
     });
   };
 
   const handleReview = (evidence: OrganizationEvidenceRecord, action: ReviewAction, notes?: string) => {
+    setRowError(null);
     startReviewTransition(async () => {
-      await reviewSystemEvidence(evidence.id, evidence.system_id, action, notes);
+      const result = await reviewSystemEvidence(evidence.id, evidence.system_id, action, notes);
+      if (result?.error) {
+        setRowError({ id: evidence.id, message: result.error });
+        return;
+      }
       setRejectingId(null);
       setRejectNotes('');
       router.refresh();
@@ -346,7 +369,6 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         description: orgForm.description,
         evidenceType: orgForm.evidenceType,
         externalUrl: orgForm.externalUrl,
-        status: orgForm.status,
         version: orgForm.version,
         issuedAt: orgForm.issuedAt,
         expiresAt: orgForm.expiresAt,
@@ -362,16 +384,28 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
         setIsUploadingOrg(true);
         const uploadResult = await uploadEvidenceFile(pendingFile, organizationId, createdId);
         setIsUploadingOrg(false);
-        if (!uploadResult.error && uploadResult.path) {
-          await setEvidenceStoragePath(createdId, uploadResult.path);
-        }
         if (orgFileInputRef.current) {
           (orgFileInputRef.current as unknown as { _pendingFile?: File })._pendingFile = undefined;
+        }
+        // La evidencia ya existe: si el fichero no sube, se avisa en vez de
+        // cerrar como si todo hubiera ido bien (antes se perdía el error).
+        if (uploadResult.error || !uploadResult.path) {
+          setUploadOrgError(
+            `La evidencia se creó en borrador, pero el fichero no se pudo adjuntar: ${uploadResult.error ?? 'error desconocido'}. Adjúntalo al editarla.`
+          );
+          router.refresh();
+          return;
+        }
+        const pathResult = await setEvidenceStoragePath(createdId, uploadResult.path);
+        if (pathResult?.error) {
+          setUploadOrgError(pathResult.error);
+          router.refresh();
+          return;
         }
       }
 
       setIsOrgModalOpen(false);
-      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '', tags: [] });
+      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] });
       setPendingOrgFile(null);
       setUploadOrgError(null);
       router.refresh();
@@ -622,7 +656,14 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                       Enviar a revisión
                     </button>
                   )}
-                  {evidence.status === 'pending_review' && (
+                  {evidence.status === 'pending_review' && !(canReview && evidence.owner_id !== currentUserId) && (
+                    <span className="font-sora text-[10.5px] text-lttm max-w-[220px] text-right leading-tight">
+                      {canReview
+                        ? 'La revisa otro Responsable del SGAI: no se revisan las evidencias propias.'
+                        : 'Pendiente de revisión del Responsable del SGAI.'}
+                    </span>
+                  )}
+                  {evidence.status === 'pending_review' && canReview && evidence.owner_id !== currentUserId && (
                     <div className="flex flex-col items-end gap-1.5">
                       <div className="flex items-center gap-1.5">
                         <button
@@ -676,6 +717,9 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                     >
                       Reabrir
                     </button>
+                  )}
+                  {rowError?.id === evidence.id && (
+                    <p className="font-sora text-[10.5px] text-re max-w-[240px] text-right leading-tight">{rowError.message}</p>
                   )}
                   {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
                     <p className="font-sora text-[10.5px] text-lttm italic max-w-[220px] text-right leading-tight">
@@ -805,14 +849,14 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
               Enviar a revisión
             </button>
 
-            <button
+            {canReview && <button
               onClick={() => handleBulkReview('approve')}
               disabled={isBulkReviewing}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
             >
               {isBulkReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               Aprobar
-            </button>
+            </button>}
 
             <button
               onClick={handleOpenObligationPicker}
@@ -983,19 +1027,14 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                   </select>
                 </div>
 
+                {/* El estado no se elige: lo cambia el ciclo de revisión (B10). */}
                 <div>
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
-                  >
-                    <option value="draft">Borrador</option>
-                    <option value="pending_review">Pendiente de revisión</option>
-                    <option value="valid">Válida</option>
-                    <option value="expired">Caducada</option>
-                    <option value="rejected">Rechazada</option>
-                  </select>
+                  <p className="font-sora text-[12px] text-ltt2 leading-snug pt-1">
+                    {editingEvidence && ['valid', 'expired', 'pending_review', 'rejected'].includes(editingEvidence.status)
+                      ? 'Si cambias el contenido, vuelve a borrador y hay que enviarla de nuevo a revisión.'
+                      : 'Cambia con el ciclo de revisión: Enviar a revisión, Aprobar o Rechazar.'}
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -1016,7 +1055,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                 <div className="md:col-span-2">
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
                     Archivo adjunto
-                    <span className="ml-1.5 normal-case text-lttm">(PDF, imagen, Word, Excel — máx. 20 MB)</span>
+                    <span className="ml-1.5 normal-case text-lttm">(PDF, imagen, Word, Excel — máx. {MAX_EVIDENCE_FILE_LABEL})</span>
                   </label>
                   <input
                     ref={editFileInputRef}
@@ -1170,7 +1209,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                 <div className="text-center py-16">
                   <Clock className="w-8 h-8 text-lttm mx-auto mb-3 opacity-40" />
                   <p className="font-sora text-[13px] text-lttm">Sin cambios registrados todavía.</p>
-                  <p className="font-sora text-[11.5px] text-lttm/60 mt-1">Los cambios se registran desde el próximo guardado.</p>
+                  <p className="font-sora text-[11.5px] text-lttm/60 mt-1">Las versiones se guardan desde la actualización de la revisión de evidencias.</p>
                 </div>
               ) : (
                 <ol className="relative border-l border-ltb ml-3 space-y-0">
@@ -1184,6 +1223,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                             evidence_type: historyEvidence.evidence_type,
                             status: historyEvidence.status,
                             external_url: historyEvidence.external_url,
+                            storage_path: historyEvidence.storage_path,
                             version: historyEvidence.version,
                             issued_at: historyEvidence.issued_at,
                             expires_at: historyEvidence.expires_at,
@@ -1200,6 +1240,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                       rejected:         'bg-red-dim text-re border-reb',
                       reopened:         'bg-ltbg text-lttm border-ltb',
                       created:          'bg-cyan-dim text-brand-cyan border-cyan-border',
+                      expired:          'bg-red-dim text-re border-reb',
                     };
                     const badgeClass = CHANGE_COLORS[version.change_type] ?? 'bg-ltbg text-lttm border-ltb';
 
@@ -1396,21 +1437,6 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado</label>
-                  <select
-                    value={orgForm.status}
-                    onChange={(e) => setOrgForm((f) => ({ ...f, status: e.target.value }))}
-                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
-                  >
-                    <option value="draft">Borrador</option>
-                    <option value="pending_review">Pendiente de revisión</option>
-                    <option value="valid">Válida</option>
-                    <option value="expired">Caducada</option>
-                    <option value="rejected">Rechazada</option>
-                  </select>
-                </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
                     URL del documento {!pendingOrgFile && <span className="text-lttm normal-case">· o adjunta un fichero</span>}
@@ -1429,7 +1455,7 @@ export function EvidencesLibraryClient({ evidences, organizationId }: Props) {
                 <div className="md:col-span-2">
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">
                     Archivo adjunto
-                    <span className="ml-1.5 normal-case text-lttm">(opcional · PDF, imagen, Word, Excel — máx. 20 MB)</span>
+                    <span className="ml-1.5 normal-case text-lttm">(opcional · PDF, imagen, Word, Excel — máx. {MAX_EVIDENCE_FILE_LABEL})</span>
                   </label>
                   <input
                     ref={orgFileInputRef}

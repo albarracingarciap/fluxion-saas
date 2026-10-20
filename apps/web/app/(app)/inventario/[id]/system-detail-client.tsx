@@ -49,7 +49,8 @@ import { ClassificationHistorySection } from '@/components/classification/Classi
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
 import { useAuthStore } from '@/lib/store/authStore';
-import { hasAnyRole, rolesOf } from '@/lib/auth/roles';
+import { hasAnyRole, hasRole, rolesOf } from '@/lib/auth/roles';
+import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -1643,6 +1644,10 @@ export function SystemDetailClient({
 }) {
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
+  // Aprobar o rechazar evidencias: Responsable del SGAI distinto de quien la aporta (DP-01, B10).
+  const canReviewEvidence = hasRole(profile, EVIDENCE_REVIEWER_ROLE);
+  // Error de revisión o borrado de una evidencia: antes se perdían en silencio (P5).
+  const [evidenceRowError, setEvidenceRowError] = useState<{ id: string; message: string } | null>(null);
   const [localHistory, setLocalHistory] = useState<SystemHistoryEntry[]>(history);
   const [activeTab, setActiveTab] = useState(() => resolveInitialSystemTab(searchParams.get('tab')));
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
@@ -2494,7 +2499,6 @@ export function SystemDetailClient({
           description: evidenceForm.description,
           evidenceType: evidenceForm.evidenceType,
           externalUrl: evidenceForm.externalUrl,
-          status: evidenceForm.status,
           version: evidenceForm.version,
           issuedAt: evidenceForm.issuedAt,
           expiresAt: evidenceForm.expiresAt,
@@ -2511,7 +2515,6 @@ export function SystemDetailClient({
           description: evidenceForm.description,
           evidenceType: evidenceForm.evidenceType,
           externalUrl: evidenceForm.externalUrl,
-          status: evidenceForm.status,
           version: evidenceForm.version,
           issuedAt: evidenceForm.issuedAt,
           expiresAt: evidenceForm.expiresAt,
@@ -2538,12 +2541,15 @@ export function SystemDetailClient({
   };
 
   const handleDeleteEvidence = (evidenceId: string) => {
+    setEvidenceRowError(null);
     startDeleteEvidenceTransition(async () => {
       const result = await deleteSystemEvidence(evidenceId, system.id);
-      if (!result?.error) {
-        setDeletingEvidenceId(null);
-        router.refresh();
+      setDeletingEvidenceId(null);
+      if (result?.error) {
+        setEvidenceRowError({ id: evidenceId, message: result.error });
+        return;
       }
+      router.refresh();
     });
   };
 
@@ -2559,8 +2565,13 @@ export function SystemDetailClient({
   };
 
   const handleReviewAction = (evidenceId: string, action: ReviewAction, notes?: string) => {
+    setEvidenceRowError(null);
     startReviewTransition(async () => {
-      await reviewSystemEvidence(evidenceId, system.id, action, notes);
+      const result = await reviewSystemEvidence(evidenceId, system.id, action, notes);
+      if (result?.error) {
+        setEvidenceRowError({ id: evidenceId, message: result.error });
+        return;
+      }
       setRejectingEvidenceId(null);
       setRejectNotes('');
       router.refresh();
@@ -3445,7 +3456,14 @@ export function SystemDetailClient({
                                     Enviar a revisión
                                   </button>
                                 )}
-                                {evidence.status === 'pending_review' && (
+                                {evidence.status === 'pending_review' && !(canReviewEvidence && evidence.owner_user_id !== profile?.user_id) && (
+                                  <span className="font-sora text-[10.5px] text-lttm max-w-[220px] text-right leading-tight">
+                                    {canReviewEvidence
+                                      ? 'La revisa otro Responsable del SGAI: no se revisan las evidencias propias.'
+                                      : 'Pendiente de revisión del Responsable del SGAI.'}
+                                  </span>
+                                )}
+                                {evidence.status === 'pending_review' && canReviewEvidence && evidence.owner_user_id !== profile?.user_id && (
                                   <div className="flex flex-col items-end gap-1.5">
                                     <div className="flex items-center gap-1.5">
                                       <button
@@ -3501,6 +3519,9 @@ export function SystemDetailClient({
                                     {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                                     Reabrir
                                   </button>
+                                )}
+                                {evidenceRowError?.id === evidence.id && (
+                                  <p className="font-sora text-[10.5px] text-re max-w-[240px] text-right leading-tight">{evidenceRowError.message}</p>
                                 )}
                                 {evidence.validation_notes && (evidence.status === 'rejected' || evidence.status === 'valid') && (
                                   <p className="font-sora text-[10.5px] text-lttm italic max-w-[200px] text-right leading-tight">
@@ -4391,19 +4412,16 @@ export function SystemDetailClient({
                   </select>
                 </div>
 
+                {/* El estado no se elige: lo cambia el ciclo de revisión (B10). */}
                 <div>
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Estado</label>
-                  <select
-                    value={evidenceForm.status}
-                    onChange={(event) => setEvidenceForm((current) => ({ ...current, status: event.target.value }))}
-                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
-                  >
-                    <option value="draft">Borrador</option>
-                    <option value="pending_review">Pendiente de revisión</option>
-                    <option value="valid">Válida</option>
-                    <option value="expired">Caducada</option>
-                    <option value="rejected">Rechazada</option>
-                  </select>
+                  <p className="font-sora text-[12px] text-ltt2 leading-snug pt-1">
+                    {!editingEvidence
+                      ? 'Se crea en borrador y se valida con la revisión.'
+                      : ['valid', 'expired', 'pending_review', 'rejected'].includes(editingEvidence.status)
+                        ? 'Si cambias el contenido, vuelve a borrador y hay que enviarla de nuevo a revisión.'
+                        : 'Cambia con el ciclo de revisión: Enviar a revisión, Aprobar o Rechazar.'}
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">

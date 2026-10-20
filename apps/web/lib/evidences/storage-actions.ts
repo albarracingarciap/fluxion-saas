@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { MAX_EVIDENCE_FILE_BYTES, MAX_EVIDENCE_FILE_LABEL, statusAfterEdit } from '@/lib/evidences/review-rules'
 import {
   BUCKET_EVIDENCES,
   objectKey,
@@ -27,7 +28,8 @@ import {
  */
 
 const SUPABASE_BUCKET = 'evidence-files'
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024 // 100 MB
+// Mismo límite en la vista y en el servidor (B10, E6).
+const MAX_UPLOAD_BYTES = MAX_EVIDENCE_FILE_BYTES
 
 type UploadTicket =
   | { url: string; key: string; bucket: string; error?: never }
@@ -42,7 +44,7 @@ async function authorizeEvidence(evidenceId: string) {
   const fluxion = createFluxionClient()
   const { data: evidence } = await fluxion
     .from('system_evidences')
-    .select('id, organization_id, title, storage_path, storage_backend, storage_bucket, mime_type')
+    .select('id, organization_id, title, status, storage_path, storage_backend, storage_bucket, mime_type')
     .eq('id', evidenceId)
     .single()
 
@@ -66,7 +68,7 @@ export async function requestEvidenceUpload(input: {
     return { error: 'El almacenamiento de ficheros no está configurado en este entorno.' }
   }
   if (input.size > MAX_UPLOAD_BYTES) {
-    return { error: `El fichero supera el máximo de ${MAX_UPLOAD_BYTES / 1024 / 1024} MB.` }
+    return { error: `El fichero supera el máximo de ${MAX_EVIDENCE_FILE_LABEL}.` }
   }
 
   const { error, evidence } = await authorizeEvidence(input.evidenceId)
@@ -120,6 +122,13 @@ export async function confirmEvidenceUpload(input: {
     return { error: 'El fichero no llegó al almacenamiento. Inténtalo de nuevo.' }
   }
 
+  // Un fichero nuevo en una evidencia ya enviada, validada o caducada la
+  // devuelve a borrador (B10): lo que se revisó ya no es lo que hay. Se hace
+  // aquí porque esta escritura usa el cliente de servicio y no pasa por las
+  // reglas de revisión de la base de datos.
+  const nextStatus = statusAfterEdit(evidence.status, input.key !== evidence.storage_path)
+  const backToDraft = nextStatus !== evidence.status
+
   const admin = createAdminFluxionClient()
   const { error: updErr } = await admin
     .from('system_evidences')
@@ -129,6 +138,9 @@ export async function confirmEvidenceUpload(input: {
       storage_bucket:  BUCKET_EVIDENCES,
       mime_type:       stat.contentType ?? input.contentType,
       file_size_bytes: stat.size,
+      ...(backToDraft
+        ? { status: nextStatus, reviewed_by: null, reviewed_at: null, validation_notes: null }
+        : {}),
     })
     .eq('id', evidence.id)
     .eq('organization_id', evidence.organization_id)

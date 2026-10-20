@@ -765,17 +765,19 @@ stateDiagram-v2
 
 - **Dónde:** [Biblioteca de evidencias](evidencias.md), [Detalle de evidencia](evidencia-detalle.md) y
   ficha › **Evidencias**. Se pueden revisar varias a la vez.
-- **Quién:** roles de gobierno y analistas. Para otros roles los botones aparecen, pero el cambio no se
-  aplica y la vista no avisa.
+- **Quién:** prepara y envía quien aporta la evidencia; aprueba o rechaza el Responsable del SGAI,
+  distinto del autor (DP-01, B10). Los errores se muestran.
 - **Vínculos:** con obligaciones (respaldo), modos de fallo y controles de la Declaración (**Evidencia
   asociada**).
 - **Caducidad:** alertas a 30 y 7 días y al caducar; las caducadas aparecen como brecha «Evidencia
   caducada».
 
-> **⚠ GAP-26 · El ciclo de revisión se puede saltar y no deja versiones.** Al crear o editar se puede
-> fijar «Válida» directamente; el historial de versiones no se guarda; el límite de tamaño difiere entre
-> la vista y el servidor (`E4`, `E6`, `I16`). Validar no pasa por Flujos de aprobación aunque exista el
-> tipo de objeto «Evidencia».
+> **✔ GAP-26 · Resuelto en parte en B10.** El estado ya no se elige al crear o editar: solo cambia con el
+> ciclo de revisión, y lo comprueba la base de datos. Aprueba o rechaza el Responsable del SGAI, distinto
+> de quien aporta la evidencia (DP-01). Cambiar el contenido de una evidencia validada la devuelve a
+> borrador. El historial de versiones se guarda, también el fichero, y el límite de tamaño es único
+> (20 MB). **Queda:** validar no pasa por Flujos de aprobación aunque exista el tipo de objeto «Evidencia»
+> (B11).
 
 > **⚠ GAP-27 · Avisos de caducidad solo dentro de la biblioteca.** El responsable no recibe aviso.
 >
@@ -954,7 +956,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
 | GAP-22 | 6 | AISIA aprobada sin segregación ni acta; toca la Declaración aprobada | Debilita | — |
 | GAP-24 | 7 | Expediente aprobado por cualquiera; evidencia válida sin revisión; rótulo «Anexo IV» | Debilita | `E15`, `E16` |
-| GAP-26 | 8 | Revisión de evidencias se puede saltar; sin versiones | Debilita | `E4`, `E6`, `I16` |
+| GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |
 | GAP-10 | 3 | Clasificación sin aprobación ni historial | Debilita | `I10` |
 | GAP-11 | 3 | Obligaciones no se actualizan desde las demás fases | Debilita | — |
 | GAP-12, GAP-31 | 3, 9 | Cláusulas del SGAI de ISO/IEC 42001 sin flujo; obligaciones ISO no aplicadas | Debilita | `I22` |

@@ -31,6 +31,7 @@ fuente:
   - supabase/migrations/20260914090000_outbox.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
+  - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
   - recursos/db/README.md
 ---
 
@@ -200,7 +201,7 @@ erDiagram
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
 | `fluxion.system_evidences` | [Evidencia](../glosario.md#evidencia) | `scope` (sistema u organización), `status` ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)), `expires_at`, `storage_backend` ∈ `supabase`, `s3`, `checksum_sha256` | `00000000000001`, `20260819090000` |
-| `fluxion.system_evidence_versions` | — | Historial de cambios y revisiones | `00000000000001` |
+| `fluxion.system_evidence_versions` | — | Historial de cambios y revisiones: estado anterior a cada cambio, `change_type` (también `expired`), `storage_path` y `changed_by` (perfil). Solo escribe el trigger `trg_evidence_versions` (sin política de inserción) | `00000000000001`, `20261020110000` |
 | `fluxion.evidences` | [Evidencia](../glosario.md#evidencia) (adjuntos de acciones de tratamiento) | `type`, `verification_status`, `storage_backend` | `00000000000001`, `20260819170000` |
 | `compliance.evidence_types`, `obligation_evidence_types` | [Tipo de evidencia](../glosario.md#tipo-de-evidencia) | EVT-*; `requirement_level` por obligación | `00000000000005` |
 | `fluxion.evidence_expiry_alerts` | — | `alert_type` ∈ `expiry_30d`, `expiry_7d`, `expired` | `00000000000001` |
@@ -281,6 +282,8 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.recalculate_plan_zone_target(uuid)` | Zona objetivo de un plan a partir de las severidades residuales |
 | `fluxion.fmea_aplicar_aprobacion_plan(plan, aprobador)` | Aprobación de la evaluación de riesgos (B07): aceptaciones aprobadas, evaluación `approved` con `next_review_at`, versiones anteriores y sus planes abiertos `superseded` (acciones abiertas canceladas) y plan `in_progress` o `closed`. Solo `service_role` |
 | `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
+| `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10): con usuario autenticado, alta en `draft` o `pending_review`, solo transiciones del ciclo de revisión, y aprobar o rechazar exige `sgai_manager` y no ser `owner_user_id`; rellena `reviewed_by` y `reviewed_at`. Las escrituras sin usuario (cron, expediente) no pasan por él |
+| `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
 | `fluxion.trg_task_done_propagate_action()` | Trigger AFTER en `tasks`: al completar la tarea de una acción, completa la acción (antes era BEFORE y abortaba la actualización) |
 | `fluxion.process_task_recurrences()` | Genera las tareas recurrentes (pg_cron) |
 | `fluxion.incident_notification_days(...)`, `set_incident_deadline()` | Plazo del AI Act, Art. 73 |
