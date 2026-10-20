@@ -19,11 +19,11 @@ Las funcionalidades decididas pero no implementadas no van aquí: están en `_in
 | 12 | `docs/glosario.md` | Cuestionario preliminar | Propósito exacto y vínculo con el sistema de IA | abierto |
 | 13 | `docs/glosario.md` | Señal de riesgo | Nombres de negocio de las gravedades | abierto |
 | 14 | `docs/glosario.md` | Supervisión post-comercialización | Usar «Vigilancia poscomercialización», término oficial del AI Act (Art. 72) | abierto |
-| 15 | `docs/glosario.md` | Rol | «Responsable del SGAI» y «Responsable del sistema» frente a «SGAI Manager» y «System Owner» en la interfaz | abierto |
+| 15 | `docs/glosario.md` | Rol | «Responsable del SGAI» y «Responsable del sistema» frente a «SGAI Manager» y «System Owner» en la interfaz | resuelto (la interfaz usa los nombres del glosario, 2026-10-20) |
 | 16 | `docs/glosario.md` | Catálogo de tablas básicas | Nombre definitivo: el inventario usa también «Catálogo metodológico» | abierto |
-| 17 | `docs/negocio/vision-general.md` | Roles | Nombres de negocio «Responsable del SGAI» y «Responsable del sistema» (ver punto 15) | abierto |
+| 17 | `docs/negocio/vision-general.md` | Roles | Nombres de negocio «Responsable del SGAI» y «Responsable del sistema» (ver punto 15) | resuelto (la interfaz usa los nombres del glosario, 2026-10-20) |
 | 18 | `docs/negocio/vision-general.md` | Relación normativa | Qué marcos, además del AI Act y de ISO/IEC 42001, se presentan comercialmente como cubiertos | abierto |
-| 19 | `docs/negocio/plataforma.md` | Roles | Nombres de negocio «Responsable del SGAI» y «Responsable del sistema» (ver punto 15) | abierto |
+| 19 | `docs/negocio/plataforma.md` | Roles | Nombres de negocio «Responsable del SGAI» y «Responsable del sistema» (ver punto 15) | resuelto (la interfaz usa los nombres del glosario, 2026-10-20) |
 | 20 | `docs/negocio/plataforma.md` | Flujo de trabajo | Si el «Resumen semanal» de las preferencias de avisos se envía | abierto |
 | 21 | `docs/negocio/plataforma.md` | Relación normativa | Vincular la designación del responsable del SGAI con una cláusula de ISO/IEC 42001 y la del DPO con el RGPD (Art. 37) | abierto |
 | 22 | `docs/negocio/hoja-de-ruta.md` | Inteligencia artificial en el producto | Alcance de «Refinar mediante IA» y de la clasificación automática («Fase 2») | abierto |
@@ -64,7 +64,7 @@ Las funcionalidades decididas pero no implementadas no van aquí: están en `_in
 | 57 | `docs/funcional/registro.md` | Validaciones | confirmar si una persona invitada debe ver el campo **Nombre de tu Empresa / Institución**, que en su caso se descarta. | abierto |
 | 58 | `docs/funcional/onboarding.md` | Acceso y permisos | confirmar el comportamiento para invitados que no son administradores. - La subida del logotipo falla con un aviso. - Sus respuestas no se guardan, porque la política RLS de `organizations` solo deja actualizar a… | abierto |
 | 59 | `docs/funcional/dashboard.md` | Acciones | confirmar varios comportamientos que parecen no intencionados: - El paso del onboarding promete cambiar el foco «desde el dashboard», pero las pestañas no lo guardan. - **Revisar evidencias pendientes** lleva al… | abierto |
-| 60 | `docs/funcional/navegacion.md` | Menú lateral | confirmar dos comportamientos del chip de la organización. - Muestra «Miembro» para casi todos los roles, también para el administrador, porque compara con nombres de rol que no existen. - Parece pulsable, pero no… | abierto |
+| 60 | `docs/funcional/navegacion.md` | Menú lateral | confirmar dos comportamientos del chip de la organización. - Muestra «Miembro» para casi todos los roles, también para el administrador, porque compara con nombres de rol que no existen. - Parece pulsable, pero no… | abierto (el rol «Miembro» se resolvió el 2026-10-20; queda el chip sin acción) |
 | 61 | `docs/funcional/notificaciones.md` | Preferencias y correo | confirmar el comportamiento de las preferencias de avisos. - Hoy el aviso en la app se crea siempre, sea cual sea la preferencia. - Para el correo, el emisor busca las preferencias en un formato que ni Perfil ni… | abierto |
 | 62 | `docs/funcional/notificaciones.md` | Preferencias y correo | confirmar el comportamiento en la pestaña **No leídas**. Una notificación que se marca como leída no desaparece de la lista hasta recargar. | abierto |
 | 63 | `docs/funcional/perfil.md` | Información personal | confirmar el destino de **Cargo / Puesto** y **Departamento**. Existen las columnas `profiles.job_title` y `profiles.department`, que tienen prioridad al leer, pero la vista guarda en `preferences`. Si la columna… | abierto |

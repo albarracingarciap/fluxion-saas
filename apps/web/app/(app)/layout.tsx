@@ -6,22 +6,10 @@ import { ThemeApplier } from "@/components/profile/ThemeApplier"
 import { getAppAuthState } from "@/lib/auth/app-state"
 import { createFluxionClient } from "@/lib/supabase/fluxion"
 import { listActiveModules } from "@/lib/modules/entitlements"
+import { getRoleLabel } from '@/lib/auth/role-labels'
 
 // Módulos cuya contratación hace visible la cola de descubrimientos.
 const DISCOVERY_MODULES = ['connector-mlflow', 'shadow-ai']
-
-function getRoleLabel(role: string | null | undefined) {
-  switch (role) {
-    case 'admin':
-      return 'Admin'
-    case 'editor':
-      return 'Editor'
-    case 'viewer':
-      return 'Viewer'
-    default:
-      return 'Miembro'
-  }
-}
 
 function getPlanLabel(plan: string | null | undefined) {
   if (!plan) return 'Starter'

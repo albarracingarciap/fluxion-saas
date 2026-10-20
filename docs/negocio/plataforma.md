@@ -89,9 +89,6 @@ Funciones administrativas reservadas a ciertos roles:
 > **Pendiente de definir.** El detalle de qué puede leer y modificar cada rol en cada módulo. La
 > aplicación aplica hoy los permisos funcionalidad a funcionalidad, sin una matriz única.
 
-> TODO: confirmar los nombres de negocio «Responsable del SGAI» y «Responsable del sistema» (en la
-> aplicación: «SGAI Manager» y «System Owner»).
-
 ## Flujo de trabajo
 
 ```mermaid

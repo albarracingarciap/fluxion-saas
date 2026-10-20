@@ -89,8 +89,8 @@ El usuario se registra con un enlace de invitación.
 
 ### Roles y permisos
 
-Tarjetas descriptivas de los diez roles: Administrador, SGAI Manager, CAIO, DPO, System Owner, Analista
-de Riesgos, Analista de Cumplimiento, Directivo, Auditor y Lector. Explica que un miembro puede tener
+Tarjetas descriptivas de los diez roles: Administrador, Responsable del SGAI, CAIO, DPO, Responsable del
+sistema, Analista de riesgos, Analista de cumplimiento, Directivo, Auditor y Lector. Explica que un miembro puede tener
 varios roles y que sus permisos son la suma de todos. Es solo informativa: no hay una matriz de permisos
 configurable.
 

@@ -62,10 +62,10 @@ Un módulo está activo si su estado es `enabled` o `trial` y no ha vencido.
 >   «Observabilidad», «Base de datos», «Medidas».
 > - Flujos de aprobación siempre visible, ya que pasa al Core.
 
-> TODO: confirmar dos comportamientos del chip de la organización.
-> - Muestra «Miembro» para casi todos los roles, también para el administrador, porque compara con
->   nombres de rol que no existen.
-> - Parece pulsable, pero no hace nada.
+> TODO: confirmar un comportamiento del chip de la organización: parece pulsable, pero no hace nada.
+
+El chip muestra el rol principal del miembro con su nombre del glosario (antes mostraba «Miembro» para
+casi todos los roles).
 
 ### Barra superior
 
@@ -73,7 +73,7 @@ Un módulo está activo si su estado es `enabled` o `trial` y no ha vencido.
 |---|---|
 | Título | Según la ruta. Las vistas sin título propio muestran «Dashboard»: incidentes, supervisión, observabilidad, aprobaciones, perfil, notificaciones y plantillas |
 | Campana | Número de notificaciones no leídas («99+» por encima de 99), actualizado cada 30 segundos |
-| Usuario | Nombre, rol (Administrador, SGAI Manager, CAIO, DPO, System Owner, Analista de Riesgos, Analista de Cumplimiento, Directivo, Auditor, Lector) y avatar o iniciales |
+| Usuario | Nombre, rol principal (Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento, Directivo, Auditor, Lector) y avatar o iniciales |
 
 ### Aviso de revisiones
 
