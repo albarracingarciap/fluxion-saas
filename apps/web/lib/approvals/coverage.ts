@@ -1,15 +1,17 @@
+import { TEMPLATE_KEYS, type TemplateKey } from '../documents/templates'
+
 /**
- * Cobertura de los niveles del plan de tratamiento por las políticas (B11e).
+ * Cobertura de las políticas de aprobación (B11e, B11f).
  *
- * El plan solo se aprueba en Flujos de aprobación: si un nivel se queda sin
- * política activa que lo gobierne, sus planes no se pueden enviar. Ajustes usa
- * esto para impedir guardar, desactivar o borrar una política que deje un
- * nivel sin cubrir.
+ * El plan de tratamiento y el expediente documental solo se aprueban en Flujos
+ * de aprobación: si un nivel del plan o una plantilla del expediente se queda
+ * sin política activa que lo gobierne, no se puede enviar. Ajustes usa esto
+ * para impedir guardar, desactivar o borrar una política que deje un hueco.
  *
- * Una política cubre un nivel si está activa, es de planes y sus condiciones
- * solo miran el nivel (sin condiciones = todos los niveles). Una condición
- * sobre otra clave del contexto (por ejemplo, `has_security_controls`) solo
- * cubre parte de los planes, así que no cuenta.
+ * Una política cubre un valor si está activa, es del tipo de objeto y sus
+ * condiciones solo miran esa clave (sin condiciones = todos los valores). Una
+ * condición sobre otra clave del contexto (por ejemplo, `has_security_controls`)
+ * solo cubre parte de los objetos, así que no cuenta.
  */
 
 export const PLAN_LEVELS = ['level_1', 'level_2', 'level_3'] as const
@@ -21,16 +23,37 @@ export type CoveragePolicy = {
   conditions: Record<string, string[]> | null
 }
 
-export function policyCoversPlanLevel(policy: CoveragePolicy, level: PlanLevel): boolean {
-  if (policy.object_type !== 'treatment_plan' || !policy.is_active) return false
-  const condiciones = policy.conditions ?? {}
-  for (const [clave, valores] of Object.entries(condiciones)) {
-    if (clave !== 'approval_level') return false
-    if (!valores.includes(level)) return false
+/** Qué clave del contexto y qué valores tiene que cubrir cada tipo de objeto. */
+export const COVERAGE_RULES = {
+  treatment_plan: { key: 'approval_level', values: PLAN_LEVELS as readonly string[] },
+  document:       { key: 'template_key',   values: TEMPLATE_KEYS as readonly string[] },
+} as const
+
+export type CoveredObjectType = keyof typeof COVERAGE_RULES
+
+export function isCoveredObjectType(t: string): t is CoveredObjectType {
+  return t in COVERAGE_RULES
+}
+
+export function policyCovers(policy: CoveragePolicy, objectType: CoveredObjectType, value: string): boolean {
+  if (policy.object_type !== objectType || !policy.is_active) return false
+  const { key } = COVERAGE_RULES[objectType]
+  for (const [clave, valores] of Object.entries(policy.conditions ?? {})) {
+    if (clave !== key) return false
+    if (!valores.includes(value)) return false
   }
   return true
 }
 
+/** Valores (niveles o plantillas) que ninguna política activa cubre. */
+export function uncoveredValues(policies: CoveragePolicy[], objectType: CoveredObjectType): string[] {
+  return COVERAGE_RULES[objectType].values.filter((v) => !policies.some((p) => policyCovers(p, objectType, v)))
+}
+
 export function planLevelsWithoutPolicy(policies: CoveragePolicy[]): PlanLevel[] {
-  return PLAN_LEVELS.filter((level) => !policies.some((p) => policyCoversPlanLevel(p, level)))
+  return uncoveredValues(policies, 'treatment_plan') as PlanLevel[]
+}
+
+export function documentTemplatesWithoutPolicy(policies: CoveragePolicy[]): TemplateKey[] {
+  return uncoveredValues(policies, 'document') as TemplateKey[]
 }

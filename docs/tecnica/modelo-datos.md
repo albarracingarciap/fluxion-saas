@@ -36,6 +36,7 @@ fuente:
   - supabase/migrations/20261020120000_expediente_ciclo.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - recursos/db/README.md
+  - supabase/migrations/20261021100000_expediente_solo_circuito.sql
 ---
 
 # Modelo de datos
@@ -288,10 +289,11 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
 | `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10): con usuario autenticado, alta en `draft` o `pending_review`, solo transiciones del ciclo de revisión, y aprobar o rechazar exige `sgai_manager` y no ser `owner_user_id`; rellena `reviewed_by` y `reviewed_at`. Las escrituras sin usuario (cron, expediente) no pasan por él |
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
-| `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` → `approved` → `superseded`; aprobar exige `sgai_manager` y no ser autor de ningún apartado, y rellena `approved_by`/`approved_at` |
+| `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09, revisado en B11f): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` y `approved` → `superseded`; pasar a `approved` solo sin usuario (el efecto de Flujos de aprobación y las actas) |
 | `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
 | `fluxion.trg_governance_designation_rules()`, `trg_profiles_dpo_data_controller()` | B23b: la persona designada es de la organización; el DPO no puede ser Responsable del tratamiento, ni al designar ni al dar el rol |
 | `fluxion.approval_can_decide`, `approval_step_candidates` (revisadas en `20261020130000` y `20261020170100`) | Los asesores (`committee_role = 'advisor'`) de un comité y quien tiene el rol `auditor` no son candidatos ni pueden decidir |
+| `fluxion.approval_is_preparer(request, profile)` | B11f: si el perfil pidió la solicitud o figura en `context.prepared_by`, y la política no deja aprobar a quien solicita. Lo usan `approval_can_decide` (también para el titular de una delegación) y `approval_step_candidates` |
 | `fluxion.approval_resolve_snapshot(org, snapshot, context)` | B11d: descarta los pasos cuya `condition` no cumple el contexto, resuelve comités y funciones (versión de dos argumentos) y omite las consultas sin nadie a quien consultar (ni quien solicita, salvo que la política le deje aprobar, ni el Auditor). Lo omitido queda en `policy_snapshot.omitted_steps` con `omitted_reason` (`condition`, `no_consultee`) |
 | `fluxion.approval_decide` (revisada en `20261020170100`) | En un paso `consultation` exige texto, no admite abstención y avanza con cualquier dictamen; un dictamen desfavorable no cierra la solicitud |
 | `fluxion.add_default_consultations(uuid)` | Añade a una política por defecto sin editar (un paso) la consulta de DP-01: DPO en AISIA, FRIA y DPIA; función `ciso` con `has_security_controls` en los planes de nivel 1 y 2 |

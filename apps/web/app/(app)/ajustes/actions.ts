@@ -1,6 +1,7 @@
 'use server'
 
-import { planLevelsWithoutPolicy, type CoveragePolicy } from '@/lib/approvals/coverage'
+import { isCoveredObjectType, uncoveredValues, type CoveragePolicy, type CoveredObjectType } from '@/lib/approvals/coverage'
+import { templateMeta } from '@/lib/documents/templates'
 import { getApprovalLevelLabel } from '@/lib/fmea/treatment-plan-rules'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
@@ -1244,11 +1245,11 @@ export async function saveApprovalPolicy(input: {
     if (ultima) return { error: ULTIMA_POLITICA }
   }
 
-  // Los planes solo se aprueban en el circuito (B11e): ningún nivel puede
-  // quedarse sin política que lo gobierne.
-  if (input.object_type === 'treatment_plan') {
-    const sinCubrir = await nivelesSinCubrir(profile.organization_id, input.id ?? null, {
-      object_type: 'treatment_plan', is_active: input.is_active, conditions: input.conditions,
+  // Planes y expedientes solo se aprueban en el circuito (B11e, B11f): ningún
+  // nivel ni plantilla puede quedarse sin política que lo gobierne.
+  if (isCoveredObjectType(input.object_type)) {
+    const sinCubrir = await huecosDeCobertura(profile.organization_id, input.object_type, input.id ?? null, {
+      object_type: input.object_type, is_active: input.is_active, conditions: input.conditions,
     })
     if (sinCubrir) return { error: sinCubrir }
   }
@@ -1331,12 +1332,14 @@ export async function saveApprovalPolicy(input: {
 }
 
 /**
- * Mensaje si, con el cambio, algún nivel del plan se queda sin política
- * activa (B11e); null si todos siguen cubiertos. `exceptId` es la política que
- * se edita o se borra; `nueva`, cómo queda (null si se borra).
+ * Mensaje si, con el cambio, algún nivel del plan (B11e) o plantilla del
+ * expediente (B11f) se queda sin política activa; null si todo sigue cubierto.
+ * `exceptId` es la política que se edita o se borra; `nueva`, cómo queda (null
+ * si se borra).
  */
-async function nivelesSinCubrir(
+async function huecosDeCobertura(
   organizationId: string,
+  objectType: CoveredObjectType,
   exceptId: string | null,
   nueva: CoveragePolicy | null,
 ): Promise<string | null> {
@@ -1345,12 +1348,15 @@ async function nivelesSinCubrir(
     .from('approval_policies')
     .select('id, object_type, is_active, conditions')
     .eq('organization_id', organizationId)
-    .eq('object_type', 'treatment_plan')
+    .eq('object_type', objectType)
   const resto = ((data ?? []) as Array<CoveragePolicy & { id: string }>).filter((p) => p.id !== exceptId)
-  const sinCubrir = planLevelsWithoutPolicy(nueva ? [...resto, nueva] : resto)
+  const sinCubrir = uncoveredValues(nueva ? [...resto, nueva] : resto, objectType)
   if (!sinCubrir.length) return null
-  return `Los planes de ${sinCubrir.map(getApprovalLevelLabel).join(', ')} se quedarían sin política de aprobación `
-    + 'y no se podrían enviar. Crea o activa antes otra política que cubra ese nivel.'
+  return objectType === 'treatment_plan'
+    ? `Los planes de ${sinCubrir.map(getApprovalLevelLabel).join(', ')} se quedarían sin política de aprobación `
+      + 'y no se podrían enviar. Crea o activa antes otra política que cubra ese nivel.'
+    : `Los expedientes ${sinCubrir.map((k) => templateMeta(k).label).join(', ')} se quedarían sin política de `
+      + 'aprobación y no se podrían enviar. Crea o activa antes otra política que cubra esa plantilla.'
 }
 
 const ULTIMA_POLITICA =
@@ -1399,8 +1405,8 @@ export async function deleteApprovalPolicy(id: string): Promise<{ success?: true
   if (politica?.is_active && (await esUltimaActiva(profile.organization_id, politica.object_type, id))) {
     return { error: ULTIMA_POLITICA }
   }
-  if (politica?.object_type === 'treatment_plan') {
-    const sinCubrir = await nivelesSinCubrir(profile.organization_id, id, null)
+  if (politica && isCoveredObjectType(politica.object_type)) {
+    const sinCubrir = await huecosDeCobertura(profile.organization_id, politica.object_type, id, null)
     if (sinCubrir) return { error: sinCubrir }
   }
 

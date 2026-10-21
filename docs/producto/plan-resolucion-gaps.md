@@ -765,9 +765,10 @@ causa C1. **Talla:** M, repartida entre los bloques.
 - **Depende de:** B01, B06, B23; DP-07.
 - **Talla:** XL. Partir en: B11a efectos y apertura por tipo (L), B11b políticas por defecto y migración
   (M), B11c cancelación, caducidad y avisos (M), B11d pasos de consulta y condicionales (M).
-- **Estado (2026-10-21).** B11a a B11e integrados; la vía propia del plan está retirada (B11e). La
-  clasificación AI Act y la política de IA como objetos aprobables (I-06) se difieren a B13 y B20, que crean
-  esos objetos. Queda la vía propia de los expedientes cuya plantilla no tenga política.
+- **Estado (2026-10-21).** B11a a B11f integrados; planes (B11e) y expedientes (B11f) solo se aprueban en el
+  circuito. La clasificación AI Act y la política de IA como objetos aprobables (I-06) se difieren a B13 y
+  B20, que crean esos objetos. AISIA, Declaración y evidencias conservan una vía propia solo alcanzable por
+  la API (posible B11g).
 - **Acepta si:** los cinco tipos de objeto se aprueban desde **Aprobaciones**, con segregación, aviso, acta
   y efecto; no queda ninguna aprobación fuera del circuito.
 

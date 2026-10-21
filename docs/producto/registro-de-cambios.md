@@ -47,6 +47,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11d · Flujos de aprobación: consultas, pasos condicionales, Auditor y exclusión de brechas | Integrado en `main` | `fase2/b11d-consultas-condiciones` | 2026-10-20 | **Sí** · `20261020170000_aprobaciones_tipo_exclusion_brecha.sql` y `20261020170100_aprobaciones_consultas_condiciones.sql` |
 | Glosario: consultas, pasos condicionales y disposición con aprobación (B11d) | Integrado en `main` | `docs/glosario-b11d` | 2026-10-21 | No |
 | B11e · Plan de tratamiento solo en el circuito de aprobación | Integrado en `main` | `fase2/b11e-plan-solo-circuito` | 2026-10-21 | **Sí** · `20261021090000_plan_solo_circuito.sql` |
+| B11f · Expediente documental solo en el circuito de aprobación | Integrado en `main` | `fase2/b11f-expediente-solo-circuito` | 2026-10-21 | **Sí** · `20261021100000_expediente_solo_circuito.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -72,6 +73,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020170000_aprobaciones_tipo_exclusion_brecha.sql` | B11d (1/2) | Tipo de objeto `gap_disposition`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
 | `supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql` | B11d (2/2) | Pasos de consulta (`kind`) y condicionales (`condition`), contexto de la solicitud, `approval_decide` con dictamen, el Auditor no decide, `gap_dispositions.status` con su trigger, política de exclusión de brechas y consultas de DP-01 en las políticas por defecto sin editar; etiqueta y enlace de la exclusión en la bandeja | **Antes** de desplegar B11d: la aplicación lee `gap_dispositions.status` y `approval_policy_steps.kind`. Revisa en Ajustes › Aprobaciones las políticas con consulta |
 | `supabase/migrations/20261021090000_plan_solo_circuito.sql` | B11e | Abre la solicitud de los planes «En revisión» que no la tenían (o los devuelve a borrador con nota si no hay política o autor); vacía `approver_id` en los planes no aprobados | **Antes** de desplegar B11e: el plan ya no se puede aprobar desde su pantalla. Revisa el aviso `B11e: N solicitudes abiertas, M planes devueltos a borrador` |
+| `supabase/migrations/20261021100000_expediente_solo_circuito.sql` | B11f | `trg_document_lifecycle_rules` sin aprobación con usuario; `approval_is_preparer` y `approval_can_decide`/`approval_step_candidates` excluyen `context.prepared_by`; abre la solicitud de los expedientes en revisión que no la tenían (o los devuelve a borrador) | **Antes** de desplegar B11f, después de la de B11e. Revisa el aviso `B11f: N solicitudes abiertas, M expedientes devueltos a borrador` |
 
 ---
 
@@ -1162,3 +1164,42 @@ retirados, 3 de cobertura nuevos), `check-server-actions.sh` correcto. No se ha 
 **Pendiente.** El mismo cierre para los expedientes: una plantilla sin política aplicable aún se aprueba por su
 vía propia (las demás políticas no admiten condiciones que dejen huecos). Clasificación AI Act y política de
 IA como objetos aprobables, en B13 y B20.
+
+---
+
+## B11f · Expediente documental solo en el circuito de aprobación
+
+**Fecha:** 2026-10-21 · **Rama:** `fase2/b11f-expediente-solo-circuito` ·
+**Migración:** **sí**, `supabase/migrations/20261021100000_expediente_solo_circuito.sql` (aplicar antes de desplegar)
+
+**Problema** (pendiente de B11e): un expediente cuya plantilla no encajaba con ninguna política se aprobaba
+desde su pantalla (**Aprobar expediente**), y la base de datos dejaba aprobarlo a un Responsable del SGAI que
+no hubiera redactado ningún apartado, también desde la API. Esa regla «quien redacta no aprueba» solo vivía
+en esa vía: en el circuito solo se excluía a quien enviaba la solicitud.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Base de datos | `trg_document_lifecycle_rules`: con usuario autenticado ya no se pasa a «Aprobado» |
+| Motor | `approval_is_preparer`: quien pidió la solicitud o figura en `context.prepared_by` no decide ni es candidato, tampoco como titular de una delegación, salvo que la política lo permita |
+| Envío del expediente | Exige una política activa para la plantilla y abre la solicitud con `prepared_by` = quienes redactaron algún apartado; si no se abre, vuelve a borrador |
+| Pantalla | Sin **Aprobar expediente**: en revisión indica que se decide en Aprobaciones (o que no hay solicitud abierta) |
+| Ajustes | `lib/approvals/coverage.ts` generalizada: tampoco se puede dejar sin política una plantilla del expediente |
+| Código retirado | Acción `approve` del expediente, `getDocumentApprovalContext`, `documentApprovalBlocker`, `DOCUMENT_APPROVER_ROLES` |
+| Migración | Expedientes en revisión sin solicitud: se abre (con `prepared_by`) o vuelven a borrador |
+
+**Verificación.** Migración probada en el Postgres local: un Anexo IV en revisión sin solicitud abre la suya
+con `prepared_by`; el único Responsable del SGAI, que redactó un apartado, no puede decidir ni es candidato, ni
+quien recibe su delegación; con sesión de usuario no se puede aprobar («El expediente se aprueba en
+Aprobaciones.») y el rol de servicio sí; la segunda pasada no cambia nada. `tsc --noEmit` sin errores,
+`next lint` sin avisos, `npm test` 51/51, `check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/expediente-documental.md`, `funcional/aprobaciones.md`, `funcional/ajustes.md`,
+`funcional/flujo-completo-evaluacion.md`, `negocio/documentacion-del-sistema.md`,
+`negocio/flujos-de-aprobacion.md`, `tecnica/modelo-datos.md`.
+
+**Pendiente.** Con B11e y B11f, planes y expedientes solo se aprueban en el circuito. La AISIA, la
+Declaración de Aplicabilidad y las evidencias conservan su vía propia en el código, pero no es alcanzable
+desde la interfaz: su tipo siempre tiene una política activa sin condiciones. Sí lo es desde la API, porque
+sus triggers aún dejan aprobar con sesión de usuario (posible B11g).

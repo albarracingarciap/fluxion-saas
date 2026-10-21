@@ -20,6 +20,7 @@ fuente:
   - supabase/migrations/20260820120000_templates_fria_dpia_modelcard.sql
   - supabase/migrations/20261020120000_expediente_ciclo.sql
   - apps/web/lib/documents/lifecycle-rules.ts
+  - supabase/migrations/20261021100000_expediente_solo_circuito.sql
 ---
 
 # Expediente documental
@@ -51,15 +52,14 @@ entregables PDF inmutables que se registran como evidencia.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Responsable del SGAI | Sí | Todas. Aprueba los expedientes que no ha redactado |
-| Resto de roles | Sí | Redactar, enviar a revisión, volver a borrador, reabrir, generar y descargar PDF |
+| Todos los roles | Sí | Redactar, enviar a revisión, volver a borrador, reabrir, generar y descargar PDF |
 
-Aprobar sigue DP-01: quien redacta no aprueba (ningún apartado escrito por quien aprueba). Hasta B11
-aprueba el Responsable del SGAI en todas las plantillas; la base de datos lo comprueba también
-(`trg_document_lifecycle_rules`). A quien no puede aprobar, la vista le muestra el motivo en lugar del botón.
-
-> **Pendiente de implementar.** Aprobadores de DP-01 por plantilla: la DPIA, el responsable del tratamiento
-> con dictamen del DPO; la FRIA, el Comité de IA (B11 y B23b).
+El expediente se aprueba siempre en [Aprobaciones](aprobaciones.md), con la política de su plantilla (B11f).
+Por defecto (DP-01): Anexo IV y ficha del modelo, el Responsable del SGAI; FRIA, el Comité de IA con dictamen
+del DPO; DPIA, el Responsable del tratamiento con dictamen del DPO. Quien redacta no aprueba: la solicitud
+lleva en su contexto (`prepared_by`) a quienes escribieron algún apartado, y ni ellos ni quien la envió
+pueden decidir, tampoco por delegación. La base de datos no deja aprobar un expediente desde la sesión de un
+usuario (`trg_document_lifecycle_rules`).
 
 Al abrir la vista, si el sistema no tiene un documento vivo para esa plantilla, se crea uno en borrador
 con la versión activa más reciente de la plantilla.
@@ -112,9 +112,8 @@ de aprobación. No se pueden editar, solo descargar.
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Escribir o completar** (lápiz) | Todos | Abre el editor del apartado, también en los derivados. **Guardar** guarda el texto, y si queda vacío lo borra. Registra quién lo redacta | Solo en borrador |
-| **Enviar a revisión** | Todos | Borrador → En revisión. En revisión no se edita | Historial «Expediente enviado a revisión» |
-| **Volver a borrador** | Todos | En revisión → Borrador | Historial «Expediente devuelto a borrador» |
-| **Aprobar expediente** | Responsable del SGAI que no lo ha redactado | En revisión → Aprobado. Deshabilitado si hay huecos («Quedan apartados obligatorios sin cubrir») | La base de datos guarda quién lo aprueba y cuándo. Historial «Expediente aprobado» |
+| **Enviar a revisión** | Todos | Borrador → En revisión, sin apartados obligatorios sin cubrir y con una política activa para la plantilla. En revisión no se edita | Abre la solicitud en [Aprobaciones](aprobaciones.md) y avisa al primer paso; si no se abre, vuelve a borrador. Historial «Expediente enviado a revisión» |
+| **Volver a borrador** | Todos | En revisión → Borrador | Cancela la solicitud. Historial «Expediente devuelto a borrador» |
 | **Reabrir (versión nueva)** | Todos, con confirmación | `document_reopen`: la versión aprobada pasa a «Sustituido» y se abre la siguiente en borrador con el mismo contenido | Historial «Expediente reabierto». Los PDF de la versión aprobada se conservan |
 | **Generar PDF** | Todos | Genera un entregable en cualquier estado | Ver abajo |
 | **Descargar** | Todos | Descarga el PDF con un enlace temporal | — |
@@ -151,14 +150,14 @@ Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobació
 
 | Situación | Mensaje |
 |---|---|
+| Envío sin política para la plantilla | «No hay ninguna política de aprobación activa para {plantilla}. Configúrala en Ajustes › Aprobaciones antes de enviar el expediente.» |
 | Plantilla sin versión activa | «No hay ninguna plantilla activa para "{key}". Revisa las migraciones.» |
 | Editar un expediente aprobado | «El expediente está aprobado. Reábrelo para crear una versión nueva y editarla.» |
 | Editar en revisión | «El expediente está en revisión. Vuelve a borrador para editarlo.» |
 | Transición no permitida | «Esta acción no se puede aplicar a un expediente en estado «…».» |
-| Aprobar sin el rol | «Solo el Responsable del SGAI puede aprobar expedientes.» |
-| Aprobar quien lo redactó | «Quien redacta el expediente no puede aprobarlo.» |
+| Aprobar desde la API con sesión de usuario | «El expediente se aprueba en Aprobaciones.» |
 | Apartado inexistente en la plantilla | «El apartado {ref} no existe en esta versión de la plantilla.» |
-| Aprobar con huecos | «No se puede aprobar con apartados obligatorios sin cubrir: {refs}.» |
+| Enviar con huecos | «No se puede enviar a aprobación con apartados obligatorios sin cubrir: {refs}.» |
 | Almacenamiento no configurado | «El almacenamiento de documentos no está configurado.» |
 | Renderizador no configurado o con error | «El servicio de renderizado no está configurado (RENDERER_URL / RENDERER_SECRET).» / «el renderizador respondió {status}: …» |
 | PDF generado pero no guardado | «El PDF se generó pero no se pudo guardar.» |
@@ -173,9 +172,14 @@ stateDiagram-v2
   [*] --> Borrador: abrir la vista
   Borrador --> En_revisión: enviar a revisión
   En_revisión --> Borrador: volver a borrador
-  En_revisión --> Aprobado: aprobar (sin huecos)
+  En_revisión --> Aprobado: se aprueba en Aprobaciones
+  En_revisión --> Borrador: se rechaza, se cancela o caduca
   Aprobado --> Sustituido: reabrir (nace la versión siguiente en borrador)
 ```
+
+En revisión, la vista muestra «La aprobación se decide en Aprobaciones, con la política de la organización.»,
+o, si el expediente no tiene solicitud abierta, «Sin solicitud de aprobación abierta: vuelve a borrador y
+envíalo de nuevo.».
 
 Cada cambio de estado queda en el historial del sistema. Fuera de estas transiciones, la base de datos lo
 rechaza; las actas de aprobación, que genera el sistema, nacen aprobadas.

@@ -134,13 +134,13 @@ flowchart LR
 riesgo o un incumplimiento, así que pasa por aprobación: la brecha sigue en la cola hasta que se aprueba.
 Las demás brechas se excluyen directamente.
 
-El plan de tratamiento solo se aprueba en este circuito: cada [nivel de aprobación](../glosario.md#nivel-de-aprobación)
-tiene siempre una política, y la configuración no permite dejar ninguno sin cubrir.
+El plan de tratamiento y los documentos del expediente solo se aprueban en este circuito: cada
+[nivel de aprobación](../glosario.md#nivel-de-aprobación) y cada plantilla del expediente tienen siempre una
+política, y la configuración no permite dejar ninguno sin cubrir. Quien redactó algún apartado de un documento
+no puede aprobarlo.
 
 > **Pendiente de implementar.**
 > - La clasificación AI Act y la política de IA como objetos aprobables.
-> - Mismo cierre para los expedientes: hoy, una plantilla del expediente sin política aplicable aún se
->   aprueba con su mecanismo propio.
 
 ## Relación normativa
 

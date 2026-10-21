@@ -182,15 +182,15 @@ const FRAMEWORK_LABEL: Record<string, string> = {
   ai_act: 'AI Act', gdpr: 'RGPD', iso42001: 'ISO 42001',
 }
 
-export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados, approval }: {
+export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados, inApprovalCircuit }: {
   doc: ComposedDocument
   renders: RenderRow[]
   generados: GeneratedDocRow[]
   templates: TemplateOption[]
   templateKey: string
   aiSystemId: string
-  /** Si quien mira puede aprobar y, si no, por qué (DP-01). */
-  approval: { canApprove: boolean; reason: string | null }
+  /** Tiene una solicitud pendiente en Aprobaciones (B11f: la única vía). */
+  inApprovalCircuit: boolean
 }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -310,19 +310,13 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
                 >
                   Volver a borrador
                 </button>
-                {approval.canApprove ? (
-                  <button
-                    onClick={() => changeStatus('approve')} disabled={pending || doc.gaps.length > 0}
-                    title={doc.gaps.length > 0 ? 'Quedan apartados obligatorios sin cubrir' : undefined}
-                    className="px-3 py-1.5 rounded-[7px] bg-brand-cyan text-white font-sora text-[12.5px] disabled:opacity-40 flex items-center gap-1.5"
-                  >
-                    {pending && <Loader2 size={12} className="animate-spin" />} Aprobar expediente
-                  </button>
-                ) : (
-                  <span className="font-sora text-[12px] text-lttm self-center max-w-[280px]">
-                    {approval.reason ?? 'Pendiente de aprobación.'}
-                  </span>
-                )}
+                <span className="font-sora text-[12px] text-lttm self-center max-w-[320px]">
+                  {inApprovalCircuit ? (
+                    <>La aprobación se decide en <a href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</a>, con la política de la organización.</>
+                  ) : (
+                    'Sin solicitud de aprobación abierta: vuelve a borrador y envíalo de nuevo.'
+                  )}
+                </span>
               </>
             )}
             {status === 'approved' && (
