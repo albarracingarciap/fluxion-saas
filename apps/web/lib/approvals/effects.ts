@@ -241,7 +241,7 @@ async function aplicarAExclusion(params: EfectoParams): Promise<{ aviso?: string
   const { error } = params.outcome === 'approved'
     ? await consulta.update({ status: 'active' }).eq('id', params.objectId).eq('status', 'pending')
     : await consulta.delete().eq('id', params.objectId).eq('status', 'pending')
-  if (error) return aviso('la exclusión de la brecha no se pudo actualizar', error)
+  if (error) return aviso('la exclusión del gap no se pudo actualizar', error)
   return {}
 }
 
@@ -387,7 +387,7 @@ export async function applyApprovalCancellation(params: {
     case 'gap_disposition': {
       const { error } = await admin.from('gap_dispositions')
         .delete().eq('id', params.objectId).eq('status', 'pending')
-      if (error) return aviso('la exclusión de la brecha no se pudo retirar', error)
+      if (error) return aviso('la exclusión del gap no se pudo retirar', error)
       return {}
     }
     default:

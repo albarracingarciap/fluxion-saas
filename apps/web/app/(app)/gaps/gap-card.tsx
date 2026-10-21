@@ -205,7 +205,7 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
               <Link
                 href="/gaps/excluded"
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-amber-200 bg-amber-50 text-amber-700 font-sora text-[11px]"
-                title="La exclusión espera aprobación en Aprobaciones; mientras tanto la brecha sigue en la cola"
+                title="La exclusión espera aprobación en Aprobaciones; mientras tanto el gap sigue en la cola"
               >
                 <ShieldOff size={12} />
                 Exclusión pendiente de aprobación

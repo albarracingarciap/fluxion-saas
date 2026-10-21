@@ -467,7 +467,8 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 
 ### Brecha
 - **Definición:** carencia detectada en el cumplimiento o en el tratamiento del riesgo de un sistema de IA. Fluxion las calcula automáticamente.
-- **No usar:** «gap», «incumplimiento», «no conformidad» (término de auditoría con otro significado).
+- **Término admitido:** «gap». Es el que usa la interfaz (**Análisis de gaps**, **Gaps excluidos**) y el habitual entre los profesionales con los que trabaja el producto (decisión del 2026-10-21). En la documentación se puede usar cualquiera de los dos.
+- **No usar:** «incumplimiento», «no conformidad» (término de auditoría con otro significado).
 - **En el código:** cálculo en `lib/gaps/data.ts`; decisiones en `fluxion.gap_dispositions`.
 
 ### Tipo de brecha
@@ -484,7 +485,8 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 
 ### Disposición de la brecha
 - **Definición:** decisión justificada de no cerrar una brecha: se asume o se declara fuera de alcance. La de un «Riesgo sin tratar» o una «Obligación sin cubrir» equivale a aceptar un riesgo o un incumplimiento y pasa por los [flujos de aprobación](#flujos-de-aprobación) (por defecto, la aprueba el Responsable del SGAI): mientras espera, la brecha sigue en la cola; si se rechaza, la disposición se descarta. Las de los otros tipos de brecha no requieren aprobación.
-- **No usar:** «exclusión», «waiver».
+- **Término admitido:** «exclusión» y «excluir» para la acción de registrar la disposición, que es como la llama la interfaz (**Excluir**, **Gaps excluidos**, «Exclusión de gap» en Aprobaciones) (decisión del 2026-10-21).
+- **No usar:** «waiver».
 - **En el código:** `fluxion.gap_dispositions.disposition`. «Brecha asumida» es `accepted` y «Fuera de alcance» es `not_applicable`; la justificación debe tener al menos 10 caracteres. `status` ∈ `active`, `pending` (esperando aprobación); objeto aprobable `gap_disposition`.
 
 ### Instantánea

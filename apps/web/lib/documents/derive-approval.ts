@@ -45,7 +45,7 @@ const TIPO_OBJETO: Record<string, string> = {
   document:         'Documento regulatorio',
   soa:              'Declaración de Aplicabilidad',
   evidence:         'Evidencia',
-  gap_disposition:  'Exclusión de brecha',
+  gap_disposition:  'Exclusión de gap',
 }
 
 const SENTIDO: Record<string, string> = {

@@ -834,9 +834,9 @@ flowchart TD
 - **Cierre:** una brecha se cierra resolviendo su origen (obligación, plan, evidencia), no desde esta
   vista.
 
-> **⚠ GAP-30 · Exclusión de brechas sin aprobación.** Asumir una brecha es aceptar un riesgo o un
-> incumplimiento, pero no pasa por ningún aprobador: basta un rol con permiso y 10 caracteres de
-> justificación. **Crear tareas** en bloque no crea ninguna (`R13`).
+> **✔ GAP-30 · Exclusión con aprobación, resuelta en B11d (DP-07).** Excluir un gap «Riesgo sin tratar» u
+> «Obligación sin cubrir» pasa por Aprobaciones (por defecto, el Responsable del SGAI) y el gap sigue en la cola
+> hasta que se aprueba. Sigue abierto `R13`: **Crear tareas** en bloque no crea ninguna.
 
 > **ℹ Aclaración.** Las brechas no incluyen la Declaración de Aplicabilidad: un control aplicable sin
 > implantar en la Declaración no aparece como brecha.
@@ -898,7 +898,7 @@ Resumen de todo lo que se aprueba en el recorrido:
 | AISIA | 6 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Comité de IA con dictamen del DPO | Sí: no decide quien la creó ni quien la envió | Sí | Sí, en cada decisión (B11c) | AISIA aprobada; controles A.5.2-A.5.5; rechazo la deja «Rechazada» |
 | Expediente documental | 7 | **Flujos de aprobación** (B11f) | Pasos de la política de la plantilla | Sí: no decide quien redactó algún apartado | Sí | Sí, en cada decisión (B11c) | Expediente aprobado; rechazo lo devuelve a borrador |
 | Evidencia | 8 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Responsable del SGAI | Sí: no decide quien la aporta | Sí | Sí, en cada decisión (B11c) | Evidencia válida |
-| Exclusión de brecha | 9 | **Flujos de aprobación** para «Riesgo sin tratar» y «Obligación sin cubrir» (B11d); el resto, ninguno | Por defecto, Responsable del SGAI | Sí, por defecto | Sí | Sí, en cada decisión | Brecha fuera de la cola; rechazo la deja en la cola |
+| Exclusión de gap | 9 | **Flujos de aprobación** para «Riesgo sin tratar» y «Obligación sin cubrir» (B11d); el resto, ninguno | Por defecto, Responsable del SGAI | Sí, por defecto | Sí | Sí, en cada decisión | Brecha fuera de la cola; rechazo la deja en la cola |
 | Declaración de Aplicabilidad | 9 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Revisión por la Dirección (respaldo: Directivo) | Sí, por defecto | Sí | Sí, en cada decisión (B11c) | Declaración aprobada; rechazo la devuelve a borrador |
 
 > **ℹ Aclaración.** Según la decisión de `_inventario.md` §14.2, Flujos de aprobación es Core y debe
@@ -958,7 +958,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-11 | 3 | Obligaciones no se actualizan desde las demás fases | Debilita | — |
 | GAP-12, GAP-31 | 3, 9 | Cláusulas del SGAI de ISO/IEC 42001 sin flujo; obligaciones ISO no aplicadas | Debilita | `I22` |
 | GAP-29 | 9 | Estado de controles de la Declaración desconectado del tratamiento | Debilita | — |
-| GAP-30 | 9 | Exclusión de brechas sin aprobación | Debilita | `R13` |
+| GAP-30 | 9 | Exclusión de brechas sin aprobación | Debilita | ✔ Aprobación en B11d; `R13` abierto |
 | GAP-33 | 4 a 9 | FMEA, AISIA y Declaración no se conservan como evidencia | Debilita | — |
 | GAP-20 | 5 | ✔ Resuelto en B07: el plan nunca se cerraba | — | `R12` |
 | GAP-21 | 5 | Escalados sin aviso y destinatario del recordatorio (la fecha de «Diferir» se resolvió en B05) | Debilita | `R11` |

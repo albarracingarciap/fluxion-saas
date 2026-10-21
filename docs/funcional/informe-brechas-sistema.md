@@ -53,7 +53,7 @@ las [brechas](../glosario.md#brecha) de toda la organización.
 | **Resumen ejecutivo** | Descripción, uso previsto, base AI Act, razón de la clasificación, stack externo | — |
 | **Prioridades inmediatas** | Recuentos de obligaciones no resueltas, controles ISO parciales o pendientes, evidencias en borrador o revisión, evidencias caducadas y modos de fallo activados | — |
 | **Obligaciones AI Act pendientes** | Referencia, nombre, estado, prioridad y fecha objetivo de cada obligación no resuelta | «No hay obligaciones AI Act pendientes en este momento.» |
-| **Brechas ISO 42001** | Controles que no están implementados, con su estado y puntos | «No hay checks ISO pendientes o parciales.» |
+| **Gaps ISO 42001** | Controles que no están implementados, con su estado y puntos | «No hay checks ISO pendientes o parciales.» |
 | **Situación de evidencias** | Válidas, pendientes y caducadas; hasta 8 evidencias con enlace | «No hay evidencias registradas para este sistema.» |
 | **Modos de fallo activados** | Por dimensión (Técnicos, Legales, Éticos, Seguridad, Gobernanza, ROI), hasta 8 por dimensión | «No hay modos de fallo activados para este sistema.» |
 | **Planes de tratamiento** | Solo si hay. Estado, zonas, fecha límite y periodicidad de revisión | — |

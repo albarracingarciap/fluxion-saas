@@ -105,7 +105,7 @@ export function buildGapGroups(gaps: UnifiedGapRecord[]): GapGroupRecord[] {
         group_type: 'normativo_por_sistema',
         layer: 'normativo',
         title: `${gap.system_name} · obligaciones AI Act pendientes`,
-        subtitle: 'Brechas normativas agrupadas por sistema',
+        subtitle: 'Gaps normativos agrupados por sistema',
         detail_url: `/inventario/${gap.system_id}?tab=obligaciones`,
         child: gap,
         owner_hint: gap.owner_name,

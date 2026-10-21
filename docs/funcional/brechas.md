@@ -189,8 +189,8 @@ defecto; lo que decide es la política activa.
 | Brecha FMEA | «Esta capa no admite asignación directa desde Análisis de gaps.» |
 | Origen no encontrado | «No se encontraron registros para actualizar.» |
 | Asignado sin perfil en la organización | «El usuario asignado no tiene perfil en esta organización.» |
-| Excluir una brecha con la exclusión pendiente | «Alguna brecha ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.» |
-| Activar desde la API una exclusión que gobierna una política | «Excluir esta brecha pasa por aprobación» (trigger `trg_gap_disposition_rules`) |
+| Excluir una brecha con la exclusión pendiente | «Algún gap ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.» |
+| Activar desde la API una exclusión que gobierna una política | «Excluir este gap pasa por aprobación» (trigger `trg_gap_disposition_rules`) |
 
 No se valida que las fechas sean futuras. La caducidad de una exclusión puede ser una fecha pasada.
 
