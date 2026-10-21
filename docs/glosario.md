@@ -381,9 +381,19 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `compliance.control_templates`; `compliance.failure_mode_control_refs`.
 
 ### Flujos de aprobación
-- **Definición:** circuito por el que pasan los objetos que requieren aprobación antes de darse por buenos: planes de tratamiento, evaluaciones de impacto, documentos, la Declaración de Aplicabilidad y evidencias. Cada objeto abre una solicitud al enviarse a aprobación y se decide en la bandeja de Aprobaciones. Una **política** fija los pasos sucesivos y quién aprueba en cada uno: un rol, una persona, un comité concreto, un tipo de comité o una función de gobierno; los dos últimos se resuelven al abrir la solicitud y, si el comité no está constituido o la función no está designada, decide un **rol de respaldo**. Admite delegaciones con fecha de fin. Cada organización recibe políticas por defecto con el mapa de aprobaciones del modelo de gobierno, y puede tener varias por tipo de objeto con condiciones distintas (nivel del plan, plantilla del expediente): se aplica la más específica. Está disponible en todos los planes.
+- **Definición:** circuito por el que pasan los objetos que requieren aprobación antes de darse por buenos: planes de tratamiento, evaluaciones de impacto, documentos, la Declaración de Aplicabilidad, evidencias y [disposiciones de brechas](#disposición-de-la-brecha) que gobierne una política. Cada objeto abre una solicitud al enviarse a aprobación y se decide en la bandeja de Aprobaciones. Una **política** fija los pasos sucesivos y quién interviene en cada uno: un rol, una persona, un comité concreto, un tipo de comité o una función de gobierno; los dos últimos se resuelven al abrir la solicitud y, si el comité no está constituido o la función no está designada, decide un **rol de respaldo**. Un paso puede ser de aprobación o de consulta ([paso de consulta](#paso-de-consulta)), y puede entrar solo en determinados casos ([paso condicional](#paso-condicional)). Admite delegaciones con fecha de fin. Quien solicita no aprueba, salvo que la política lo permita, y el Auditor nunca decide. Cada organización recibe políticas por defecto con el mapa de aprobaciones del modelo de gobierno, y puede tener varias por tipo de objeto con condiciones distintas (nivel del plan, plantilla del expediente, tipo de brecha): se aplica la más específica. Las solicitudes se pueden cancelar y, si la política lo fija, caducan. Está disponible en todos los planes.
 - **No usar:** «workflow», «validación».
-- **En el código:** `fluxion.approval_policies` (`conditions`, `is_default`), `approval_policy_steps` (`approver_type` ∈ `role`, `profile`, `committee`, `committee_type`, `function`; `fallback_role`), `approval_requests`, `approval_decisions`, `approval_delegations`; enum `approval_object_type`.
+- **En el código:** `fluxion.approval_policies` (`conditions`, `is_default`, `expires_after_days`), `approval_policy_steps` (`approver_type` ∈ `role`, `profile`, `committee`, `committee_type`, `function`; `fallback_role`; `kind`; `condition`), `approval_requests` (`context`, `expires_at`), `approval_decisions`, `approval_delegations`; enum `approval_object_type`.
+
+### Paso de consulta
+- **Definición:** paso de un flujo de aprobación en el que quien interviene emite un **dictamen** en lugar de un voto: favorable o desfavorable, siempre razonado y sin abstención. El dictamen consta en la solicitud y en el acta, pero no decide: la solicitud pasa al paso siguiente, y quien aprueba decide con el dictamen delante. Si al abrir la solicitud no hay nadie a quien consultar, el paso se omite y queda constancia; no tiene rol de respaldo. Por ejemplo, el dictamen del DPO en la evaluación de impacto AISIA, la FRIA y la DPIA.
+- **No usar:** «voto consultivo», «informe previo».
+- **En el código:** `approval_policy_steps.kind = 'consultation'`; el dictamen es una fila de `approval_decisions` (`approved` = favorable, `rejected` = desfavorable).
+
+### Paso condicional
+- **Definición:** paso de un flujo de aprobación que solo entra si el objeto cumple una condición al abrir la solicitud. Por ejemplo, la consulta al CISO solo en los planes de tratamiento con controles de seguridad (alguna acción «Mitigar» sobre un modo de fallo de la dimensión Seguridad). Si no se cumple, el paso no entra y queda constancia en el acta.
+- **No usar:** «paso opcional».
+- **En el código:** `approval_policy_steps.condition`, evaluada sobre `approval_requests.context` (hoy, `has_security_controls`).
 
 ### Nivel de aprobación
 - **Definición:** nivel de autoridad que debe aprobar un plan de tratamiento, determinado por la zona de riesgo de partida.
@@ -472,9 +482,9 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Evidencia caducada | `caducidad` | Evidencia caducada o con caducidad próxima |
 
 ### Disposición de la brecha
-- **Definición:** decisión justificada de no cerrar una brecha: se asume o se declara fuera de alcance.
+- **Definición:** decisión justificada de no cerrar una brecha: se asume o se declara fuera de alcance. La de un «Riesgo sin tratar» o una «Obligación sin cubrir» equivale a aceptar un riesgo o un incumplimiento y pasa por los [flujos de aprobación](#flujos-de-aprobación) (por defecto, la aprueba el Responsable del SGAI): mientras espera, la brecha sigue en la cola; si se rechaza, la disposición se descarta. Las de los otros tipos de brecha no requieren aprobación.
 - **No usar:** «exclusión», «waiver».
-- **En el código:** `fluxion.gap_dispositions.disposition`. «Brecha asumida» es `accepted` y «Fuera de alcance» es `not_applicable`; la justificación debe tener al menos 10 caracteres.
+- **En el código:** `fluxion.gap_dispositions.disposition`. «Brecha asumida» es `accepted` y «Fuera de alcance» es `not_applicable`; la justificación debe tener al menos 10 caracteres. `status` ∈ `active`, `pending` (esperando aprobación); objeto aprobable `gap_disposition`.
 
 ### Instantánea
 - **Definición:** copia inmutable de un informe o análisis en una fecha, que se conserva para auditoría y para comparar con otras instantáneas.
@@ -543,7 +553,7 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Normativa:** AI Act, Art. 49 y Art. 71.
 
 ### Acta
-- **Definición:** documento que deja constancia de una decisión de aprobación (por ejemplo, la de un plan de tratamiento de nivel 3). Forma parte del módulo Actas y paquetes de auditoría.
+- **Definición:** documento que deja constancia de una decisión de aprobación. Se genera en todo cierre con decisión (aprobada o rechazada), con los pasos de la política, los votos, los dictámenes y los pasos omitidos; las cancelaciones y caducidades no la llevan. Forma parte del módulo Actas y paquetes de auditoría.
 - **No usar:** «minuta».
 - **En el código:** plantilla `approval_minutes` en `fluxion.document_templates`; `lib/approvals/minutes.ts`.
 
@@ -676,6 +686,8 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Directivo | `executive` |
 | Auditor | `auditor` |
 | Lector | `viewer` |
+
+- El Auditor nunca decide en los flujos de aprobación, ni por delegación: audita lo aprobado (DP-01).
 
 ### Función de gobierno
 - **Definición:** función del modelo de gobierno de la IA que interviene en el circuito de aprobación sin ser un rol de permisos. La persona designada conserva su rol y además ocupa la función. Hay una persona por función.
