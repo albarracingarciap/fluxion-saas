@@ -1,5 +1,6 @@
 'use server';
 
+import { createComplianceClient } from '@/lib/supabase/compliance';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -274,6 +275,28 @@ async function upsertCustomMitigationControl(params: {
   return { controlId: createdControl.id as string, controlResolution: 'created' as const };
 }
 
+/**
+ * El ítem del FMEA de una acción (PostgREST lo devuelve como objeto o lista).
+ * La dimensión de riesgo no está en `fmea_items`, sino en el catálogo de modos
+ * de fallo: antes se pedía `fmea_items.dimension_id`, que no existe, y la
+ * consulta fallaba entera.
+ */
+function itemDeAccion(action: { fmea_items?: unknown }): { failure_mode_id?: string; s_default_frozen?: number } | null {
+  const item = Array.isArray(action.fmea_items) ? action.fmea_items[0] : action.fmea_items;
+  return (item as { failure_mode_id?: string; s_default_frozen?: number } | null) ?? null;
+}
+
+/** Dimensión de riesgo de cada modo de fallo del catálogo. */
+async function dimensionesDeModos(failureModeIds: Array<string | null | undefined>): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(failureModeIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return new Map();
+  const { data } = await createComplianceClient()
+    .from('failure_modes')
+    .select('id, dimension_id')
+    .in('id', ids);
+  return new Map((data ?? []).map((m: { id: string; dimension_id: string }) => [m.id, m.dimension_id]));
+}
+
 async function calculateCurrentPlanProjectedZone(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fluxion: any;
@@ -298,22 +321,27 @@ async function calculateCurrentPlanProjectedZone(params: {
       s_actual_at_creation,
       s_residual_target,
       fmea_items!inner(
-        dimension_id,
+        failure_mode_id,
         s_default_frozen
       )
     `)
     .eq('plan_id', planId);
 
+  const dimensiones = await dimensionesDeModos(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (persistedActions ?? []).map((action: any) => itemDeAccion(action)?.failure_mode_id),
+  );
+
   return calculateProjectedZoneForTreatmentActions({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actions: (persistedActions ?? []).map((action: any) => {
-      const item = Array.isArray(action.fmea_items) ? action.fmea_items[0] : action.fmea_items;
+      const item = itemDeAccion(action);
       return {
         id: action.id,
         option: action.option,
         s_actual_at_creation: action.s_actual_at_creation,
         s_residual_target: action.s_residual_target,
-        dimension_id: item?.dimension_id ?? 'gobernanza',
+        dimension_id: dimensiones.get(item?.failure_mode_id ?? '') ?? 'gobernanza',
         s_default_frozen: item?.s_default_frozen ?? action.s_actual_at_creation,
       };
     }),
@@ -730,7 +758,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
       due_date,
       review_due_date,
       fmea_items!inner(
-        dimension_id,
+        failure_mode_id,
         s_default_frozen
       )
     `)
@@ -772,12 +800,13 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
 
   // Contexto de la solicitud: el nivel elige la política y los controles de
   // seguridad deciden si entra la consulta del CISO (B11d).
+  const dimensiones = await dimensionesDeModos(actions.map((action) => itemDeAccion(action)?.failure_mode_id));
   const approvalContext = {
     approval_level: plan.approval_level,
-    has_security_controls: String(planHasSecurityControls(actions.map((action) => {
-      const item = Array.isArray(action.fmea_items) ? action.fmea_items[0] : action.fmea_items;
-      return { option: action.option, dimension_id: item?.dimension_id };
-    }))),
+    has_security_controls: String(planHasSecurityControls(actions.map((action) => ({
+      option: action.option,
+      dimension_id: dimensiones.get(itemDeAccion(action)?.failure_mode_id ?? ''),
+    })))),
   };
 
   // El plan solo se aprueba en Flujos de aprobación (B11e): sin una política
