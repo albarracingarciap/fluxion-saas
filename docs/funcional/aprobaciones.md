@@ -30,6 +30,7 @@ fuente:
   - apps/web/app/(app)/gaps/actions.ts
   - apps/web/lib/approvals/coverage.ts
   - supabase/migrations/20261021090000_plan_solo_circuito.sql
+  - supabase/migrations/20261021100000_expediente_solo_circuito.sql
 ---
 
 # Aprobaciones
@@ -72,7 +73,7 @@ activa para su tipo:
 |---|---|---|
 | Plan de tratamiento | Enviarlo a aprobación | El panel de aprobación remite a Aprobaciones |
 | Evaluación AISIA | Enviarla para aprobación | La ficha muestra «La decisión se toma en Aprobaciones» en lugar de **Aprobar** y **Rechazar** |
-| Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política puede depender de la plantilla, `template_key`) | En lugar de **Aprobar expediente**, el motivo. **Volver a borrador** cancela la solicitud |
+| Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política depende de la plantilla, `template_key`; el contexto lleva `prepared_by`, B11f) | «La aprobación se decide en Aprobaciones…» (no hay botón de aprobar desde B11f). **Volver a borrador** cancela la solicitud |
 | Declaración de Aplicabilidad | Enviarla a revisión (con todos los controles aplicables justificados) | **En Aprobaciones** en lugar de **Aprobar SoA**. **Iniciar nueva revisión** cancela la solicitud |
 | Evidencia | Enviarla a revisión (también en bloque) | «Se decide en Aprobaciones». Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
 | Exclusión de brecha (B11d) | Excluir una brecha (también en bloque) cuya capa gobierna una política; por defecto, «Riesgo sin tratar» y «Obligación sin cubrir» (DP-07). El contexto lleva `gap_layer` y el título de la brecha | La brecha sigue en la cola con **Exclusión pendiente de aprobación**, y en [Brechas excluidas](brechas-excluidas.md) en **Pendientes de aprobación**. **Retirar exclusión** cancela la solicitud |
@@ -81,8 +82,12 @@ activa para su tipo:
 de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
 menos una activa. El plan de tratamiento ya no tiene vía propia (B11e): sin política para su nivel no se
 puede enviar, y Ajustes no deja guardar, desactivar ni borrar una política si algún nivel del plan se queda
-sin cubrir. Solo un expediente cuya plantilla no encaje con ninguna política se aprueba aún por su vía
-propia.
+sin cubrir. Lo mismo con las plantillas del expediente (B11f).
+
+**Quien prepara no decide (B11f).** Además de quien abrió la solicitud, no pueden decidir ni son candidatos
+los perfiles de `context.prepared_by` (en los expedientes, quienes redactaron algún apartado), tampoco como
+titulares de una delegación, salvo que la política permita que quien solicita apruebe
+(`approval_is_preparer`).
 
 Al aplicar las políticas por defecto, los objetos que ya esperaban aprobación por la vía antigua (planes,
 AISIA, expedientes y evidencias en revisión, y la Declaración en revisión) abrieron su solicitud.

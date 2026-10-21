@@ -56,13 +56,12 @@ herramienta y no por los apartados de la norma, los huecos son difíciles de ver
 | Responsable del sistema | Redacta los apartados que no se deducen de los datos |
 | Analista de cumplimiento | Revisa el documento y lo envía a revisión |
 | DPO | Interviene en la DPIA y en la relación de la FRIA con la protección de datos |
-| Responsable del SGAI | Aprueba el documento, si no ha redactado ningún apartado |
+| Aprobadores (según la política) | Aprueban el documento en los [flujos de aprobación](flujos-de-aprobacion.md), si no han redactado ningún apartado |
 | Auditor | Consulta los documentos aprobados y sus PDF |
 
-Quien redacta no aprueba. Hoy aprueba el Responsable del SGAI todos los documentos.
-
-> **Pendiente de implementar.** Los aprobadores decididos para cada documento: la DPIA, el responsable del
-> tratamiento con dictamen del DPO; la FRIA, el Comité de IA.
+Quien redacta no aprueba. Por defecto aprueban: la documentación técnica (Anexo IV) y la ficha del modelo,
+el Responsable del SGAI; la FRIA, el Comité de IA con dictamen del DPO; la DPIA, el Responsable del
+tratamiento con dictamen del DPO.
 
 ## Flujo de trabajo
 
@@ -93,8 +92,9 @@ flowchart LR
 3. **Redacción.** La organización redacta los apartados manuales. Solo se guarda lo que escriben las
    personas; el resto se compone en cada momento a partir de los datos.
 4. **Revisión y aprobación.** El documento se redacta en borrador, se envía a revisión (donde ya no se
-   edita; si hay que cambiar algo, vuelve a borrador) y se aprueba. Fluxion impide aprobarlo mientras falte
-   algún apartado obligatorio e indica cuáles. Cada paso queda en el historial del sistema.
+   edita; si hay que cambiar algo, vuelve a borrador) y se aprueba en los
+   [flujos de aprobación](flujos-de-aprobacion.md). Fluxion impide enviarlo mientras falte algún apartado
+   obligatorio e indica cuáles. Cada paso queda en el historial del sistema.
 5. **Versiones.** Un documento aprobado no se modifica: al reabrirlo nace una versión nueva en borrador con
    el mismo contenido, y la aprobada queda como sustituida, con sus PDF.
 6. **Generación del PDF.** Del documento se genera un PDF con el nombre de la organización, el rótulo y la

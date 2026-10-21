@@ -4,14 +4,14 @@ import assert from 'node:assert/strict'
 
 import {
   DOCUMENT_TRANSITIONS,
-  documentApprovalBlocker,
   documentAuthors,
 } from '../lib/documents/lifecycle-rules'
 import { templateMeta } from '../lib/documents/templates'
 
-test('se aprueba desde revisión, no desde borrador', () => {
-  assert.equal(DOCUMENT_TRANSITIONS.approve.from, 'in_review')
+test('desde la pantalla solo se envía o se devuelve; se aprueba en el circuito (B11f)', () => {
+  assert.deepEqual(DOCUMENT_TRANSITIONS.submit, { from: 'draft', to: 'in_review' })
   assert.deepEqual(DOCUMENT_TRANSITIONS.return, { from: 'in_review', to: 'draft' })
+  assert.equal('approve' in DOCUMENT_TRANSITIONS, false)
 })
 
 test('autores de los apartados redactados', () => {
@@ -22,19 +22,6 @@ test('autores de los apartados redactados', () => {
   }
   assert.deepEqual(documentAuthors(content).sort(), ['p1', 'p2'])
   assert.deepEqual(documentAuthors(null), [])
-})
-
-test('aprueba el Responsable del SGAI que no ha redactado el expediente', () => {
-  const sgai = { role: 'sgai_manager' }
-  assert.equal(documentApprovalBlocker({ templateKey: 'annex_iv', actor: sgai, actorProfileId: 'p9', authorProfileIds: ['p1'] }), null)
-  assert.match(
-    documentApprovalBlocker({ templateKey: 'annex_iv', actor: sgai, actorProfileId: 'p1', authorProfileIds: ['p1'] }) ?? '',
-    /redacta/,
-  )
-  assert.match(
-    documentApprovalBlocker({ templateKey: 'dpia', actor: { role: 'dpo' }, actorProfileId: 'p9', authorProfileIds: [] }) ?? '',
-    /Responsable del SGAI/,
-  )
 })
 
 test('cada plantilla lleva su rótulo, no «Anexo IV»', () => {

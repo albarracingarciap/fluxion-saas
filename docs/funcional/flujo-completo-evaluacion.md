@@ -158,7 +158,7 @@ flowchart TD
 | Evaluación FMEA completa | La creación del plan | ⛔ Sin pendientes, pospuestos, justificaciones ni segundas revisiones abiertas |
 | Acciones del plan decididas | El envío a aprobación | ⛔ Todas con opción, responsable, fecha y datos de su opción |
 | AISIA aprobada | **Analizar AISIA** en la Declaración | ⛔ Al menos una AISIA aprobada de un sistema en alcance |
-| Expediente sin huecos | **Aprobar expediente** | ⛔ Apartados obligatorios cubiertos |
+| Expediente sin huecos | **Enviar a revisión** (se aprueba en Aprobaciones) | ⛔ Apartados obligatorios cubiertos |
 | Controles aplicables justificados | **Aprobar SoA** | ⛔ Todos los aplicables con justificación |
 
 Todo lo demás se puede hacer en cualquier orden o dejar a medias. El orden de este documento es el que
@@ -687,8 +687,8 @@ ficha, la última evaluación FMEA y el último plan.
   IV**). Módulo Documentación del sistema.
 - **Documentos:** Documentación técnica (AI Act, Art. 11 y Anexo IV), FRIA (Art. 27), DPIA (RGPD, Art.
   35) y ficha del modelo.
-- **Flujo:** redactar los apartados sin derivar → **Pasar a revisión** → **Aprobar expediente** (⛔ sin
-  huecos obligatorios) → **Generar PDF**.
+- **Flujo:** redactar los apartados sin derivar → **Enviar a revisión** (⛔ sin huecos obligatorios) →
+  decisión en [Aprobaciones](aprobaciones.md) con la política de la plantilla → **Generar PDF**.
 - **Evidencia:** cada PDF crea una evidencia **válida** de tipo documento regulatorio con caducidad de
   12 meses y una instantánea inmutable.
 

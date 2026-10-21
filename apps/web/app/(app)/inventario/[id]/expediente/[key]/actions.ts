@@ -10,16 +10,13 @@ import { generateRender } from '@/lib/documents/render'
 import { DOCUMENT_STATUS_LABELS, isTemplateKey, templateMeta } from '@/lib/documents/templates'
 import {
   DOCUMENT_TRANSITIONS,
-  documentApprovalBlocker,
   documentAuthors,
   type DocumentAction,
 } from '@/lib/documents/lifecycle-rules'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import {
-  EN_CIRCUITO,
   cancelLiveApprovalRequest,
   hasApprovalPolicy,
-  liveApprovalRequest,
   openApprovalRequest,
 } from '@/lib/approvals/open'
 
@@ -242,14 +239,14 @@ export async function saveDocumentSection(input: {
 const ACTION_EVENTS: Record<DocumentAction, { type: string; title: string }> = {
   submit:  { type: 'document_submitted', title: 'Expediente enviado a revisión' },
   return:  { type: 'document_returned',  title: 'Expediente devuelto a borrador' },
-  approve: { type: 'document_approved',  title: 'Expediente aprobado' },
 }
 
 /**
- * Cambia el estado del expediente por el ciclo (B09): enviar a revisión,
- * devolver a borrador o aprobar. Aprobar exige la revisión previa, ningún
- * apartado obligatorio sin cubrir y que apruebe el Responsable del SGAI que no
- * lo redactó (DP-01). Cada cambio deja rastro en el historial del sistema.
+ * Cambia el estado del expediente por el ciclo (B09): enviar a revisión o
+ * devolver a borrador. La aprobación se decide siempre en Flujos de aprobación
+ * (B11f): enviar abre la solicitud con la política de la plantilla, y quien
+ * redactó algún apartado no puede decidirla (DP-01). Cada cambio deja rastro
+ * en el historial del sistema.
  */
 export async function changeDocumentStatus(input: {
   documentId: string
@@ -275,16 +272,16 @@ export async function changeDocumentStatus(input: {
     }
   }
 
-  // Con una política de Flujos de aprobación, la aprobación se decide allí (B11a).
-  const gobernado = await hasApprovalPolicy(doc.organization_id, 'document', { template_key: doc.template_key })
-
-  if (input.action === 'approve' && (await liveApprovalRequest('document', doc.id))) {
-    return { error: EN_CIRCUITO }
-  }
-
-  // En el circuito, quien aprueba solo puede decir sí o no: los huecos se
-  // comprueban antes de enviarlo, no al votar.
-  if (input.action === 'submit' && gobernado) {
+  // Solo en el circuito (B11f): sin política para la plantilla no se envía, y
+  // quien aprueba solo puede decir sí o no, así que los huecos se comprueban
+  // antes de enviarlo, no al votar.
+  if (input.action === 'submit') {
+    if (!(await hasApprovalPolicy(doc.organization_id, 'document', { template_key: doc.template_key }))) {
+      return {
+        error: `No hay ninguna política de aprobación activa para ${templateMeta(doc.template_key).label}. `
+          + 'Configúrala en Ajustes › Aprobaciones antes de enviar el expediente.',
+      }
+    }
     const composed = await composeDocument(input.documentId)
     if (!composed) return { error: 'No se pudo componer el expediente.' }
     if (composed.gaps.length > 0) {
@@ -293,28 +290,6 @@ export async function changeDocumentStatus(input: {
     }
   }
 
-  if (input.action === 'approve') {
-    if (!isTemplateKey(doc.template_key)) return { error: 'Plantilla desconocida.' }
-
-    const blocker = documentApprovalBlocker({
-      templateKey: doc.template_key,
-      actor: profile,
-      actorProfileId: profile.id,
-      authorProfileIds: documentAuthors(doc.content),
-    })
-    if (blocker) return { error: blocker }
-
-    // Un expediente no se aprueba con huecos obligatorios: es el acto que un
-    // auditor va a mirar.
-    const composed = await composeDocument(input.documentId)
-    if (!composed) return { error: 'No se pudo componer el expediente.' }
-    if (composed.gaps.length > 0) {
-      const refs = composed.gaps.map((g) => g.ref).join(', ')
-      return { error: `No se puede aprobar con apartados obligatorios sin cubrir: ${refs}.` }
-    }
-  }
-
-  // Quién y cuándo aprobó lo rellena la base de datos (trg_document_lifecycle_rules).
   const { data: updated, error: updErr } = await fluxion
     .from('documents')
     .update({ status: transition.to, updated_at: new Date().toISOString() })
@@ -327,18 +302,19 @@ export async function changeDocumentStatus(input: {
   }
   if (!updated || updated.length === 0) return { error: 'No tienes permisos para cambiar este expediente.' }
 
-  if (input.action === 'submit' && gobernado) {
+  if (input.action === 'submit') {
     const apertura = await openApprovalRequest({
       organizationId: doc.organization_id,
       objectType: 'document',
       objectId: doc.id,
       requestedByProfileId: profile.id,
-      context: { template_key: doc.template_key },
+      // Quien redactó algún apartado no decide (DP-01): el motor lo excluye.
+      context: { template_key: doc.template_key, prepared_by: documentAuthors(doc.content) },
     })
-    if ('error' in apertura) {
+    if ('error' in apertura || apertura.requestId === null) {
       // Sin solicitud, el expediente no puede quedarse «en revisión» esperando a nadie.
       await fluxion.from('documents').update({ status: 'draft' }).eq('id', doc.id)
-      return { error: apertura.error }
+      return { error: 'error' in apertura ? apertura.error : 'No se pudo abrir la solicitud de aprobación: no hay política aplicable.' }
     }
   }
   if (input.action === 'return') {
@@ -412,31 +388,6 @@ export async function reopenDocument(input: {
 
   revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { ok: true }
-}
-
-/** Si quien mira puede aprobar este expediente y, si no, por qué (para la interfaz). */
-export async function getDocumentApprovalContext(documentId: string): Promise<{ canApprove: boolean; reason: string | null }> {
-  const { profile, fluxion } = await ctx()
-  if (!profile) return { canApprove: false, reason: 'No autenticado' }
-
-  if (await liveApprovalRequest('document', documentId)) {
-    return { canApprove: false, reason: 'La aprobación se decide en Aprobaciones, con la política de la organización.' }
-  }
-
-  const { data: doc } = await fluxion
-    .from('documents')
-    .select('template_key, content')
-    .eq('id', documentId)
-    .maybeSingle()
-  if (!doc || !isTemplateKey(doc.template_key)) return { canApprove: false, reason: null }
-
-  const reason = documentApprovalBlocker({
-    templateKey: doc.template_key,
-    actor: profile,
-    actorProfileId: profile.id,
-    authorProfileIds: documentAuthors(doc.content),
-  })
-  return { canApprove: reason === null, reason }
 }
 
 export type RenderRow = {
