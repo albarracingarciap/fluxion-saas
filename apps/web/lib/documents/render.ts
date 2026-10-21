@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { openEvidenceReview } from '@/lib/approvals/open'
 import { createHash, randomUUID } from 'node:crypto'
 
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
@@ -196,6 +197,11 @@ export async function generateRender(input: {
     })
     .select('id')
     .single()
+
+  // Sin aprobar, la evidencia se revisa en Flujos de aprobación (B11g).
+  if (evidence && !aprobado && input.userId) {
+    await openEvidenceReview({ organizationId: doc.organization_id, evidenceId: evidence.id, ownerUserId: input.userId })
+  }
 
   const { data: render, error: renderErr } = await admin
     .from('document_renders')

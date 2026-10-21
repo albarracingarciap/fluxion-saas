@@ -18,6 +18,8 @@ fuente:
   - apps/web/lib/evidences/versions-actions.ts
   - apps/web/lib/evidences/review-rules.ts
   - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - apps/web/lib/approvals/open.ts
   - apps/web/lib/storage/objects.ts
   - apps/web/app/api/cron/evidence-expiry/route.ts
   - supabase/migrations/00000000000001_schema.sql
@@ -44,17 +46,26 @@ por revisar, cuáles caducan, cuáles no tienen responsable y cuáles no respald
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Responsable del SGAI | Sí | Todas. Es el único que aprueba o rechaza, y no las evidencias que aporta él mismo |
-| Administrador, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Crear, editar, enviar a revisión, reabrir y eliminar |
+| Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, Analista de riesgos, Analista de cumplimiento | Sí | Crear, editar, enviar a revisión, reabrir y eliminar |
 | Directivo, Auditor, Lector | Sí | Crear evidencias y adjuntar ficheros. Editar, revisar o eliminar devuelve «No tienes permisos para modificar esta evidencia.» |
 
-Quién aprueba sigue DP-01: el Responsable del SGAI, distinto de quien aporta la evidencia (su responsable).
-La base de datos lo comprueba también (`trg_evidence_review_rules`). A quien no puede decidir, la vista le
-muestra «Pendiente de revisión del Responsable del SGAI» en lugar de **Aprobar** y **Rechazar**.
+Las evidencias se aprueban o rechazan **solo** en [Flujos de aprobación](../glosario.md#flujos-de-aprobación),
+desde la bandeja [Aprobaciones](aprobaciones.md) (B11g); esta vista no tiene botones de aprobar ni rechazar.
+Por defecto (DP-01) decide el Responsable del SGAI. Quien aporta la evidencia (su responsable) no puede
+decidirla: la solicitud lleva en su contexto `prepared_by` con su perfil. La base de datos también impide
+que una sesión de usuario pase una evidencia a «Válida» o «Rechazada» (`trg_evidence_review_rules`: «La
+evidencia se aprueba o rechaza en Aprobaciones.»); solo lo hace el efecto de la aprobación.
 
 > **Pendiente de implementar.** El «revisor designado» de DP-01 como alternativa al Responsable del SGAI.
 
-Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene. Si se cambia el contenido o el fichero de una evidencia pendiente, la solicitud se cancela.
+Una evidencia pendiente de revisión muestra el enlace **Se decide en Aprobaciones** o, si no tiene solicitud
+pendiente, «Sin solicitud de aprobación abierta: modifícala o vuelve a enviarla.». Si se cambia el contenido
+o el fichero de una evidencia pendiente, vuelve a borrador y la solicitud se cancela.
+
+Las evidencias que el sistema crea ya pendientes de revisión (el PDF de un expediente sin aprobar, el
+informe de brechas, el dossier técnico y la ficha para el registro UE) abren su solicitud de aprobación
+automáticamente (`openEvidenceReview`), con quien las genera como aportante; si no hay política activa,
+quedan en borrador.
 
 ## Campos
 
@@ -136,18 +147,18 @@ borrador y el formulario lo indica, para adjuntarlo al editarla.
 |---|---|---|---|
 | **+ Evidencia organizacional** | Todos | `createOrganizationEvidence`: evidencia de toda la organización, con el usuario como responsable | Nace en borrador |
 | **Editar evidencia** | Roles con permiso | `updateSystemEvidence` | Versión registrada. Si cambia el contenido de una evidencia ya enviada, vuelve a borrador. Historial «Evidencia actualizada» en el sistema |
-| **Enviar a revisión** · **Reabrir** | Roles con permiso | `reviewSystemEvidence` | Versión registrada. Historial «Revisión solicitada» o «Evidencia reabierta» |
-| **Aprobar** · **Rechazar** (con motivo) | Responsable del SGAI que no la aportó | `reviewSystemEvidence` | La base de datos registra revisor y fecha. Versión registrada. Historial «Evidencia aprobada» o «Evidencia rechazada» |
+| **Enviar a revisión** · **Reabrir** | Roles con permiso | `reviewSystemEvidence`. Enviar a revisión abre la solicitud de aprobación; sin política activa, la evidencia vuelve a su estado anterior | Versión registrada. Historial «Revisión solicitada» o «Evidencia reabierta» |
+| **Se decide en Aprobaciones** (pendiente de revisión) | Todos | Enlace a [Aprobaciones](aprobaciones.md) | La aprobación o el rechazo se aplican allí, con su efecto |
 | **Eliminar evidencia** | Roles con permiso | Pide confirmación y ejecuta `deleteSystemEvidence` | Borra también sus versiones, alertas y vínculos. Historial «Evidencia eliminada» |
 | Vista previa | Todos | Abre el fichero (PDF o imagen) o lo descarga | — |
 | **Ver historial de versiones** | Todos | Panel con los cambios de la evidencia y su diferencia campo a campo, incluido el fichero (por su nombre) | — |
-| Selección › **Enviar a revisión** / **Aprobar** (este, solo para el Responsable del SGAI) | Roles con permiso | `bulkReviewEvidences`: solo las que admiten el cambio; al aprobar, omite las que aportó quien aprueba | Revisor, fecha y versión registrados por la base de datos. Sin historial del sistema |
+| Selección › **Enviar a revisión** | Roles con permiso | `bulkReviewEvidences`: solo las que admiten el cambio; cada una abre su solicitud de aprobación. Las que no pueden abrirla (sin política activa) vuelven a su estado anterior y cuentan como omitidas | Versión registrada por la base de datos. Sin historial del sistema |
 | Selección › **Vincular obligación** | Roles con permiso | Vincula las seleccionadas a una obligación de la organización | — |
 | Selección › **CSV** | Todos | Descarga `evidencias_AAAA-MM-DD.csv` | — |
 | Descartar alerta (X) | Todos | Oculta la alerta de caducidad | — |
 
 **Versiones.** Las guarda la base de datos en cada cambio de contenido o de estado, venga de donde venga
-(también la aprobación en bloque y la caducidad diaria): `trg_evidence_versions` escribe en
+(también el envío en bloque, la decisión en Aprobaciones y la caducidad diaria): `trg_evidence_versions` escribe en
 `system_evidence_versions` el estado anterior al cambio, con el tipo de cambio (Creada, Editada, Enviada a
 revisión, Aprobada, Rechazada, Reabierta o Caducada) y el perfil de quien lo hizo. Las evidencias anteriores
 a esta versión no tienen historial previo.
@@ -172,10 +183,9 @@ Una alerta descartada no vuelve a aparecer.
 | URL incorrecta | «La URL no es válida.» |
 | Fuera de borrador sin fichero ni URL | «Una evidencia que no está en borrador necesita un fichero adjunto o una URL.» |
 | Alta de organización sin fichero ni URL | «Adjunta un fichero o indica la URL del documento.» |
-| Rechazo sin motivo | «Las notas de rechazo son obligatorias.» |
 | Transición no permitida | «Esta acción no se puede aplicar a una evidencia en estado «…».» |
-| Aprobar o rechazar sin el rol | «Solo el Responsable del SGAI puede aprobar o rechazar evidencias.» |
-| Aprobar o rechazar la propia | «Quien aporta una evidencia no puede revisarla.» |
+| Enviar a revisión sin política de aprobación activa | «No hay ninguna política de aprobación activa para las evidencias. Configúrala en Ajustes › Aprobaciones.» |
+| Aprobar o rechazar fuera de Aprobaciones (base de datos) | «La evidencia se aprueba o rechaza en Aprobaciones.» |
 | Cambio sin permiso | «No tienes permisos para modificar esta evidencia.» / «No tienes permisos para eliminar esta evidencia.» |
 | Fichero de más de 20 MB | «El fichero supera el máximo de 20 MB.» |
 | Almacenamiento no configurado | «El almacenamiento de ficheros no está configurado en este entorno.» |
@@ -187,8 +197,8 @@ Una alerta descartada no vuelve a aparecer.
 stateDiagram-v2
   [*] --> Borrador
   Borrador --> Pendiente_de_revisión: enviar a revisión
-  Pendiente_de_revisión --> Válida: aprobar
-  Pendiente_de_revisión --> Rechazada: rechazar
+  Pendiente_de_revisión --> Válida: aprobar (en Aprobaciones)
+  Pendiente_de_revisión --> Rechazada: rechazar (en Aprobaciones)
   Rechazada --> Borrador: reabrir
   Rechazada --> Pendiente_de_revisión: enviar a revisión
   Válida --> Caducada: tarea diaria
@@ -204,5 +214,6 @@ revisó antes de esta regla llevan la etiqueta `sin-revision`; las del expedient
 ## Vistas relacionadas
 
 - [Detalle de evidencia](evidencia-detalle.md), [Ficha del sistema](ficha-sistema.md) (pestaña Evidencias).
+- [Aprobaciones](aprobaciones.md): decisión de la revisión.
 - [Análisis de brechas](brechas.md): caducidades.
 - Negocio: [Biblioteca de evidencias](../negocio/biblioteca-evidencias.md).

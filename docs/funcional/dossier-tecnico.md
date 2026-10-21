@@ -13,6 +13,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/technical-dossier/snapshots/[snapshotId]/page.tsx
   - apps/web/components/inventory/save-report-evidence-modal.tsx
   - apps/web/lib/ai-systems/technical-dossier.ts
+  - apps/web/lib/approvals/open.ts
 ---
 
 # Dossier técnico
@@ -102,14 +103,16 @@ Al pulsar **Confirmar y guardar**:
 2. Se guarda una instantánea inmutable en `system_report_snapshots` (`report_type` `technical_dossier`).
 3. Se crea una evidencia del sistema:
    - **Tipo:** documentación técnica (`technical_doc`).
-   - **Estado:** pendiente de revisión.
+   - **Estado:** pendiente de revisión, con su solicitud de aprobación abierta automáticamente
+     (`openEvidenceReview`); si no hay política activa para las evidencias, queda en borrador.
    - **Enlace:** la instantánea.
    - **Versión:** la fecha del día.
    - **Etiquetas:** `auto-generated`, `dossier-tecnico`, el dominio, el nivel de riesgo y las del usuario.
 4. Se registra en el historial «Dossier técnico guardado como evidencia».
 5. Se muestra «Dossier guardado como evidencia (pendiente de revisión).».
 
-La evidencia pasa a válida cuando alguien la aprueba en la [Biblioteca de evidencias](evidencias.md).
+La evidencia pasa a válida cuando se aprueba en [Aprobaciones](aprobaciones.md) (B11g). Quien la guarda
+consta como quien la aporta y no puede decidirla.
 
 > TODO: confirmar el comportamiento del modal si falla el guardado. Se borran los datos escritos y el
 > mensaje de error queda detrás del modal.

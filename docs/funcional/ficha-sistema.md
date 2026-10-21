@@ -22,6 +22,8 @@ fuente:
   - services/agents/fluxion_agents/routes/classification.py
   - apps/web/app/(app)/inventario/[id]/responsables-card.tsx
   - apps/web/app/(app)/inventario/[id]/responsables-actions.ts
+  - apps/web/lib/approvals/open.ts
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
 ---
 
 # Ficha del sistema
@@ -46,8 +48,10 @@ las tareas que lo componen.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Toda la ficha | Todas las acciones, salvo las de aprobación de la AISIA |
-| Responsable del SGAI | Ídem | Además, aprobar o rechazar la AISIA que no haya preparado (B08) |
+| Todos los roles | Toda la ficha | Todas las acciones de la ficha |
+
+La AISIA y las evidencias del sistema no se aprueban ni se rechazan en la ficha: se deciden solo en
+[Aprobaciones](aprobaciones.md), con la política de aprobación de la organización (B11g).
 
 Si el sistema no existe o es de otra organización, la vista devuelve «no encontrado».
 
@@ -240,13 +244,11 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **✏ Editar ficha** | Todos | Navega a [Edición de la ficha](ficha-sistema-edicion.md) | — |
 | **Iniciar evaluación AISIA** | Todos | `initAisia`: crea la AISIA con sus seis secciones | Historial «Evaluación AISIA iniciada» |
 | **Continuar evaluación →** / **Ver evaluación →** | Todos | Navega a la [AISIA](aisia.md) | — |
-| **✓ Aprobar evaluación** | Responsable del SGAI que no la preparó | `approveAisia`, con referencia de actas opcional | Historial «AISIA aprobada». Con la Declaración en borrador, marca como implantados los controles A.5.2-A.5.5 si todos sus sistemas tienen AISIA aprobada; si no, lo deja para su siguiente revisión y lo avisa |
-| **✕ Rechazar** | Ídem | `rejectAisia`, con motivo obligatorio | Historial «AISIA rechazada» |
 | **✎ Corregir y reenviar** | Todos | `reopenAisia`: nueva versión en borrador | Navega a ella |
 | **+ Añadir evidencia** / **Nueva evidencia** | Todos | `createSystemEvidence` | Historial «Evidencia registrada» |
 | Editar / eliminar evidencia | Todos | `updateSystemEvidence`, `deleteSystemEvidence` | Guarda una versión; si cambia el contenido de una evidencia ya enviada, vuelve a borrador. Historial «Evidencia actualizada» o «Evidencia eliminada». Los errores se muestran en la evidencia |
-| **Enviar a revisión** · **Reabrir** | Todos | Ciclo de revisión de la evidencia ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)) | Historial del evento correspondiente |
-| **Aprobar** · **Rechazar** | Responsable del SGAI que no la aportó (DP-01) | Ídem. A los demás se les muestra que está pendiente de su revisión | Historial del evento correspondiente |
+| **Enviar a revisión** · **Reabrir** | Todos | Ciclo de revisión de la evidencia ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)). **Enviar a revisión** abre la solicitud de aprobación y exige una política activa para las evidencias | Historial del evento correspondiente |
+| **Se decide en Aprobaciones** (evidencia pendiente de revisión) | Todos | Enlace a [Aprobaciones](aprobaciones.md), donde se aprueba o rechaza | — |
 | **+ Modo de fallo** | Todos | Vincula o desvincula la evidencia a modos de fallo activados | — |
 | **Activar modos de fallo** | Todos | `activateSystemFailureModes`: [activación](../glosario.md#activación-de-modos-de-fallo) por reglas, una sola vez | Historial «Modos de fallo activados» |
 | **Recalcular con contexto actual** | Todos | `recalculateSystemFailureModes`, previa confirmación | Añade los modos nuevos y actualiza los calculados por reglas. Respeta las decisiones manuales. No elimina los que ya no aplican |
@@ -255,6 +257,11 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **Restaurar a observación** | Todos | Devuelve un modo descartado a observación | Historial «failure_mode_restored» |
 | **Promover varios** | Todos | Promueve en bloque modos descartados por cuota, con justificación común | — |
 | **Gestionar plan** | Todos | Navega al [plan de tratamiento](plan-de-tratamiento.md) | — |
+
+**AISIA en revisión.** En la pestaña ISO 42001, con la AISIA enviada, la ficha muestra «La decisión se toma
+en Aprobaciones, con la política de aprobación de la organización.» o, si no hay solicitud pendiente, «Sin
+solicitud de aprobación abierta. Pide que la cancelen o revisa las políticas en Ajustes › Aprobaciones.».
+No hay botones de aprobar ni rechazar. Ver [AISIA](aisia.md).
 
 > **Pendiente de implementar.** **Refinar mediante IA** en Modos de fallo: aparece deshabilitado como
 > «Próximamente».
@@ -283,6 +290,7 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | Evidencia sin título o URL | «Faltan datos obligatorios para registrar la evidencia.» / «La URL de la evidencia no es válida.» |
 | Evidencia fuera de borrador sin fichero ni URL | «Una evidencia que no está en borrador necesita un fichero adjunto o una URL.» |
 | AISIA ya activa | «Ya existe una evaluación AISIA activa para este sistema.» |
+| Enviar una evidencia a revisión sin política de aprobación activa | «No hay ninguna política de aprobación activa para las evidencias. Configúrala en Ajustes › Aprobaciones.» La evidencia vuelve a su estado anterior |
 | Modos ya activados | «Los modos de fallo ya fueron activados previamente para este sistema.» |
 | Promover con justificación corta | «La justificación debe tener al menos 30 caracteres.» |
 | Descartar con motivo corto | «Indica el motivo del descarte (mínimo 20 caracteres).» |
@@ -312,13 +320,14 @@ stateDiagram-v2
 ```
 
 La clasificación sigue el ciclo de la [reclasificación](../glosario.md#reclasificación): pendiente de
-conciliar, conciliada y sustituida. La AISIA sigue el suyo: borrador, enviada, aprobada o rechazada.
+conciliar, conciliada y sustituida. La AISIA sigue el suyo: borrador, enviada, aprobada o rechazada; la
+aprobación y el rechazo se deciden en [Aprobaciones](aprobaciones.md).
 
 ## Vistas relacionadas
 
 - [Inventario](inventario.md), [Edición de la ficha](ficha-sistema-edicion.md),
   [Sistemas detectados](descubrimientos.md).
-- [Biblioteca de evidencias](evidencias.md).
+- [Biblioteca de evidencias](evidencias.md), [Aprobaciones](aprobaciones.md).
 - Análisis de modos de fallo, Plan de tratamiento, AISIA, Riesgos de negocio, Expediente documental,
   Dossier técnico, Ficha para el registro UE e Informe de brechas del sistema (documentos pendientes).
 - Negocio: [Inventario de sistemas de IA](../negocio/inventario.md),

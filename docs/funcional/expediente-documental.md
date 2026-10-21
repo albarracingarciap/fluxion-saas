@@ -21,6 +21,7 @@ fuente:
   - supabase/migrations/20261020120000_expediente_ciclo.sql
   - apps/web/lib/documents/lifecycle-rules.ts
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
+  - apps/web/lib/approvals/open.ts
 ---
 
 # Expediente documental
@@ -127,7 +128,9 @@ Al pulsar **Generar PDF**:
 4. El PDF se guarda en el almacenamiento de documentos.
 5. Se crea una evidencia:
    - **Tipo:** documento regulatorio.
-   - **Estado:** **válida** si el expediente está aprobado; si no, **pendiente de revisión**.
+   - **Estado:** **válida** si el expediente está aprobado; si no, **pendiente de revisión**, con su
+     solicitud de aprobación abierta automáticamente en [Aprobaciones](aprobaciones.md)
+     (`openEvidenceReview`); si no hay política activa para las evidencias, queda en borrador.
    - **Responsable:** quien genera el PDF (no puede aprobarla él).
    - **Etiquetas:** la de la plantilla (`anexo-iv`, `fria`, `dpia`, `ficha-modelo`) y `generado`.
    - **Caducidad:** la vigencia de la plantilla, 12 meses.

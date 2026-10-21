@@ -12,6 +12,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/gap-report/save-gap-report-button.tsx
   - apps/web/app/(app)/inventario/[id]/gap-report/snapshots/[snapshotId]/page.tsx
   - apps/web/lib/ai-systems/gap-report.ts
+  - apps/web/lib/approvals/open.ts
 ---
 
 # Informe de brechas del sistema
@@ -73,7 +74,7 @@ la documentación técnica y el Art. 14 de la supervisión humana.
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Exportar / Imprimir** | Todos | Abre el diálogo de impresión del navegador. La tarjeta de la ficha lo anuncia como «Exportar en PDF» | — |
-| **Guardar como evidencia** | Todos | Abre el modal de guardado, igual que en el [Dossier técnico](dossier-tecnico.md#guardar-como-evidencia). Caducidad por defecto: **90 días**, porque las brechas cambian rápido | Instantánea `gap_report`. Evidencia de tipo informe (`report`), pendiente de revisión. Etiquetas `auto-generated`, `gap-report`, el nivel de riesgo, `gap-critico` si hay más de 10 señales y las del usuario. Historial «Gap report guardado como evidencia». Mensaje «Informe guardado como evidencia (pendiente de revisión).» |
+| **Guardar como evidencia** | Todos | Abre el modal de guardado, igual que en el [Dossier técnico](dossier-tecnico.md#guardar-como-evidencia). Caducidad por defecto: **90 días**, porque las brechas cambian rápido | Instantánea `gap_report`. Evidencia de tipo informe (`report`), pendiente de revisión, con su solicitud de aprobación abierta en [Aprobaciones](aprobaciones.md) (sin política activa para las evidencias, queda en borrador). Etiquetas `auto-generated`, `gap-report`, el nivel de riesgo, `gap-critico` si hay más de 10 señales y las del usuario. Historial «Gap report guardado como evidencia». Mensaje «Informe guardado como evidencia (pendiente de revisión).» |
 
 ## Validaciones
 

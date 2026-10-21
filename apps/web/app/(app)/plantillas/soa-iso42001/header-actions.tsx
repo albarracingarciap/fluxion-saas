@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Settings2, History, FileDown, Send, CheckCircle2, RotateCcw,
+  Settings2, History, FileDown, Send, RotateCcw,
   Loader2, AlertTriangle, X, Brain,
 } from 'lucide-react'
 import { MetadataModal } from './metadata-modal'
@@ -14,7 +14,8 @@ import type { SoAMetadata, SoAControlRecord } from '@/lib/templates/data'
 import { hasAnyRole } from '@/lib/auth/roles'
 
 const ROLES_CAN_SUBMIT = new Set(['sgai_manager', 'caio', 'dpo', 'compliance_analyst', 'org_admin'])
-const ROLES_CAN_APPROVE = new Set(['org_admin', 'sgai_manager', 'caio'])
+/** Quién inicia una nueva revisión. La aprobación se decide en Aprobaciones (B11g). */
+const ROLES_CAN_REOPEN = new Set(['org_admin', 'sgai_manager', 'caio'])
 
 type Props = {
   metadata: SoAMetadata
@@ -22,7 +23,7 @@ type Props = {
   userRoles: string[]
   lifecycleStatus: string
   controls: SoAControlRecord[]
-  /** La aprobación se decide en Flujos de aprobación (B11a). */
+  /** Tiene una solicitud pendiente en Aprobaciones, la única vía (B11g). */
   inApprovalCircuit?: boolean
 }
 
@@ -40,7 +41,7 @@ export function HeaderActions({ metadata, availableTags, userRoles, lifecycleSta
 
   const handlePrint = () => window.print()
 
-  const handleTransition = (newStatus: 'under_review' | 'approved' | 'draft') => {
+  const handleTransition = (newStatus: 'under_review' | 'draft') => {
     setLifecycleError(null)
     startTransition(async () => {
       const res = await transitionSoAStatus(newStatus)
@@ -78,7 +79,7 @@ export function HeaderActions({ metadata, availableTags, userRoles, lifecycleSta
   }
 
   const canSubmit = hasAnyRole({ roles: userRoles }, ROLES_CAN_SUBMIT)
-  const canApprove = hasAnyRole({ roles: userRoles }, ROLES_CAN_APPROVE)
+  const canReopen = hasAnyRole({ roles: userRoles }, ROLES_CAN_REOPEN)
 
   return (
     <>
@@ -102,18 +103,13 @@ export function HeaderActions({ metadata, availableTags, userRoles, lifecycleSta
         </a>
       )}
 
-      {lifecycleStatus === 'under_review' && canApprove && !inApprovalCircuit && (
-        <button
-          onClick={() => handleTransition('approved')}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] bg-[#f0fdf4] border border-[#bbf7d0] text-[#15803d] font-sora text-[13px] font-medium hover:bg-[#dcfce7] transition-all disabled:opacity-50"
-        >
-          {isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-          Aprobar SoA
-        </button>
+      {lifecycleStatus === 'under_review' && !inApprovalCircuit && (
+        <span className="font-sora text-[12px] text-lttm self-center max-w-[260px] text-right leading-tight">
+          Sin solicitud de aprobación abierta: inicia una nueva revisión y envíala de nuevo.
+        </span>
       )}
 
-      {(lifecycleStatus === 'approved' || lifecycleStatus === 'under_review') && canApprove && (
+      {(lifecycleStatus === 'approved' || lifecycleStatus === 'under_review') && canReopen && (
         <button
           onClick={() => handleTransition('draft')}
           disabled={isPending}

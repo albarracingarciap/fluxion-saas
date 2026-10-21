@@ -15,6 +15,9 @@ fuente:
   - apps/web/lib/evidences/versions.ts
   - apps/web/lib/evidences/review-rules.ts
   - supabase/migrations/20261020110000_evidencias_revision_versiones.sql
+  - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - apps/web/lib/approvals/open.ts
   - apps/web/lib/evidences/expiry-alerts.ts
   - apps/web/lib/evidences/storage.ts
   - apps/web/app/api/cron/evidence-expiry/route.ts
@@ -43,7 +46,8 @@ auditoría, reunirlas lleva semanas. Fluxion:
 
 - **Una biblioteca** para evidencias de un sistema concreto o de toda la organización, por ejemplo una
   política general.
-- **Revisión:** cada evidencia pasa por borrador, revisión y validación o rechazo.
+- **Revisión:** cada evidencia pasa por borrador, revisión y validación o rechazo, decidida en los
+  [Flujos de aprobación](flujos-de-aprobacion.md).
 - **Vínculos:** cada evidencia se relaciona con las [obligaciones](obligaciones.md), los
   [modos de fallo](../glosario.md#modo-de-fallo) o los controles de la
   [Declaración de Aplicabilidad](../glosario.md#declaración-de-aplicabilidad-iso-42001) que respalda.
@@ -59,10 +63,12 @@ auditoría, reunirlas lleva semanas. Fluxion:
 | Responsable del sistema | Aporta las evidencias de sus sistemas y las mantiene vigentes |
 | Analista de cumplimiento | Prepara las evidencias y las vincula a las obligaciones |
 | DPO | Aporta las evidencias de protección de datos |
-| Responsable del SGAI | Aprueba o rechaza las evidencias, nunca las que aporta él mismo; aporta las de nivel organización y supervisa la vigencia |
+| Responsable del SGAI | Aprueba o rechaza las evidencias en los Flujos de aprobación, nunca las que aporta él mismo; aporta las de nivel organización y supervisa la vigencia |
 | Auditor | Consulta las evidencias, sus versiones y sus revisiones |
 
-Quien aporta una evidencia no la valida: la aprueba el Responsable del SGAI, distinto del autor.
+Quien aporta una evidencia no la valida: la decisión se toma siempre en los
+[Flujos de aprobación](flujos-de-aprobacion.md), por defecto a cargo del Responsable del SGAI, y quien la
+aporta no puede decidirla.
 
 > **Pendiente de implementar.** Designar otro revisor de evidencias distinto del Responsable del SGAI.
 
@@ -72,8 +78,8 @@ Quien aporta una evidencia no la valida: la aprueba el Responsable del SGAI, dis
 stateDiagram-v2
   [*] --> Borrador
   Borrador --> Pendiente_de_revisión: solicitar revisión
-  Pendiente_de_revisión --> Válida: aprobar
-  Pendiente_de_revisión --> Rechazada: rechazar
+  Pendiente_de_revisión --> Válida: aprobar (Flujos de aprobación)
+  Pendiente_de_revisión --> Rechazada: rechazar (Flujos de aprobación)
   Rechazada --> Pendiente_de_revisión: solicitar revisión
   Rechazada --> Borrador: reabrir
   Válida --> Caducada: vence la fecha
@@ -92,10 +98,15 @@ stateDiagram-v2
 2. **Evidencias generadas por Fluxion.** El dossier técnico, la ficha para el registro UE y el informe
    de brechas de un sistema se pueden guardar como evidencia en un clic. Los documentos de
    [Documentación del sistema](../glosario.md#documentación-del-sistema) quedan vinculados a una
-   evidencia al generarse.
-3. **[Revisión](../glosario.md#estado-de-la-evidencia).** El autor solicita la revisión, y el Responsable
-   del SGAI aprueba (la evidencia pasa a «Válida») o rechaza con notas. Una evidencia rechazada se corrige
-   y se vuelve a enviar, o se reabre como borrador. Se pueden revisar varias a la vez. Si se cambia el
+   evidencia al generarse. Cuando estas evidencias nacen pendientes de revisión, Fluxion abre su
+   solicitud de aprobación automáticamente; si no hay política de aprobación activa para las evidencias,
+   quedan en borrador.
+3. **[Revisión](../glosario.md#estado-de-la-evidencia).** El autor solicita la revisión, que abre una
+   solicitud en los [Flujos de aprobación](flujos-de-aprobacion.md); para ello la organización debe tener
+   activa una política de aprobación para las evidencias. Allí se aprueba (la evidencia pasa a «Válida»)
+   o se rechaza con un motivo; por defecto decide el Responsable del SGAI, y nunca quien aporta la
+   evidencia. Una evidencia rechazada se corrige y se vuelve a enviar, o se reabre como borrador. Se
+   pueden enviar varias a revisión a la vez. Si se cambia el
    contenido de una evidencia ya validada (otro fichero, otras fechas), vuelve a borrador y se revisa de
    nuevo: lo validado tiene que ser lo que hay.
 4. **Vínculos.** Cada evidencia se vincula, una a una o varias a la vez, con:

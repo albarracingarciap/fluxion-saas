@@ -9,7 +9,7 @@ import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
-import { EN_CIRCUITO, cancelLiveApprovalRequest, hasApprovalPolicy, liveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open'
+import { cancelLiveApprovalRequest, hasApprovalPolicy, openApprovalRequest } from '@/lib/approvals/open'
 
 export async function initializeSoA(_formData: FormData) {
   const adminClient = createAdminFluxionClient()
@@ -238,13 +238,17 @@ export async function updateSoAMetadata(input: {
 }
 
 const ROLES_CAN_SUBMIT = new Set(['sgai_manager', 'caio', 'dpo', 'compliance_analyst', 'org_admin'])
-const ROLES_CAN_APPROVE = new Set(['org_admin', 'sgai_manager', 'caio'])
+/** Quién inicia una nueva revisión (vuelta a borrador). */
+const ROLES_CAN_REOPEN = new Set(['org_admin', 'sgai_manager', 'caio'])
 
+/**
+ * Envía la Declaración a revisión o la devuelve a borrador. La aprobación se
+ * decide siempre en Flujos de aprobación (B11g): enviarla abre la solicitud.
+ */
 export async function transitionSoAStatus(
-  newStatus: 'under_review' | 'approved' | 'draft'
+  newStatus: 'under_review' | 'draft'
 ) {
   const adminClient = createAdminFluxionClient()
-  const fluxion = createFluxionClient()
   const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) redirect('/login')
@@ -258,23 +262,19 @@ export async function transitionSoAStatus(
   if (newStatus === 'under_review' && !hasAnyRole(roleHolder, ROLES_CAN_SUBMIT)) {
     return { error: 'No tienes permisos para enviar el documento a revisión.' }
   }
-  if (newStatus === 'approved' && !hasAnyRole(roleHolder, ROLES_CAN_APPROVE)) {
-    return { error: 'No tienes permisos para aprobar el documento SoA.' }
-  }
-  if (newStatus === 'draft' && !hasAnyRole(roleHolder, ROLES_CAN_APPROVE)) {
+  if (newStatus === 'draft' && !hasAnyRole(roleHolder, ROLES_CAN_REOPEN)) {
     return { error: 'No tienes permisos para reabrir el documento SoA.' }
   }
 
-  // Con una política de Flujos de aprobación, la aprobación se decide allí (B11a).
-  // La Declaración es una por organización: su solicitud usa el id de la organización.
-  const gobernada = await hasApprovalPolicy(membership.organization_id, 'soa')
-  if (newStatus === 'approved' && (await liveApprovalRequest('soa', membership.organization_id))) {
-    return { error: EN_CIRCUITO }
+  // Solo en el circuito (B11g). La Declaración es una por organización: su
+  // solicitud usa el id de la organización.
+  if (newStatus === 'under_review' && !(await hasApprovalPolicy(membership.organization_id, 'soa'))) {
+    return { error: 'No hay ninguna política de aprobación activa para la Declaración de Aplicabilidad. Configúrala en Ajustes › Aprobaciones antes de enviarla.' }
   }
 
-  // Hard block: can't approve with incomplete controls. En el circuito se
-  // comprueba al enviarla, porque quien vota solo puede aprobar o rechazar.
-  if (newStatus === 'approved' || (newStatus === 'under_review' && gobernada)) {
+  // No se envía con controles aplicables sin justificar: quien vota solo puede
+  // aprobar o rechazar.
+  if (newStatus === 'under_review') {
     const { data: incomplete } = await adminClient
       .from('organization_soa_controls')
       .select('control_code', { count: 'exact', head: false })
@@ -284,7 +284,7 @@ export async function transitionSoAStatus(
 
     if (incomplete && incomplete.length > 0) {
       return {
-        error: `No se puede ${newStatus === 'approved' ? 'aprobar' : 'enviar a aprobación'}: ${incomplete.length} control${incomplete.length > 1 ? 'es aplicables carecen' : ' aplicable carece'} de justificación (${incomplete.map((c) => c.control_code).slice(0, 5).join(', ')}${incomplete.length > 5 ? '…' : ''}).`,
+        error: `No se puede enviar a aprobación: ${incomplete.length} control${incomplete.length > 1 ? 'es aplicables carecen' : ' aplicable carece'} de justificación (${incomplete.map((c) => c.control_code).slice(0, 5).join(', ')}${incomplete.length > 5 ? '…' : ''}).`,
       }
     }
   }
@@ -298,19 +298,7 @@ export async function transitionSoAStatus(
 
   const fromStatus: string | null = currentMeta?.lifecycle_status ?? null
 
-  // Build update payload
   const updatePayload: Record<string, unknown> = { lifecycle_status: newStatus }
-  if (newStatus === 'approved') {
-    updatePayload.approved_at = new Date().toISOString().split('T')[0]
-    if (!currentMeta?.approved_by) {
-      const { data: prof } = await fluxion
-        .from('profiles')
-        .select('display_name, full_name')
-        .eq('id', profile.id)
-        .single()
-      updatePayload.approved_by = (prof?.display_name || prof?.full_name || '').trim() || 'Desconocido'
-    }
-  }
 
   const { error } = await adminClient
     .from('organization_soa_metadata')
@@ -337,19 +325,19 @@ export async function transitionSoAStatus(
       if (logError) console.error('Error writing SoA lifecycle log:', logError)
     })
 
-  if (newStatus === 'under_review' && gobernada) {
+  if (newStatus === 'under_review') {
     const apertura = await openApprovalRequest({
       organizationId: membership.organization_id,
       objectType: 'soa',
       objectId: membership.organization_id,
       requestedByProfileId: profile.id,
     })
-    if ('error' in apertura) {
+    if ('error' in apertura || apertura.requestId === null) {
       await adminClient
         .from('organization_soa_metadata')
         .update({ lifecycle_status: fromStatus ?? 'draft' })
         .eq('organization_id', membership.organization_id)
-      return { error: apertura.error }
+      return { error: 'error' in apertura ? apertura.error : 'No se pudo abrir la solicitud de aprobación: no hay política aplicable.' }
     }
   }
 

@@ -18,7 +18,10 @@ fuente:
   - apps/web/app/(app)/plantillas/soa-iso42001/soa-print-view.tsx
   - apps/web/lib/templates/data.ts
   - apps/web/lib/templates/iso42001-catalog.ts
+  - apps/web/lib/approvals/open.ts
+  - apps/web/lib/approvals/effects.ts
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
 ---
 
 # Declaración de Aplicabilidad ISO 42001
@@ -44,10 +47,15 @@ de la organización y dejarla aprobada.
 |---|---|---|
 | Todos los roles | Sí | Editar controles y cabecera, usar las propuestas con IA, ver el historial, imprimir |
 | Responsable del SGAI, CAIO, DPO, Analista de cumplimiento, Administrador | Ídem | Enviar a revisión |
-| Administrador, Responsable del SGAI, CAIO | Ídem | Aprobar e iniciar una nueva revisión |
+| Administrador, Responsable del SGAI, CAIO | Ídem | Iniciar una nueva revisión |
+| Decisores de la política de aprobación de la Declaración | Ídem | Aprobar o rechazar, solo en [Aprobaciones](aprobaciones.md) |
 
-El rol se toma del perfil de la sesión en la organización activa. «Aprobado por» se rellena con el nombre
-de quien aprueba si la cabecera no lo tenía.
+El rol se toma del perfil de la sesión en la organización activa.
+
+La Declaración se aprueba **solo** en [Flujos de aprobación](../glosario.md#flujos-de-aprobación) (B11g):
+esta vista no tiene botón de aprobar. Por defecto (DP-01) la decide la Revisión por la Dirección, con el
+Directivo como respaldo. Al aprobarse, «Aprobado por» toma el nombre de quien decide y la fecha de
+aprobación, la de hoy.
 
 ## Campos
 
@@ -63,7 +71,7 @@ botón **Crear Versión 0 del SoA** crea los 38 controles como no aplicables y n
 | **Versión** | texto | Sí | Por defecto 1.0 | `organization_soa_metadata.version` |
 | **Propietario** | texto | No | — | `owner_name` |
 | **Aprobado por** · **Cargo / Rol** | texto | No | — | `approved_by`, `approved_by_role` |
-| **Fecha de aprobación** | fecha | No | Se sustituye por la de hoy al aprobar | `approved_at` |
+| **Fecha de aprobación** | fecha | No | Se sustituye por la de hoy al aprobarse en Aprobaciones | `approved_at` |
 | **Próxima revisión** | fecha | No | Se resalta si faltan 30 días o menos | `next_review_date` |
 | **Sistemas incluidos en el alcance** | etiquetas | No | Etiquetas de los sistemas del inventario. Sin etiquetas, entran todos | `scope_system_tags` |
 | **Justificación del alcance** | texto largo | No | — | `scope` |
@@ -120,9 +128,9 @@ pertenece a la organización.».
 | **Analizar AISIA** (solo en borrador) | Todos | Lee las AISIA aprobadas de los sistemas en alcance y propone con IA la aplicabilidad y la razón de los 38 controles | Muestra las propuestas, marca las que cambian algo y permite invertir cada una |
 | **Aplicar N cambios** | Todos | `applySoASuggestions` | Guarda la aplicabilidad y la justificación propuestas |
 | **Configurar Cabecera** | Todos | `updateSoAMetadata` | — |
-| **Enviar a revisión** | Roles de envío | Comprueba la completitud y avisa de los controles aplicables sin justificación (se puede continuar) | Estado «En revisión». Registro de ciclo de vida |
-| **Aprobar SoA** | Roles de aprobación | Exige que todos los aplicables tengan justificación | Estado «Aprobado», fecha de hoy y aprobador. Registro de ciclo de vida |
-| **Iniciar nueva revisión** | Roles de aprobación | Devuelve a borrador | Registro de ciclo de vida |
+| **Enviar a revisión** | Roles de envío | Comprueba la completitud y avisa de los controles aplicables sin justificación. Si se confirma igualmente, el servidor (`transitionSoAStatus`) lo rechaza: exige todos los aplicables justificados y una política de aprobación activa para la Declaración | Estado «En revisión», solicitud abierta en [Aprobaciones](aprobaciones.md). Registro de ciclo de vida |
+| **En Aprobaciones** (en revisión) | Todos | Enlace a [Aprobaciones](aprobaciones.md), donde se decide. Si no hay solicitud pendiente, se muestra en su lugar «Sin solicitud de aprobación abierta: inicia una nueva revisión y envíala de nuevo.» | — |
+| **Iniciar nueva revisión** | Administrador, Responsable del SGAI, CAIO | Devuelve a borrador (desde «En revisión» o «Aprobado») | Cancela la solicitud pendiente, si la hay. Registro de ciclo de vida |
 | **Ver Historial** | Todos | Pestañas **Ciclo de vida** y **Cambios en controles** | — |
 | **Exportar PDF** | Todos | Imprime desde el navegador la vista de impresión: portada, resumen y desglose de controles por grupo | — |
 
@@ -133,7 +141,11 @@ Cada guardado de un control queda en **Ver Historial › Cambios en controles**,
 > - **Aplicar propuestas:** también borra la justificación de los controles que quedan excluidos.
 > - **Vista de impresión:** muestra «Fluxion SaaS» como organización y «Página 1 de 1» fijos.
 
-Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobación) para este tipo de objeto, la decisión se toma en [Aprobaciones](aprobaciones.md) (B11a): ver allí cuándo se abre la solicitud y qué efecto tiene. Para enviarla con política, todos los controles aplicables deben estar justificados.
+La decisión se toma en [Aprobaciones](aprobaciones.md): ver allí qué efecto tiene aprobarla o rechazarla
+(al rechazarse vuelve a borrador). `transitionSoAStatus` solo admite `under_review` y `draft`. En la base de
+datos, el disparador `trg_soa_lifecycle_rules` impide que una sesión de usuario pase la Declaración a
+«Aprobado» («La Declaración de Aplicabilidad se aprueba en Aprobaciones.»): solo lo hace el efecto de la
+aprobación.
 
 ## Validaciones
 
@@ -141,9 +153,11 @@ Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobació
 |---|---|
 | Sin sistemas en alcance (Analizar AISIA) | «No hay sistemas en alcance. Define tags de alcance en la cabecera del SoA primero.» |
 | Sin AISIA aprobadas | «No hay evaluaciones AISIA aprobadas para los sistemas en alcance. Aprueba al menos una AISIA antes de usar esta función.» |
-| Aprobar con controles aplicables sin justificación | «No se puede aprobar: N control(es) aplicable(s) carece(n) de justificación (…)» |
+| Enviar con controles aplicables sin justificación | «No se puede enviar a aprobación: N control(es) aplicable(s) carece(n) de justificación (…)» |
+| Enviar sin política de aprobación activa | «No hay ninguna política de aprobación activa para la Declaración de Aplicabilidad. Configúrala en Ajustes › Aprobaciones antes de enviarla.» |
 | Enviar sin permiso | «No tienes permisos para enviar el documento a revisión.» |
-| Aprobar sin permiso | «No tienes permisos para aprobar el documento SoA.» |
+| Iniciar nueva revisión sin permiso | «No tienes permisos para reabrir el documento SoA.» |
+| Aprobar fuera de Aprobaciones (base de datos) | «La Declaración de Aplicabilidad se aprueba en Aprobaciones.» |
 | Error de la IA | «Error en el motor de IA: …» / «No se pudo completar el análisis. Inténtalo de nuevo.» |
 
 ## Estados
@@ -152,7 +166,8 @@ Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobació
 stateDiagram-v2
   [*] --> Borrador: inicializar
   Borrador --> En_revisión: enviar a revisión
-  En_revisión --> Aprobado: aprobar
+  En_revisión --> Aprobado: aprobar (en Aprobaciones)
+  En_revisión --> Borrador: rechazar (en Aprobaciones)
   En_revisión --> Borrador: nueva revisión
   Aprobado --> Borrador: nueva revisión
 ```
@@ -162,7 +177,8 @@ sigue siendo editable.
 
 ## Vistas relacionadas
 
-- [AISIA](aisia.md): fuente de las propuestas. Al aprobar una AISIA, los controles A.5.2 a A.5.5 pasan a
+- [Aprobaciones](aprobaciones.md): decisión de la Declaración.
+- [AISIA](aisia.md): fuente de las propuestas. Al aprobarse una AISIA, los controles A.5.2 a A.5.5 pasan a
   «Implantado» si todos sus sistemas tienen AISIA aprobada.
 - [Biblioteca de evidencias](evidencias.md), [Ficha del sistema](ficha-sistema.md), [Dashboard](dashboard.md).
 - Negocio: [Declaración de Aplicabilidad ISO 42001](../negocio/declaracion-aplicabilidad.md).

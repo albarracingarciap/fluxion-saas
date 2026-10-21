@@ -19,6 +19,7 @@ fuente:
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - apps/web/app/(app)/gaps/actions.ts
   - docs/modulos/c3-aprobaciones.md
 ---
@@ -138,6 +139,11 @@ El plan de tratamiento y los documentos del expediente solo se aprueban en este 
 [nivel de aprobación](../glosario.md#nivel-de-aprobación) y cada plantilla del expediente tienen siempre una
 política, y la configuración no permite dejar ninguno sin cubrir. Quien redactó algún apartado de un documento
 no puede aprobarlo.
+
+La evaluación de impacto (AISIA), la Declaración de Aplicabilidad y las evidencias también se aprueban
+solo en este circuito: sus pantallas ya no permiten aprobarlas ni rechazarlas, y no se pueden enviar a
+aprobación si la organización no tiene activa una política para su tipo. Quien preparó la AISIA (quien la
+creó y quien la envió) y quien aporta una evidencia no pueden decidirlas.
 
 > **Pendiente de implementar.**
 > - La clasificación AI Act y la política de IA como objetos aprobables.

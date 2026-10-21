@@ -16,6 +16,8 @@ fuente:
   - apps/web/app/(app)/plantillas/soa-iso42001/actions.ts
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
+  - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - docs/modulos/aisia-auditoria.md
 ---
 
@@ -54,13 +56,12 @@ contratable.
 | Rol | Responsabilidad |
 |---|---|
 | Responsable del sistema | Completa la AISIA, el registro de riesgos de negocio y el cuestionario de sus proyectos |
-| DPO | Interviene en la sección de datos de la AISIA y en el estado de la DPIA |
-| Responsable del SGAI | Envía y aprueba o rechaza la AISIA |
+| DPO | Interviene en la sección de datos de la AISIA y en el estado de la DPIA; emite dictamen antes de que se apruebe |
+| Comité de IA | Aprueba o rechaza la AISIA en los [Flujos de aprobación](flujos-de-aprobacion.md) |
 | Directivo | Consulta los riesgos de negocio |
 | Auditor | Consulta las AISIA aprobadas |
 
-> **Pendiente de definir.** Qué roles pueden aprobar o rechazar una AISIA. Hoy la opción se ofrece al
-> Administrador, al Responsable del SGAI y al CAIO.
+Quien prepara la AISIA no la aprueba: ni quien la creó ni quien la envió pueden decidirla.
 
 ## Flujo de trabajo
 
@@ -70,8 +71,8 @@ contratable.
 stateDiagram-v2
   [*] --> Borrador
   Borrador --> Enviada: enviar
-  Enviada --> Aprobada: aprobar
-  Enviada --> Rechazada: rechazar con motivo
+  Enviada --> Aprobada: aprobar (Flujos de aprobación)
+  Enviada --> Rechazada: rechazar con motivo (Flujos de aprobación)
   Rechazada --> Borrador: reabrir (nueva versión)
 ```
 
@@ -90,8 +91,11 @@ stateDiagram-v2
 
    Conviene hacer la AISIA después del análisis de modos de fallo y del plan de tratamiento, porque las
    secciones 3 y 4 los usan.
-3. **Envío y decisión.** La AISIA se envía y se aprueba, o se rechaza con un motivo. Una AISIA rechazada
-   se reabre como nueva versión; las anteriores se conservan.
+3. **Envío y decisión.** La AISIA se envía a aprobación y la decisión se toma siempre en los
+   [Flujos de aprobación](flujos-de-aprobacion.md), nunca en la propia evaluación. Por defecto, el DPO
+   emite su dictamen y el Comité de IA la aprueba o la rechaza con un motivo. Para enviarla, la
+   organización debe tener activa una política de aprobación para la AISIA. Una AISIA rechazada se reabre
+   como nueva versión; las anteriores se conservan.
 
    > TODO: confirmar dos puntos de la AISIA.
    > - **Actualización:** no hay forma de actualizar una AISIA ya aprobada.
@@ -127,7 +131,6 @@ stateDiagram-v2
 > - Clasificación a partir del cuestionario preliminar y alta del sistema desde sus respuestas. Hoy el
 >   cuestionario solo guarda la información.
 > - Propuesta de contenido por IA para las secciones de la AISIA.
-> - Aprobación de la AISIA mediante [Flujos de aprobación](../glosario.md#flujos-de-aprobación).
 > - Acceso condicionado a la activación del módulo. Hoy AISIA, riesgos de negocio y cuestionario
 >   preliminar están disponibles para todas las organizaciones.
 

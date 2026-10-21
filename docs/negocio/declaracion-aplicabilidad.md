@@ -13,6 +13,8 @@ fuente:
   - apps/web/app/(app)/plantillas/soa-iso42001/soa-print-view.tsx
   - apps/web/lib/templates/iso42001-catalog.ts
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - docs/producto/flujo-completo.md
 ---
 
@@ -43,18 +45,20 @@ desactualiza pronto. Fluxion:
   los sistemas en alcance.
 - **Prueba la implantación:** cada control se vincula a la [evidencia](../glosario.md#evidencia) que lo
   valida y a los sistemas a los que afecta.
-- **Gobierna el documento:** borrador, revisión y aprobación, con roles autorizados, historial y
-  registro de cada cambio de estado.
+- **Gobierna el documento:** borrador, revisión y aprobación en los
+  [Flujos de aprobación](flujos-de-aprobacion.md), con roles autorizados, historial y registro de cada
+  cambio de estado.
 
 ## Roles
 
 | Rol | Responsabilidad |
 |---|---|
-| Responsable del SGAI | Prepara la Declaración, la envía a revisión y puede aprobarla |
+| Responsable del SGAI | Prepara la Declaración, la envía a revisión y puede abrir una nueva revisión |
 | Analista de cumplimiento | Completa la aplicabilidad y las justificaciones y puede enviarla a revisión |
 | DPO | Puede enviarla a revisión |
-| CAIO | Puede enviarla a revisión y aprobarla |
-| Administrador | Puede enviarla a revisión y aprobarla |
+| CAIO | Puede enviarla a revisión y abrir una nueva revisión |
+| Administrador | Puede enviarla a revisión y abrir una nueva revisión |
+| Revisión por la Dirección | Aprueba o rechaza la Declaración en los Flujos de aprobación; si no está constituida, un Directivo |
 | Responsable de cada control | Responde de la implantación del control que tiene asignado |
 | Auditor | Consulta la Declaración aprobada, su historial y sus evidencias |
 
@@ -67,8 +71,8 @@ flowchart TD
   C --> D[Revisar control a control]
   D --> E[Comprobar completitud]
   E --> F[En revisión]
-  F -->|aprobar| G[Aprobada]
-  F -->|devolver| D
+  F -->|aprobar en Flujos de aprobación| G[Aprobada]
+  F -->|rechazar o nueva revisión| D
 ```
 
 1. **Inicialización.** La organización crea su Declaración, que arranca en borrador con los 38
@@ -94,7 +98,13 @@ flowchart TD
 5. **Completitud.** Fluxion comprueba que todos los controles aplicables tienen justificación y señala
    los que faltan.
 6. **Revisión y aprobación.**
-   - La Declaración pasa a «En revisión» y después a «Aprobada»; también puede volver a borrador.
+   - Solo se puede enviar a revisión con todos los controles aplicables justificados y con una política
+     de aprobación activa para la Declaración.
+   - La decisión se toma siempre en los [Flujos de aprobación](flujos-de-aprobacion.md), nunca en el
+     propio documento: por defecto la aprueba la Revisión por la Dirección, o un Directivo si no está
+     constituida. Si se rechaza, vuelve a borrador.
+   - La Declaración pasa a «En revisión» y después a «Aprobada»; también se puede abrir una nueva
+     revisión, que la devuelve a borrador y retira la solicitud pendiente.
    - Fuera de borrador es de solo lectura: para modificarla hay que abrir una revisión.
    - Cada cambio de estado queda registrado con su autor y su fecha.
    - Hay un historial de los cambios por control.
@@ -103,10 +113,6 @@ flowchart TD
 
 > TODO: confirmar el estado de implantación «Externalizado». Aparece en la interfaz, pero no se ha
 > comprobado que se guarde como un estado distinto.
-
-> **Pendiente de implementar.** Aprobación de la Declaración a través de
-> [Flujos de aprobación](../glosario.md#flujos-de-aprobación). La política se puede configurar, pero hoy
-> la aprobación se hace con el cambio de estado del propio documento.
 
 ## Relación normativa
 

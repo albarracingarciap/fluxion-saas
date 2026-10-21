@@ -101,8 +101,10 @@ flowchart LR
    referencia legal de su documento, su versión y su estado. Cada PDF:
    - es inmutable;
    - lleva una huella del fichero y otra del contenido;
-   - se guarda como evidencia del sistema: válida si el documento está aprobado, y pendiente de revisión si
-     no lo está.
+   - se guarda como evidencia del sistema: válida si el documento está aprobado; si no lo está, queda
+     pendiente de revisión y su aprobación se pide automáticamente en los
+     [Flujos de aprobación](flujos-de-aprobacion.md) (sin política activa para las evidencias, queda en
+     borrador).
 
    Se pueden descargar los PDF generados anteriormente, de todas las versiones.
 

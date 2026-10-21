@@ -113,3 +113,43 @@ export async function hasApprovalPolicy(
   }
   return Boolean(data)
 }
+
+/**
+ * Abre la revisión de una evidencia que el sistema crea ya «pendiente de
+ * revisión» (PDF de un expediente sin aprobar, informes generados). La pide y
+ * la prepara quien la aporta, que por eso no puede decidirla (DP-01). Sin
+ * política o sin solicitud, la evidencia queda en borrador: pendiente sin
+ * circuito no la decidiría nadie (B11g). No lanza.
+ */
+export async function openEvidenceReview(params: {
+  organizationId: string
+  evidenceId: string
+  /** auth.users.id de quien aporta la evidencia. */
+  ownerUserId: string
+}): Promise<void> {
+  const admin = createNoCacheAdminClient()
+  const { data: perfil } = await admin
+    .from('profiles')
+    .select('id')
+    .eq('user_id', params.ownerUserId)
+    .eq('organization_id', params.organizationId)
+    .maybeSingle()
+
+  const apertura = perfil
+    ? await openApprovalRequest({
+        organizationId: params.organizationId,
+        objectType: 'evidence',
+        objectId: params.evidenceId,
+        requestedByProfileId: perfil.id,
+        context: { prepared_by: [perfil.id] },
+      })
+    : { requestId: null }
+
+  if ('error' in apertura || apertura.requestId === null) {
+    await admin
+      .from('system_evidences')
+      .update({ status: 'draft', updated_at: new Date().toISOString() })
+      .eq('id', params.evidenceId)
+      .eq('organization_id', params.organizationId)
+  }
+}

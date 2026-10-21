@@ -14,8 +14,6 @@ import { getAppAuthState } from '@/lib/auth/app-state'
 import { buildEvidencesData, type OrganizationEvidenceRecord } from '@/lib/evidences/data'
 import { getActiveExpiryAlerts, type EvidenceExpiryAlert } from '@/lib/evidences/expiry-alerts'
 import { EvidencesLibraryClient } from './evidences-library-client'
-import { hasRole } from '@/lib/auth/roles'
-import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules'
 import { ExpiryAlertsBanner } from './expiry-alerts-client'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
@@ -811,8 +809,6 @@ export default async function EvidencesPage({
                 inApprovalCircuitIds={enCircuito}
                 evidences={filteredLibrary.slice(0, 24)}
                 organizationId={membership.organization_id}
-                currentUserId={user.id}
-                canReview={hasRole(membership, EVIDENCE_REVIEWER_ROLE)}
               />
             ) : (
               <div className="rounded-[12px] border border-dashed border-ltb bg-ltbg p-5">

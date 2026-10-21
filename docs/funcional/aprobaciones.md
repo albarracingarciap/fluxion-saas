@@ -31,6 +31,7 @@ fuente:
   - apps/web/lib/approvals/coverage.ts
   - supabase/migrations/20261021090000_plan_solo_circuito.sql
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
 ---
 
 # Aprobaciones
@@ -72,17 +73,20 @@ activa para su tipo:
 | Objeto | Se abre al | Pantalla del objeto mientras está pendiente |
 |---|---|---|
 | Plan de tratamiento | Enviarlo a aprobación | El panel de aprobación remite a Aprobaciones |
-| Evaluación AISIA | Enviarla para aprobación | La ficha muestra «La decisión se toma en Aprobaciones» en lugar de **Aprobar** y **Rechazar** |
+| Evaluación AISIA | Enviarla para aprobación (exige política; contexto `prepared_by`: quien la creó y quien la envía, B11g) | La ficha muestra «La decisión se toma en Aprobaciones». Sin botones de aprobar ni rechazar desde B11g |
 | Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política depende de la plantilla, `template_key`; el contexto lleva `prepared_by`, B11f) | «La aprobación se decide en Aprobaciones…» (no hay botón de aprobar desde B11f). **Volver a borrador** cancela la solicitud |
-| Declaración de Aplicabilidad | Enviarla a revisión (con todos los controles aplicables justificados) | **En Aprobaciones** en lugar de **Aprobar SoA**. **Iniciar nueva revisión** cancela la solicitud |
-| Evidencia | Enviarla a revisión (también en bloque) | «Se decide en Aprobaciones». Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
+| Declaración de Aplicabilidad | Enviarla a revisión (exige política y todos los controles aplicables justificados) | **En Aprobaciones**; sin **Aprobar SoA** desde B11g. **Iniciar nueva revisión** cancela la solicitud |
+| Evidencia | Enviarla a revisión (también en bloque; exige política; contexto `prepared_by`: quien la aporta). Las que el sistema crea pendientes de revisión (PDF de un expediente sin aprobar, informes generados) abren su solicitud solas (`openEvidenceReview`); sin política quedan en borrador | «Se decide en Aprobaciones»; sin **Aprobar** ni **Rechazar** desde B11g. Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
 | Exclusión de brecha (B11d) | Excluir una brecha (también en bloque) cuya capa gobierna una política; por defecto, «Riesgo sin tratar» y «Obligación sin cubrir» (DP-07). El contexto lleva `gap_layer` y el título de la brecha | La brecha sigue en la cola con **Exclusión pendiente de aprobación**, y en [Brechas excluidas](brechas-excluidas.md) en **Pendientes de aprobación**. **Retirar exclusión** cancela la solicitud |
 
 **Políticas por defecto (B11b).** Toda organización tiene una política para cada tipo de objeto, con el mapa
 de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
 menos una activa. El plan de tratamiento ya no tiene vía propia (B11e): sin política para su nivel no se
 puede enviar, y Ajustes no deja guardar, desactivar ni borrar una política si algún nivel del plan se queda
-sin cubrir. Lo mismo con las plantillas del expediente (B11f).
+sin cubrir. Lo mismo con las plantillas del expediente (B11f). La AISIA, la Declaración y las evidencias
+tampoco tienen vía propia (B11g): su tipo conserva siempre una política activa sin condiciones, su envío la
+exige y la base de datos no deja aprobarlas desde la sesión de un usuario. Ningún objeto se aprueba fuera
+del circuito.
 
 **Quien prepara no decide (B11f).** Además de quien abrió la solicitud, no pueden decidir ni son candidatos
 los perfiles de `context.prepared_by` (en los expedientes, quienes redactaron algún apartado), tampoco como

@@ -1,5 +1,6 @@
 'use server';
 
+import { openEvidenceReview } from '@/lib/approvals/open';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -120,6 +121,13 @@ export async function saveEuRegistryAsEvidence(input: SaveEuRegistryAsEvidenceIn
     console.error('saveEuRegistryAsEvidence evidence error:', evidenceError);
     return { error: evidenceError?.message ?? 'No se pudo registrar la evidencia de la ficha EU.' };
   }
+
+  // Se decide en Flujos de aprobación (B11g).
+  await openEvidenceReview({
+    organizationId: membership.organization_id,
+    evidenceId: evidence.id,
+    ownerUserId: user.id,
+  });
 
   await insertAiSystemHistoryEvents(fluxion, [
     {

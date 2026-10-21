@@ -4,7 +4,6 @@ import assert from 'node:assert/strict'
 
 import {
   EVIDENCE_REVIEW_TRANSITIONS,
-  evidenceReviewBlocker,
   statusAfterEdit,
 } from '../lib/evidences/review-rules'
 import { computeVersionDiff, type EvidenceVersionRecord } from '../lib/evidences/versions'
@@ -20,19 +19,10 @@ test('sin cambios de contenido el estado no cambia', () => {
   assert.equal(statusAfterEdit('valid', false), 'valid')
 })
 
-test('aprobar exige Responsable del SGAI distinto de quien aporta la evidencia', () => {
-  const sgai = { role: 'org_admin', roles: ['org_admin', 'sgai_manager'] }
-  assert.equal(evidenceReviewBlocker({ actor: sgai, actorUserId: 'u1', ownerUserId: 'u2' }), null)
-  assert.match(evidenceReviewBlocker({ actor: sgai, actorUserId: 'u1', ownerUserId: 'u1' }) ?? '', /aporta/)
-  assert.match(
-    evidenceReviewBlocker({ actor: { role: 'risk_analyst' }, actorUserId: 'u1', ownerUserId: 'u2' }) ?? '',
-    /Responsable del SGAI/,
-  )
-})
-
-test('transiciones del ciclo', () => {
-  assert.deepEqual(EVIDENCE_REVIEW_TRANSITIONS.approve, { from: ['pending_review'], to: 'valid' })
-  assert.ok(EVIDENCE_REVIEW_TRANSITIONS.request_review.from.includes('rejected'))
+test('transiciones del ciclo: aprobar y rechazar se deciden en el circuito (B11g)', () => {
+  assert.deepEqual(EVIDENCE_REVIEW_TRANSITIONS.request_review, { from: ['draft', 'rejected'], to: 'pending_review' })
+  assert.deepEqual(EVIDENCE_REVIEW_TRANSITIONS.reopen, { from: ['rejected'], to: 'draft' })
+  assert.equal('approve' in EVIDENCE_REVIEW_TRANSITIONS, false)
 })
 
 test('el historial muestra el cambio de fichero por su nombre', () => {
