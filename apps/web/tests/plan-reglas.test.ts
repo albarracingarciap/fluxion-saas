@@ -7,9 +7,7 @@ import {
   getApprovalLevelLabel,
   getDefaultDeadlineForZone,
   getReviewCadenceForZone,
-  pickPlanApprover,
   planHasSecurityControls,
-  type ApproverCandidate,
 } from '../lib/fmea/treatment-plan-rules'
 import { canPrepareTreatmentPlan, canResolveFmeaSecondReview } from '../lib/auth/roles-flujo'
 
@@ -54,43 +52,10 @@ test('la segunda revisión la resuelve el Responsable del SGAI', () => {
   assert.equal(canResolveFmeaSecondReview('dpo'), false)
 })
 
-const miembro = (user_id: string, role: string, is_active: boolean | null = true): ApproverCandidate => ({
-  user_id,
-  role,
-  is_active,
-})
-
-test('aprobador sin política: Responsable del SGAI activo y distinto de quien envía', () => {
-  const miembros = [
-    miembro('sgai-baja', 'sgai_manager', false),
-    miembro('analista', 'risk_analyst'),
-    miembro('sgai-1', 'sgai_manager'),
-    miembro('sgai-2', 'sgai_manager'),
-  ]
-  assert.equal(pickPlanApprover(miembros, 'level_1', 'analista'), 'sgai-1')
-  // quien prepara no aprueba
-  assert.equal(pickPlanApprover(miembros, 'level_1', 'sgai-1'), 'sgai-2')
-  // niveles 2 y 3 sin política: también el Responsable del SGAI
-  assert.equal(pickPlanApprover(miembros, 'level_3', 'analista'), 'sgai-1')
-})
-
-test('el rol de aprobador cuenta aunque no sea el principal (roles múltiples)', () => {
-  const miembros: ApproverCandidate[] = [
-    { user_id: 'admin-sgai', role: 'org_admin', roles: ['org_admin', 'sgai_manager'], is_active: true },
-  ]
-  assert.equal(pickPlanApprover(miembros, 'level_1', 'analista'), 'admin-sgai')
-})
-
 test('roles múltiples en las reglas de preparación y segunda revisión', () => {
   assert.equal(canPrepareTreatmentPlan({ role: 'org_admin', roles: ['org_admin', 'risk_analyst'] }), true)
   assert.equal(canPrepareTreatmentPlan({ role: 'org_admin', roles: ['org_admin'] }), false)
   assert.equal(canResolveFmeaSecondReview({ role: 'caio', roles: ['caio', 'sgai_manager'] }), true)
-})
-
-test('sin candidato no se asigna a nadie', () => {
-  const miembros = [miembro('dpo', 'dpo'), miembro('admin', 'org_admin'), miembro('sgai', 'sgai_manager', false)]
-  assert.equal(pickPlanApprover(miembros, 'level_1', 'otro'), null)
-  assert.equal(pickPlanApprover([miembro('sgai', 'sgai_manager')], 'level_1', 'sgai'), null)
 })
 
 test('controles de seguridad del plan: consulta del CISO (B11d)', () => {

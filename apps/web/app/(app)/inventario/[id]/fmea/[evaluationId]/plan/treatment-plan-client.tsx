@@ -529,31 +529,11 @@ export function TreatmentPlanClient({ data }: { data: TreatmentPlanData }) {
   function handleSubmitPlan() {
     setGlobalError(null);
 
+    // La referencia del acta ya no se teclea: la genera la aprobación (B11e).
     startSubmittingPlan(async () => {
-      let approvalMinutesRef: string | null = null;
-
-      if (isExecutiveApproval) {
-        const promptedRef = window.prompt(
-          'Este plan requiere aprobación de alta dirección. Indica la referencia del acta o comité para continuar:',
-          data.plan.approval_minutes_ref ?? ''
-        );
-
-        if (promptedRef === null) {
-          return;
-        }
-
-        approvalMinutesRef = promptedRef.trim();
-
-        if (!approvalMinutesRef) {
-          setGlobalError('Debes indicar una referencia de acta o comité para enviar este plan a alta dirección.');
-          return;
-        }
-      }
-
       const result = await submitTreatmentPlanForApproval({
         aiSystemId: data.system.id,
         evaluationId: data.evaluation.id,
-        approvalMinutesRef,
       });
 
       if (result?.error) {

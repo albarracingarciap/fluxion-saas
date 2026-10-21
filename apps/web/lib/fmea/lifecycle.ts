@@ -18,9 +18,8 @@ type AprobacionResultado = {
 /**
  * Lo que pasa cuando se aprueba un plan de tratamiento (B07).
  *
- * Se llama con el plan ya en `approved` desde las dos vías de aprobación: el
- * aprobador asignado (`approveTreatmentPlanAction`) y Flujos de aprobación
- * (`lib/approvals/effects.ts`). La transición la hace
+ * Se llama con el plan ya en `approved` desde Flujos de aprobación
+ * (`lib/approvals/effects.ts`), la única vía desde B11e. La transición la hace
  * `fluxion.fmea_aplicar_aprobacion_plan` en una sola transacción:
  * aceptaciones aprobadas, evaluación aprobada con su próxima revisión,
  * versiones anteriores sustituidas y plan en ejecución o cerrado.

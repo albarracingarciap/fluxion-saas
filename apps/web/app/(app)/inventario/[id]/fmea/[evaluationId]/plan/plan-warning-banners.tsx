@@ -78,7 +78,7 @@ export function PlanWarningBanners({
         <div className="mb-5 flex items-start gap-2 rounded-[10px] border border-reb bg-red-dim px-4 py-3 text-re font-sora text-[13px]">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            Zona I requiere aprobación de alta dirección. Define todas las acciones del plan y envíalo con referencia de acta o comité para su trazabilidad formal.
+            Zona I requiere aprobación de la Revisión por la Dirección. Define todas las acciones del plan y envíalo: la decisión se toma en Aprobaciones y el acta se genera al cerrarse.
           </span>
         </div>
       )}

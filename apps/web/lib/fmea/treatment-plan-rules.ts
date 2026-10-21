@@ -1,14 +1,12 @@
 /**
  * Reglas puras del plan de tratamiento: nivel de aprobación, cadencia y plazo
- * por zona, y elección del aprobador sin política.
+ * por zona, y contexto de su solicitud de aprobación.
  *
  * No dependen de la base de datos ni de Next, así que se pueden probar con
  * `npm test` (tests/). `lib/fmea/treatment-plan.ts` las reexporta para no
  * cambiar a quien ya las importa desde allí.
  */
 import type { FmeaZone } from './domain';
-import { PLAN_APPROVER_ROLES } from '../auth/roles-flujo';
-import { hasRole } from '../auth/roles';
 
 export type TreatmentApprovalLevel = 'level_1' | 'level_2' | 'level_3';
 
@@ -65,34 +63,6 @@ const APPROVAL_LEVEL_LABELS: Record<TreatmentApprovalLevel, string> = {
 /** Nombre de negocio del nivel de aprobación (glosario). */
 export function getApprovalLevelLabel(level: string | null | undefined): string {
   return APPROVAL_LEVEL_LABELS[level as TreatmentApprovalLevel] ?? 'Nivel sin definir';
-}
-
-/** Roles que pueden aprobar el plan sin política de Flujos de aprobación (DP-01). */
-export function getApproverRolePriority(level: TreatmentApprovalLevel): readonly string[] {
-  return PLAN_APPROVER_ROLES[level] ?? PLAN_APPROVER_ROLES.level_1;
-}
-
-export type ApproverCandidate = { user_id: string; role: string; roles?: readonly string[] | null; is_active: boolean | null };
-
-/**
- * Elige el aprobador entre los miembros: activo, con un rol aprobador del nivel
- * y distinto de quien envía (quien prepara no aprueba). Respeta el orden de
- * prioridad de los roles y, dentro de cada rol, el orden recibido. Sin
- * candidato devuelve null: nunca se asigna «cualquier miembro».
- */
-export function pickPlanApprover(
-  members: ApproverCandidate[],
-  approvalLevel: TreatmentApprovalLevel,
-  actorUserId: string,
-): string | null {
-  const roles = getApproverRolePriority(approvalLevel);
-  const candidates = members.filter((member) => member.is_active !== false && member.user_id !== actorUserId);
-  // Cuenta cualquiera de los roles del miembro, no solo el principal (B23a).
-  for (const role of roles) {
-    const match = candidates.find((member) => hasRole(member, role));
-    if (match) return match.user_id;
-  }
-  return null;
 }
 
 /** Dimensión de riesgo de seguridad: la que revisa el CISO (DP-01). */

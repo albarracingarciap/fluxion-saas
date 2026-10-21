@@ -25,6 +25,8 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/fmea/evaluation-version-bar.tsx
   - supabase/migrations/00000000000001_schema.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
+  - apps/web/lib/approvals/coverage.ts
+  - supabase/migrations/20261021090000_plan_solo_circuito.sql
 ---
 
 # Plan de tratamiento
@@ -53,11 +55,12 @@ evidencia, y obtener la aprobación del nivel que corresponda.
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Analista de riesgos, Responsable del sistema | Sí | Editar el plan en borrador y enviarlo |
-| Aprobador asignado (sin política: Responsable del SGAI) | Sí | Aprobar o devolver el plan en revisión |
 | Todos los roles | Sí | Gestionar evidencias, estado de tareas, severidad residual y revisiones periódicas |
 
 Permisos según la decisión DP-01 (bloque B01): quien prepara no aprueba y el DPO es consultivo, así que no
-edita el plan. Para los demás roles la vista se muestra en solo lectura.
+edita el plan. Para los demás roles la vista se muestra en solo lectura. El plan se aprueba o se devuelve
+siempre en [Aprobaciones](aprobaciones.md), con la política de su nivel (B11e); esta vista no tiene botones
+de aprobación.
 
 **Aprobador sin política** en Flujos de aprobación: un Responsable del SGAI activo distinto de quien envía,
 en cualquier nivel. Si no hay ninguno, el envío se rechaza (ver Validaciones). Los niveles 2 y 3 los aprueba
@@ -77,10 +80,10 @@ El plan solo se puede editar en borrador. En el resto de estados se muestra en s
 | Bloque | Contenido |
 |---|---|
 | Cabecera | Nombre del sistema; código del plan (PTR-…), versión de la evaluación y código del sistema |
-| Barra de estado | Zona proyectada, [nivel de aprobación](../glosario.md#nivel-de-aprobación), fecha límite, acciones definidas, tareas completadas, estado del plan, zona al crear, suelo AI Act, pendientes, cadencia, aprobador asignado |
+| Barra de estado | Zona proyectada, [nivel de aprobación](../glosario.md#nivel-de-aprobación), fecha límite, acciones definidas, tareas completadas, estado del plan, zona al crear, suelo AI Act, pendientes, cadencia, **Aprobado por** (quien emitió la decisión final; «Pendiente en Aprobaciones» mientras está en revisión, «—» antes) |
 | Eficacia | Acciones vencidas, que vencen en 7 días, tasa de slippage (mitigaciones cerradas sin severidad residual o por encima del objetivo) y mediana de días de cierre |
 | **Progreso de ejecución** | % de acciones completadas o aceptadas, contadores por estado, días restantes, acciones vencidas, tareas vinculadas |
-| Avisos | Revisiones vencidas o próximas; acciones vencidas; Zona I (requiere alta dirección y referencia de acta); acciones sin definir o incompletas |
+| Avisos | Revisiones vencidas o próximas; acciones vencidas; Zona I (la aprueba la Revisión por la Dirección en Aprobaciones; el acta se genera al cerrarse); acciones sin definir o incompletas |
 | **Riesgo residual asumido** | Texto libre (`treatment_plans.residual_risk_notes`) y resumen: acciones candidatas, aceptaciones, nivel requerido |
 
 ### Acciones
@@ -126,9 +129,7 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | **Guardar decisión** | Editor del plan | `saveTreatmentActionDecision`. En Mitigar reutiliza el control del sistema o crea uno en estado «Planificado» | Evento «Opción seleccionada». Historial «Decisión de tratamiento guardada» |
 | Guardado automático (30 s tras cada cambio) | Editor del plan | Guarda las acciones modificadas y el riesgo residual, sin validar | — |
 | **Guardar borrador** | Editor del plan | Guarda el riesgo residual y la zona objetivo | Historial «Borrador del plan guardado» |
-| **Enviar a aprobación** / **Enviar a alta dirección** (nivel 3) | Editor del plan | `submitTreatmentPlanForApproval`. En nivel 3 pide la referencia del acta o comité | Plan «En aprobación», con aprobador asignado. Si hay política en [Flujos de aprobación](../glosario.md#flujos-de-aprobación), abre la solicitud y avisa al primer paso. Guarda una [instantánea](../glosario.md#instantánea) |
-| **Aprobar plan** | Aprobador asignado | Con notas de comité opcionales | Plan «Aprobado». Instantánea. Historial «Plan de tratamiento aprobado». Después, la aprobación de la evaluación de riesgos (ver [Estados](#estados)) |
-| **Devolver al autor** | Aprobador asignado | Con motivo obligatorio | Plan a «Borrador», con el motivo visible. Instantánea. Historial «Plan devuelto al autor» |
+| **Enviar a aprobación** / **Enviar a alta dirección** (nivel 3) | Editor del plan | `submitTreatmentPlanForApproval`. Exige una política activa para el nivel. Ya no pide referencia de acta (B11e) | Plan «En aprobación» y solicitud abierta en [Flujos de aprobación](../glosario.md#flujos-de-aprobación), con el contexto `approval_level` y `has_security_controls`; aviso a quien decide el primer paso. Si la solicitud no se abre, el plan vuelve a borrador. Guarda una [instantánea](../glosario.md#instantánea). Historial «Plan enviado a aprobación» y «Solicitud de aprobación emitida» |
 | Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada» (también si se completa desde [Tareas](tareas.md)). En Mitigar abre **Registrar S residual alcanzado** |
 | **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción | Cierra la acción y, si la hay, la tarea. Si hay evidencia, la severidad residual pasa al ítem del FMEA |
 | Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción | Sin evento ni historial |
@@ -164,11 +165,8 @@ guardado automático. Los controles nuevos (de plantilla o propios) se crean con
 | Transferir, Evitar o Diferir con justificación corta | «Necesitas una justificación de al menos 50 caracteres para documentar esta decisión.» |
 | Diferir más de 90 días | «Un diferimiento superior a 90 días requiere una justificación reforzada de al menos 100 caracteres.» |
 | Envío con acciones sin definir | «Debes definir N acción/acciones antes de enviarlo a aprobación.» |
-| Zona I sin acta | «Los planes de Zona I requieren una referencia de acta o comité antes de enviarse a alta dirección.» |
-| Aprobar sin ser el aprobador | «No eres el aprobador asignado a este plan.» |
-| Devolver sin motivo | «Debes indicar el motivo de devolución para que el autor pueda corregir el plan.» |
 | Editar sin permiso | «No tienes permisos para editar este plan de tratamiento: lo preparan el Analista de riesgos y el Responsable del sistema.» |
-| Envío sin aprobador ni política | «No hay ningún miembro activo con rol Responsable del SGAI (distinto de quien envía) para aprobar el plan. Asigna ese rol en Usuarios, o configura una política de plan de tratamiento en Ajustes › Aprobaciones.» |
+| Envío sin política para el nivel | «No hay ninguna política de aprobación activa para el {nivel}. Configúrala en Ajustes › Aprobaciones antes de enviar el plan.» |
 | Evidencia de más de 20 MB | «El archivo no puede superar los 20 MB.» |
 
 ## Estados
@@ -181,8 +179,8 @@ acciones («No hay acciones de tratamiento pendientes») y su aprobación es la 
 stateDiagram-v2
   [*] --> Borrador: envío del FMEA
   Borrador --> En_aprobación: enviar
-  En_aprobación --> Borrador: devolver
-  En_aprobación --> Aprobado: aprobar
+  En_aprobación --> Borrador: rechazar, cancelar o caducar (en Aprobaciones)
+  En_aprobación --> Aprobado: aprobar (en Aprobaciones)
   Aprobado --> En_ejecución: quedan acciones abiertas
   Aprobado --> Cerrado: ninguna acción abierta
   En_ejecución --> Cerrado: última acción cerrada
@@ -190,7 +188,8 @@ stateDiagram-v2
   En_ejecución --> Sustituido: versión nueva aprobada
 ```
 
-**Al aprobarse el plan** (aprobador asignado o [flujo de aprobación](aprobaciones.md)), en una sola
+**Al aprobarse el plan** en su [flujo de aprobación](aprobaciones.md), con quien emitió la decisión final como
+aprobador (`approver_id`) y la referencia `APR-…` del acta, en una sola
 transacción de la base de datos (`fmea_aplicar_aprobacion_plan`):
 1. Las acciones «Aceptar» quedan «Aceptadas», con el aprobador y la fecha como aprobación de la aceptación.
 2. La [evaluación FMEA](fmea-evaluacion.md) pasa a «Aprobada», con su próxima revisión según la cadencia.

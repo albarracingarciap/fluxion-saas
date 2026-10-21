@@ -21,7 +21,6 @@ import {
 } from '@/lib/fmea/domain';
 import {
   generateTreatmentPlanCode,
-  resolvePlanApprover,
   getAiActFloorForSystem,
   getApprovalLevelForZone,
   getDefaultDeadlineForZone,
@@ -482,7 +481,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
   // propia evaluación; al aprobarse, se cierra.
   const { data: existingPlan } = await fluxion
     .from('treatment_plans')
-    .select('id, approver_id, status')
+    .select('id, status')
     .eq('organization_id', membership.organization_id)
     .eq('evaluation_id', input.evaluationId)
     .maybeSingle();
@@ -524,19 +523,10 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
 
   let treatmentPlanId = existingPlan?.id ?? null;
   let createdTreatmentPlan = false;
-  let approverId = existingPlan?.approver_id ?? null;
 
+  // El plan no lleva aprobador asignado: se aprueba en Flujos de aprobación con
+  // la política de su nivel (B11e).
   if (!treatmentPlanId) {
-    approverId = await resolvePlanApprover({
-      fluxion,
-      organizationId: membership.organization_id,
-      approvalLevel,
-      actorUserId: user.id,
-    });
-
-    // Sin aprobador disponible el plan se crea igualmente: se exige al enviarlo
-    // a aprobación, salvo que lo gobierne una política (Flujos de aprobación).
-
     const code = await generateTreatmentPlanCode({ organizationId: membership.organization_id, createdAt });
 
     const { data: newPlan, error: planError } = await fluxion
@@ -550,7 +540,6 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         ...planFromEvaluation,
         actions_completed: 0,
         accepted_risk_count: 0,
-        approver_id: approverId,
         deadline: getDefaultDeadlineForZone(input.cachedZone, createdAt),
         created_by: user.id,
       })
@@ -564,18 +553,9 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
     treatmentPlanId = newPlan.id;
     createdTreatmentPlan = true;
   } else {
-    // El aprobador asignado se mantiene salvo que cambie el nivel: entonces se
-    // vuelve a resolver más abajo.
-    const { data: previousPlan } = await fluxion
-      .from('treatment_plans')
-      .select('approval_level')
-      .eq('id', treatmentPlanId)
-      .single();
-    if (previousPlan && previousPlan.approval_level !== approvalLevel) approverId = null;
-
     const { error: planUpdateError } = await fluxion
       .from('treatment_plans')
-      .update({ ...planFromEvaluation, approver_id: approverId })
+      .update(planFromEvaluation)
       .eq('id', treatmentPlanId);
     if (planUpdateError) return { error: planUpdateError.message };
 
@@ -607,18 +587,6 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         .eq('plan_id', treatmentPlanId)
         .in('id', staleActions.map((action) => action.id));
       if (deleteError) return { error: deleteError.message };
-    }
-  }
-
-  if (treatmentPlanId && !approverId) {
-    approverId = await resolvePlanApprover({
-      fluxion,
-      organizationId: membership.organization_id,
-      approvalLevel: getApprovalLevelForZone(input.cachedZone),
-      actorUserId: user.id,
-    });
-    if (approverId) {
-      await fluxion.from('treatment_plans').update({ approver_id: approverId }).eq('id', treatmentPlanId);
     }
   }
 
@@ -739,7 +707,6 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         cached_zone: input.cachedZone,
         treatment_plan_id: treatmentPlanId,
         treatment_actions_count: candidateItems.length,
-        approver_id: approverId,
         residual_downgrades: residualDowngrades,
       },
     },
@@ -756,26 +723,8 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
               evaluation_id: input.evaluationId,
               treatment_plan_id: treatmentPlanId,
               candidate_actions: candidateItems.length,
-              approver_id: approverId,
             },
           },
-          ...(approverId
-            ? [
-                {
-                  ai_system_id: input.aiSystemId,
-                  organization_id: membership.organization_id,
-                  event_type: 'treatment_plan_approver_assigned',
-                  event_title: 'Aprobador asignado al plan',
-                  event_summary: 'Se asignó automáticamente el aprobador del plan de tratamiento según el nivel requerido.',
-                  actor_user_id: user.id,
-                  payload: {
-                    evaluation_id: input.evaluationId,
-                    treatment_plan_id: treatmentPlanId,
-                    approver_id: approverId,
-                  },
-                },
-              ]
-            : []),
         ]
       : []),
   ]);

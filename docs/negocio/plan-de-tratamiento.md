@@ -86,8 +86,7 @@ tratar, el plan se envía igualmente a aprobación, sin acciones, y se cierra al
    reenviarla. El plan registra:
    - la zona de partida;
    - el [suelo AI Act](../glosario.md#suelo-ai-act);
-   - el nivel de aprobación;
-   - el aprobador asignado;
+   - el nivel de aprobación, que decide quién lo aprueba;
    - un plazo según la zona: 30, 90, 180 o 365 días.
 2. **Decisión por acción.** Para cada modo se elige una [opción de tratamiento](../glosario.md#opción-de-tratamiento):
 
@@ -105,9 +104,10 @@ tratar, el plan se envía igualmente a aprobación, sin acciones, y se cierra al
    zona que alcanzará el sistema al completar el plan. Nunca queda por debajo del suelo AI Act.
 4. **Envío a aprobación.** El plan solo se puede enviar cuando todas las acciones están decididas y
    completas.
-5. **Aprobación.** El aprobador asignado aprueba el plan, con notas del comité si las hay, o lo rechaza.
-   Si la organización ha configurado una política en [Flujos de aprobación](../glosario.md#flujos-de-aprobación),
-   la decisión se toma desde allí con sus pasos y aprobadores. Cada transición guarda una
+5. **Aprobación.** El plan se aprueba siempre en los [Flujos de aprobación](../glosario.md#flujos-de-aprobación),
+   con la política de su nivel: por defecto, el Responsable del SGAI en el nivel 1, el Comité de Riesgos de
+   IA en el nivel 2 y la Revisión por la Dirección en el nivel 3, con la consulta al CISO si el plan tiene
+   controles de seguridad. Si se rechaza, vuelve al autor con el motivo. El acta se genera sola. Cada transición guarda una
    [instantánea](../glosario.md#instantánea) del plan. La aprobación del plan aprueba también las
    aceptaciones de riesgo que contiene.
 6. **Ejecución.**

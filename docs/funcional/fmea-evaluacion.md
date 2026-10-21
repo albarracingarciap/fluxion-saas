@@ -203,12 +203,12 @@ sola evaluación de riesgos y se aprueban juntos (DP-03, bloque B07).
 - **Plan:** lleva:
   - código PTR-año-nnn;
   - zona;
-  - nivel de aprobación;
-  - aprobador asignado;
+  - nivel de aprobación (sin aprobador asignado: lo decide la política del nivel en
+    [Aprobaciones](aprobaciones.md), B11e);
   - fecha límite (30, 90, 180 o 365 días);
   - cadencia de revisión.
 - **Reenvío** (plan devuelto a borrador y evaluación corregida): se recalculan zona, nivel de aprobación,
-  cadencia y recuentos; si cambia el nivel, se vuelve a asignar aprobador. Las acciones de modos que han
+  cadencia y recuentos. Las acciones de modos que han
   dejado de ser candidatos se retiran y sus tareas se cancelan.
 - **Evaluador:** se mantiene quien abrió la evaluación; quien la reenvía no lo sustituye.
 - **Prioridades:** se recalculan con la severidad residual.
@@ -220,8 +220,7 @@ evaluación queda en solo lectura.
 
 Los ítems pendientes se guardan tal como están: el guardado automático no les asigna severidad actual.
 
-**Aprobación.** Al aprobarse el plan, por el aprobador asignado o por un
-[flujo de aprobación](aprobaciones.md), la evaluación pasa a «Aprobada» con su aprobador, la fecha y la
+**Aprobación.** Al aprobarse el plan en su [flujo de aprobación](aprobaciones.md), la evaluación pasa a «Aprobada» con su aprobador, la fecha y la
 próxima revisión según la cadencia del plan (mensual, trimestral, semestral o anual). Historial
 «Evaluación de riesgos aprobada».
 

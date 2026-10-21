@@ -23,20 +23,6 @@ export const PLAN_PREPARER_ROLES: readonly OrgRole[] = ['risk_analyst', 'system_
  */
 export const FMEA_SECOND_REVIEW_ROLES: readonly OrgRole[] = ['sgai_manager']
 
-/**
- * Aprobador del plan cuando no hay política en Flujos de aprobación.
- *
- * Nivel 1: Responsable del SGAI. Los niveles 2 (Comité de Riesgos de IA) y 3
- * (Revisión por la Dirección) los aprueba un comité, que solo se puede
- * expresar con una política; sin ella, se asigna también al Responsable del
- * SGAI para que el plan no quede sin aprobador.
- */
-export const PLAN_APPROVER_ROLES: Record<'level_1' | 'level_2' | 'level_3', readonly OrgRole[]> = {
-  level_1: ['sgai_manager'],
-  level_2: ['sgai_manager'],
-  level_3: ['sgai_manager'],
-}
-
 /** Acepta el miembro (con su lista de roles) o un rol suelto. */
 type QuienOrol = RoleHolder | string
 

@@ -28,6 +28,8 @@ fuente:
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
   - apps/web/lib/documents/derive-approval.ts
   - apps/web/app/(app)/gaps/actions.ts
+  - apps/web/lib/approvals/coverage.ts
+  - supabase/migrations/20261021090000_plan_solo_circuito.sql
 ---
 
 # Aprobaciones
@@ -77,8 +79,10 @@ activa para su tipo:
 
 **Políticas por defecto (B11b).** Toda organización tiene una política para cada tipo de objeto, con el mapa
 de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
-menos una activa. Solo un objeto cuyo contexto no encaje con ninguna (por ejemplo, un nivel del plan cuya
-política se desactivó habiendo otras) se aprueba por su vía propia.
+menos una activa. El plan de tratamiento ya no tiene vía propia (B11e): sin política para su nivel no se
+puede enviar, y Ajustes no deja guardar, desactivar ni borrar una política si algún nivel del plan se queda
+sin cubrir. Solo un expediente cuya plantilla no encaje con ninguna política se aprueba aún por su vía
+propia.
 
 Al aplicar las políticas por defecto, los objetos que ya esperaban aprobación por la vía antigua (planes,
 AISIA, expedientes y evidencias en revisión, y la Declaración en revisión) abrieron su solicitud.

@@ -248,7 +248,7 @@ export function PlansViewClient({ plans, systems, members }: Props) {
             onChange={(e) => setSingle('approver', e.target.value || null)}
             className="px-3 py-2 rounded-[8px] border border-ltb bg-ltcard font-sora text-[13px] text-ltt outline-none focus:border-cyan-border min-w-[180px]"
           >
-            <option value="">Todos los aprobadores</option>
+            <option value="">Aprobado por: todos</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>{m.full_name}</option>
             ))}
@@ -502,7 +502,7 @@ function PlanRow({
         </div>
         <div className="font-plex text-[10px] uppercase tracking-[1px] text-lttm mt-0.5">
           {APPROVAL_LEVEL_LABEL[plan.approval_level]}
-          {approverName ? ` · ${approverName}` : ''}
+          {approverName ? ` · Aprobado por ${approverName}` : ''}
         </div>
         {plan.pending_reviews_count > 0 && (
           <div className="mt-1.5">

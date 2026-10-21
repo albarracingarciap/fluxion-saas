@@ -482,7 +482,7 @@ flowchart LR
 5. **Enviar a revisión** (o **Enviar a alta dirección** si hay severidad 9). ⛔ Sin pendientes,
    pospuestos, justificaciones ni segundas revisiones abiertas. Si hay modos con severidad 7 o más, se
    crea el plan de tratamiento en borrador con código PTR, [zona](../glosario.md#zona-de-riesgo), nivel de
-   aprobación, aprobador asignado y fecha límite.
+   aprobación y fecha límite.
 
 | Zona | Nivel de aprobación | Plazo del plan | Revisión |
 |---|---|---|---|
@@ -542,49 +542,38 @@ Responsable del sistema.
 - En nivel 3 sin política, se exige la referencia de un acta o comité.
 - El plan pasa a «En aprobación» y se guarda una [instantánea](../glosario.md#instantánea).
 
-A partir de aquí hay **dos vías**, según exista o no una política de plan de tratamiento para ese nivel:
+El plan se aprueba siempre en [Flujos de aprobación](aprobaciones.md), con la política de su nivel (B11e):
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor DPO as Analista o Resp. del sistema
+  actor Prep as Analista o Resp. del sistema
   participant Plan as Plan de tratamiento
   participant Motor as Flujos de aprobación
-  actor Apr as Aprobador(es)
-  DPO->>Plan: Enviar a aprobación
-  alt Sin política aplicable
-    Plan->>Plan: Asigna aprobador automáticamente
-    Note over Plan,Apr: Sin aviso al aprobador
-    Apr->>Plan: Aprobar plan · Devolver al autor (en la propia vista)
-  else Con política aplicable
-    Plan->>Motor: Abre solicitud con copia de la política
-    Motor->>Apr: Aviso «Aprobación pendiente» (app y webhook)
-    loop Cada paso
-      Apr->>Motor: Aprobar · Rechazar (motivo) · Abstenerse
-    end
-    Motor->>Plan: Aprobado, o vuelve a Borrador «[DEVUELTO] motivo»
-    Motor-->>Apr: Acta en PDF si algún paso es de comité
-    Motor->>DPO: Aviso del resultado
+  actor Apr as Consultados y aprobadores
+  Prep->>Plan: Enviar a aprobación
+  Plan->>Motor: Abre solicitud con copia de la política del nivel
+  Motor->>Apr: Aviso «Aprobación pendiente» (app, correo, canales)
+  loop Cada paso
+    Apr->>Motor: Dictamen (consulta) · Aprobar · Rechazar (motivo) · Abstenerse
   end
+  Motor->>Plan: Aprobado, o vuelve a Borrador «[DEVUELTO] motivo»
+  Motor-->>Apr: Acta en PDF
+  Motor->>Prep: Aviso del resultado
 ```
 
-| Aspecto | Sin política | Con política |
-|---|---|---|
-| Quién aprueba | Un Responsable del SGAI activo distinto de quien envía (B01). Sin ninguno, el envío se rechaza | Los pasos de la política: rol, persona o comité con quórum, con delegaciones |
-| Dónde se decide | En la propia vista del plan: **Aprobar plan** / **Devolver al autor** | En [Aprobaciones](aprobaciones.md) |
-| Aviso | Al aprobador asignado, en la app (B06) | Al aprobador de cada paso y al solicitante del resultado |
-| Segregación | Sí: el aprobador nunca es quien envía (B01) | Por defecto, quien solicita no puede aprobar |
-| Acta | Referencia de texto tecleada (obligatoria en nivel 3) | Generada en PDF si hay paso de comité |
-| Rastro | Instantánea y evento del plan | Decisiones inmutables y auditoría |
+| Aspecto | Comportamiento |
+|---|---|
+| Quién aprueba | Por defecto, nivel 1: Responsable del SGAI; nivel 2: Comité de Riesgos de IA; nivel 3: Revisión por la Dirección (con respaldo si el comité no está constituido). Consulta al CISO en los niveles 1 y 2 si el plan tiene controles de seguridad |
+| Dónde se decide | En [Aprobaciones](aprobaciones.md); la vista del plan solo informa |
+| Aviso | A quien decide cada paso y al solicitante del resultado |
+| Segregación | Quien solicita no aprueba, salvo que la política lo permita; el Auditor nunca decide |
+| Acta | Generada en PDF en todo cierre con decisión; referencia `APR-…` en el plan |
+| Rastro | Decisiones inmutables, auditoría, instantánea y eventos del plan |
 
-> **✔ GAP-14 · Resuelto en B01 y B06.** Sin política, el aprobador era cualquier miembro y no recibía
-> aviso. Ahora es un Responsable del SGAI distinto de quien envía y recibe el aviso en la app
-> «Aprobación pendiente: plan {código}», con enlace al plan.
->
-> **Decidido (DP-01), pendiente de implementar.** Nivel 1: Responsable del SGAI · nivel 2: Comité de
-> Riesgos de IA · nivel 3: Revisión por la Dirección.
->
-> **Pendiente de implementar.** Integración completa de la aprobación del plan en Flujos de aprobación.
+> **✔ GAP-14 · Resuelto en B01, B06, B11b y B11e.** El plan ya no tiene aprobador asignado: se envía solo si
+> hay política para su nivel y la configuración no deja ningún nivel sin cubrir. El mapa de DP-01 viene
+> sembrado en las políticas por defecto.
 
 > **✔ GAP-17 · Resuelto en B11c** (`O7`, `O8`, `S12`): quien solicita ve y puede cancelar su solicitud en
 > **Mis solicitudes**, y cancelar devuelve el objeto a borrador y avisa; las solicitudes caducan si la
@@ -998,8 +987,8 @@ En orden de prioridad.
    (o cuando se envía sin candidatos), y a «Sustituida» al iniciar una nueva versión. Es la base de la
    reevaluación y de la comparativa.
 3. **Un único circuito de aprobación.** Aplicar Flujos de aprobación a los cinco tipos de objeto, con
-   una política por defecto creada con la organización y la bandeja siempre visible. Mientras tanto,
-   avisar al aprobador asignado en la vía sin política.
+   una política por defecto creada con la organización y la bandeja siempre visible (hecho en B11a a
+   B11e).
 4. **Preparar el gobierno en el onboarding.** Añadir un paso que invite a los responsables con su rol
    (Responsable del SGAI, DPO, CAIO) y constituya los comités, y ligar **Gobernanza** a miembros reales.
    Indicar los roles mínimos para recorrer el flujo (ver la aclaración de la fase 1).
