@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  CheckCircle,
   ChevronDown,
   ChevronUp,
   Download,
@@ -25,26 +24,22 @@ import {
 // ─── Review flow ─────────────────────────────────────────────────────────────
 
 /**
- * `canDecide`: quien mira puede aprobar o rechazar esta evidencia (Responsable
- * del SGAI que no la aportó, DP-01). Lo calcula la página.
+ * Enviar a revisión o reabrir una rechazada. Aprobar y rechazar se deciden en
+ * Aprobaciones (B11g).
  */
-export function ReviewActions({ evidence, canDecide, inApprovalCircuit = false }: { evidence: EvidenceDetail; canDecide: boolean; inApprovalCircuit?: boolean }) {
+export function ReviewActions({ evidence, inApprovalCircuit = false }: { evidence: EvidenceDetail; inApprovalCircuit?: boolean }) {
   const router = useRouter()
   const [isReviewing, startReviewTransition] = useTransition()
-  const [rejectNotes, setRejectNotes] = useState('')
-  const [showRejectInput, setShowRejectInput] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handle = (action: ReviewAction, notes?: string) => {
+  const handle = (action: ReviewAction) => {
     setError(null)
     startReviewTransition(async () => {
-      const result = await reviewSystemEvidence(evidence.id, evidence.system_id ?? '', action, notes)
+      const result = await reviewSystemEvidence(evidence.id, evidence.system_id ?? '', action)
       if (result?.error) {
         setError(result.error)
         return
       }
-      setShowRejectInput(false)
-      setRejectNotes('')
       router.refresh()
     })
   }
@@ -70,58 +65,10 @@ export function ReviewActions({ evidence, canDecide, inApprovalCircuit = false }
         </a>
       )}
 
-      {status === 'pending_review' && !inApprovalCircuit && !canDecide && (
+      {status === 'pending_review' && !inApprovalCircuit && (
         <span className="font-sora text-[12px] text-lttm">
-          Pendiente de revisión del Responsable del SGAI (distinto de quien la aporta).
+          Sin solicitud de aprobación abierta: modifícala o vuelve a enviarla a revisión.
         </span>
-      )}
-
-      {status === 'pending_review' && canDecide && !showRejectInput && (
-        <>
-          <button
-            onClick={() => handle('approve')}
-            disabled={isReviewing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[12px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
-          >
-            {isReviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-            Aprobar
-          </button>
-          <button
-            onClick={() => setShowRejectInput(true)}
-            disabled={isReviewing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[12px] font-medium text-re bg-red-dim border border-reb hover:opacity-80 disabled:opacity-50 transition-opacity"
-          >
-            <X className="w-3.5 h-3.5" />
-            Rechazar
-          </button>
-        </>
-      )}
-
-      {status === 'pending_review' && canDecide && showRejectInput && (
-        <div className="flex flex-col gap-2 w-full max-w-sm">
-          <textarea
-            rows={2}
-            placeholder="Motivo del rechazo (obligatorio)"
-            value={rejectNotes}
-            onChange={(e) => setRejectNotes(e.target.value)}
-            className="w-full bg-ltbg border border-reb rounded-[6px] px-2.5 py-1.5 text-[12px] font-sora outline-none focus:border-re resize-none"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowRejectInput(false)}
-              className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => handle('reject', rejectNotes)}
-              disabled={isReviewing || !rejectNotes.trim()}
-              className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirmar rechazo'}
-            </button>
-          </div>
-        </div>
       )}
 
       {status === 'rejected' && (

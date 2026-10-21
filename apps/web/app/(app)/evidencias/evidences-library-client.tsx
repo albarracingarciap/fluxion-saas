@@ -162,11 +162,7 @@ function TagEditor({
 type Props = {
   evidences: OrganizationEvidenceRecord[];
   organizationId: string;
-  /** auth.users.id de quien mira: no revisa las evidencias que aporta. */
-  currentUserId: string;
-  /** Tiene el rol que aprueba o rechaza evidencias (Responsable del SGAI, DP-01). */
-  canReview: boolean;
-  /** Evidencias cuya revisión se decide en Flujos de aprobación (B11a). */
+  /** Evidencias con solicitud pendiente: aprobar y rechazar se deciden en Aprobaciones (B11g). */
   inApprovalCircuitIds?: string[];
 };
 
@@ -177,7 +173,7 @@ function fileTooLarge(file: File): string | null {
     : null;
 }
 
-export function EvidencesLibraryClient({ evidences, organizationId, currentUserId, canReview, inApprovalCircuitIds = [] }: Props) {
+export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCircuitIds = [] }: Props) {
   const enCircuito = new Set(inApprovalCircuitIds);
   const router = useRouter();
   const [editingEvidence, setEditingEvidence] = useState<OrganizationEvidenceRecord | null>(null);
@@ -192,10 +188,8 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
 
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
   // Error de revisión o borrado de una fila: antes se perdían en silencio (P5).
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
-  const [rejectNotes, setRejectNotes] = useState('');
   const [isReviewing, startReviewTransition] = useTransition();
 
   // File upload (edit modal)
@@ -349,16 +343,14 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
     });
   };
 
-  const handleReview = (evidence: OrganizationEvidenceRecord, action: ReviewAction, notes?: string) => {
+  const handleReview = (evidence: OrganizationEvidenceRecord, action: ReviewAction) => {
     setRowError(null);
     startReviewTransition(async () => {
-      const result = await reviewSystemEvidence(evidence.id, evidence.system_id, action, notes);
+      const result = await reviewSystemEvidence(evidence.id, evidence.system_id, action);
       if (result?.error) {
         setRowError({ id: evidence.id, message: result.error });
         return;
       }
-      setRejectingId(null);
-      setRejectNotes('');
       router.refresh();
     });
   };
@@ -575,7 +567,6 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
       {visibleEvidences.map((evidence) => {
         const statusMeta = STATUS_META[evidence.status] ?? STATUS_META.draft;
         const isConfirmingDelete = deletingId === evidence.id;
-        const isRejectingThis = rejectingId === evidence.id;
 
         return (
           <div
@@ -664,58 +655,10 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
                       Se decide en Aprobaciones
                     </a>
                   )}
-                  {evidence.status === 'pending_review' && !enCircuito.has(evidence.id) && !(canReview && evidence.owner_id !== currentUserId) && (
+                  {evidence.status === 'pending_review' && !enCircuito.has(evidence.id) && (
                     <span className="font-sora text-[10.5px] text-lttm max-w-[220px] text-right leading-tight">
-                      {canReview
-                        ? 'La revisa otro Responsable del SGAI: no se revisan las evidencias propias.'
-                        : 'Pendiente de revisión del Responsable del SGAI.'}
+                      Sin solicitud de aprobación abierta: modifícala o vuelve a enviarla.
                     </span>
-                  )}
-                  {evidence.status === 'pending_review' && !enCircuito.has(evidence.id) && canReview && evidence.owner_id !== currentUserId && (
-                    <div className="flex flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleReview(evidence, 'approve')}
-                          disabled={isReviewing}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] font-sora text-[11px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
-                        >
-                          Aprobar
-                        </button>
-                        <button
-                          onClick={() => { setRejectingId(evidence.id); setRejectNotes(''); }}
-                          disabled={isReviewing}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] font-sora text-[11px] font-medium text-re bg-red-dim border border-reb hover:opacity-80 disabled:opacity-50 transition-opacity"
-                        >
-                          Rechazar
-                        </button>
-                      </div>
-                      {isRejectingThis && (
-                        <div className="flex flex-col items-end gap-1.5 w-full max-w-[280px]">
-                          <textarea
-                            rows={2}
-                            placeholder="Motivo del rechazo (obligatorio)"
-                            value={rejectNotes}
-                            onChange={(e) => setRejectNotes(e.target.value)}
-                            className="w-full bg-ltbg border border-reb rounded-[6px] px-2.5 py-1.5 text-[11.5px] font-sora outline-none focus:border-re resize-none"
-                          />
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => setRejectingId(null)}
-                              className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              onClick={() => handleReview(evidence, 'reject', rejectNotes)}
-                              disabled={isReviewing || !rejectNotes.trim()}
-                              className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-50 transition-opacity"
-                            >
-                              {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirmar'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   )}
                   {evidence.status === 'rejected' && (
                     <button
@@ -856,15 +799,6 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
               {isBulkReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               Enviar a revisión
             </button>
-
-            {canReview && <button
-              onClick={() => handleBulkReview('approve')}
-              disabled={isBulkReviewing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
-            >
-              {isBulkReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-              Aprobar
-            </button>}
 
             <button
               onClick={handleOpenObligationPicker}
@@ -1041,7 +975,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, currentUserI
                   <p className="font-sora text-[12px] text-ltt2 leading-snug pt-1">
                     {editingEvidence && ['valid', 'expired', 'pending_review', 'rejected'].includes(editingEvidence.status)
                       ? 'Si cambias el contenido, vuelve a borrador y hay que enviarla de nuevo a revisión.'
-                      : 'Cambia con el ciclo de revisión: Enviar a revisión, Aprobar o Rechazar.'}
+                      : 'Cambia con el ciclo de revisión: Enviar a revisión y la decisión en Aprobaciones.'}
                   </p>
                 </div>
 

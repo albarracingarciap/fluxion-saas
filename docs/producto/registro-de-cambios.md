@@ -48,6 +48,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: consultas, pasos condicionales y disposición con aprobación (B11d) | Integrado en `main` | `docs/glosario-b11d` | 2026-10-21 | No |
 | B11e · Plan de tratamiento solo en el circuito de aprobación | Integrado en `main` | `fase2/b11e-plan-solo-circuito` | 2026-10-21 | **Sí** · `20261021090000_plan_solo_circuito.sql` |
 | B11f · Expediente documental solo en el circuito de aprobación | Integrado en `main` | `fase2/b11f-expediente-solo-circuito` | 2026-10-21 | **Sí** · `20261021100000_expediente_solo_circuito.sql` |
+| B11g · AISIA, Declaración y evidencias solo en el circuito de aprobación | Integrado en `main` | `fase2/b11g-resto-solo-circuito` | 2026-10-21 | **Sí** · `20261021110000_aprobaciones_resto_solo_circuito.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -74,6 +75,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql` | B11d (2/2) | Pasos de consulta (`kind`) y condicionales (`condition`), contexto de la solicitud, `approval_decide` con dictamen, el Auditor no decide, `gap_dispositions.status` con su trigger, política de exclusión de brechas y consultas de DP-01 en las políticas por defecto sin editar; etiqueta y enlace de la exclusión en la bandeja | **Antes** de desplegar B11d: la aplicación lee `gap_dispositions.status` y `approval_policy_steps.kind`. Revisa en Ajustes › Aprobaciones las políticas con consulta |
 | `supabase/migrations/20261021090000_plan_solo_circuito.sql` | B11e | Abre la solicitud de los planes «En revisión» que no la tenían (o los devuelve a borrador con nota si no hay política o autor); vacía `approver_id` en los planes no aprobados | **Antes** de desplegar B11e: el plan ya no se puede aprobar desde su pantalla. Revisa el aviso `B11e: N solicitudes abiertas, M planes devueltos a borrador` |
 | `supabase/migrations/20261021100000_expediente_solo_circuito.sql` | B11f | `trg_document_lifecycle_rules` sin aprobación con usuario; `approval_is_preparer` y `approval_can_decide`/`approval_step_candidates` excluyen `context.prepared_by`; abre la solicitud de los expedientes en revisión que no la tenían (o los devuelve a borrador) | **Antes** de desplegar B11f, después de la de B11e. Revisa el aviso `B11f: N solicitudes abiertas, M expedientes devueltos a borrador` |
+| `supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql` | B11g | Con sesión de usuario no se aprueban evidencias (`trg_evidence_review_rules`), AISIA (`trg_aisia_lifecycle_rules`) ni la Declaración (`trg_soa_lifecycle_rules`); abre la solicitud de las AISIA enviadas, evidencias pendientes y Declaraciones en revisión que no la tenían (o las devuelve a borrador) | **Antes** de desplegar B11g, después de las de B11e y B11f. Revisa el aviso `B11g: N solicitudes abiertas, M objetos devueltos a borrador` |
 
 ---
 
@@ -1203,3 +1205,46 @@ Aprobaciones.») y el rol de servicio sí; la segunda pasada no cambia nada. `ts
 Declaración de Aplicabilidad y las evidencias conservan su vía propia en el código, pero no es alcanzable
 desde la interfaz: su tipo siempre tiene una política activa sin condiciones. Sí lo es desde la API, porque
 sus triggers aún dejan aprobar con sesión de usuario (posible B11g).
+
+---
+
+## B11g · AISIA, Declaración y evidencias solo en el circuito de aprobación
+
+**Fecha:** 2026-10-21 · **Rama:** `fase2/b11g-resto-solo-circuito` ·
+**Migración:** **sí**, `supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql` (aplicar antes de desplegar)
+
+**Problema** (pendiente de B11f): la AISIA, la Declaración de Aplicabilidad y las evidencias conservaban su
+vía propia de aprobación (botones en sus pantallas y acciones de servidor). Desde la interfaz no se llegaba a
+usar porque su tipo siempre tiene política, pero la base de datos dejaba aprobarlas con sesión de usuario:
+la AISIA y la Declaración, a cualquiera con permiso de escritura; las evidencias, al Responsable del SGAI.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Base de datos | `trg_evidence_review_rules` sin aprobación con usuario; triggers nuevos `trg_aisia_lifecycle_rules` y `trg_soa_lifecycle_rules` |
+| AISIA | Retiradas `approveAisia` y `rejectAisia` y sus botones en la ficha; el envío exige política y lleva `prepared_by` (quien la creó y quien la envía) |
+| Declaración | Retirado **Aprobar SoA**; el envío exige política; `transitionSoAStatus` solo envía o devuelve a borrador |
+| Evidencias | Retirados **Aprobar** y **Rechazar** (sueltos y en bloque) en la biblioteca, el detalle y la ficha; el envío exige política y lleva `prepared_by` (quien la aporta) |
+| Evidencias del sistema | `openEvidenceReview`: el PDF de un expediente sin aprobar, el informe de brechas, el dossier técnico y el registro UE abren su solicitud al crear la evidencia; sin política queda en borrador. Antes se quedaban pendientes esperando la vía propia |
+| Código retirado | `aisiaApprovalBlocker`, `AISIA_APPROVER_ROLES`, `evidenceReviewBlocker`, `EVIDENCE_REVIEWER_ROLE` y las transiciones `approve`/`reject` de las evidencias, con sus tests |
+| Migración | AISIA enviadas, evidencias pendientes y Declaraciones en revisión sin solicitud: se abre (con `prepared_by`) o vuelven a borrador |
+
+**Verificación.** Migración probada en el Postgres local: una AISIA enviada, una evidencia pendiente y una
+Declaración en revisión sin solicitud abren la suya con la política por defecto; la Responsable del SGAI que
+aportó la evidencia no puede decidirla ni es candidata; con sesión de usuario no se puede aprobar ninguna de
+las tres y el rol de servicio sí; la segunda pasada no cambia nada. `tsc --noEmit` sin errores, `next lint`
+sin avisos, `npm test` 49/49 (dos tests de reglas retiradas), `check-server-actions.sh` correcto. No se ha
+probado en el navegador.
+
+**Documentación.** `funcional/aprobaciones.md`, `tecnica/modelo-datos.md`; funcionales `aisia.md`,
+`ficha-sistema.md`, `evidencias.md`, `evidencia-detalle.md`, `declaracion-aplicabilidad.md`,
+`expediente-documental.md`, `dossier-tecnico.md`, `registro-ue.md`, `informe-brechas-sistema.md` y
+`flujo-completo-evaluacion.md` (además, puestas al día sus filas del plan, el expediente y la exclusión de
+brechas, desfasadas desde B09, B11d, B11e y B11f; GAP-22 resuelto); de negocio `evaluacion-de-impacto.md`,
+`declaracion-aplicabilidad.md`, `biblioteca-evidencias.md`, `flujos-de-aprobacion.md` y
+`documentacion-del-sistema.md`.
+
+**Resultado de B11.** Ningún objeto aprobable se aprueba fuera de Flujos de aprobación: plan (B11e), expediente
+(B11f), AISIA, Declaración y evidencias (B11g) y exclusión de brechas (B11d). Quedan la clasificación AI Act y
+la política de IA, que se crean en B13 y B20.

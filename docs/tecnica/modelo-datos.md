@@ -37,6 +37,7 @@ fuente:
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - recursos/db/README.md
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
 ---
 
 # Modelo de datos
@@ -287,8 +288,9 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.recalculate_plan_zone_target(uuid)` | Zona objetivo de un plan a partir de las severidades residuales |
 | `fluxion.fmea_aplicar_aprobacion_plan(plan, aprobador)` | Aprobación de la evaluación de riesgos (B07): aceptaciones aprobadas, evaluación `approved` con `next_review_at`, versiones anteriores y sus planes abiertos `superseded` (acciones abiertas canceladas) y plan `in_progress` o `closed`. Solo `service_role` |
 | `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
-| `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10): con usuario autenticado, alta en `draft` o `pending_review`, solo transiciones del ciclo de revisión, y aprobar o rechazar exige `sgai_manager` y no ser `owner_user_id`; rellena `reviewed_by` y `reviewed_at`. Las escrituras sin usuario (cron, expediente) no pasan por él |
+| `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10, revisado en B11g): con usuario autenticado, alta en `draft` o `pending_review` y solo las transiciones del ciclo; pasar a `valid` o `rejected` solo sin usuario (efecto de Flujos de aprobación). Las escrituras sin usuario (cron, expediente) no pasan por él |
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
+| `fluxion.trg_aisia_lifecycle_rules()`, `trg_soa_lifecycle_rules()` | B11g: con usuario autenticado, la AISIA no pasa a `approved` ni `rejected` y la Declaración (`organization_soa_metadata.lifecycle_status`) no pasa a `approved`; lo hace el efecto de Flujos de aprobación |
 | `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09, revisado en B11f): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` y `approved` → `superseded`; pasar a `approved` solo sin usuario (el efecto de Flujos de aprobación y las actas) |
 | `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
 | `fluxion.trg_governance_designation_rules()`, `trg_profiles_dpo_data_controller()` | B23b: la persona designada es de la organización; el DPO no puede ser Responsable del tratamiento, ni al designar ni al dar el rol |

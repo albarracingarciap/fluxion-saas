@@ -37,7 +37,7 @@ import {
   reviewSystemEvidence,
   type ReviewAction,
 } from '@/app/(app)/evidencias/actions';
-import { initAisia, approveAisia, rejectAisia, reopenAisia } from './aisia/actions';
+import { initAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
@@ -48,10 +48,6 @@ import { ReconciliationPanel } from '@/components/classification/ReconciliationP
 import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
-import { useAuthStore } from '@/lib/store/authStore';
-import { hasRole, rolesOf } from '@/lib/auth/roles';
-import { EVIDENCE_REVIEWER_ROLE } from '@/lib/evidences/review-rules';
-import { aisiaApprovalBlocker } from '@/lib/auth/roles-flujo';
 import { ResponsablesCard } from './responsables-card';
 
 export type SystemHistoryEntry = {
@@ -1043,16 +1039,9 @@ function IsoTab({
   soaControls,
   isInSoaScope,
   soaScopeSystemTags,
-  userRoles,
-  currentProfileId,
   onInitAisia,
   isInitingAisia,
   aisiaError,
-  onApproveAisia,
-  onRejectAisia,
-  isApprovingAisia,
-  isRejectingAisia,
-  aisiaApprovalError,
   onReopenAisia,
   isReopeningAisia,
   aisiaReopenError,
@@ -1062,24 +1051,13 @@ function IsoTab({
   soaControls: SoaControlState[];
   isInSoaScope: boolean;
   soaScopeSystemTags: string[];
-  userRoles: string[];
-  /** profiles.id de quien mira: quien prepara la AISIA no la decide (B08). */
-  currentProfileId: string | null;
   onInitAisia: () => void;
   isInitingAisia: boolean;
   aisiaError: string | null;
-  onApproveAisia: (assessmentId: string, minutesRef?: string) => void;
-  onRejectAisia: (assessmentId: string, reason: string) => void;
-  isApprovingAisia: boolean;
-  isRejectingAisia: boolean;
-  aisiaApprovalError: string | null;
   onReopenAisia: (assessmentId: string) => void;
   isReopeningAisia: boolean;
   aisiaReopenError: string | null;
 }) {
-  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
-  const [minutesRef, setMinutesRef] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
   const systemControls = ISO_42001_CONTROLS.filter((c) =>
     (SYSTEM_ANNEX_A_GROUPS as readonly string[]).includes(c.group)
   );
@@ -1101,14 +1079,6 @@ function IsoTab({
 
   const hasLegacyData = system.iso_42001_score !== null;
   const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
-  // Quién puede aprobar o rechazar: Responsable del SGAI que no la preparó (B08).
-  const aisiaBlocker = aisia
-    ? aisiaApprovalBlocker({
-        actor: { roles: userRoles },
-        actorProfileId: currentProfileId ?? '',
-        preparerProfileIds: [aisia.created_by, aisia.submitted_by],
-      })
-    : null;
 
   // Progreso de secciones cuando hay AISIA
   const sectionProgress = aisia
@@ -1364,120 +1334,17 @@ function IsoTab({
                   </span>
                 </div>
 
-                {/* Error de acción */}
-                {aisiaApprovalError && (
-                  <div className="px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
-                    {aisiaApprovalError}
-                  </div>
-                )}
-
-                {/* En Flujos de aprobación: la decisión se toma en la bandeja (B11a) */}
-                {aisia.in_approval_circuit && (
+                {/* La decisión se toma siempre en la bandeja (B11g) */}
+                {aisia.in_approval_circuit ? (
                   <p className="font-sora text-[12px] text-ltt2">
                     La decisión se toma en{' '}
                     <Link href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</Link>,
                     con la política de aprobación de la organización.
                   </p>
-                )}
-                {/* Acciones — solo para quien puede decidir: Responsable del SGAI que no la preparó (B08) */}
-                {!aisia.in_approval_circuit && aisiaBlocker !== null && (
+                ) : (
                   <p className="font-sora text-[12px] text-lttm">
-                    {aisiaBlocker}
+                    Sin solicitud de aprobación abierta. Pide que la cancelen o revisa las políticas en Ajustes › Aprobaciones.
                   </p>
-                )}
-                {!aisia.in_approval_circuit && aisiaBlocker === null && (
-                  <div className="space-y-2">
-                    {/* Sin formulario abierto: botones principales */}
-                    {approvalAction === null && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setApprovalAction('approve')}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-grdim border border-grb text-gr font-plex text-[12.5px] font-medium hover:bg-gr/20 transition-colors"
-                        >
-                          ✓ Aprobar evaluación
-                        </button>
-                        <button
-                          onClick={() => setApprovalAction('reject')}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-red-dim border border-reb text-re font-plex text-[12.5px] font-medium hover:bg-re/20 transition-colors"
-                        >
-                          ✕ Rechazar
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Formulario de aprobación */}
-                    {approvalAction === 'approve' && (
-                      <div className="rounded-[8px] border border-grb bg-grdim p-3.5 space-y-2.5">
-                        <div className="font-plex text-[12px] font-semibold text-gr">Confirmar aprobación</div>
-                        <div>
-                          <label className="block font-plex text-[11px] text-lttm mb-1">
-                            Referencia de actas <span className="text-lttm">(opcional)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={minutesRef}
-                            onChange={(e) => setMinutesRef(e.target.value)}
-                            placeholder="Ej. Acta comité 2026-04-28 / punto 3"
-                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#004aad66]"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onApproveAisia(aisia.id, minutesRef || undefined)}
-                            disabled={isApprovingAisia}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-gr text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isApprovingAisia ? 'Aprobando…' : 'Confirmar aprobación'}
-                          </button>
-                          <button
-                            onClick={() => { setApprovalAction(null); setMinutesRef(''); }}
-                            disabled={isApprovingAisia}
-                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Formulario de rechazo */}
-                    {approvalAction === 'reject' && (
-                      <div className="rounded-[8px] border border-reb bg-red-dim p-3.5 space-y-2.5">
-                        <div className="font-plex text-[12px] font-semibold text-re">Rechazar evaluación</div>
-                        <div>
-                          <label className="block font-plex text-[11px] text-lttm mb-1">
-                            Motivo del rechazo <span className="text-re">*</span>
-                          </label>
-                          <textarea
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="Describe qué debe corregirse para que la evaluación pueda aprobarse…"
-                            rows={3}
-                            className="w-full px-3 py-1.5 rounded-[6px] border border-ltb bg-ltcard font-plex text-[12px] text-ltt placeholder:text-lttm focus:outline-none focus:border-[#d9534f66] resize-none"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              if (!rejectReason.trim()) return;
-                              onRejectAisia(aisia.id, rejectReason.trim());
-                            }}
-                            disabled={isRejectingAisia || !rejectReason.trim()}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-re text-white font-plex text-[12.5px] font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isRejectingAisia ? 'Rechazando…' : 'Confirmar rechazo'}
-                          </button>
-                          <button
-                            onClick={() => { setApprovalAction(null); setRejectReason(''); }}
-                            disabled={isRejectingAisia}
-                            className="font-plex text-[12px] text-lttm hover:text-ltt transition-colors disabled:opacity-50"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 )}
               </div>
             )}
@@ -1671,9 +1538,6 @@ export function SystemDetailClient({
   soaScopeSystemTags: string[];
 }) {
   const searchParams = useSearchParams();
-  const { profile } = useAuthStore();
-  // Aprobar o rechazar evidencias: Responsable del SGAI distinto de quien la aporta (DP-01, B10).
-  const canReviewEvidence = hasRole(profile, EVIDENCE_REVIEWER_ROLE);
   // Error de revisión o borrado de una evidencia: antes se perdían en silencio (P5).
   const [evidenceRowError, setEvidenceRowError] = useState<{ id: string; message: string } | null>(null);
   const [localHistory, setLocalHistory] = useState<SystemHistoryEntry[]>(history);
@@ -1700,8 +1564,6 @@ export function SystemDetailClient({
   const [linkingEvidence, setLinkingEvidence] = useState<SystemEvidenceEntry | null>(null);
   const [isLinkingFailureMode, startLinkTransition] = useTransition();
   // Review flow state
-  const [rejectingEvidenceId, setRejectingEvidenceId] = useState<string | null>(null);
-  const [rejectNotes, setRejectNotes] = useState('');
   const [isReviewing, startReviewTransition] = useTransition();
   const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
   const [obligationError, setObligationError] = useState<string | null>(null);
@@ -1816,35 +1678,6 @@ export function SystemDetailClient({
       const result = await initAisia(system.id);
       if ('error' in result && result.error) {
         setAisiaError(result.error);
-      }
-    });
-  };
-
-  const [isApprovingAisia, startApproveAisiaTransition] = useTransition();
-  const [isRejectingAisia, startRejectAisiaTransition] = useTransition();
-  const [aisiaApprovalError, setAisiaApprovalError] = useState<string | null>(null);
-
-  const handleApproveAisia = (assessmentId: string, minutesRef?: string) => {
-    startApproveAisiaTransition(async () => {
-      setAisiaApprovalError(null);
-      const result = await approveAisia(assessmentId, minutesRef);
-      if ('error' in result) {
-        setAisiaApprovalError(result.error);
-      } else {
-        if (result.aviso) window.alert(result.aviso);
-        router.refresh();
-      }
-    });
-  };
-
-  const handleRejectAisia = (assessmentId: string, reason: string) => {
-    startRejectAisiaTransition(async () => {
-      setAisiaApprovalError(null);
-      const result = await rejectAisia(assessmentId, reason);
-      if ('error' in result && result.error) {
-        setAisiaApprovalError(result.error);
-      } else {
-        router.refresh();
       }
     });
   };
@@ -2593,16 +2426,14 @@ export function SystemDetailClient({
     });
   };
 
-  const handleReviewAction = (evidenceId: string, action: ReviewAction, notes?: string) => {
+  const handleReviewAction = (evidenceId: string, action: ReviewAction) => {
     setEvidenceRowError(null);
     startReviewTransition(async () => {
-      const result = await reviewSystemEvidence(evidenceId, system.id, action, notes);
+      const result = await reviewSystemEvidence(evidenceId, system.id, action);
       if (result?.error) {
         setEvidenceRowError({ id: evidenceId, message: result.error });
         return;
       }
-      setRejectingEvidenceId(null);
-      setRejectNotes('');
       router.refresh();
     });
   };
@@ -3303,16 +3134,9 @@ export function SystemDetailClient({
                   soaControls={soaControls}
                   isInSoaScope={isInSoaScope}
                   soaScopeSystemTags={soaScopeSystemTags}
-                  userRoles={rolesOf(profile)}
-                  currentProfileId={profile?.id ?? null}
                   onInitAisia={handleInitAisia}
                   isInitingAisia={isInitingAisia}
                   aisiaError={aisiaError}
-                  onApproveAisia={handleApproveAisia}
-                  onRejectAisia={handleRejectAisia}
-                  isApprovingAisia={isApprovingAisia}
-                  isRejectingAisia={isRejectingAisia}
-                  aisiaApprovalError={aisiaApprovalError}
                   onReopenAisia={handleReopenAisia}
                   isReopeningAisia={isReopeningAisia}
                   aisiaReopenError={aisiaReopenError}
@@ -3486,59 +3310,10 @@ export function SystemDetailClient({
                                     Enviar a revisión
                                   </button>
                                 )}
-                                {evidence.status === 'pending_review' && !(canReviewEvidence && evidence.owner_user_id !== profile?.user_id) && (
-                                  <span className="font-sora text-[10.5px] text-lttm max-w-[220px] text-right leading-tight">
-                                    {canReviewEvidence
-                                      ? 'La revisa otro Responsable del SGAI: no se revisan las evidencias propias.'
-                                      : 'Pendiente de revisión del Responsable del SGAI.'}
-                                  </span>
-                                )}
-                                {evidence.status === 'pending_review' && canReviewEvidence && evidence.owner_user_id !== profile?.user_id && (
-                                  <div className="flex flex-col items-end gap-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        onClick={() => handleReviewAction(evidence.id, 'approve')}
-                                        disabled={isReviewing}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-gr bg-grdim border border-grb hover:opacity-80 disabled:opacity-50 transition-opacity"
-                                      >
-                                        {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                                        Aprobar
-                                      </button>
-                                      <button
-                                        onClick={() => { setRejectingEvidenceId(evidence.id); setRejectNotes(''); }}
-                                        disabled={isReviewing}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] font-sora text-[11.5px] font-medium text-re bg-red-dim border border-reb hover:opacity-80 disabled:opacity-50 transition-opacity"
-                                      >
-                                        Rechazar
-                                      </button>
-                                    </div>
-                                    {rejectingEvidenceId === evidence.id && (
-                                      <div className="flex flex-col items-end gap-1.5 w-full max-w-[260px]">
-                                        <textarea
-                                          rows={2}
-                                          placeholder="Motivo del rechazo (obligatorio)"
-                                          value={rejectNotes}
-                                          onChange={(e) => setRejectNotes(e.target.value)}
-                                          className="w-full bg-ltbg border border-reb rounded-[6px] px-2.5 py-1.5 text-[11.5px] font-sora outline-none focus:border-re resize-none"
-                                        />
-                                        <div className="flex gap-1.5">
-                                          <button
-                                            onClick={() => setRejectingEvidenceId(null)}
-                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] text-lttm border border-ltb hover:bg-ltcard2 transition-colors"
-                                          >
-                                            Cancelar
-                                          </button>
-                                          <button
-                                            onClick={() => handleReviewAction(evidence.id, 'reject', rejectNotes)}
-                                            disabled={isReviewing || !rejectNotes.trim()}
-                                            className="px-2.5 py-1 rounded-[5px] font-sora text-[11px] font-medium text-white bg-re hover:opacity-90 disabled:opacity-50 transition-opacity"
-                                          >
-                                            {isReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirmar rechazo'}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
+                                {evidence.status === 'pending_review' && (
+                                  <a href="/aprobaciones" className="font-sora text-[10.5px] text-brand-cyan hover:underline max-w-[220px] text-right leading-tight">
+                                    Se decide en Aprobaciones
+                                  </a>
                                 )}
                                 {evidence.status === 'rejected' && (
                                   <button
@@ -4452,7 +4227,7 @@ export function SystemDetailClient({
                       ? 'Se crea en borrador y se valida con la revisión.'
                       : ['valid', 'expired', 'pending_review', 'rejected'].includes(editingEvidence.status)
                         ? 'Si cambias el contenido, vuelve a borrador y hay que enviarla de nuevo a revisión.'
-                        : 'Cambia con el ciclo de revisión: Enviar a revisión, Aprobar o Rechazar.'}
+                        : 'Cambia con el ciclo de revisión: Enviar a revisión y la decisión en Aprobaciones.'}
                   </p>
                 </div>
 

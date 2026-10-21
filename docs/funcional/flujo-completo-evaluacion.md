@@ -32,6 +32,8 @@ fuente:
   - supabase/migrations/00000000000001_schema.sql
   - supabase/migrations/20260829090000_onboarding_nombre_y_modulos.sql
   - supabase/migrations/20260831090000_approvals_core.sql
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - apps/web/lib/approvals/open.ts
   - docs/_inventario.md
   - docs/_incidencias.md
 ---
@@ -159,7 +161,8 @@ flowchart TD
 | Acciones del plan decididas | El envío a aprobación | ⛔ Todas con opción, responsable, fecha y datos de su opción |
 | AISIA aprobada | **Analizar AISIA** en la Declaración | ⛔ Al menos una AISIA aprobada de un sistema en alcance |
 | Expediente sin huecos | **Enviar a revisión** (se aprueba en Aprobaciones) | ⛔ Apartados obligatorios cubiertos |
-| Controles aplicables justificados | **Aprobar SoA** | ⛔ Todos los aplicables con justificación |
+| Controles aplicables justificados | **Enviar a revisión** de la Declaración (se aprueba en Aprobaciones) | ⛔ Todos los aplicables con justificación |
+| Política de aprobación activa | **Enviar para aprobación →** de la AISIA, **Enviar a revisión** de la Declaración y de las evidencias | ⛔ Sin política activa para su tipo de objeto no se envían (B11g) |
 
 Todo lo demás se puede hacer en cualquier orden o dejar a medias. El orden de este documento es el que
 evita rehacer trabajo.
@@ -177,15 +180,15 @@ documento funcional.
 |---|---|---|
 | Registro y onboarding | Quien registra la organización (Administrador) | — |
 | Organización, usuarios, módulos | Administrador. Comités: también Responsable del SGAI y CAIO | — |
-| Políticas de aprobación | Administrador (la pestaña solo la ve él) | — |
+| Políticas de aprobación | Administrador, Responsable del SGAI y CAIO (B11c) | — |
 | Alta, clasificación y obligaciones | Cualquier miembro | — (la conciliación la decide cualquiera) |
 | Modos de fallo y FMEA | Administrador, Responsable del SGAI, CAIO, DPO, Responsable del sistema, analistas | Segunda revisión: Responsable del SGAI, distinto del evaluador (B01) |
-| Plan de tratamiento | Analista de riesgos y Responsable del sistema (B01) | Sin política: Responsable del SGAI distinto de quien envía; con política, sus pasos |
+| Plan de tratamiento | Analista de riesgos y Responsable del sistema (B01) | En Aprobaciones (B11e), con la política de su nivel; no decide quien lo envía |
 | Ejecución de acciones | Cualquier miembro | — |
-| AISIA | Cualquier miembro | Administrador, Responsable del SGAI, CAIO |
-| Expediente documental | Cualquier miembro | Cualquier miembro |
-| Evidencias | Roles de gobierno y analistas (otros roles ven los botones, pero no tienen efecto) | Los mismos roles |
-| Declaración de Aplicabilidad | Cualquier miembro edita | Envía: Responsable del SGAI, CAIO, DPO, Analista de cumplimiento, Administrador. Aprueba: Administrador, Responsable del SGAI, CAIO (corregido en B04) |
+| AISIA | Cualquier miembro | En Aprobaciones (B11g). Por defecto, el Comité de IA con dictamen del DPO; no decide quien la creó ni quien la envió |
+| Expediente documental | Cualquier miembro | En Aprobaciones (B11f), con la política de su plantilla; no decide quien redactó algún apartado |
+| Evidencias | Roles de gobierno y analistas (otros roles ven los botones, pero no tienen efecto) | En Aprobaciones (B11g). Por defecto, el Responsable del SGAI; no decide quien aporta la evidencia |
+| Declaración de Aplicabilidad | Cualquier miembro edita | Envía: Responsable del SGAI, CAIO, DPO, Analista de cumplimiento, Administrador. Aprueba: en Aprobaciones (B11g); por defecto, la Revisión por la Dirección, con el Directivo como respaldo |
 | Brechas | Cualquier miembro asigna y crea tareas | Excluir: roles de gobierno y analistas |
 
 > **Decisión DP-01 (2026-10-19), pendiente de implementar.** Quién prepara, revisa y aprueba cada
@@ -640,24 +643,25 @@ Con el plan aprobado:
 stateDiagram-v2
   [*] --> Borrador: Iniciar evaluación AISIA
   Borrador --> En_revisión: Enviar para aprobación
-  En_revisión --> Aprobada: Aprobar (Administrador, Resp. SGAI, CAIO)
-  En_revisión --> Rechazada: Rechazar con motivo
+  En_revisión --> Aprobada: Aprobar (en Aprobaciones)
+  En_revisión --> Rechazada: Rechazar (en Aprobaciones)
   Rechazada --> Borrador: Corregir y reenviar (nueva versión)
 ```
 
-- **Aprobación:** desde la ficha, **✓ Aprobar evaluación** con referencia de actas opcional, o **✕
-  Rechazar** con motivo. No pasa por Flujos de aprobación.
-- **Efecto en la Declaración:** al aprobar, los controles A.5.2 a A.5.5 de la Declaración pasan a
+- **Aprobación:** solo en [Aprobaciones](aprobaciones.md) (B11g). **Enviar para aprobación →** exige una
+  política activa para la AISIA y abre la solicitud; por defecto decide el Comité de IA, con dictamen
+  previo del DPO. Quien la creó y quien la envió no deciden. La ficha ya no tiene botones de aprobar ni
+  rechazar.
+- **Efecto en la Declaración:** al aprobarse, los controles A.5.2 a A.5.5 de la Declaración pasan a
   «Implantado» si todos los sistemas vinculados a cada control tienen AISIA aprobada.
 - **Evidencias:** no genera evidencia.
 
-> **⚠ GAP-22 · Aprobación de la AISIA sin garantías de circuito.** Resuelto en parte en B08: el servidor
-> exige el rol (Responsable del SGAI) y que no apruebe quien la preparó, y la sincronización de los
-> controles A.5.2-A.5.5 ya no toca una Declaración que no esté en borrador. **Queda:** no hay acta (la
-> referencia es un texto opcional) y DP-01 asigna la aprobación al Comité de IA.
+> **✔ GAP-22 · Resuelto en B11g.** La AISIA solo se aprueba en Flujos de aprobación, con los aprobadores
+> de DP-01 (Comité de IA, con dictamen del DPO) y sin que decida quien la preparó; la base de datos impide
+> aprobarla o rechazarla fuera del circuito. Desde B08, la sincronización de los controles A.5.2-A.5.5 no
+> toca una Declaración que no esté en borrador.
 >
-> **Pendiente de implementar.** AISIA como plantilla del expediente (B15, DP-04 y DP-05 aprobadas) y
-> aprobación mediante Flujos de aprobación (B11).
+> **Pendiente de implementar.** AISIA como plantilla del expediente (B15, DP-04 y DP-05 aprobadas).
 
 > **⚠ GAP-23 · AISIA no actualizable.** Una AISIA aprobada no se puede reabrir ni versionar: si cambia el
 > sistema o el plan, no hay forma de rehacerla. Se resuelve en B15, con las versiones del expediente. La
@@ -736,8 +740,8 @@ Transversal: las evidencias se crean en varias fases y se revisan en un único c
 | Biblioteca › **+ Evidencia organizacional** (fichero o URL) | Cualquiera | Biblioteca | Borrador | Sí |
 | Obligación › **Nueva evidencia** | 3 | Biblioteca | El que se elija | Ídem |
 | Acción del plan (fichero o URL) | 5 | **Almacén aparte** | Pendiente de validar | No hay pantalla de revisión |
-| Expediente › **Generar PDF** | 7 | Biblioteca | **Válida** | No |
-| Informes › **Guardar como evidencia** | 7 | Biblioteca | Pendiente de revisión | Sí |
+| Expediente › **Generar PDF** | 7 | Biblioteca | **Válida** si el expediente está aprobado; si no, pendiente de revisión con su solicitud abierta (sin política, borrador) (B09, B11g) | Solo si el expediente no está aprobado |
+| Informes › **Guardar como evidencia** | 7 | Biblioteca | Pendiente de revisión, con su solicitud de aprobación abierta; sin política, borrador (B11g) | Sí |
 | Brechas › **Guardar snapshot** | 9 | Instantánea (no es evidencia) | — | — |
 
 ### 10.2 Ciclo de revisión
@@ -746,16 +750,18 @@ Transversal: las evidencias se crean en varias fases y se revisan en un único c
 stateDiagram-v2
   [*] --> Borrador
   Borrador --> Pendiente_de_revisión: Enviar a revisión
-  Pendiente_de_revisión --> Válida: Aprobar
-  Pendiente_de_revisión --> Rechazada: Rechazar (motivo)
+  Pendiente_de_revisión --> Válida: Aprobar (en Aprobaciones)
+  Pendiente_de_revisión --> Rechazada: Rechazar (en Aprobaciones)
   Rechazada --> Borrador: Reabrir
   Válida --> Caducada: tarea diaria 07:00
 ```
 
 - **Dónde:** [Biblioteca de evidencias](evidencias.md), [Detalle de evidencia](evidencia-detalle.md) y
-  ficha › **Evidencias**. Se pueden revisar varias a la vez.
-- **Quién:** prepara y envía quien aporta la evidencia; aprueba o rechaza el Responsable del SGAI,
-  distinto del autor (DP-01, B10). Los errores se muestran.
+  ficha › **Evidencias** para enviarlas a revisión (también varias a la vez) o reabrirlas;
+  [Aprobaciones](aprobaciones.md) para decidirlas (B11g).
+- **Quién:** prepara y envía quien aporta la evidencia; aprueba o rechaza, en Aprobaciones, el
+  Responsable del SGAI por defecto, y nunca quien la aporta (DP-01). Sin política activa para las
+  evidencias no se pueden enviar a revisión. Los errores se muestran.
 - **Vínculos:** con obligaciones (respaldo), modos de fallo y controles de la Declaración (**Evidencia
   asociada**).
 - **Caducidad:** alertas a 30 y 7 días y al caducar; las caducadas aparecen como brecha «Evidencia
@@ -765,8 +771,8 @@ stateDiagram-v2
 > ciclo de revisión, y lo comprueba la base de datos. Aprueba o rechaza el Responsable del SGAI, distinto
 > de quien aporta la evidencia (DP-01). Cambiar el contenido de una evidencia validada la devuelve a
 > borrador. El historial de versiones se guarda, también el fichero, y el límite de tamaño es único
-> (20 MB). **Queda:** validar no pasa por Flujos de aprobación aunque exista el tipo de objeto «Evidencia»
-> (B11).
+> (20 MB). Desde B11g, aprobar o rechazar se decide solo en Flujos de aprobación, también en la base de
+> datos.
 
 > **⚠ GAP-27 · Avisos de caducidad solo dentro de la biblioteca.** El responsable no recibe aviso.
 >
@@ -792,7 +798,7 @@ flowchart TD
   C --> D[Aplicar N cambios]
   D --> E[Control a control: aplicabilidad,<br/>justificación, estado, propietario, evidencia]
   E --> F[Enviar a revisión]
-  F --> G[Aprobar SoA<br/>⛔ aplicables justificados]
+  F --> G[Decisión en Aprobaciones<br/>⛔ aplicables justificados y política activa al enviar]
   G -->|Iniciar nueva revisión| E
 ```
 
@@ -804,13 +810,16 @@ flowchart TD
 4. **Revisar control a control:** aplicabilidad, justificación (**Sugerir con IA**), estado de
    implantación, propietario, **Evidencia asociada** y notas. Al guardar un control aplicable se vincula
    a los sistemas en alcance.
-5. **Enviar a revisión** y **Aprobar SoA**. ⛔ Todos los aplicables con justificación.
+5. **Enviar a revisión**. ⛔ Todos los aplicables con justificación y una política de aprobación activa
+   para la Declaración. La decisión se toma en [Aprobaciones](aprobaciones.md) (B11g); por defecto, la
+   Revisión por la Dirección, con el Directivo como respaldo. **Iniciar nueva revisión** la devuelve a
+   borrador y cancela la solicitud.
 
 > **✔ GAP-28 · Resuelto en B04** ([registro de cambios](../producto/registro-de-cambios.md)). El rol se
 > leía mal y nadie podía enviar ni aprobar la Declaración (`E1`); el propietario de un control no se
 > guardaba (`E2`) y el historial de controles tampoco (`E3`, en parte).
 >
-> **Pendiente de implementar.** Aprobación de la Declaración mediante Flujos de aprobación.
+> Desde B11g, la Declaración se aprueba solo mediante Flujos de aprobación.
 
 > **⚠ GAP-29 · Estado de implantación desconectado del tratamiento.** El estado de cada control se fija a
 > mano, salvo A.5.2-A.5.5 (AISIA). No se relaciona con los controles implantados en los planes de
@@ -886,17 +895,18 @@ Resumen de todo lo que se aprueba en el recorrido:
 | Exclusión de obligación | 3 | Ninguno | Cualquier miembro | No | No | No | Obligación excluida |
 | Segunda revisión FMEA | 4 | Propio del FMEA | Responsable del SGAI distinto del evaluador (B01) | Sí | No | No | Permite enviar el FMEA |
 | Evaluación FMEA | 4 | Ninguno | — | — | — | — | Queda «En revisión» |
-| Plan de tratamiento (sin política) | 5 | Propio del plan | Responsable del SGAI asignado por la aplicación (B01) | Sí (B01) | Sí, en la app (B06) | Referencia de texto (nivel 3) | Plan aprobado |
-| Plan de tratamiento (con política) | 5 | **Flujos de aprobación** | Pasos de la política | Sí, por defecto | Sí | PDF si hay comité | Plan aprobado; rechazo lo devuelve a borrador |
+| Plan de tratamiento | 5 | **Flujos de aprobación** (única vía desde B11e) | Pasos de la política del nivel; por defecto, Responsable del SGAI, Comité de Riesgos de IA o Revisión por la Dirección, con consulta al CISO si hay controles de seguridad | Sí, por defecto | Sí | Sí, en cada decisión (B11c) | Plan aprobado; rechazo lo devuelve a borrador |
 | Revisión de aceptación | 5 | Propio del plan | Cualquier miembro | No | No (escalar tampoco) | No | Nueva fecha u opción |
-| AISIA | 6 | Propio | Administrador, Resp. SGAI, CAIO (solo en pantalla) | No | No | Referencia opcional | AISIA aprobada; controles A.5.2-A.5.5 |
-| Expediente documental | 7 | Propio | Cualquier miembro | No | No | No | Bloquea la edición |
-| Evidencia | 8 | Propio | Roles de gobierno y analistas | No | No | No | Evidencia válida |
-| Exclusión de brecha | 9 | Ninguno | Roles de gobierno y analistas | No | No | No | Brecha fuera de la cola |
-| Declaración de Aplicabilidad | 9 | Propio | Administrador, Resp. SGAI, CAIO (B04) | No | No | No | Declaración aprobada |
+| AISIA | 6 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Comité de IA con dictamen del DPO | Sí: no decide quien la creó ni quien la envió | Sí | Sí, en cada decisión (B11c) | AISIA aprobada; controles A.5.2-A.5.5; rechazo la deja «Rechazada» |
+| Expediente documental | 7 | **Flujos de aprobación** (B11f) | Pasos de la política de la plantilla | Sí: no decide quien redactó algún apartado | Sí | Sí, en cada decisión (B11c) | Expediente aprobado; rechazo lo devuelve a borrador |
+| Evidencia | 8 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Responsable del SGAI | Sí: no decide quien la aporta | Sí | Sí, en cada decisión (B11c) | Evidencia válida |
+| Exclusión de brecha | 9 | **Flujos de aprobación** para «Riesgo sin tratar» y «Obligación sin cubrir» (B11d); el resto, ninguno | Por defecto, Responsable del SGAI | Sí, por defecto | Sí | Sí, en cada decisión | Brecha fuera de la cola; rechazo la deja en la cola |
+| Declaración de Aplicabilidad | 9 | **Flujos de aprobación** (B11g) | Pasos de la política; por defecto, Revisión por la Dirección (respaldo: Directivo) | Sí, por defecto | Sí | Sí, en cada decisión (B11c) | Declaración aprobada; rechazo la devuelve a borrador |
 
 > **ℹ Aclaración.** Según la decisión de `_inventario.md` §14.2, Flujos de aprobación es Core y debe
 > absorber la aprobación de los cinco tipos de objeto. Hoy solo el plan la usa, y solo si hay política.
+> Desde B11g, la AISIA, la Declaración de Aplicabilidad y las evidencias se aprueban solo en Flujos de
+> aprobación.
 
 > **💡 Sugerencia.** Mientras se integra el resto, crear al dar de alta la organización una política por
 > defecto para cada nivel del plan, con el aprobador por rol, y avisar al aprobador también en la vía sin

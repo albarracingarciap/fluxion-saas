@@ -13,6 +13,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/eu-registry/snapshots/[snapshotId]/page.tsx
   - apps/web/lib/ai-systems/eu-registry.ts
   - apps/web/lib/evidences/data.ts
+  - apps/web/lib/approvals/open.ts
 ---
 
 # Ficha para el registro UE
@@ -93,7 +94,7 @@ número de evidencias y uso previsto.
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Exportar / Imprimir** | Todos | Abre el diálogo de impresión del navegador | — |
-| **Guardar como evidencia** | Todos | Abre el modal de guardado, igual que en el [Dossier técnico](dossier-tecnico.md#guardar-como-evidencia). Caducidad por defecto: 180 días | Instantánea `eu_registry_prep`. Evidencia de tipo informe (`report`), pendiente de revisión. Etiquetas `auto-generated`, `registro-eu`, `ready` o `no-ready`, el nivel de riesgo y las del usuario. Historial «Ficha de registro EU guardada como evidencia». Mensaje «Ficha de registro guardada como evidencia (pendiente de revisión).» |
+| **Guardar como evidencia** | Todos | Abre el modal de guardado, igual que en el [Dossier técnico](dossier-tecnico.md#guardar-como-evidencia). Caducidad por defecto: 180 días | Instantánea `eu_registry_prep`. Evidencia de tipo informe (`report`), pendiente de revisión, con su solicitud de aprobación abierta en [Aprobaciones](aprobaciones.md) (sin política activa para las evidencias, queda en borrador). Etiquetas `auto-generated`, `registro-eu`, `ready` o `no-ready`, el nivel de riesgo y las del usuario. Historial «Ficha de registro EU guardada como evidencia». Mensaje «Ficha de registro guardada como evidencia (pendiente de revisión).» |
 
 > TODO: confirmar el enlace desde la evidencia. La biblioteca no reconoce el tipo de instantánea
 > `eu_registry_prep` y ofrece **Ver sistema** en lugar de abrir la ficha guardada.

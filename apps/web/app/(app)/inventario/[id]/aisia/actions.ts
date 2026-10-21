@@ -4,9 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { AISIA_PREFILL_SYSTEM_COLUMNS, buildAisiaPrefill } from '@/lib/aisia/prefill';
-import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync';
-import { aisiaApprovalBlocker } from '@/lib/auth/roles-flujo';
-import { EN_CIRCUITO, cancelLiveApprovalRequest, liveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open';
+import { cancelLiveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -213,7 +211,7 @@ export async function submitAisia(assessmentId: string) {
 
   const { data: assessment } = await fluxion
     .from('aisia_assessments')
-    .select('id, status, ai_system_id, version')
+    .select('id, status, ai_system_id, version, created_by')
     .eq('id', assessmentId)
     .eq('organization_id', profile.organization_id)
     .single();
@@ -223,14 +221,19 @@ export async function submitAisia(assessmentId: string) {
     return { error: 'Solo se puede enviar una evaluación en borrador.' };
   }
 
-  // Con una política de Flujos de aprobación, la decisión se toma allí (B11a).
+  // La AISIA solo se aprueba en Flujos de aprobación (B11g). Quien la creó y
+  // quien la envía no deciden (DP-01): el motor los excluye por el contexto.
   const apertura = await openApprovalRequest({
     organizationId: profile.organization_id,
     objectType: 'aisia_assessment',
     objectId: assessmentId,
     requestedByProfileId: profile.id,
+    context: { prepared_by: [assessment.created_by, profile.id].filter(Boolean) },
   });
   if ('error' in apertura) return { error: apertura.error };
+  if (apertura.requestId === null) {
+    return { error: 'No hay ninguna política de aprobación activa para la AISIA. Configúrala en Ajustes › Aprobaciones antes de enviarla.' };
+  }
 
   const now = new Date().toISOString();
 
@@ -264,101 +267,6 @@ export async function submitAisia(assessmentId: string) {
 
   revalidatePath(`/inventario/${assessment.ai_system_id}`);
   return { success: true };
-}
-
-// ─── approveAisia ─────────────────────────────────────────────────────────────
-// Aprueba la evaluación (submitted → approved). Solo admins/dpo.
-
-export async function approveAisia(
-  assessmentId: string,
-  minutesRef?: string
-): Promise<{ success: true; aviso?: string } | { error: string }> {
-  const supabase = createClient();
-  const fluxion = createFluxionClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) redirect('/login');
-
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('id, organization_id, role, roles')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!profile) return { error: 'Perfil no encontrado.' };
-
-  const { data: assessment } = await fluxion
-    .from('aisia_assessments')
-    .select('id, status, ai_system_id, version, created_by, submitted_by')
-    .eq('id', assessmentId)
-    .eq('organization_id', profile.organization_id)
-    .single();
-
-  if (!assessment) return { error: 'Evaluación no encontrada.' };
-  if (assessment.status !== 'submitted') {
-    return { error: 'Solo se puede aprobar una evaluación enviada.' };
-  }
-  if (await liveApprovalRequest('aisia_assessment', assessmentId)) return { error: EN_CIRCUITO };
-
-  // Rol y segregación en el servidor (B08, DP-01): antes solo los comprobaba
-  // la pantalla, y quien la preparaba podía aprobarla.
-  const blocker = aisiaApprovalBlocker({
-    actor: profile,
-    actorProfileId: profile.id,
-    preparerProfileIds: [assessment.created_by, assessment.submitted_by],
-  });
-  if (blocker) return { error: blocker };
-
-  const now = new Date().toISOString();
-
-  const { error } = await fluxion
-    .from('aisia_assessments')
-    .update({
-      status: 'approved',
-      approved_by: profile.id,
-      approved_at: now,
-      approval_minutes_ref: minutesRef ?? null,
-    })
-    .eq('id', assessmentId);
-
-  if (error) return { error: 'No se pudo aprobar la evaluación.' };
-
-  await insertAiSystemHistoryEvents(fluxion, [
-    {
-      ai_system_id: assessment.ai_system_id,
-      organization_id: profile.organization_id,
-      event_type: 'aisia_approved',
-      event_title: 'AISIA aprobada',
-      event_summary: `La evaluación AISIA v${assessment.version} fue aprobada formalmente.`,
-      payload: {
-        assessment_id: assessmentId,
-        version: assessment.version,
-        minutes_ref: minutesRef ?? null,
-      },
-      actor_user_id: user.id,
-      created_at: now,
-    },
-  ]);
-
-  // ── Fase 7: actualizar controles SoA A.5.x ────────────────────────────────
-  // Si todos los sistemas vinculados a un control A.5.x tienen AISIA aprobada,
-  // ese control pasa a 'implemented' en la declaración de aplicabilidad org.
-  // Solo con la Declaración en borrador (B08); si no, al iniciar su revisión.
-  const sync = await syncAisiaSoaControls(fluxion, profile.organization_id);
-  // ─────────────────────────────────────────────────────────────────────────
-
-  revalidatePath(`/inventario/${assessment.ai_system_id}`);
-  revalidatePath('/plantillas/soa-iso42001');
-  return sync.deferred
-    ? {
-        success: true,
-        aviso: 'AISIA aprobada. La Declaración de Aplicabilidad no está en borrador: los controles A.5.2 a A.5.5 '
-          + 'se actualizarán al iniciar su próxima revisión.',
-      }
-    : { success: true };
 }
 
 // ─── reopenAisia ─────────────────────────────────────────────────────────────
@@ -489,82 +397,4 @@ export async function reopenAisia(rejectedAssessmentId: string) {
 
   revalidatePath(`/inventario/${rejected.ai_system_id}`);
   return { success: true, assessmentId: newAssessment.id };
-}
-
-// ─── rejectAisia ──────────────────────────────────────────────────────────────
-// Rechaza la evaluación (submitted → rejected) con motivo.
-
-export async function rejectAisia(assessmentId: string, reason: string) {
-  if (!reason?.trim()) return { error: 'Indica el motivo del rechazo.' };
-
-  const supabase = createClient();
-  const fluxion = createFluxionClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) redirect('/login');
-
-  const { data: profile } = await fluxion
-    .from('profiles')
-    .select('id, organization_id, role, roles')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!profile) return { error: 'Perfil no encontrado.' };
-
-  const { data: assessment } = await fluxion
-    .from('aisia_assessments')
-    .select('id, status, ai_system_id, version, created_by, submitted_by')
-    .eq('id', assessmentId)
-    .eq('organization_id', profile.organization_id)
-    .single();
-
-  if (!assessment) return { error: 'Evaluación no encontrada.' };
-  if (assessment.status !== 'submitted') {
-    return { error: 'Solo se puede rechazar una evaluación enviada.' };
-  }
-  if (await liveApprovalRequest('aisia_assessment', assessmentId)) return { error: EN_CIRCUITO };
-
-  const blocker = aisiaApprovalBlocker({
-    actor: profile,
-    actorProfileId: profile.id,
-    preparerProfileIds: [assessment.created_by, assessment.submitted_by],
-  });
-  if (blocker) return { error: blocker };
-
-  const now = new Date().toISOString();
-
-  const { error } = await fluxion
-    .from('aisia_assessments')
-    .update({
-      status: 'rejected',
-      rejected_by: profile.id,
-      rejected_at: now,
-      rejection_reason: reason,
-    })
-    .eq('id', assessmentId);
-
-  if (error) return { error: 'No se pudo rechazar la evaluación.' };
-
-  await insertAiSystemHistoryEvents(fluxion, [
-    {
-      ai_system_id: assessment.ai_system_id,
-      organization_id: profile.organization_id,
-      event_type: 'aisia_rejected',
-      event_title: 'AISIA rechazada',
-      event_summary: `La evaluación AISIA v${assessment.version} fue rechazada.`,
-      payload: {
-        assessment_id: assessmentId,
-        version: assessment.version,
-        reason,
-      },
-      actor_user_id: user.id,
-      created_at: now,
-    },
-  ]);
-
-  revalidatePath(`/inventario/${assessment.ai_system_id}`);
-  return { success: true };
 }

@@ -11,17 +11,18 @@ fuente:
   - apps/web/lib/evidences/detail.ts
   - apps/web/app/(app)/evidencias/actions.ts
   - apps/web/lib/evidences/review-rules.ts
+  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
 ---
 
 # Detalle de evidencia
 
 Ficha de una [evidencia](../glosario.md#evidencia): metadatos, fichero o enlace, obligaciones y modos de
-fallo que respalda, eventos y versiones. Permite revisarla y eliminarla.
+fallo que respalda, eventos y versiones. Permite enviarla a revisión, reabrirla y eliminarla.
 
 ## Propósito
 
 Consultar toda la información de una evidencia y su trazabilidad, por ejemplo para un auditor, y
-decidir su revisión.
+seguir su revisión, que se decide en [Aprobaciones](aprobaciones.md).
 
 ## Acceso y permisos
 
@@ -35,7 +36,10 @@ decidir su revisión.
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
 | Todos los roles | Sí | Vista previa y apertura del enlace |
-| Roles con permiso de edición (ver [Biblioteca de evidencias](evidencias.md#acceso-y-permisos)) | Ídem | Revisar y eliminar |
+| Roles con permiso de edición (ver [Biblioteca de evidencias](evidencias.md#acceso-y-permisos)) | Ídem | Enviar a revisión, reabrir y eliminar |
+
+La evidencia no se aprueba ni se rechaza en esta vista: se decide solo en [Aprobaciones](aprobaciones.md)
+(B11g), y quien la aporta no puede decidirla (DP-01).
 
 Si la evidencia no existe o es de otra organización, la vista devuelve «no encontrado».
 
@@ -68,7 +72,7 @@ Si la evidencia no existe o es de otra organización, la vista devuelve «no enc
 | **Abrir URL** | Todos | Abre el enlace externo | — |
 | **Ver sistema** | Todos | Navega a la pestaña Evidencias de la [Ficha del sistema](ficha-sistema.md) | — |
 | **Enviar a revisión** · **Reabrir borrador** | Roles con permiso | Ciclo de revisión, como en la [Biblioteca de evidencias](evidencias.md#acciones) | — |
-| **Aprobar** · **Rechazar** (con motivo) | Responsable del SGAI que no la aportó | Ídem. A los demás se les muestra «Pendiente de revisión del Responsable del SGAI (distinto de quien la aporta).» | — |
+| **La revisión se decide en Aprobaciones** (pendiente de revisión) | Todos | Enlace a [Aprobaciones](aprobaciones.md). Si no hay solicitud pendiente, se muestra en su lugar «Sin solicitud de aprobación abierta: modifícala o vuelve a enviarla a revisión.» | — |
 | **Eliminar** | Roles con permiso | Pide confirmación («¿Eliminar permanentemente?») y elimina | Vuelve a la biblioteca; si falla, se queda y muestra el error |
 
 La vista no permite editar la evidencia, cambiar el fichero ni gestionar sus vínculos: eso se hace desde
@@ -78,8 +82,8 @@ Los errores de revisión y de eliminación se muestran junto a los botones (B10)
 
 ## Validaciones
 
-Las de revisión de la [Biblioteca de evidencias](evidencias.md#validaciones). El botón **Confirmar
-rechazo** está deshabilitado mientras no hay motivo.
+Las de revisión de la [Biblioteca de evidencias](evidencias.md#validaciones), entre ellas la falta de
+política de aprobación activa al enviarla a revisión.
 
 ## Estados
 
@@ -87,5 +91,6 @@ Ver [Biblioteca de evidencias](evidencias.md#estados).
 
 ## Vistas relacionadas
 
-- [Biblioteca de evidencias](evidencias.md), [Ficha del sistema](ficha-sistema.md).
+- [Biblioteca de evidencias](evidencias.md), [Ficha del sistema](ficha-sistema.md),
+  [Aprobaciones](aprobaciones.md).
 - Negocio: [Biblioteca de evidencias](../negocio/biblioteca-evidencias.md).
