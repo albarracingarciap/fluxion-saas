@@ -49,6 +49,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11e · Plan de tratamiento solo en el circuito de aprobación | Integrado en `main` | `fase2/b11e-plan-solo-circuito` | 2026-10-21 | **Sí** · `20261021090000_plan_solo_circuito.sql` |
 | B11f · Expediente documental solo en el circuito de aprobación | Integrado en `main` | `fase2/b11f-expediente-solo-circuito` | 2026-10-21 | **Sí** · `20261021100000_expediente_solo_circuito.sql` |
 | B11g · AISIA, Declaración y evidencias solo en el circuito de aprobación | Integrado en `main` | `fase2/b11g-resto-solo-circuito` | 2026-10-21 | **Sí** · `20261021110000_aprobaciones_resto_solo_circuito.sql` |
+| Corrección: dimensión de riesgo en el envío del plan (fuera del plan) | Integrado en `main` | `fix/plan-dimension-modo` | 2026-10-21 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1248,3 +1249,24 @@ brechas, desfasadas desde B09, B11d, B11e y B11f; GAP-22 resuelto); de negocio `
 **Resultado de B11.** Ningún objeto aprobable se aprueba fuera de Flujos de aprobación: plan (B11e), expediente
 (B11f), AISIA, Declaración y evidencias (B11g) y exclusión de brechas (B11d). Quedan la clasificación AI Act y
 la política de IA, que se crean en B13 y B20.
+
+---
+
+## Corrección: dimensión de riesgo en el envío del plan (fuera del plan)
+
+**Fecha:** 2026-10-21 · **Rama:** `fix/plan-dimension-modo` · **Migración:** no
+
+**Problema.** Dos consultas del plan de tratamiento pedían `fmea_items.dimension_id`, una columna que no existe
+(la dimensión de riesgo está en el catálogo, `compliance.failure_modes.dimension_id`). PostgREST rechaza la
+consulta entera, así que:
+- **Enviar a aprobación** fallaba con «No se pudieron validar las acciones del plan.»;
+- la zona proyectada del plan se calculaba sin acciones;
+- la condición de la consulta al CISO (B11d), que depende de la dimensión, no llegaba a evaluarse.
+
+Se detectó al preparar B12 en el Postgres local, que reproduce el esquema de las migraciones. Si producción
+tuviera esa columna fuera de las migraciones, el fallo no se manifestaría allí.
+
+**Cambio.** `plan/actions.ts` pide `failure_mode_id` y obtiene la dimensión del catálogo
+(`dimensionesDeModos`). Sin cambios de comportamiento más allá de que las consultas funcionen.
+
+**Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos. No se ha probado en el navegador.
