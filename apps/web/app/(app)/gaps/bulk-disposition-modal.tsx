@@ -179,7 +179,7 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
           {selectedGaps.some((g) => gapExclusionNeedsApproval(g.layer)) && (
             <p className="font-sora text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2">
               Excluir un riesgo sin tratar o una obligación sin cubrir es aceptarlo: esas exclusiones pasan
-              por Aprobaciones y sus brechas siguen en la cola hasta que se aprueban.
+              por Aprobaciones y sus gaps siguen en la cola hasta que se aprueban.
             </p>
           )}
 

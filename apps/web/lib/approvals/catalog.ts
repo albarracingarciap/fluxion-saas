@@ -16,7 +16,7 @@ export const APPROVAL_OBJECT_TYPES = [
   { key: 'document',         label: 'Documento regulatorio' },
   { key: 'soa',              label: 'Declaración de Aplicabilidad' },
   { key: 'evidence',         label: 'Evidencia' },
-  { key: 'gap_disposition',  label: 'Exclusión de brecha' },
+  { key: 'gap_disposition',  label: 'Exclusión de gap' },
 ] as const
 
 export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']

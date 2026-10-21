@@ -266,7 +266,7 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
 
           {form.object_type === 'gap_disposition' && (
             <div>
-              <FieldLabel>Se aplica a las brechas</FieldLabel>
+              <FieldLabel>Se aplica a los gaps</FieldLabel>
               <div className="flex gap-1.5 flex-wrap">
                 {APPROVAL_GAP_LAYERS.map((c) => {
                   const activo = form.capas.includes(c.key)
@@ -290,8 +290,8 @@ function Editor({ inicial, opciones, onClose, onSaved }: {
                 })}
               </div>
               <p className="font-sora text-[11.5px] text-lttm mt-1.5">
-                Sin ninguna marcada, toda exclusión de brechas pasa por aprobación. Las brechas de las
-                capas que no gobierne ninguna política se excluyen directamente.
+                Sin ninguna marcada, toda exclusión de gaps pasa por aprobación. Los gaps de las
+                tipos que no gobierne ninguna política se excluyen directamente.
               </p>
             </div>
           )}

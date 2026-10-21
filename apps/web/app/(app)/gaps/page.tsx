@@ -301,7 +301,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
             </p>
             <h1 className="font-sora font-bold text-[32px] leading-none text-ltt">Análisis de gaps</h1>
             <p className="font-sora text-[14px] text-ltt2 mt-3 max-w-[760px]">
-              Vista consolidada de brechas normativas, evaluación FMEA, tratamiento pendiente y caducidades próximas. Esta pantalla es de lectura y te deriva al módulo origen para actuar.
+              Vista consolidada de gaps normativos, evaluación FMEA, tratamiento pendiente y caducidades próximas. Esta pantalla es de lectura y te deriva al módulo origen para actuar.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

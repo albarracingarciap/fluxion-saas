@@ -372,7 +372,7 @@ async function excluirBrechas(params: {
     .eq('status', 'pending')
     .in('gap_key', params.gaps.map((g) => g.gapKey))
   if ((vivas ?? []).length > 0) {
-    return { error: 'Alguna brecha ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.' }
+    return { error: 'Algún gap ya tiene una exclusión pendiente de aprobación: retírala antes de volver a pedirla.' }
   }
 
   const { data: filas, error } = await fluxion
@@ -486,7 +486,7 @@ async function retirarPendientes(
   }
 
   for (const f of filas) {
-    await cancelLiveApprovalRequest('gap_disposition', f.id, 'Exclusión retirada: la brecha vuelve a la cola.')
+    await cancelLiveApprovalRequest('gap_disposition', f.id, 'Exclusión retirada: el gap vuelve a la cola.')
   }
   const { error } = await admin
     .from('gap_dispositions')

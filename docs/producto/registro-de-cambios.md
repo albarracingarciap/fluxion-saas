@@ -52,6 +52,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Corrección: dimensión de riesgo en el envío del plan (fuera del plan) | Integrado en `main` | `fix/plan-dimension-modo` | 2026-10-21 | No |
 | B12 · Biblioteca de evidencias única | Integrado en `main` | `fase2/b12-evidencias-unicas` | 2026-10-21 | **Sí** · `20261021120000_evidencias_biblioteca_unica.sql` |
 | Glosario: Evidencia tras B12 | Integrado en `main` | `docs/glosario-evidencia` | 2026-10-21 | No |
+| Terminología: «gap» y «exclusión» (fuera del plan) | Integrado en `main` | `docs/termino-exclusion-gap` | 2026-10-21 | **Sí** · `20261021130000_terminologia_gaps.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -80,6 +81,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261021100000_expediente_solo_circuito.sql` | B11f | `trg_document_lifecycle_rules` sin aprobación con usuario; `approval_is_preparer` y `approval_can_decide`/`approval_step_candidates` excluyen `context.prepared_by`; abre la solicitud de los expedientes en revisión que no la tenían (o los devuelve a borrador) | **Antes** de desplegar B11f, después de la de B11e. Revisa el aviso `B11f: N solicitudes abiertas, M expedientes devueltos a borrador` |
 | `supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql` | B11g | Con sesión de usuario no se aprueban evidencias (`trg_evidence_review_rules`), AISIA (`trg_aisia_lifecycle_rules`) ni la Declaración (`trg_soa_lifecycle_rules`); abre la solicitud de las AISIA enviadas, evidencias pendientes y Declaraciones en revisión que no la tenían (o las devuelve a borrador) | **Antes** de desplegar B11g, después de las de B11e y B11f. Revisa el aviso `B11g: N solicitudes abiertas, M objetos devueltos a borrador` |
 | `supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql` | B12 | Copia `fluxion.evidences` a `system_evidences` con el mismo id; `treatment_actions.evidence_id` → `system_evidences`; la severidad residual solo pasa al FMEA con evidencia válida (si no, `evidence_pending`, que se completa al validarse); abre la revisión de las copias pendientes; `fluxion.evidences` queda como histórico | **Antes** de desplegar B12. Conviene una copia de seguridad previa y comparar recuentos: el aviso `B12: N evidencias de acciones en la biblioteca (…)` debe coincidir con `select count(*) from fluxion.evidences` |
+| `supabase/migrations/20261021130000_terminologia_gaps.sql` | Terminología | «gap» en la etiqueta de la bandeja, el nombre de la política por defecto de exclusión (si no se ha cambiado) y el mensaje del trigger | Antes o después de desplegar; solo cambia textos |
 
 ---
 
@@ -1306,3 +1308,27 @@ Storage (mismo bucket `evidence-files` que la biblioteca).
 **Documentación.** `funcional/plan-de-tratamiento.md`, `funcional/evidencias.md`,
 `funcional/flujo-completo-evaluacion.md` (GAP-19 resuelto), `negocio/plan-de-tratamiento.md`,
 `tecnica/modelo-datos.md`, `tecnica/almacenamiento-ficheros.md`; TODO 33 y 233 resueltos; TODO 255 (glosario).
+
+---
+
+## Terminología: «gap» y «exclusión» (fuera del plan)
+
+**Fecha:** 2026-10-21 · **Rama:** `docs/termino-exclusion-gap` ·
+**Migración:** **sí**, `supabase/migrations/20261021130000_terminologia_gaps.sql` (solo textos)
+
+**Decisión** (TODO 254): el glosario desaconsejaba «exclusión» y «gap», pero la interfaz los usa en todas sus
+pantallas. Se admiten los dos: «gap» es el término habitual entre los profesionales con los que trabaja el
+producto, y «excluir»/«exclusión» nombran la disposición de un gap.
+
+**Cambios.**
+- Glosario: «gap» como término admitido de «Brecha»; «exclusión»/«excluir» admitidos en «Disposición de la
+  brecha».
+- Interfaz: los textos que decían «brecha» pasan a «gap»: «Exclusión de gap» (tipo de objeto aprobable, acta),
+  **Se aplica a los gaps** (Ajustes), **Gaps ISO 42001** (informe), los avisos de exclusión con aprobación, los
+  mensajes de error, la descripción de **Análisis de gaps** y de las instantáneas y el subtítulo de los grupos.
+- Base de datos (migración): etiqueta «Exclusión de gap · …» en la bandeja, política por defecto «Exclusión de
+  gaps (DP-07)» y el mensaje «Excluir este gap pasa por aprobación».
+- Documentación: las citas de esas etiquetas; GAP-30 marcado como resuelto en B11d (queda `R13`).
+
+**Verificación.** Migración probada dos veces en el Postgres local. `tsc --noEmit` sin errores, `next lint` sin
+avisos.

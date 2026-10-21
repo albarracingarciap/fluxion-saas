@@ -92,7 +92,7 @@ export function GapAnalysisSnapshotView({
                   <h2 className="font-sora text-[16px] font-semibold text-ltt">Resumen ejecutivo</h2>
                 </div>
                 <p className="font-sora text-[13px] leading-relaxed text-ltt2 mb-4">
-                  Snapshot transversal del radar de gaps de la organización. Consolida brechas normativas, evaluación FMEA, tratamiento pendiente y caducidades para revisión ejecutiva o auditoría.
+                  Snapshot transversal del radar de gaps de la organización. Consolida gaps normativos, evaluación FMEA, tratamiento pendiente y caducidades para revisión ejecutiva o auditoría.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px] font-sora text-lttm">
                   <InfoCard label="Normativo">

@@ -159,7 +159,7 @@ export function GapReportView({
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="border border-ltb rounded-[12px] overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-ltb bg-ltcard2">
-                  <h2 className="font-sora text-[16px] font-semibold text-ltt">Brechas ISO 42001</h2>
+                  <h2 className="font-sora text-[16px] font-semibold text-ltt">Gaps ISO 42001</h2>
                 </div>
                 <div className="divide-y divide-ltb">
                   {report.isoGaps.length === 0 ? (
