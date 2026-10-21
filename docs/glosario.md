@@ -439,7 +439,8 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 ### Evidencia
 - **Definición:** documento, registro o enlace que demuestra que se cumple una obligación, que un control está implantado o que se ha tratado un modo de fallo. Puede pertenecer a un sistema o a toda la organización, y tiene fecha de caducidad.
 - **No usar:** «prueba», «adjunto», «documento soporte».
-- **En el código:** `fluxion.system_evidences`; `fluxion.evidences` (adjuntos de acciones de tratamiento). Ambas se unificarán en la Biblioteca de evidencias (decisión 30).
+- **En el código:** `fluxion.system_evidences` (Biblioteca de evidencias). Desde B12 también guarda las evidencias de las acciones del plan de tratamiento (etiqueta `accion-plan`); `fluxion.evidences` queda como histórico y la aplicación ya no escribe en ella.
+- La severidad residual de una mitigación solo pasa a la evaluación de riesgos cuando su evidencia es válida; mientras tanto, la acción queda «Evidencia pendiente» (`treatment_actions.status = 'evidence_pending'`).
 - **Normativa:** ISO/IEC 42001, §7.5 (información documentada).
 
 ### Biblioteca de evidencias

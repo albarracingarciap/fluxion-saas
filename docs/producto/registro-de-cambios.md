@@ -51,6 +51,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11g · AISIA, Declaración y evidencias solo en el circuito de aprobación | Integrado en `main` | `fase2/b11g-resto-solo-circuito` | 2026-10-21 | **Sí** · `20261021110000_aprobaciones_resto_solo_circuito.sql` |
 | Corrección: dimensión de riesgo en el envío del plan (fuera del plan) | Integrado en `main` | `fix/plan-dimension-modo` | 2026-10-21 | No |
 | B12 · Biblioteca de evidencias única | Integrado en `main` | `fase2/b12-evidencias-unicas` | 2026-10-21 | **Sí** · `20261021120000_evidencias_biblioteca_unica.sql` |
+| Glosario: Evidencia tras B12 | Integrado en `main` | `docs/glosario-evidencia` | 2026-10-21 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
