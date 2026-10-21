@@ -27,6 +27,7 @@ fuente:
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - apps/web/lib/approvals/coverage.ts
   - supabase/migrations/20261021090000_plan_solo_circuito.sql
+  - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
 ---
 
 # Plan de tratamiento
@@ -117,7 +118,7 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | **Responsable** | selector | Sí | Miembros de la organización | `owner_id` |
 | **Fecha objetivo** | fecha | Sí | No puede superar la fecha límite del plan | `due_date` |
 | **Fecha de revisión** | fecha | Sí, en Aceptar y Diferir | — | `review_due_date` |
-| **Evidencia** | fichero (máx. 20 MB) o URL | No | Con la evidencia esperada según la opción. Estado: Pendiente de validar, Validada, Rechazada | `treatment_actions.evidence_id` → `evidences` |
+| **Evidencia** | fichero (máx. 20 MB) o URL | No | Con la evidencia esperada según la opción. Se guarda en la [Biblioteca de evidencias](evidencias.md) (B12), vinculada al sistema, de tipo «Otro» y con la etiqueta `accion-plan`, y nace **Pendiente de revisión** con su solicitud en [Aprobaciones](aprobaciones.md) (sin política, en borrador). Muestra su estado en la biblioteca y **Ver en la biblioteca de evidencias**; si no está válida, avisa de que la severidad residual solo pasa al FMEA con la evidencia válida | `treatment_actions.evidence_id` → `system_evidences.id` |
 
 **Fecha de revisión** es obligatoria en Aceptar y en Diferir («Posponer con revisión»): las dos entran en
 [Revisiones pendientes](revisiones-pendientes.md).
@@ -131,8 +132,8 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | **Guardar borrador** | Editor del plan | Guarda el riesgo residual y la zona objetivo | Historial «Borrador del plan guardado» |
 | **Enviar a aprobación** / **Enviar a alta dirección** (nivel 3) | Editor del plan | `submitTreatmentPlanForApproval`. Exige una política activa para el nivel. Ya no pide referencia de acta (B11e) | Plan «En aprobación» y solicitud abierta en [Flujos de aprobación](../glosario.md#flujos-de-aprobación), con el contexto `approval_level` y `has_security_controls`; aviso a quien decide el primer paso. Si la solicitud no se abre, el plan vuelve a borrador. Guarda una [instantánea](../glosario.md#instantánea). Historial «Plan enviado a aprobación» y «Solicitud de aprobación emitida» |
 | Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada» (también si se completa desde [Tareas](tareas.md)). En Mitigar abre **Registrar S residual alcanzado** |
-| **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción | Cierra la acción y, si la hay, la tarea. Si hay evidencia, la severidad residual pasa al ítem del FMEA |
-| Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción | Sin evento ni historial |
+| **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción. Si la evidencia no está válida, el diálogo avisa de que la acción quedará «Evidencia pdte.» | Con evidencia **Válida**, cierra la acción y la severidad residual pasa al ítem del FMEA. Sin ella (B12), la acción queda «Evidencia pdte.» y se completa sola, trasladando la severidad, cuando la evidencia se aprueba. Cierra la tarea, si la hay |
+| Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción (`uploadEvidenceForActionAction`, `linkUrlEvidenceToActionAction`) | La crea en la biblioteca y abre su revisión (`openEvidenceReview`). Sin evento en el plan |
 | **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review». Si una aceptación pasa a tratarse, la acción vuelve a «Pendiente» y el plan se reabre |
 | **Reasignar** · **Due date** · **Cambiar opción** (en bloque) | Editor del plan | Sobre las acciones seleccionadas no cerradas. Mitigar no se admite en bloque | Eventos por acción e historial del cambio masivo |
 | **Exportar CSV** · **Imprimir PDF** | Todos | Descargan las acciones o imprimen la página | — |

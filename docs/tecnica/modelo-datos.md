@@ -38,6 +38,7 @@ fuente:
   - recursos/db/README.md
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
 ---
 
 # Modelo de datos
@@ -208,7 +209,7 @@ erDiagram
 |---|---|---|---|
 | `fluxion.system_evidences` | [Evidencia](../glosario.md#evidencia) | `scope` (sistema u organización), `status` ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)), `expires_at`, `storage_backend` ∈ `supabase`, `s3`, `checksum_sha256` | `00000000000001`, `20260819090000` |
 | `fluxion.system_evidence_versions` | — | Historial de cambios y revisiones: estado anterior a cada cambio, `change_type` (también `expired`), `storage_path` y `changed_by` (perfil). Solo escribe el trigger `trg_evidence_versions` (sin política de inserción) | `00000000000001`, `20261020110000` |
-| `fluxion.evidences` | [Evidencia](../glosario.md#evidencia) (adjuntos de acciones de tratamiento) | `type`, `verification_status`, `storage_backend` | `00000000000001`, `20260819170000` |
+| `fluxion.evidences` | Histórico (B12): adjuntos de acciones anteriores a la biblioteca única, copiados a `system_evidences` con el mismo id. Sin escrituras desde la aplicación (`INSERT`/`UPDATE` revocados a `authenticated`) | `type`, `verification_status`, `storage_backend` | `00000000000001`, `20260819170000`, `20261021120000` |
 | `compliance.evidence_types`, `obligation_evidence_types` | [Tipo de evidencia](../glosario.md#tipo-de-evidencia) | EVT-*; `requirement_level` por obligación | `00000000000005` |
 | `fluxion.evidence_expiry_alerts` | — | `alert_type` ∈ `expiry_30d`, `expiry_7d`, `expired` | `00000000000001` |
 | `fluxion.gap_dispositions` | [Disposición de la brecha](../glosario.md#disposición-de-la-brecha) | `gap_key` único por organización, `gap_layer` ([tipo de brecha](../glosario.md#tipo-de-brecha)), `disposition`, `rationale`, `status` (`active`, o `pending` mientras espera aprobación) | `00000000000001`, `20261020170100` |
@@ -220,8 +221,8 @@ erDiagram
 Las [brechas](../glosario.md#brecha) no se guardan: se calculan en `apps/web/lib/gaps/data.ts`. Solo
 se persisten las disposiciones y los vínculos con tareas.
 
-> **Pendiente de implementar.** Unificar `fluxion.evidences` y `fluxion.system_evidences` en una sola
-> Biblioteca de evidencias (`_inventario.md` §10.3).
+Biblioteca de evidencias única (B12): `treatment_actions.evidence_id` referencia `system_evidences`
+(`ON DELETE SET NULL`). `fluxion.evidences` queda como histórico.
 
 ### Documentos, incidentes, operación y aprobaciones
 
@@ -291,6 +292,7 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10, revisado en B11g): con usuario autenticado, alta en `draft` o `pending_review` y solo las transiciones del ciclo; pasar a `valid` o `rejected` solo sin usuario (efecto de Flujos de aprobación). Las escrituras sin usuario (cron, expediente) no pasan por él |
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
 | `fluxion.trg_aisia_lifecycle_rules()`, `trg_soa_lifecycle_rules()` | B11g: con usuario autenticado, la AISIA no pasa a `approved` ni `rejected` y la Declaración (`organization_soa_metadata.lifecycle_status`) no pasa a `approved`; lo hace el efecto de Flujos de aprobación |
+| `fluxion.trigger_evidence_closes_action()` (revisada en B12), `trg_evidence_valid_completes_actions()` | Al completar una mitigación con severidad residual medida, solo la traslada a `fmea_items.s_actual` si su evidencia está `valid`; si no, la acción queda `evidence_pending`. Al validarse la evidencia, el trigger AFTER de `system_evidences` completa esas acciones y la severidad se traslada |
 | `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09, revisado en B11f): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` y `approved` → `superseded`; pasar a `approved` solo sin usuario (el efecto de Flujos de aprobación y las actas) |
 | `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
 | `fluxion.trg_governance_designation_rules()`, `trg_profiles_dpo_data_controller()` | B23b: la persona designada es de la organización; el DPO no puede ser Responsable del tratamiento, ni al designar ni al dar el rol |

@@ -782,6 +782,7 @@ causa C1. **Talla:** M, repartida entre los bloques.
     **Válida**; si no, la acción queda «Completada, pendiente de evidencia».
   - Las evidencias de acción aparecen en la biblioteca y en el detalle de la acción.
 - **Talla:** L. **Riesgo:** migración de FKs en producción; hacerla con ventana y verificación de recuentos.
+- **Estado (2026-10-21).** Integrado. Las acciones ya completadas no se revisan retroactivamente.
 
 ### B13 · Motor único de clasificación y cuestionario
 

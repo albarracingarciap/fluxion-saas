@@ -98,7 +98,7 @@ El almacén de lectura se elige por la columna `storage_backend`, no por la form
 | Objeto | Tipo | Campos clave | Migración |
 |---|---|---|---|
 | `fluxion.system_evidences` | tabla | `storage_backend` (`supabase` por defecto, `s3`), `storage_bucket` (obligatorio si es `s3`), `storage_path`, `checksum_sha256`, `mime_type`, `file_size_bytes` | `20260819090000_storage_backend.sql` |
-| `fluxion.evidences` | tabla | Evidencias del plan de tratamiento, con las mismas columnas de almacén | `20260819170000_fmea_evidences_storage_backend.sql` |
+| `fluxion.evidences` | tabla | Histórico desde B12: sus filas se copiaron a `system_evidences` (mismo id y mismo objeto en el almacén); la aplicación ya no escribe aquí | `20260819170000_fmea_evidences_storage_backend.sql`, `20261021120000_evidencias_biblioteca_unica.sql` |
 | `fluxion.v_evidence_storage_split` | vista (`security_invoker`) | Por organización y almacén: número de evidencias, sin huella y bytes | ídem |
 | `fluxion.document_renders` | tabla | `storage_backend` (`s3` por defecto), `storage_bucket`, `storage_path` | `20260819230000_document_renders.sql` |
 | `fluxion.task_attachments` | tabla | Ruta en `task-attachments`, borrado lógico (`deleted_at`) | `00000000000001_schema.sql` |

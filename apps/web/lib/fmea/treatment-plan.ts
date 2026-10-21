@@ -224,8 +224,8 @@ export type TreatmentPlanActionView = TreatmentPlanActionRecord & {
   evidence_title: string | null;
   evidence_storage_path: string | null;
   evidence_external_url: string | null;
-  evidence_url: string | null;
-  evidence_verification_status: 'pending' | 'validated' | 'rejected' | null;
+  /** Estado en la biblioteca de evidencias (B12): draft, pending_review, valid, expired, rejected. */
+  evidence_status: string | null;
   sla_status: SlaStat | null;
   review_status: ReviewStatus;
 };
@@ -726,25 +726,24 @@ export async function buildTreatmentPlanData(params: {
   const evidenceIds = Array.from(new Set(
     actions.filter((a) => a.evidence_id).map((a) => a.evidence_id as string)
   ));
+  // Biblioteca única (B12): la evidencia de la acción vive en system_evidences.
   const evidenceDataMap = new Map<string, {
     title: string;
     storage_path: string | null;
     external_url: string | null;
-    url: string | null;
-    verification_status: 'pending' | 'validated' | 'rejected' | null;
+    status: string | null;
   }>();
   if (evidenceIds.length > 0) {
     const { data: evRows } = await fluxion
-      .from('evidences')
-      .select('id, title, storage_path, external_url, url, verification_status')
+      .from('system_evidences')
+      .select('id, title, storage_path, external_url, status')
       .in('id', evidenceIds);
     for (const ev of (evRows ?? []) as Array<Record<string, unknown>>) {
       evidenceDataMap.set(ev.id as string, {
         title: ev.title as string,
         storage_path: (ev.storage_path as string | null) ?? null,
         external_url: (ev.external_url as string | null) ?? null,
-        url: (ev.url as string | null) ?? null,
-        verification_status: (ev.verification_status as 'pending' | 'validated' | 'rejected' | null) ?? null,
+        status: (ev.status as string | null) ?? null,
       });
     }
   }
@@ -813,8 +812,7 @@ export async function buildTreatmentPlanData(params: {
         evidence_title: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.title ?? null) : null,
         evidence_storage_path: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.storage_path ?? null) : null,
         evidence_external_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.external_url ?? null) : null,
-        evidence_url: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.url ?? null) : null,
-        evidence_verification_status: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.verification_status ?? null) : null,
+        evidence_status: action.evidence_id ? (evidenceDataMap.get(action.evidence_id)?.status ?? null) : null,
         sla_status: calculateSlaStatus(action.due_date, action.status),
         review_status: getReviewStatus(action),
       };

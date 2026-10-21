@@ -23,6 +23,7 @@ fuente:
   - apps/web/lib/storage/objects.ts
   - apps/web/app/api/cron/evidence-expiry/route.ts
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
 ---
 
 # Biblioteca de evidencias
@@ -66,6 +67,12 @@ Las evidencias que el sistema crea ya pendientes de revisión (el PDF de un expe
 informe de brechas, el dossier técnico y la ficha para el registro UE) abren su solicitud de aprobación
 automáticamente (`openEvidenceReview`), con quien las genera como aportante; si no hay política activa,
 quedan en borrador.
+
+**Evidencias de las acciones del plan (B12).** Las que se suben o vinculan desde una acción del
+[plan de tratamiento](plan-de-tratamiento.md) son evidencias de la biblioteca como las demás: del sistema del
+plan, de tipo «Otro» y con la etiqueta `accion-plan`, y nacen pendientes de revisión con su solicitud abierta.
+Al aprobarse, la acción que la esperaba («Evidencia pdte.») se completa y su severidad residual pasa al FMEA.
+Las del almacén anterior se copiaron con el mismo identificador.
 
 ## Campos
 
