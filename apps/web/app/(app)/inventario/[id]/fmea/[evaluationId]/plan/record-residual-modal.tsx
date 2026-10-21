@@ -166,6 +166,14 @@ export function RecordResidualModal({
               </div>
             </label>
 
+            {!notMeasured && action.evidence_status !== 'valid' && (
+              <p className="font-sora text-[12px] text-or bg-ordim border border-orb rounded-[8px] px-3 py-2">
+                {action.evidence_id
+                  ? 'La evidencia de la acción aún no está aprobada: la acción quedará «Evidencia pdte.» y la severidad pasará al FMEA cuando se apruebe en Aprobaciones.'
+                  : 'La acción no tiene evidencia: quedará «Evidencia pdte.» hasta que se aporte una y se apruebe. Solo entonces la severidad pasará al FMEA.'}
+              </p>
+            )}
+
             {error && (
               <p className="font-sora text-[12px] text-re bg-red-dim border border-reb rounded-lg px-3 py-2">
                 {error}

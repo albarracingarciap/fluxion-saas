@@ -10,10 +10,13 @@ import {
   uploadEvidenceForActionAction,
 } from './actions'
 
-const EVIDENCE_VERIFICATION_META: Record<string, { label: string; pill: string }> = {
-  pending:   { label: 'Pendiente de validar', pill: 'bg-ordim border-orb text-or' },
-  validated: { label: 'Validada',             pill: 'bg-grdim border-grb text-gr' },
-  rejected:  { label: 'Rechazada',            pill: 'bg-red-dim border-reb text-re' },
+/** Estados de la biblioteca de evidencias (B12). */
+const EVIDENCE_STATUS_META: Record<string, { label: string; pill: string }> = {
+  draft:          { label: 'Borrador',             pill: 'bg-ltbg border-ltb text-lttm' },
+  pending_review: { label: 'Pendiente de revisión', pill: 'bg-ordim border-orb text-or' },
+  valid:          { label: 'Válida',               pill: 'bg-grdim border-grb text-gr' },
+  expired:        { label: 'Caducada',             pill: 'bg-red-dim border-reb text-re' },
+  rejected:       { label: 'Rechazada',            pill: 'bg-red-dim border-reb text-re' },
 }
 
 type Props = {
@@ -39,7 +42,7 @@ export function EvidenceSection({ action, aiSystemId, evaluationId, readOnly }: 
 
   function handleOpenFile() {
     if (!action.evidence_storage_path) {
-      const url = action.evidence_external_url || action.evidence_url
+      const url = action.evidence_external_url
       if (url) window.open(url, '_blank', 'noopener')
       return
     }
@@ -120,14 +123,28 @@ export function EvidenceSection({ action, aiSystemId, evaluationId, readOnly }: 
               <div className="font-sora text-[13.5px] font-semibold text-ltt leading-snug truncate">
                 {action.evidence_title ?? 'Evidencia vinculada'}
               </div>
-              {action.evidence_verification_status && (
+              {action.evidence_status && (
                 <span
                   className={`inline-flex items-center mt-1.5 px-2.5 py-0.5 rounded-[6px] border font-plex text-[10px] uppercase tracking-[1px] ${
-                    EVIDENCE_VERIFICATION_META[action.evidence_verification_status]?.pill ?? 'bg-ltbg border-ltb text-lttm'
+                    EVIDENCE_STATUS_META[action.evidence_status]?.pill ?? 'bg-ltbg border-ltb text-lttm'
                   }`}
                 >
-                  {EVIDENCE_VERIFICATION_META[action.evidence_verification_status]?.label ?? action.evidence_verification_status}
+                  {EVIDENCE_STATUS_META[action.evidence_status]?.label ?? action.evidence_status}
                 </span>
+              )}
+              <a
+                href={`/evidencias/${action.evidence_id}`}
+                className="block mt-1.5 font-sora text-[11.5px] text-brand-cyan hover:underline"
+              >
+                Ver en la biblioteca de evidencias
+              </a>
+              {action.evidence_status !== 'valid' && (
+                <p className="mt-1 font-sora text-[11.5px] text-lttm">
+                  {action.evidence_status === 'pending_review'
+                    ? 'Se revisa en Aprobaciones. '
+                    : ''}
+                  La severidad residual solo pasa al FMEA con la evidencia válida.
+                </p>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">

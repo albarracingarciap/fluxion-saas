@@ -35,7 +35,7 @@ import { createClient } from '@/lib/supabase/server';
 // Sin cache: se consulta si hay un circuito de aprobacion vivo, y eso decide
 // si esta accion puede cerrar el plan.
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
-import { openApprovalRequest } from '@/lib/approvals/open';
+import { openApprovalRequest, openEvidenceReview } from '@/lib/approvals/open';
 import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 import type { TaskStatus } from '@/lib/tasks/types';
 
@@ -1001,21 +1001,27 @@ export async function uploadEvidenceForActionAction(
     return { error: 'Error al subir el archivo al almacenamiento.' };
   }
 
+  // Biblioteca única (B12): la evidencia de la acción es una evidencia más del
+  // sistema, con revisión en Flujos de aprobación.
   const { error: insertError } = await fluxion
-    .from('evidences')
+    .from('system_evidences')
     .insert({
       id: evidenceId,
       organization_id: membership.organization_id,
+      ai_system_id: aiSystemId,
+      scope: 'system',
       title,
-      url: '',
+      evidence_type: 'other',
+      status: 'pending_review',
       storage_path: storagePath,
       storage_backend: 's3',
       storage_bucket: BUCKET_EVIDENCES,
       checksum_sha256: checksum,
-      file_size: size,
+      file_size_bytes: size,
       mime_type: contentType,
-      uploaded_by: user.id,
-      applies_to_systems: [aiSystemId],
+      owner_user_id: user.id,
+      issued_at: new Date().toISOString().slice(0, 10),
+      tags: ['accion-plan'],
     });
 
   if (insertError) {
@@ -1033,7 +1039,10 @@ export async function uploadEvidenceForActionAction(
 
   if (linkError) return { error: `Error al vincular la evidencia: ${linkError.message}` };
 
+  await openEvidenceReview({ organizationId: membership.organization_id, evidenceId, ownerUserId: user.id });
+
   revalidatePath(`/inventario/${aiSystemId}/fmea/${evaluationId}/plan`);
+  revalidatePath('/evidencias');
   return { success: true, evidenceId };
 }
 
@@ -1058,15 +1067,19 @@ export async function linkUrlEvidenceToActionAction(input: {
   const evidenceId = crypto.randomUUID();
 
   const { error: insertError } = await fluxion
-    .from('evidences')
+    .from('system_evidences')
     .insert({
       id: evidenceId,
       organization_id: membership.organization_id,
+      ai_system_id: input.aiSystemId,
+      scope: 'system',
       title: input.title.trim(),
-      url: input.externalUrl.trim(),
+      evidence_type: 'other',
+      status: 'pending_review',
       external_url: input.externalUrl.trim(),
-      uploaded_by: user.id,
-      applies_to_systems: [input.aiSystemId],
+      owner_user_id: user.id,
+      issued_at: new Date().toISOString().slice(0, 10),
+      tags: ['accion-plan'],
     });
 
   if (insertError) return { error: `Error al registrar la evidencia: ${insertError.message}` };
@@ -1078,7 +1091,10 @@ export async function linkUrlEvidenceToActionAction(input: {
 
   if (linkError) return { error: `Error al vincular la evidencia: ${linkError.message}` };
 
+  await openEvidenceReview({ organizationId: membership.organization_id, evidenceId, ownerUserId: user.id });
+
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
+  revalidatePath('/evidencias');
   return { success: true, evidenceId };
 }
 
@@ -1108,8 +1124,8 @@ export async function unlinkEvidenceFromActionAction(input: {
  * Recibe el id de la evidencia, no la ruta. Antes recibía la ruta y no
  * comprobaba nada: se apoyaba en que las políticas de Supabase Storage
  * rechazasen una carpeta de otra organización. MinIO no hace esa comprobación,
- * así que ahora la hace RLS sobre `fluxion.evidences` — si el usuario no puede
- * ver la fila, no hay URL.
+ * así que ahora la hace RLS sobre `fluxion.system_evidences` (biblioteca única,
+ * B12) — si el usuario no puede ver la fila, no hay URL.
  */
 export async function getEvidenceSignedUrlAction(
   evidenceId: string,
@@ -1121,7 +1137,7 @@ export async function getEvidenceSignedUrlAction(
   if (!user) return { error: 'No autenticado.' };
 
   const { data: evidence } = await fluxion
-    .from('evidences')
+    .from('system_evidences')
     .select('storage_path, storage_backend, storage_bucket')
     .eq('id', evidenceId)
     .maybeSingle();
@@ -1224,7 +1240,7 @@ export async function recordMitigarResidualAction(input: {
   sResidualAchieved: number | null;
   aiSystemId: string;
   evaluationId: string;
-}): Promise<{ ok: true } | { error: string }> {
+}): Promise<{ ok: true; pendienteDeEvidencia: boolean } | { error: string }> {
   const supabase = createClient();
   const fluxion = createFluxionClient();
 
@@ -1277,6 +1293,15 @@ export async function recordMitigarResidualAction(input: {
 
   if (actionError) return { error: actionError.message };
 
+  // Sin evidencia válida, la base de datos la deja «Evidencia pdte.» y la
+  // severidad no pasa al FMEA hasta que se apruebe (B12).
+  const { data: actionAfter } = await fluxion
+    .from('treatment_actions')
+    .select('status')
+    .eq('id', input.actionId)
+    .maybeSingle();
+  const pendienteDeEvidencia = actionAfter?.status === 'evidence_pending';
+
   if (input.taskId) {
     const { error: taskError } = await fluxion
       .from('tasks')
@@ -1306,7 +1331,7 @@ export async function recordMitigarResidualAction(input: {
         },
         afterState: {
           s_residual_achieved: input.sResidualAchieved,
-          status: 'completed',
+          status: actionAfter?.status ?? 'completed',
         },
       },
     });
@@ -1318,9 +1343,11 @@ export async function recordMitigarResidualAction(input: {
       organization_id: profile.organization_id,
       event_type: 'treatment_action_completed',
       event_title: 'Acción de mitigación cerrada',
-      event_summary: input.sResidualAchieved !== null
-        ? `Acción completada con S residual alcanzado = ${input.sResidualAchieved}.`
-        : 'Acción completada sin medición de S residual (slippage registrado).',
+      event_summary: pendienteDeEvidencia
+        ? `S residual alcanzado = ${input.sResidualAchieved} registrado; se aplicará al FMEA cuando la evidencia de la acción esté aprobada.`
+        : input.sResidualAchieved !== null
+          ? `Acción completada con S residual alcanzado = ${input.sResidualAchieved}.`
+          : 'Acción completada sin medición de S residual (slippage registrado).',
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
@@ -1333,7 +1360,7 @@ export async function recordMitigarResidualAction(input: {
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
   revalidatePath('/tareas');
   revalidatePath('/kanban');
-  return { ok: true };
+  return { ok: true, pendienteDeEvidencia };
 }
 
 // ============================================================================

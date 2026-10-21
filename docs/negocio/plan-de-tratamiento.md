@@ -18,6 +18,7 @@ fuente:
   - supabase/migrations/00000000000001_schema.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - docs/producto/plan-de-accion.md
+  - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
 ---
 
 # Plan de tratamiento
@@ -116,7 +117,10 @@ tratar, el plan se envía igualmente a aprobación, sin acciones, y se cierra al
      ninguna.
 
    - En las mitigaciones se implanta el control, se adjunta la evidencia y se registra la severidad
-     residual alcanzada.
+     residual alcanzada. La evidencia se guarda en la [Biblioteca de evidencias](biblioteca-evidencias.md)
+     y se revisa en los [flujos de aprobación](flujos-de-aprobacion.md). La severidad residual solo cuenta
+     para la zona del sistema cuando la evidencia está aprobada; hasta entonces, la acción queda pendiente
+     de evidencia.
    - El plan muestra el progreso, las advertencias (por ejemplo, plazos vencidos) y su historial.
 7. **[Revisión periódica](../glosario.md#revisión-periódica).**
    - Las acciones aceptadas o pospuestas se revisan con la frecuencia que marca la zona.
@@ -127,10 +131,6 @@ tratar, el plan se envía igualmente a aprobación, sin acciones, y se cierra al
    sustituido y sus acciones pendientes se cancelan: lo que siga haciendo falta está en el plan nuevo.
 9. **Vista de conjunto.** La vista **Planes de tratamiento** reúne todos los planes de la
    organización. **Revisiones pendientes** agrupa las acciones que toca revisar.
-
-> TODO: confirmar cuándo la severidad residual pasa a contar para la zona del sistema. El diseño de
-> producto dice que solo cuando la evidencia del control está verificada; el código registra la
-> severidad residual de las mitigaciones, pero no se ha comprobado que exija la evidencia validada.
 
 > **Pendiente de implementar.**
 > - Aviso al aprobador cuando se escala una revisión de aceptación.

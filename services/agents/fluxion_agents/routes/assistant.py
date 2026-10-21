@@ -199,12 +199,14 @@ def build_tenant_context(
     try:
         exp_res = (
             sb.schema("fluxion")
-            .table("evidences")
-            .select("title, valid_until")
+            # Biblioteca única (B12): las evidencias viven en system_evidences.
+            .table("system_evidences")
+            .select("title, expires_at")
             .eq("organization_id", org_id)
-            .not_.is_("valid_until", "null")
-            .lte("valid_until", thirty_days_str)
-            .order("valid_until")
+            .eq("status", "valid")
+            .not_.is_("expires_at", "null")
+            .lte("expires_at", thirty_days_str)
+            .order("expires_at")
             .limit(5)
             .execute()
         )
@@ -265,7 +267,7 @@ def build_tenant_context(
     if expiring:
         ctx += "\n### Evidencias próximas a caducar\n"
         for e in expiring:
-            ctx += f"- {e.get('title', '—')} — caduca {e.get('valid_until', '—')}\n"
+            ctx += f"- {e.get('title', '—')} — caduca {e.get('expires_at', '—')}\n"
 
     return current_system_ctx + ctx
 

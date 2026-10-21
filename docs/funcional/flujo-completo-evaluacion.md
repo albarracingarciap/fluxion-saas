@@ -596,12 +596,10 @@ Con el plan aprobado:
 > decidir la opción, y una mitigación sin tarea se cierra con **Cerrar acción**. La severidad residual solo
 > se registra con el plan aprobado.
 
-> **⚠ GAP-19 · Residual sin evidencia validada.** La severidad residual pasa al FMEA si la acción tiene
-> una evidencia adjunta, sin comprobar que esté validada. Además, esas evidencias se guardan aparte de la
-> [Biblioteca de evidencias](../glosario.md#biblioteca-de-evidencias): no tienen ciclo de revisión ni
-> cuentan en brechas ni en obligaciones.
->
-> **Pendiente de implementar.** Biblioteca de evidencias única (`_inventario.md` §10.3, decisión 30).
+> **✔ GAP-19 · Resuelto en B12.** Las evidencias de las acciones se guardan en la
+> [Biblioteca de evidencias](../glosario.md#biblioteca-de-evidencias), con su revisión en Aprobaciones. La
+> severidad residual de una mitigación solo pasa al FMEA con la evidencia **Válida**; mientras no lo esté, la
+> acción queda «Evidencia pdte.» y se completa sola al aprobarse la evidencia.
 
 > **✔ GAP-20 · Resuelto en B07.** Al aprobarse, el plan pasa a «En ejecución» o, sin acciones abiertas, a
 > «Cerrado»; la base de datos lo cierra al cerrar su última acción y lo reabre si una acción vuelve a
@@ -739,7 +737,7 @@ Transversal: las evidencias se crean en varias fases y se revisan en un único c
 | Ficha › **Evidencias** › **+ Añadir evidencia** (solo URL) | 3 y siguientes | Biblioteca | El que se elija | Sí, salvo que se fije «Válida» al crear |
 | Biblioteca › **+ Evidencia organizacional** (fichero o URL) | Cualquiera | Biblioteca | Borrador | Sí |
 | Obligación › **Nueva evidencia** | 3 | Biblioteca | El que se elija | Ídem |
-| Acción del plan (fichero o URL) | 5 | **Almacén aparte** | Pendiente de validar | No hay pantalla de revisión |
+| Acción del plan (fichero o URL) | 5 | Biblioteca (B12), etiqueta `accion-plan` | Pendiente de revisión, con su solicitud abierta; sin política, borrador | Sí, en Aprobaciones |
 | Expediente › **Generar PDF** | 7 | Biblioteca | **Válida** si el expediente está aprobado; si no, pendiente de revisión con su solicitud abierta (sin política, borrador) (B09, B11g) | Solo si el expediente no está aprobado |
 | Informes › **Guardar como evidencia** | 7 | Biblioteca | Pendiente de revisión, con su solicitud de aprobación abierta; sin política, borrador (B11g) | Sí |
 | Brechas › **Guardar snapshot** | 9 | Instantánea (no es evidencia) | — | — |
@@ -921,7 +919,7 @@ Resumen de todo lo que se aprueba en el recorrido:
 | 1 · Gobierno | Política de IA, nombramientos, constitución de comités | **+ Evidencia organizacional** (manual) | Ciclo de la biblioteca |
 | 3 · Obligaciones | Prueba de cada obligación resuelta | Evidencia vinculada a la obligación | Ciclo de la biblioteca |
 | 4 · FMEA | La evaluación | **Exportar PDF** imprimible; no se guarda como evidencia | — |
-| 5 · Plan | Aprobación del plan; controles implantados | Instantáneas del plan; acta si hay comité; evidencia de la acción en almacén aparte | Acta: no; acción: no |
+| 5 · Plan | Aprobación del plan; controles implantados | Instantáneas del plan; acta si hay comité; evidencia de la acción en la biblioteca (B12) | Acta: sí, en cada decisión; acción: sí, en Aprobaciones |
 | 6 · AISIA | La AISIA aprobada | No se genera | — |
 | 7 · Documentos | Anexo IV, FRIA, DPIA, ficha del modelo | **Generar PDF** | **No** (nace válida) |
 | 7 · Informes | Dossier, registro UE, informe de brechas | **Guardar como evidencia** | Sí |
@@ -952,7 +950,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
 | GAP-17 | 5 | ✔ Resuelto en B11c: cancelación, caducidad y avisos del circuito de aprobación | — | `O7`, `O8`, `S12` |
-| GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | — |
+| GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | ✔ Resuelto en B12 |
 | GAP-22 | 6 | AISIA sin acta y sin el aprobador de DP-01 (rol, segregación y Declaración resueltos en B08) | Debilita | — |
 | GAP-24 | 7 | Aprobadores del expediente por plantilla (ciclo, segregación, versiones, rótulo y evidencia resueltos en B09) | Debilita | — |
 | GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |

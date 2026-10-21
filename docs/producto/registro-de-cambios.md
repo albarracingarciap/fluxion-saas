@@ -50,6 +50,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11f · Expediente documental solo en el circuito de aprobación | Integrado en `main` | `fase2/b11f-expediente-solo-circuito` | 2026-10-21 | **Sí** · `20261021100000_expediente_solo_circuito.sql` |
 | B11g · AISIA, Declaración y evidencias solo en el circuito de aprobación | Integrado en `main` | `fase2/b11g-resto-solo-circuito` | 2026-10-21 | **Sí** · `20261021110000_aprobaciones_resto_solo_circuito.sql` |
 | Corrección: dimensión de riesgo en el envío del plan (fuera del plan) | Integrado en `main` | `fix/plan-dimension-modo` | 2026-10-21 | No |
+| B12 · Biblioteca de evidencias única | Integrado en `main` | `fase2/b12-evidencias-unicas` | 2026-10-21 | **Sí** · `20261021120000_evidencias_biblioteca_unica.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -77,6 +78,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261021090000_plan_solo_circuito.sql` | B11e | Abre la solicitud de los planes «En revisión» que no la tenían (o los devuelve a borrador con nota si no hay política o autor); vacía `approver_id` en los planes no aprobados | **Antes** de desplegar B11e: el plan ya no se puede aprobar desde su pantalla. Revisa el aviso `B11e: N solicitudes abiertas, M planes devueltos a borrador` |
 | `supabase/migrations/20261021100000_expediente_solo_circuito.sql` | B11f | `trg_document_lifecycle_rules` sin aprobación con usuario; `approval_is_preparer` y `approval_can_decide`/`approval_step_candidates` excluyen `context.prepared_by`; abre la solicitud de los expedientes en revisión que no la tenían (o los devuelve a borrador) | **Antes** de desplegar B11f, después de la de B11e. Revisa el aviso `B11f: N solicitudes abiertas, M expedientes devueltos a borrador` |
 | `supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql` | B11g | Con sesión de usuario no se aprueban evidencias (`trg_evidence_review_rules`), AISIA (`trg_aisia_lifecycle_rules`) ni la Declaración (`trg_soa_lifecycle_rules`); abre la solicitud de las AISIA enviadas, evidencias pendientes y Declaraciones en revisión que no la tenían (o las devuelve a borrador) | **Antes** de desplegar B11g, después de las de B11e y B11f. Revisa el aviso `B11g: N solicitudes abiertas, M objetos devueltos a borrador` |
+| `supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql` | B12 | Copia `fluxion.evidences` a `system_evidences` con el mismo id; `treatment_actions.evidence_id` → `system_evidences`; la severidad residual solo pasa al FMEA con evidencia válida (si no, `evidence_pending`, que se completa al validarse); abre la revisión de las copias pendientes; `fluxion.evidences` queda como histórico | **Antes** de desplegar B12. Conviene una copia de seguridad previa y comparar recuentos: el aviso `B12: N evidencias de acciones en la biblioteca (…)` debe coincidir con `select count(*) from fluxion.evidences` |
 
 ---
 
@@ -1270,3 +1272,36 @@ tuviera esa columna fuera de las migraciones, el fallo no se manifestaría allí
 (`dimensionesDeModos`). Sin cambios de comportamiento más allá de que las consultas funcionen.
 
 **Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos. No se ha probado en el navegador.
+
+---
+
+## B12 · Biblioteca de evidencias única
+
+**Fecha:** 2026-10-21 · **Rama:** `fase2/b12-evidencias-unicas` ·
+**Migración:** **sí**, `supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql` (aplicar antes de desplegar)
+
+**Problema** (GAP-19; F-02): las evidencias de las acciones del plan se guardaban en un almacén aparte
+(`fluxion.evidences`), fuera de la biblioteca: sin revisión real, sin caducidad gestionada y sin contar en
+brechas ni obligaciones. Además, cerrar una mitigación trasladaba la severidad residual al FMEA con cualquier
+evidencia adjunta, validada o no.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Migración | Copia cada evidencia antigua a `system_evidences` con el mismo id (los ficheros no se mueven), del sistema anotado o del plan de su acción, tipo mapeado y etiqueta `accion-plan`; validadas → válidas (o caducadas), rechazadas → rechazadas, el resto pendientes con su solicitud abierta (o borrador). La clave ajena de `treatment_actions.evidence_id` pasa a la biblioteca. `fluxion.evidences` queda como histórico, sin escrituras |
+| Severidad residual | `trigger_evidence_closes_action`: una mitigación con severidad medida solo la traslada con evidencia **Válida**; si no, la acción queda «Evidencia pdte.». `trg_evidence_valid_completes_actions` la completa al validarse la evidencia. No es retroactivo |
+| Plan de tratamiento | Subir o vincular una evidencia la crea en la biblioteca y abre su revisión; la acción muestra el estado de la biblioteca, **Ver en la biblioteca de evidencias** y el aviso sobre la severidad; **Cerrar acción** avisa si quedará pendiente de evidencia y el historial lo dice |
+| Asistente | Las evidencias próximas a caducar salen de `system_evidences` (válidas con `expires_at`) |
+
+**Verificación.** Migración probada en el Postgres local: dos evidencias antiguas (una pendiente, una
+validada) pasan a la biblioteca con su id y su sistema; la pendiente abre su solicitud; al cerrar las dos
+mitigaciones, la de evidencia válida traslada la severidad y la otra queda «Evidencia pdte.»; al validar su
+evidencia, se completa, traslada la severidad y el plan se cierra; la segunda pasada no cambia nada.
+`tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 49/49, `check-server-actions.sh` y
+`check-python.sh` correctos. No se ha probado en el navegador ni la descarga de ficheros antiguos de Supabase
+Storage (mismo bucket `evidence-files` que la biblioteca).
+
+**Documentación.** `funcional/plan-de-tratamiento.md`, `funcional/evidencias.md`,
+`funcional/flujo-completo-evaluacion.md` (GAP-19 resuelto), `negocio/plan-de-tratamiento.md`,
+`tecnica/modelo-datos.md`, `tecnica/almacenamiento-ficheros.md`; TODO 33 y 233 resueltos; TODO 255 (glosario).
