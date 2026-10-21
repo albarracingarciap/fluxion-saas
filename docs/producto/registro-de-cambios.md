@@ -46,6 +46,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11c · Flujos de aprobación: cancelación, caducidad y avisos | Integrado en `main` | `fase2/b11c-cancelacion-caducidad` | 2026-10-20 | **Sí** · `20261020160000_aprobaciones_caducidad.sql` |
 | B11d · Flujos de aprobación: consultas, pasos condicionales, Auditor y exclusión de brechas | Integrado en `main` | `fase2/b11d-consultas-condiciones` | 2026-10-20 | **Sí** · `20261020170000_aprobaciones_tipo_exclusion_brecha.sql` y `20261020170100_aprobaciones_consultas_condiciones.sql` |
 | Glosario: consultas, pasos condicionales y disposición con aprobación (B11d) | Integrado en `main` | `docs/glosario-b11d` | 2026-10-21 | No |
+| B11e · Plan de tratamiento solo en el circuito de aprobación | Integrado en `main` | `fase2/b11e-plan-solo-circuito` | 2026-10-21 | **Sí** · `20261021090000_plan_solo_circuito.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -70,6 +71,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261020160000_aprobaciones_caducidad.sql` | B11c | `approval_policies.expires_after_days` y `approval_requests.expires_at` (fijada al abrir); la vista de la bandeja expone `expires_at` | **Antes** de desplegar B11c. Además, en el VPS, añadir al crontab la línea de `approval-expiry` (está en `infra/schedules/crontab`) |
 | `supabase/migrations/20261020170000_aprobaciones_tipo_exclusion_brecha.sql` | B11d (1/2) | Tipo de objeto `gap_disposition`. Va aparte porque un valor nuevo de enum no se puede usar en la misma transacción | **Antes** de la 2/2 y en una ejecución separada (en Studio, una consulta aparte) |
 | `supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql` | B11d (2/2) | Pasos de consulta (`kind`) y condicionales (`condition`), contexto de la solicitud, `approval_decide` con dictamen, el Auditor no decide, `gap_dispositions.status` con su trigger, política de exclusión de brechas y consultas de DP-01 en las políticas por defecto sin editar; etiqueta y enlace de la exclusión en la bandeja | **Antes** de desplegar B11d: la aplicación lee `gap_dispositions.status` y `approval_policy_steps.kind`. Revisa en Ajustes › Aprobaciones las políticas con consulta |
+| `supabase/migrations/20261021090000_plan_solo_circuito.sql` | B11e | Abre la solicitud de los planes «En revisión» que no la tenían (o los devuelve a borrador con nota si no hay política o autor); vacía `approver_id` en los planes no aprobados | **Antes** de desplegar B11e: el plan ya no se puede aprobar desde su pantalla. Revisa el aviso `B11e: N solicitudes abiertas, M planes devueltos a borrador` |
 
 ---
 
@@ -1125,3 +1127,38 @@ una exclusión pendiente o crearla activa desde la API. `tsc --noEmit` sin error
 esos objetos. Retirar la vía propia del plan (aprobador asignado) cuando no quede ningún plan sin política
 aplicable (posible B11e).
 
+---
+
+## B11e · Plan de tratamiento solo en el circuito de aprobación
+
+**Fecha:** 2026-10-21 · **Rama:** `fase2/b11e-plan-solo-circuito` ·
+**Migración:** **sí**, `supabase/migrations/20261021090000_plan_solo_circuito.sql` (aplicar antes de desplegar)
+
+**Problema** (GAP-14; DP-01; criterio de aceptación de B11 «no queda ninguna aprobación fuera del circuito»):
+un plan sin política aplicable a su nivel se aprobaba por una vía propia: un «aprobador asignado» que aprobaba
+o devolvía desde la pantalla del plan, con una referencia de acta tecleada en el nivel 3.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Envío del plan | Exige una política activa para el nivel y abre la solicitud con `openApprovalRequest` (contexto `approval_level` y `has_security_controls`); si no se abre, el plan vuelve a borrador. Ya no asigna aprobador ni pide referencia de acta |
+| Vía antigua retirada | `approveTreatmentPlanAction`, `rejectTreatmentPlanAction`, `resolvePlanApprover`, `NO_PLAN_APPROVER_MESSAGE`, `pickPlanApprover`, `PLAN_APPROVER_ROLES` y sus tests; la evaluación ya no asigna aprobador al crear el plan |
+| Pantalla del plan | El panel de revisión solo informa: «Esperando aprobación» con enlace a Aprobaciones, o un aviso si no hay solicitud abierta. **Aprobado por** (antes «Aprobador asignado») |
+| `approver_id` | Pasa a ser quien emitió la decisión final; lo rellena el efecto de aprobación (`lib/approvals/effects.ts`). En Planes: filtro y columna «Aprobado por» |
+| Ajustes | `lib/approvals/coverage.ts` (con test): no se puede guardar, desactivar ni borrar una política de planes si algún nivel queda sin cubrir |
+| Migración | Planes en revisión sin solicitud: se abre (o vuelven a borrador con nota); `approver_id` vacío en planes no aprobados |
+
+**Verificación.** Migración probada en el Postgres local (arnés recreado con las 65 migraciones): un plan de
+nivel 2 en revisión sin solicitud abre la suya con la política de su nivel; uno de nivel 1 con su política
+desactivada vuelve a borrador con la nota; `approver_id` queda vacío; la segunda pasada no cambia nada.
+`tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 50/50 (3 tests del aprobador sin política
+retirados, 3 de cobertura nuevos), `check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** `funcional/plan-de-tratamiento.md`, `funcional/fmea-evaluacion.md`,
+`funcional/aprobaciones.md`, `funcional/ajustes.md`, `funcional/flujo-completo-evaluacion.md` (GAP-14),
+`negocio/plan-de-tratamiento.md`, `negocio/flujos-de-aprobacion.md`.
+
+**Pendiente.** El mismo cierre para los expedientes: una plantilla sin política aplicable aún se aprueba por su
+vía propia (las demás políticas no admiten condiciones que dejen huecos). Clasificación AI Act y política de
+IA como objetos aprobables, en B13 y B20.

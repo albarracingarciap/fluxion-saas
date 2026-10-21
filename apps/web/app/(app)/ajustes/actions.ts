@@ -1,5 +1,7 @@
 'use server'
 
+import { planLevelsWithoutPolicy, type CoveragePolicy } from '@/lib/approvals/coverage'
+import { getApprovalLevelLabel } from '@/lib/fmea/treatment-plan-rules'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -1242,6 +1244,15 @@ export async function saveApprovalPolicy(input: {
     if (ultima) return { error: ULTIMA_POLITICA }
   }
 
+  // Los planes solo se aprueban en el circuito (B11e): ningún nivel puede
+  // quedarse sin política que lo gobierne.
+  if (input.object_type === 'treatment_plan') {
+    const sinCubrir = await nivelesSinCubrir(profile.organization_id, input.id ?? null, {
+      object_type: 'treatment_plan', is_active: input.is_active, conditions: input.conditions,
+    })
+    if (sinCubrir) return { error: sinCubrir }
+  }
+
   const admin = createConnectorAdminClient()
 
   const payload = {
@@ -1319,6 +1330,29 @@ export async function saveApprovalPolicy(input: {
   return { id: policyId! }
 }
 
+/**
+ * Mensaje si, con el cambio, algún nivel del plan se queda sin política
+ * activa (B11e); null si todos siguen cubiertos. `exceptId` es la política que
+ * se edita o se borra; `nueva`, cómo queda (null si se borra).
+ */
+async function nivelesSinCubrir(
+  organizationId: string,
+  exceptId: string | null,
+  nueva: CoveragePolicy | null,
+): Promise<string | null> {
+  const admin = createConnectorAdminClient()
+  const { data } = await admin
+    .from('approval_policies')
+    .select('id, object_type, is_active, conditions')
+    .eq('organization_id', organizationId)
+    .eq('object_type', 'treatment_plan')
+  const resto = ((data ?? []) as Array<CoveragePolicy & { id: string }>).filter((p) => p.id !== exceptId)
+  const sinCubrir = planLevelsWithoutPolicy(nueva ? [...resto, nueva] : resto)
+  if (!sinCubrir.length) return null
+  return `Los planes de ${sinCubrir.map(getApprovalLevelLabel).join(', ')} se quedarían sin política de aprobación `
+    + 'y no se podrían enviar. Crea o activa antes otra política que cubra ese nivel.'
+}
+
 const ULTIMA_POLITICA =
   'Es la única política activa de este tipo de objeto. Crea o activa otra antes: sin ninguna, se aprobaría fuera del circuito.'
 
@@ -1364,6 +1398,10 @@ export async function deleteApprovalPolicy(id: string): Promise<{ success?: true
     .maybeSingle()
   if (politica?.is_active && (await esUltimaActiva(profile.organization_id, politica.object_type, id))) {
     return { error: ULTIMA_POLITICA }
+  }
+  if (politica?.object_type === 'treatment_plan') {
+    const sinCubrir = await nivelesSinCubrir(profile.organization_id, id, null)
+    if (sinCubrir) return { error: sinCubrir }
   }
 
   const { error: delErr } = await admin

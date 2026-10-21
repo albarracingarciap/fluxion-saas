@@ -85,8 +85,8 @@ export default async function TreatmentPlanSummaryPage({
             </div>
           </div>
           <div className="px-5 py-4">
-            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobador</div>
-            <div className="font-sora text-[14px] text-white">{data.approver_name ?? 'Pendiente de asignar'}</div>
+            <div className="font-plex text-[11px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobado por</div>
+            <div className="font-sora text-[14px] text-white">{data.approver_name ?? (data.plan.status === 'in_review' ? 'Pendiente en Aprobaciones' : '—')}</div>
           </div>
           <div className="px-5 py-4 flex items-center justify-end">
             <span className={`inline-flex items-center px-3 py-1 rounded-[8px] border font-fraunces text-[14px] ${zoneMeta.pill}`}>

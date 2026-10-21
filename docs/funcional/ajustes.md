@@ -26,6 +26,7 @@ fuente:
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261020160000_aprobaciones_caducidad.sql
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
+  - apps/web/lib/approvals/coverage.ts
 ---
 
 # Ajustes
@@ -220,6 +221,11 @@ Los seis tipos de objeto abren solicitudes con estas políticas (B11a, B11d); ve
 
 **Validación (B11d):** «La política necesita al menos un paso de aprobación sin condición: las consultas no
 deciden.»
+
+**Cobertura del plan (B11e).** Al guardar, desactivar o borrar una política de planes, cada nivel tiene que
+seguir cubierto por una política activa cuyas condiciones solo miren el nivel (sin condiciones = todos). Si
+no: «Los planes de {niveles} se quedarían sin política de aprobación y no se podrían enviar. Crea o activa
+antes otra política que cubra ese nivel.»
 
 ## Acciones
 

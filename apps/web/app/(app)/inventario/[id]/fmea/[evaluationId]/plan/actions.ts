@@ -17,8 +17,6 @@ import { recordTreatmentActionEvent, recordTreatmentActionEvents } from '@/lib/f
 import {
   calculateProjectedZoneForTreatmentActions,
   getEvidenceDescriptionForOption,
-  resolvePlanApprover,
-  NO_PLAN_APPROVER_MESSAGE,
   getApprovalLevelLabel,
   type TreatmentOption,
   type ReviewDecision,
@@ -36,10 +34,8 @@ import { createClient } from '@/lib/supabase/server';
 // Sin cache: se consulta si hay un circuito de aprobacion vivo, y eso decide
 // si esta accion puede cerrar el plan.
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
-import { notifyApprovalStep } from '@/lib/approvals/notify';
-import { createNotification } from '@/lib/notifications/sender';
+import { openApprovalRequest } from '@/lib/approvals/open';
 import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
-import { applyRiskEvaluationApproval } from '@/lib/fmea/lifecycle';
 import type { TaskStatus } from '@/lib/tasks/types';
 
 type SaveTreatmentPlanDraftInput = {
@@ -96,7 +92,6 @@ function optionNeedsReviewDate(option: TreatmentOption | null | undefined): bool
 type SubmitTreatmentPlanInput = {
   aiSystemId: string;
   evaluationId: string;
-  approvalMinutesRef?: string | null;
 };
 
 async function requireEditableTreatmentPlan(params: {
@@ -775,8 +770,6 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     };
   }
 
-  const normalizedMinutesRef = input.approvalMinutesRef?.trim() || null;
-
   // Contexto de la solicitud: el nivel elige la política y los controles de
   // seguridad deciden si entra la consulta del CISO (B11d).
   const approvalContext = {
@@ -787,11 +780,9 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     }))),
   };
 
-  // ¿Gobierna este plan una política del motor de aprobaciones?
-  //
-  // Con política, la referencia de acta deja de pedirse: la genera el motor a
-  // partir de la solicitud real, con sus votos y sus nombres. Seguir exigiendo
-  // que alguien la teclee sería pedir la prueba de algo que aún no ha pasado.
+  // El plan solo se aprueba en Flujos de aprobación (B11e): sin una política
+  // activa para su nivel no se envía. Ajustes impide dejar un nivel sin
+  // política, así que esto solo salta si alguien la borró por detrás.
   const admin = createNoCacheAdminClient();
   const { data: policyId } = await admin.rpc('approval_policy_for', {
     p_organization_id: membership.organization_id,
@@ -799,13 +790,16 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     p_context:         approvalContext,
   });
 
-  const gobernado = Boolean(policyId);
-
-  if (!gobernado && plan.approval_level === 'level_3' && !normalizedMinutesRef) {
+  if (!policyId) {
     return {
-      error: 'Los planes de Zona I requieren una referencia de acta o comité antes de enviarse a alta dirección.',
+      error: `No hay ninguna política de aprobación activa para el ${getApprovalLevelLabel(plan.approval_level)}. `
+        + 'Configúrala en Ajustes › Aprobaciones antes de enviar el plan.',
     };
   }
+
+  const { data: perfil } = await fluxion
+    .from('profiles').select('id').eq('user_id', user.id).single();
+  if (!perfil) return { error: 'No se encontró tu perfil en la organización.' };
 
   const projectedZone = await calculateCurrentPlanProjectedZone({
     fluxion,
@@ -814,41 +808,15 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     planId: plan.id,
   });
 
-  let approverId = plan.approver_id;
-
-  if (!approverId) {
-    approverId = await resolvePlanApprover({
-      fluxion,
-      organizationId: membership.organization_id,
-      approvalLevel: plan.approval_level,
-      actorUserId: user.id,
-    });
-  }
-
-  // Sin política, el plan necesita un aprobador concreto: no se envía a nadie.
-  if (!gobernado && !approverId) {
-    return { error: NO_PLAN_APPROVER_MESSAGE };
-  }
-
-  // Quien prepara no aprueba (DP-01): si el aprobador guardado es quien envía,
-  // se busca otro.
-  if (!gobernado && approverId === user.id) {
-    approverId = await resolvePlanApprover({
-      fluxion,
-      organizationId: membership.organization_id,
-      approvalLevel: plan.approval_level,
-      actorUserId: user.id,
-    });
-    if (!approverId) return { error: NO_PLAN_APPROVER_MESSAGE };
-  }
-
+  // `approver_id` ya no es un aprobador asignado: lo rellena la aprobación con
+  // quien emitió la decisión final (lib/approvals/effects.ts).
   const { error: updateError } = await fluxion
     .from('treatment_plans')
     .update({
       status: 'in_review',
-      approver_id: approverId,
+      approver_id: null,
       zone_target: projectedZone,
-      approval_minutes_ref: plan.approval_level === 'level_3' ? normalizedMinutesRef : null,
+      approval_minutes_ref: null,
     })
     .eq('id', plan.id);
 
@@ -856,57 +824,24 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     return { error: updateError.message };
   }
 
-  if (gobernado) {
-    const { data: perfil } = await fluxion
-      .from('profiles').select('id').eq('user_id', user.id).single();
+  // Abre la solicitud y avisa a quien decide el primer paso.
+  const apertura = await openApprovalRequest({
+    organizationId: membership.organization_id,
+    objectType: 'treatment_plan',
+    objectId: plan.id,
+    requestedByProfileId: perfil.id,
+    context: approvalContext,
+  });
 
-    const { error: aperturaError } = await admin.rpc('approval_open', {
-      p_organization_id: membership.organization_id,
-      p_object_type:     'treatment_plan',
-      p_object_id:       plan.id,
-      p_requested_by:    perfil?.id,
-      p_context:         approvalContext,
-    });
-
-    // Si la solicitud no se abre, el plan se queda en revisión sin circuito y
-    // nadie lo sabría. Se devuelve el error en lugar de continuar en silencio.
-    if (aperturaError) {
-      return { error: 'El plan quedó en revisión pero no se pudo abrir la aprobación: ' + aperturaError.message };
-    }
-
-    // Aviso a quien le toca el primer paso. Sin esto, la aprobación depende de
-    // que alguien se acuerde de mirar la bandeja.
-    const { data: abierta } = await admin
-      .from('approval_requests')
-      .select('id')
-      .eq('object_type', 'treatment_plan')
-      .eq('object_id', plan.id)
-      .eq('status', 'pending')
-      .maybeSingle();
-
-    if (abierta) await notifyApprovalStep(abierta.id);
-  } else if (approverId) {
-    // Vía sin política: avisar al aprobador asignado. Antes no se avisaba y el
-    // plan dependía de que alguien lo encontrara en Planes o Evaluaciones.
-    const { data: approverProfile } = await admin
-      .from('profiles')
-      .select('id, email, full_name')
-      .eq('organization_id', membership.organization_id)
-      .eq('user_id', approverId)
-      .maybeSingle();
-
-    if (approverProfile) {
-      await createNotification({
-        recipientProfileId: approverProfile.id,
-        organizationId: membership.organization_id,
-        type: 'approval_pending',
-        title: `Aprobación pendiente: plan ${plan.code}`,
-        body: `Plan de tratamiento enviado a aprobación (${getApprovalLevelLabel(plan.approval_level)}).`,
-        linkUrl: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`,
-        recipientEmail: approverProfile.email ?? undefined,
-        recipientName: approverProfile.full_name ?? undefined,
-      });
-    }
+  // Sin solicitud, el plan no puede quedarse en revisión esperando a nadie:
+  // vuelve a borrador y se devuelve el error.
+  if ('error' in apertura || apertura.requestId === null) {
+    await fluxion.from('treatment_plans').update({ status: 'draft' }).eq('id', plan.id);
+    return {
+      error: 'error' in apertura
+        ? apertura.error
+        : 'No se pudo abrir la solicitud de aprobación: no hay política aplicable.',
+    };
   }
 
   await captureSnapshot({
@@ -917,8 +852,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     actorUserId: user.id,
     metadata: {
       approval_level: plan.approval_level,
-      approver_id: approverId,
-      approval_minutes_ref: plan.approval_level === 'level_3' ? normalizedMinutesRef : null,
+      approval_request_id: apertura.requestId,
     },
   });
 
@@ -934,8 +868,7 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
         evaluation_id: input.evaluationId,
         treatment_plan_id: plan.id,
         approval_level: plan.approval_level,
-        approver_id: approverId,
-        approval_minutes_ref: plan.approval_level === 'level_3' ? normalizedMinutesRef : null,
+        approval_request_id: apertura.requestId,
       },
     },
     {
@@ -943,16 +876,13 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
       organization_id: membership.organization_id,
       event_type: 'treatment_plan_approval_requested',
       event_title: 'Solicitud de aprobación emitida',
-      event_summary: approverId
-        ? 'El plan quedó en cola de aprobación con un aprobador asignado.'
-        : 'El plan quedó en cola de aprobación sin aprobador explícito asignado.',
+      event_summary: 'El plan quedó pendiente de decisión en Aprobaciones.',
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
         treatment_plan_id: plan.id,
         approval_level: plan.approval_level,
-        approver_id: approverId,
-        approval_minutes_ref: plan.approval_level === 'level_3' ? normalizedMinutesRef : null,
+        approval_request_id: apertura.requestId,
       },
     },
   ]);
@@ -965,29 +895,6 @@ export async function submitTreatmentPlanForApproval(input: SubmitTreatmentPlanI
     success: true,
     summaryPath: `/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`,
   };
-}
-
-/**
- * ¿Hay una solicitud de aprobación abierta para este plan?
- *
- * Ante un fallo de lectura devuelve `true`: si no se puede saber, se bloquea la
- * vía antigua. Equivocarse hacia el bloqueo deja al usuario yendo a la bandeja;
- * equivocarse hacia el paso libre deja cerrar un plan por detrás del circuito.
- */
-async function tieneSolicitudViva(planId: string): Promise<boolean> {
-  const admin = createNoCacheAdminClient();
-  const { count, error } = await admin
-    .from('approval_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('object_type', 'treatment_plan')
-    .eq('object_id', planId)
-    .eq('status', 'pending');
-
-  if (error) {
-    console.error('[plan/actions] no se pudo comprobar el circuito de aprobacion:', error);
-    return true;
-  }
-  return (count ?? 0) > 0;
 }
 
 async function requireActionOwnership(params: {
@@ -1211,191 +1118,6 @@ export async function getEvidenceSignedUrlAction(
 
   if (error || !data?.signedUrl) return { error: 'No se pudo generar la URL de descarga.' };
   return { url: data.signedUrl };
-}
-
-export async function approveTreatmentPlanAction(input: {
-  aiSystemId: string;
-  evaluationId: string;
-  committeeNotes?: string | null;
-}): Promise<{ success: true } | { error: string }> {
-  const supabase = createClient();
-  const fluxion = createFluxionClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return { error: 'No autenticado.' };
-
-  const { data: membership } = await fluxion
-    .from('profiles')
-    .select('organization_id, role, roles')
-    .eq('user_id', user.id)
-    .single();
-  if (!membership) return { error: 'Perfil no encontrado.' };
-
-  const { data: plan } = await fluxion
-    .from('treatment_plans')
-    .select('id, status, approver_id, code, approval_level')
-    .eq('organization_id', membership.organization_id)
-    .eq('system_id', input.aiSystemId)
-    .eq('evaluation_id', input.evaluationId)
-    .maybeSingle();
-
-  if (!plan) return { error: 'Plan no encontrado.' };
-  if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
-
-  // Con una solicitud viva, la decisión se toma en la bandeja de aprobaciones y
-  // no aquí. Dejar las dos vías abiertas permitiría cerrar el plan por un lado
-  // mientras el circuito sigue esperando votos por el otro, y el expediente
-  // diria dos cosas distintas sobre lo mismo.
-  if (await tieneSolicitudViva(plan.id)) {
-    return {
-      error: 'Este plan está en un circuito de aprobación. Decide desde Aprobaciones.',
-    };
-  }
-
-  if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
-
-  const { error } = await fluxion
-    .from('treatment_plans')
-    .update({
-      status: 'approved',
-      approved_at: new Date().toISOString(),
-      approval_committee_notes: input.committeeNotes?.trim() || null,
-    })
-    .eq('id', plan.id);
-
-  if (error) return { error: error.message };
-
-  await captureSnapshot({
-    fluxion,
-    planId: plan.id,
-    organizationId: membership.organization_id,
-    trigger: 'approved',
-    actorUserId: user.id,
-    metadata: {
-      approval_level: plan.approval_level,
-      committee_notes: input.committeeNotes?.trim() || null,
-    },
-  });
-
-  await insertAiSystemHistoryEvents(fluxion, [
-    {
-      ai_system_id: input.aiSystemId,
-      organization_id: membership.organization_id,
-      event_type: 'treatment_plan_approved',
-      event_title: 'Plan de tratamiento aprobado',
-      event_summary: `El plan ${plan.code} fue aprobado por el aprobador asignado (nivel ${plan.approval_level}).`,
-      actor_user_id: user.id,
-      payload: {
-        evaluation_id: input.evaluationId,
-        treatment_plan_id: plan.id,
-        approval_level: plan.approval_level,
-        committee_notes: input.committeeNotes?.trim() || null,
-      },
-    },
-  ]);
-
-  // Ciclo único (B07): evaluación aprobada, versión anterior sustituida y plan
-  // en ejecución o cerrado.
-  const ciclo = await applyRiskEvaluationApproval({ planId: plan.id, approverUserId: user.id });
-
-  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
-  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan/summary`);
-  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`);
-  revalidatePath(`/inventario/${input.aiSystemId}`);
-
-  if (ciclo.aviso) return { error: ciclo.aviso };
-  return { success: true };
-}
-
-export async function rejectTreatmentPlanAction(input: {
-  aiSystemId: string;
-  evaluationId: string;
-  rejectionReason: string;
-}): Promise<{ success: true } | { error: string }> {
-  const supabase = createClient();
-  const fluxion = createFluxionClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return { error: 'No autenticado.' };
-
-  const { data: membership } = await fluxion
-    .from('profiles')
-    .select('organization_id, role, roles')
-    .eq('user_id', user.id)
-    .single();
-  if (!membership) return { error: 'Perfil no encontrado.' };
-
-  const { data: plan } = await fluxion
-    .from('treatment_plans')
-    .select('id, status, approver_id, code, approval_level')
-    .eq('organization_id', membership.organization_id)
-    .eq('system_id', input.aiSystemId)
-    .eq('evaluation_id', input.evaluationId)
-    .maybeSingle();
-
-  if (!plan) return { error: 'Plan no encontrado.' };
-  if (plan.status !== 'in_review') return { error: 'El plan no está pendiente de aprobación.' };
-
-  // Con una solicitud viva, la decisión se toma en la bandeja de aprobaciones y
-  // no aquí. Dejar las dos vías abiertas permitiría cerrar el plan por un lado
-  // mientras el circuito sigue esperando votos por el otro, y el expediente
-  // diria dos cosas distintas sobre lo mismo.
-  if (await tieneSolicitudViva(plan.id)) {
-    return {
-      error: 'Este plan está en un circuito de aprobación. Decide desde Aprobaciones.',
-    };
-  }
-
-  if (plan.approver_id !== user.id) return { error: 'No eres el aprobador asignado a este plan.' };
-
-  if (!input.rejectionReason.trim()) {
-    return { error: 'Debes indicar el motivo de devolución para que el autor pueda corregir el plan.' };
-  }
-
-  const { error } = await fluxion
-    .from('treatment_plans')
-    .update({
-      status: 'draft',
-      approved_at: null,
-      approval_committee_notes: `[DEVUELTO] ${input.rejectionReason.trim()}`,
-    })
-    .eq('id', plan.id);
-
-  if (error) return { error: error.message };
-
-  await captureSnapshot({
-    fluxion,
-    planId: plan.id,
-    organizationId: membership.organization_id,
-    trigger: 'rejected',
-    actorUserId: user.id,
-    metadata: {
-      rejection_reason: input.rejectionReason.trim(),
-      approval_level: plan.approval_level,
-    },
-  });
-
-  await insertAiSystemHistoryEvents(fluxion, [
-    {
-      ai_system_id: input.aiSystemId,
-      organization_id: membership.organization_id,
-      event_type: 'treatment_plan_rejected',
-      event_title: 'Plan devuelto al autor',
-      event_summary: `El plan ${plan.code} fue devuelto al autor por el aprobador para su corrección.`,
-      actor_user_id: user.id,
-      payload: {
-        evaluation_id: input.evaluationId,
-        treatment_plan_id: plan.id,
-        approval_level: plan.approval_level,
-        rejection_reason: input.rejectionReason.trim(),
-      },
-    },
-  ]);
-
-  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/plan`);
-  revalidatePath(`/inventario/${input.aiSystemId}`);
-
-  return { success: true };
 }
 
 export async function updateLinkedTaskStatusAction(

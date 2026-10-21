@@ -267,6 +267,8 @@ async function aplicarAPlan(params: {
         status:               'approved',
         approved_at:          new Date().toISOString(),
         approval_minutes_ref: `APR-${params.requestId.slice(0, 8)}`,
+        // Quien emitió la decisión final (B11e): ya no hay aprobador asignado.
+        approver_id:          params.actorUserId ?? null,
       })
       .eq('id', params.objectId)
 
@@ -275,17 +277,16 @@ async function aplicarAPlan(params: {
       return { aviso: 'La aprobación quedó registrada, pero el plan no se pudo actualizar: ' + error.message }
     }
 
-    // Ciclo único (B07): lo mismo que en la vía del aprobador asignado.
-    // El aprobador de la evaluación es quien emitió la decisión final.
+    // Ciclo único (B07): el aprobador de la evaluación es quien emitió la
+    // decisión final.
     return applyRiskEvaluationApproval({
       planId:         params.objectId,
       approverUserId: params.actorUserId ?? null,
     })
   }
 
-  // Rechazo: mismo destino que la vía antigua — vuelve al autor, no se queda
-  // colgado en revisión. El motivo se antepone marcado, como ya hacía
-  // rejectTreatmentPlanAction.
+  // Rechazo: vuelve al autor, no se queda colgado en revisión. El motivo se
+  // antepone marcado con [DEVUELTO], que la pantalla del plan reconoce.
   const { error } = await admin
     .from('treatment_plans')
     .update({

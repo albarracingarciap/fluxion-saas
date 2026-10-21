@@ -40,10 +40,8 @@ export type TreatmentActionStatus =
 
 import {
   getApprovalLevelForZone,
-  getApproverRolePriority,
   getDefaultDeadlineForZone,
   getReviewCadenceForZone,
-  pickPlanApprover,
   type TreatmentApprovalLevel,
 } from './treatment-plan-rules';
 
@@ -54,8 +52,6 @@ export {
   getReviewCadenceForZone,
   getDefaultDeadlineForZone,
   getApprovalLevelLabel,
-  getApproverRolePriority,
-  pickPlanApprover,
 } from './treatment-plan-rules';
 import type { RoleHolder } from '@/lib/auth/roles';
 import { loadEvaluationVersions, type EvaluationVersionsInfo } from './versions';
@@ -282,11 +278,11 @@ export type TreatmentPlanData = {
   plan: TreatmentPlanRecord;
   actions: TreatmentPlanActionView[];
   members: TreatmentPlanMember[];
+  /** Quien emitió la decisión que aprobó el plan (B11e); null hasta entonces. */
   approver_name: string | null;
   read_only: boolean;
   tasks_total: number;
   tasks_done: number;
-  is_approver: boolean;
   overdue_count: number;
   due_soon_count: number;
   plan_snapshots: PlanSnapshot[];
@@ -296,38 +292,9 @@ export type TreatmentPlanData = {
   overdue_reviews_count: number;
   /** Versiones de la evaluación del sistema (B07). */
   versions: EvaluationVersionsInfo | null;
-  /** La aprobación se decide en Flujos de aprobación (B11). */
+  /** Tiene una solicitud pendiente en Flujos de aprobación, la única vía (B11e). */
   in_approval_circuit: boolean;
 };
-
-/**
- * Aprobador del plan cuando no hay política en Flujos de aprobación.
- *
- * Elige un miembro activo con un rol aprobador del nivel (DP-01) que no sea
- * quien envía (quien prepara no aprueba). Si no hay ninguno devuelve null: ya
- * no se asigna «cualquier miembro», como hacía la versión anterior.
- */
-export async function resolvePlanApprover(params: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fluxion: any;
-  organizationId: string;
-  approvalLevel: TreatmentApprovalLevel;
-  actorUserId: string;
-}): Promise<string | null> {
-  const roles = getApproverRolePriority(params.approvalLevel);
-  const { data: members } = await params.fluxion
-    .from('profiles')
-    .select('user_id, role, roles, is_active')
-    .eq('organization_id', params.organizationId)
-    .overlaps('roles', roles as string[])
-    .order('created_at', { ascending: true });
-
-  return pickPlanApprover(members ?? [], params.approvalLevel, params.actorUserId);
-}
-
-export const NO_PLAN_APPROVER_MESSAGE =
-  'No hay ningún miembro activo con rol Responsable del SGAI (distinto de quien envía) para aprobar el plan. ' +
-  'Asigna ese rol en Usuarios, o configura una política de plan de tratamiento en Ajustes › Aprobaciones.';
 
 export async function generateTreatmentPlanCode(params: {
   organizationId: string;
@@ -938,7 +905,6 @@ export async function buildTreatmentPlanData(params: {
       !canPrepareTreatmentPlan(params.currentUserRole),
     tasks_total: tasksWithStatus.length,
     tasks_done: tasksDone,
-    is_approver: !!(params.currentUserId && currentPlan.approver_id && params.currentUserId === currentPlan.approver_id),
     overdue_count: overdueCount,
     due_soon_count: dueSoonCount,
     plan_snapshots: planSnapshots,

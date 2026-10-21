@@ -142,7 +142,7 @@ const PLAN_HEADERS = [
   'Zona objetivo',
   'Suelo AI Act',
   'Nivel aprobación',
-  'Aprobador',
+  'Aprobado por',
   'Owner dominante',
   'Acciones totales',
   'Acciones completadas',

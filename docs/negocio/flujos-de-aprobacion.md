@@ -134,12 +134,13 @@ flowchart LR
 riesgo o un incumplimiento, así que pasa por aprobación: la brecha sigue en la cola hasta que se aprueba.
 Las demás brechas se excluyen directamente.
 
-Solo un objeto al que no se aplica ninguna política se aprueba con su mecanismo propio; en el plan de
-tratamiento, el aprobador asignado según el [nivel de aprobación](../glosario.md#nivel-de-aprobación).
+El plan de tratamiento solo se aprueba en este circuito: cada [nivel de aprobación](../glosario.md#nivel-de-aprobación)
+tiene siempre una política, y la configuración no permite dejar ninguno sin cubrir.
 
 > **Pendiente de implementar.**
 > - La clasificación AI Act y la política de IA como objetos aprobables.
-> - Retirar el mecanismo propio de aprobación del plan de tratamiento.
+> - Mismo cierre para los expedientes: hoy, una plantilla del expediente sin política aplicable aún se
+>   aprueba con su mecanismo propio.
 
 ## Relación normativa
 

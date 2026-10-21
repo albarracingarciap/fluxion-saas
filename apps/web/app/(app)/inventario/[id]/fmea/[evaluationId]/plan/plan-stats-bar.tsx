@@ -125,8 +125,8 @@ export function PlanStatsBar({
       </div>
 
       <div className="px-5 py-3 border-t border-[#18324a]">
-        <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobador asignado</div>
-        <div className="font-sora text-[13px] text-white">{approverName ?? 'Pendiente de asignar'}</div>
+        <div className="font-plex text-[10px] uppercase tracking-[1px] text-[#94b0c8] mb-1">Aprobado por</div>
+        <div className="font-sora text-[13px] text-white">{approverName ?? (plan.status === 'in_review' ? 'Pendiente en Aprobaciones' : '—')}</div>
       </div>
 
       {/* Efficacy KPIs row — shown only when there's data to display */}
