@@ -45,6 +45,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B11b · Flujos de aprobación: políticas por defecto de DP-01 | Integrado en `main` | `fase2/b11b-politicas-defecto` | 2026-10-20 | **Sí** · `20261020150000_aprobaciones_tipos_aprobador.sql` y `20261020150100_aprobaciones_politicas_defecto.sql` |
 | B11c · Flujos de aprobación: cancelación, caducidad y avisos | Integrado en `main` | `fase2/b11c-cancelacion-caducidad` | 2026-10-20 | **Sí** · `20261020160000_aprobaciones_caducidad.sql` |
 | B11d · Flujos de aprobación: consultas, pasos condicionales, Auditor y exclusión de brechas | Integrado en `main` | `fase2/b11d-consultas-condiciones` | 2026-10-20 | **Sí** · `20261020170000_aprobaciones_tipo_exclusion_brecha.sql` y `20261020170100_aprobaciones_consultas_condiciones.sql` |
+| Glosario: consultas, pasos condicionales y disposición con aprobación (B11d) | Integrado en `main` | `docs/glosario-b11d` | 2026-10-21 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
