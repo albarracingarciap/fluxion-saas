@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
 
-import { SECTIONS, type Answers, type Field } from '@/lib/preliminary-questionnaire/schema'
+import { NONE, SECTIONS, isVisible, type Answers, type Field } from '@/lib/preliminary-questionnaire/schema'
+import type { CatalogObligation } from '@/lib/ai-act'
 import { saveQuestionnaire } from './actions'
+import { ClassificationPanel } from './classification-panel'
 
 const LABEL = 'font-plex text-[10px] uppercase tracking-[0.7px] text-ltt2'
 const INPUT =
@@ -78,7 +80,7 @@ function FieldView({
               </button>
             ))}
           </div>
-          {field.detail && str !== '' && str !== 'na' && (
+          {field.detail && str !== '' && str !== 'na' && (!field.detail.onlyIfYes || str === 'si') && (
             <div className="mt-1">
               <p className={`${LABEL} mb-1.5`}>
                 {field.detail.label}
@@ -94,12 +96,16 @@ function FieldView({
 
       {field.type === 'checks' && (
         <div className={`grid gap-1.5 ${field.columns === 2 ? 'md:grid-cols-2' : ''}`}>
-          {field.options.map((o) => {
+          {[...field.options, ...(field.noneLabel ? [{ value: NONE, label: field.noneLabel }] : [])].map((o) => {
             const list = Array.isArray(value) ? value : []
             const on = list.includes(o.value)
+            // «Ninguno» es excluyente con las demás opciones (RN-V02).
+            const next = on
+              ? list.filter((x) => x !== o.value)
+              : o.value === NONE ? [NONE] : [...list.filter((x) => x !== NONE), o.value]
             return (
               <button key={o.value} type="button"
-                onClick={() => set(field.key, on ? list.filter((x) => x !== o.value) : [...list, o.value])}
+                onClick={() => set(field.key, next)}
                 className={`${chip(on)} text-left flex items-start gap-2`}>
                 <span className={`mt-[2px] w-[14px] h-[14px] shrink-0 rounded-[4px] border flex items-center justify-center ${
                   on ? 'bg-brand-cyan border-brand-cyan text-white' : 'border-ltb2 bg-ltcard'
@@ -117,11 +123,13 @@ function FieldView({
 }
 
 export function QuestionnaireForm({
-  id: initialId, initialAnswers, initialStatus,
+  id: initialId, initialAnswers, initialStatus, catalog,
 }: {
   id?: string
   initialAnswers: Answers
   initialStatus: 'borrador' | 'completado'
+  /** Catálogo de obligaciones para el panel «Clasificación preliminar» (B13b). */
+  catalog: { obligations: CatalogObligation[]; labels: Record<string, string> } | null
 }) {
   const router = useRouter()
   const [id, setId] = useState(initialId)
@@ -193,6 +201,8 @@ export function QuestionnaireForm({
         </span>
       </div>
 
+      <ClassificationPanel answers={answers} catalog={catalog} />
+
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Secciones">
         {SECTIONS.map((s, i) => (
           <button key={s.id} type="button" onClick={() => setStep(i)}
@@ -216,7 +226,7 @@ export function QuestionnaireForm({
           <p className="font-sora text-[13px] text-ltt2 mt-1">{section.description}</p>
         </div>
 
-        {section.blocks.map((b, bi) => (
+        {section.blocks.filter((b) => isVisible(b, answers)).map((b, bi) => (
           <div key={bi} className="flex flex-col gap-5">
             {b.heading && (
               <div className="border-t border-ltb pt-5">
@@ -224,7 +234,7 @@ export function QuestionnaireForm({
                 {b.description && <p className="font-sora text-[12px] text-lttm mt-0.5">{b.description}</p>}
               </div>
             )}
-            {b.fields.map((f) => (
+            {b.fields.filter((f) => isVisible(f, answers)).map((f) => (
               <FieldView key={f.key} field={f} answers={answers} set={set} />
             ))}
           </div>

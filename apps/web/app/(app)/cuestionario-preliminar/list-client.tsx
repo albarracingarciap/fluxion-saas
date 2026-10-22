@@ -59,6 +59,12 @@ export function QuestionnaireListClient({ items }: { items: QuestionnaireSummary
                   Actualizado {new Date(q.updatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               </Link>
+              {q.classificationLabel && (
+                <span title={q.classificationBasis ?? undefined}
+                  className="px-2.5 py-1 rounded-full border border-ltb bg-ltcard2 font-sora text-[11px] text-ltt2 whitespace-nowrap">
+                  Preliminar: {q.classificationLabel}
+                </span>
+              )}
               <span className={`px-2.5 py-1 rounded-full border font-plex text-[10px] uppercase tracking-wider ${
                 q.status === 'completado'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'

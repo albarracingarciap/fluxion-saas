@@ -3,6 +3,7 @@ import { AlertCircle } from 'lucide-react'
 
 import { getQuestionnaire } from '../actions'
 import { QuestionnaireForm } from '../questionnaire-form'
+import { loadAiActCatalog } from '@/lib/ai-act/server'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Cuestionario preliminar · CompaaS IA' }
@@ -26,5 +27,6 @@ export default async function CuestionarioPage({ params }: { params: { id: strin
     )
   }
 
-  return <QuestionnaireForm id={data.id} initialAnswers={data.answers} initialStatus={data.status} />
+  const catalog = await loadAiActCatalog()
+  return <QuestionnaireForm id={data.id} initialAnswers={data.answers} initialStatus={data.status} catalog={catalog} />
 }
