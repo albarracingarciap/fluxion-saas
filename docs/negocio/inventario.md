@@ -4,9 +4,10 @@ titulo: Inventario de sistemas de IA
 tipo: negocio
 modulo: inventario
 audiencia: comercial
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/page.tsx
+  - apps/web/app/(app)/inventario/nuevo/page.tsx
   - apps/web/app/(app)/inventario/nuevo/actions.ts
   - apps/web/app/(app)/inventario/[id]/page.tsx
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
@@ -85,6 +86,11 @@ flowchart LR
    En el paso de impacto se declara el [rol de la organización en la cadena de valor](../glosario.md#rol-en-la-cadena-de-valor)
    del sistema: proveedor, responsable del despliegue, importador, distribuidor o representante
    autorizado. No son excluyentes.
+
+   El alta puede partir de un [cuestionario preliminar](../glosario.md#cuestionario-preliminar)
+   completado: el asistente se abre con sus respuestas ya rellenas, la persona las revisa y completa, y el
+   sistema queda vinculado a su cuestionario de origen. Ver
+   [Evaluación de impacto](evaluacion-de-impacto.md).
 2. **Clasificación inicial.** Al guardar, Fluxion propone automáticamente el
    [nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act). Si la clasificación automática falla,
    el alta se completa igualmente y el sistema se puede clasificar después. Ver

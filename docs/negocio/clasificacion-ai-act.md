@@ -4,7 +4,7 @@ titulo: Clasificación AI Act
 tipo: negocio
 modulo: clasificacion-ai-act
 audiencia: comercial
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/lib/ai-act/index.ts
   - apps/web/lib/ai-act/rules.ts
@@ -23,6 +23,9 @@ fuente:
   - services/agents/fluxion_agents/rag/retriever.py
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - apps/web/components/questionnaire/supuestos-ai-act.tsx
+  - apps/web/components/inventory/SystemWizard.jsx
 ---
 
 # Clasificación AI Act
@@ -107,11 +110,16 @@ flowchart TD
    **clasificación aproximada** a partir del sector de aplicación y del tipo de resultado, y la marca con
    un aviso para que se revise.
 
-   El [cuestionario preliminar](../glosario.md#cuestionario-preliminar) ya recoge los supuestos del AI
-   Act y propone con ellos una clasificación preliminar, que se guarda al completarlo.
+   Los supuestos se recogen de dos formas:
+   - en el [cuestionario preliminar](../glosario.md#cuestionario-preliminar), que propone con ellos una
+     clasificación preliminar. Al dar de alta el sistema desde el cuestionario, sus supuestos pasan al
+     alta y, si la clasificación final difiere de la preliminar, Fluxion lo indica y el historial guarda
+     las dos;
+   - en el bloque **Supuestos AI Act** del alta y de la edición del sistema, con las mismas preguntas del
+     cuestionario. Es opcional: sin él, la clasificación es aproximada.
 
-   > **Pendiente de implementar.** Llevar los supuestos del cuestionario preliminar al alta del sistema y
-   > recogerlos en el propio alta. Hasta entonces, las clasificaciones de los sistemas son aproximadas.
+   Un sistema con una práctica prohibida, fuera del ámbito o que no es de IA se puede registrar igualmente
+   para dejar constancia. En el caso de la práctica prohibida, el alta propone marcarlo como Retirado.
 2. **Clasificación con IA.** Desde la ficha se puede pedir una clasificación al asistente. Este sigue
    el árbol de decisión del AI Act:
    - prácticas prohibidas (Art. 5);

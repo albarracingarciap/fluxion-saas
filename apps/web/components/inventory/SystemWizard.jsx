@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { buildIsoChecksSnapshot, calcISO, classifyAIAct, getStatusLabel } from '@/lib/ai-systems/scoring';
+import { SupuestosAiAct } from '@/components/questionnaire/supuestos-ai-act';
+import { wizardAiActInputs } from '@/lib/preliminary-questionnaire/to-wizard';
 
 // ─────────────────────────────────────────────────────────────
 // FLUXION DESIGN SYSTEM — Inventario de Sistemas IA
@@ -460,6 +462,8 @@ export const INIT = {
   isAISystem:null,isGPAI:false,prohibitedPractice:false,
   affectsPersons:null,vulnerableGroups:false,biometric:false,
   criticalInfra:false,hasMinors:false,
+  // Supuestos AI Act (B13c): respuestas del bloque; null = sin supuestos
+  aiactAnswers:null,
   // Step 4
   processesPersonalData:null,dataCategories:[],specialCategories:[],
   legalBases:[],legalBasesArt9:[],dataSources:[],trainingDataDoc:null,
@@ -483,8 +487,9 @@ export const INIT = {
 
 // ─── LIVE PREVIEW ─────────────────────────────────────────────
 
-function LivePreview({f,step,analysing,mode}){
-  const fWithOutput = useMemo(()=>({...f,outputType:f.outputTypes?.[0]??f.outputType??""}),[f]);
+function LivePreview({f,step,analysing,mode,preliminaryLabel}){
+  // Motor único (B13a): con el bloque «Supuestos AI Act» clasifica con las reglas.
+  const fWithOutput = useMemo(()=>({...f,outputType:f.outputTypes?.[0]??f.outputType??"",aiactInputs:wizardAiActInputs(f)}),[f]);
   const cls = useMemo(()=>classifyAIAct(fWithOutput),[fWithOutput]);
   const iso = useMemo(()=>calcISO({
     aiOwner:f.aiOwner,hasTechDoc:f.hasTechDoc,hasLogging:f.hasLogging,
@@ -562,6 +567,19 @@ function LivePreview({f,step,analysing,mode}){
               {cls&&<div className="cls-basis">{cls.basis}</div>}
               {cls&&<div className="cls-reason">{cls.reason}</div>}
               {!cls&&<div className="cls-reason" style={{color:"var(--dtm)"}}>Completa al menos dominio, tipo de output y si afecta a personas.</div>}
+              {preliminaryLabel&&cls&&cls.label!==preliminaryLabel&&(
+                <div className="cls-reason" style={{color:"var(--or)"}}>Preliminar (cuestionario): {preliminaryLabel} · Actual: {cls.label}</div>
+              )}
+              {(cls?.level==="out_of_scope"||(cls===null&&f.isAISystem===false))&&(
+                <div className="cls-reason" style={{color:"var(--dtm)"}}>Se registra para dejar constancia: sin nivel de riesgo ni obligaciones del AI Act.</div>
+              )}
+              {cls?.result?.warnings?.length>0&&(
+                <div className="cls-obls">
+                  {cls.result.warnings.slice(0,3).map((w,i)=>(
+                    <div key={i} className="cls-obl" style={{color:"var(--or)"}}>⚠ {w.text}</div>
+                  ))}
+                </div>
+              )}
               {cls?.obls?.length>0&&(
                 <div className="cls-obls">
                   {cls.obls.slice(0,5).map((o,i)=>(
@@ -741,22 +759,24 @@ function Step2({f,set,cbToggle}){return(<>
   </div>
 </>);}
 
-function Step3({f,set}){return(<>
-  {f.prohibitedPractice&&(
+function Step3({f,set,cls}){
+  const prohibida = cls?.level==="prohibited";
+  return(<>
+  {prohibida&&(
     <div className="warn re"><span className="warn-ico">⛔</span>
-      <span><strong>Práctica prohibida detectada.</strong> Este sistema no puede desplegarse en la UE según el Art. 5 del AI Act. Debes rediseñarlo o retirarlo.</span>
+      <span><strong>Práctica prohibida: el sistema no puede introducirse en el mercado ni utilizarse en la UE.</strong> Debes rediseñarlo o retirarlo.
+        {f.status!=="retirado"&&(
+          <> <button type="button" className="btn btn-g2" style={{marginLeft:8,padding:"2px 8px",fontSize:11}} onClick={()=>set("status","retirado")}>Marcar como Retirado</button></>
+        )}
+      </span>
     </div>
   )}
   <div className="field">
     <Lbl req tags={["aiact"]}>¿Es este un sistema de inteligencia artificial?</Lbl>
     <Opt options={[
-      {v:true,l:"Sí, es un sistema de IA",d:"Usa aprendizaje automático, lógica estadística u otras técnicas de IA",i:"🤖"},
-      {v:"gpai",l:"Es un modelo GPAI",d:"Modelo de IA de propósito general (GPT, Claude, Llama, Mistral...)",i:"🧩"},
+      {v:true,l:"Sí, es un sistema de IA",d:"Infiere de sus datos de entrada cómo generar predicciones, contenidos, recomendaciones o decisiones (AI Act, Art. 3.1)",i:"🤖"},
       {v:false,l:"No, no es IA",d:"Software determinista, reglas de negocio simples sin aprendizaje",i:"⚙️"},
-    ]} value={f.isGPAI?"gpai":f.isAISystem} onChange={v=>{
-      if(v==="gpai"){set("isAISystem",true);set("isGPAI",true)}
-      else{set("isAISystem",v===true||v==="true");set("isGPAI",false)}
-    }} grid="c3"/>
+    ]} value={f.isAISystem} onChange={v=>set("isAISystem",v===true||v==="true")} grid="c2"/>
   </div>
   {f.isAISystem!==false&&(
   <div className="field">
@@ -775,8 +795,17 @@ function Step3({f,set}){return(<>
     label="Puede afectar a grupos vulnerables" sub="Menores, personas mayores, personas con discapacidad, situación económica precaria"/>
   <Toggle on={f.hasMinors} onToggle={()=>set("hasMinors",!f.hasMinors)}
     label="Puede interactuar con o procesar datos de menores de edad" sub="Requiere salvaguardias adicionales"/>
+  {!f.aiactAnswers&&(<>
+  {/* D3: GPAI es una categoría aparte, no un nivel de riesgo. Con supuestos, va en su bloque. */}
+  <Toggle on={f.isGPAI} onToggle={()=>set("isGPAI",!f.isGPAI)}
+    label="La organización es proveedora de un modelo de IA de uso general (GPAI)" sub="Desarrolla un modelo GPAI y lo introduce en el mercado (Art. 3.63 y 53). No cambia el nivel de riesgo"/>
   <Toggle on={f.prohibitedPractice} onToggle={()=>set("prohibitedPractice",!f.prohibitedPractice)}
     label="⚠️ El sistema podría constituir una práctica prohibida (Art. 5)" sub="Manipulación subliminal, scoring social, biometría remota en espacios públicos en tiempo real..."/>
+  </>)}
+  {f.isAISystem!==false&&(<>
+  <SecDiv label="Supuestos AI Act"/>
+  <SupuestosAiAct answers={f.aiactAnswers} onChange={v=>set("aiactAnswers",v)}/>
+  </>)}
 </>);}
 
 function Step4({f,set,cbToggle}){return(<>
@@ -1166,6 +1195,8 @@ const STEP_META = [
  *   initialTags string[]           Tags iniciales (edit: tags del sistema)
  *   onSave      async (payload) => { error?, success?, id? }
  *               Función que guarda los datos. Puede ser saveAISystem o updateAISystem.
+ *   prefill     { questionnaireId, title, prefilledLabels[], domainCandidates[], preliminaryLabel }
+ *               Alta desde un cuestionario preliminar (B13c, RN-W02 a RN-W06).
  */
 export default function SystemWizard({
   mode = 'create',
@@ -1174,6 +1205,7 @@ export default function SystemWizard({
   initialData,
   initialTags,
   onSave,
+  prefill,
 }) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -1210,9 +1242,14 @@ export default function SystemWizard({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  const clsActual = useMemo(
+    () => classifyAIAct({ ...f, outputType: f.outputTypes?.[0] ?? f.outputType ?? "", aiactInputs: wizardAiActInputs(f) }),
+    [f]
+  );
+
   const set = (k, v) => {
     setF(prev => ({ ...prev, [k]: v }));
-    if (["domain","outputTypes","affectsPersons","biometric","criticalInfra","isAISystem","isGPAI","prohibitedPractice","interactsPersons"].includes(k)) {
+    if (["domain","outputTypes","affectsPersons","biometric","criticalInfra","isAISystem","isGPAI","prohibitedPractice","interactsPersons","aiactAnswers"].includes(k)) {
       setAnalysing(true);
       setTimeout(() => setAnalysing(false), 700);
     }
@@ -1234,7 +1271,7 @@ export default function SystemWizard({
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
-    const cls = classifyAIAct({ ...f, tags });
+    const cls = clsActual;
     const iso = calcISO({
       aiOwner: f.aiOwner, hasTechDoc: f.hasTechDoc, hasLogging: f.hasLogging,
       humanOversight: f.humanOversight, hasRiskAssessment: f.hasRiskAssessment,
@@ -1256,6 +1293,9 @@ export default function SystemWizard({
       aiact_risk_basis: cls?.basis ?? null,
       aiact_risk_reason: cls?.reason ?? null,
       aiact_obligations: cls?.obls ?? [],
+      // Supuestos AI Act para el motor único (B13c) y cuestionario de origen.
+      aiactInputs: wizardAiActInputs(f),
+      questionnaireId: prefill?.questionnaireId ?? null,
       iso_42001_score: iso.score,
       iso_42001_checks: buildIsoChecksSnapshot(iso.checks),
     };
@@ -1329,9 +1369,21 @@ export default function SystemWizard({
               </div>
 
               <div className="form-body fi" key={`b${step}`}>
+                {prefill && (
+                  <div className="warn" style={{marginBottom:14}}>
+                    <span className="warn-ico">📋</span>
+                    <span>
+                      <strong>Datos precargados desde el cuestionario «{prefill.title}».</strong>{' '}
+                      Todo sigue siendo editable. Precargado: {prefill.prefilledLabels.join(', ') || 'ningún campo'}.
+                      {prefill.domainCandidates?.length > 1 && (
+                        <> El dominio tiene varios candidatos ({prefill.domainCandidates.join(', ')}): elige uno.</>
+                      )}
+                    </span>
+                  </div>
+                )}
                 {step === 1 && <Step1 f={f} set={set} tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} />}
                 {step === 2 && <Step2 f={f} set={set} cbToggle={cbToggle} />}
-                {step === 3 && <Step3 f={f} set={set} />}
+                {step === 3 && <Step3 f={f} set={set} cls={clsActual} />}
                 {step === 4 && <Step4 f={f} set={set} cbToggle={cbToggle} />}
                 {step === 5 && <Step5 f={f} set={set} cbToggle={cbToggle} />}
                 {step === 6 && <Step6 f={f} set={set} />}
@@ -1374,7 +1426,7 @@ export default function SystemWizard({
             </div>
 
             {/* PREVIEW */}
-            <LivePreview f={{ ...f, tags }} step={step} analysing={analysing} mode={mode} />
+            <LivePreview f={{ ...f, tags }} step={step} analysing={analysing} mode={mode} preliminaryLabel={prefill?.preliminaryLabel ?? null} />
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ titulo: Evaluación de impacto
 tipo: negocio
 modulo: evaluacion-de-impacto
 audiencia: comercial
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
@@ -20,6 +20,10 @@ fuente:
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
   - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - apps/web/app/(app)/inventario/nuevo/page.tsx
+  - apps/web/app/(app)/inventario/nuevo/actions.ts
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - docs/modulos/aisia-auditoria.md
@@ -142,10 +146,17 @@ stateDiagram-v2
    completarlo, guarda la clasificación preliminar.
 5. Los cuestionarios se listan, con su clasificación preliminar, y se pueden retomar desde el panel
    principal.
+6. Un cuestionario completado se da de alta en el
+   [inventario de sistemas de IA](../glosario.md#inventario-de-sistemas-de-ia) con **Dar de alta en el
+   inventario**. El alta se abre con las respuestas ya rellenas (nombre, descripción, uso previsto, tipo
+   de resultado, origen del sistema, roles, responsable…) y con los supuestos AI Act del cuestionario. La
+   persona revisa y completa los datos y registra el sistema. Si la clasificación del alta difiere de la
+   preliminar, Fluxion lo indica, y el historial del sistema guarda las dos.
+7. Al registrar el sistema, el cuestionario queda vinculado a él y pasa a ser de solo lectura: los cambios
+   se hacen en la ficha del sistema, que enlaza con su cuestionario de origen. Cada cuestionario da lugar a
+   un solo sistema. Si se elimina el sistema, el cuestionario vuelve a ser editable.
 
 > **Pendiente de implementar.**
-> - Alta del sistema en el inventario a partir del cuestionario preliminar, con sus respuestas ya
->   rellenas.
 > - Propuesta de contenido por IA para las secciones de la AISIA.
 > - Acceso condicionado a la activación del módulo. Hoy AISIA, riesgos de negocio y cuestionario
 >   preliminar están disponibles para todas las organizaciones.

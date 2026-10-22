@@ -17,6 +17,8 @@ export type QuestionnaireSummary = {
   /** Clasificación preliminar guardada al completar (B13b): etiqueta y fundamento. */
   classificationLabel: string | null
   classificationBasis: string | null
+  /** Sistema dado de alta desde el cuestionario (B13c): queda de solo lectura. */
+  aiSystemId: string | null
 }
 
 export type QuestionnaireDetail = QuestionnaireSummary & { answers: Answers }
@@ -26,6 +28,16 @@ export type QuestionnaireDetail = QuestionnaireSummary & { answers: Answers }
 function clasificacionGuardada(c: unknown): { classificationLabel: string | null; classificationBasis: string | null } {
   const display = (c as { result?: { display?: { label?: string; basis?: string } } } | null)?.result?.display
   return { classificationLabel: display?.label ?? null, classificationBasis: display?.basis ?? null }
+}
+
+async function vinculado(ctx: { fluxion: ReturnType<typeof createFluxionClient>; profile: { organization_id: string } }, id: string) {
+  const { data } = await ctx.fluxion
+    .from('preliminary_questionnaires')
+    .select('ai_system_id')
+    .eq('organization_id', ctx.profile.organization_id)
+    .eq('id', id)
+    .maybeSingle()
+  return Boolean(data?.ai_system_id)
 }
 
 async function contexto() {
@@ -53,7 +65,7 @@ export async function listQuestionnaires(): Promise<
 
   const { data, error } = await ctx.fluxion
     .from('preliminary_questionnaires')
-    .select('id, title, status, project_lead, updated_at, classification')
+    .select('id, title, status, project_lead, updated_at, classification, ai_system_id')
     .eq('organization_id', ctx.profile.organization_id)
     .order('updated_at', { ascending: false })
 
@@ -67,6 +79,7 @@ export async function listQuestionnaires(): Promise<
       projectLead: (r.project_lead as string | null) ?? null,
       updatedAt: String(r.updated_at),
       ...clasificacionGuardada(r.classification),
+      aiSystemId: (r.ai_system_id as string | null) ?? null,
     })),
   }
 }
@@ -77,7 +90,7 @@ export async function getQuestionnaire(id: string): Promise<QuestionnaireDetail 
 
   const { data, error } = await ctx.fluxion
     .from('preliminary_questionnaires')
-    .select('id, title, status, project_lead, answers, updated_at, classification')
+    .select('id, title, status, project_lead, answers, updated_at, classification, ai_system_id')
     .eq('organization_id', ctx.profile.organization_id)
     .eq('id', id)
     .maybeSingle()
@@ -93,6 +106,7 @@ export async function getQuestionnaire(id: string): Promise<QuestionnaireDetail 
     updatedAt: data.updated_at,
     answers: (data.answers ?? {}) as Answers,
     ...clasificacionGuardada(data.classification),
+    aiSystemId: data.ai_system_id ?? null,
   }
 }
 
@@ -107,6 +121,11 @@ export async function saveQuestionnaire(input: {
 }): Promise<{ id: string; status: 'borrador' | 'completado' } | { error: string; missing?: { section: string; label: string }[] }> {
   const ctx = await contexto()
   if (!ctx) return { error: 'No se encontró la organización del usuario.' }
+
+  // RN-W11: vinculado a un sistema, es de solo lectura.
+  if (input.id && (await vinculado(ctx, input.id))) {
+    return { error: 'El cuestionario está vinculado a un sistema y es de solo lectura: edita la ficha del sistema.' }
+  }
 
   const missing = input.complete ? missingRequired(input.answers) : []
   if (missing.length > 0) {
@@ -175,6 +194,9 @@ export async function saveQuestionnaire(input: {
 export async function deleteQuestionnaire(id: string): Promise<{ ok: true } | { error: string }> {
   const ctx = await contexto()
   if (!ctx) return { error: 'No se encontró la organización del usuario.' }
+  if (await vinculado(ctx, id)) {
+    return { error: 'No se puede eliminar: es el cuestionario de origen de un sistema del inventario.' }
+  }
 
   const { error } = await ctx.fluxion
     .from('preliminary_questionnaires')

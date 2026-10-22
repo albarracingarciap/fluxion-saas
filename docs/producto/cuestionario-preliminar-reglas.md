@@ -4,7 +4,7 @@ titulo: Cuestionario preliminar, reglas de clasificación AI Act y volcado al al
 tipo: especificacion
 modulo: evaluacion-de-impacto
 audiencia: producto, tecnica
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/lib/preliminary-questionnaire/schema.ts
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
@@ -17,6 +17,16 @@ fuente:
   - apps/web/components/inventory/SystemWizard.jsx
   - apps/web/lib/ai-systems/scoring.ts
   - apps/web/app/(app)/inventario/nuevo/actions.ts
+  - apps/web/app/(app)/inventario/nuevo/page.tsx
+  - apps/web/app/(app)/inventario/[id]/editar/page.tsx
+  - apps/web/app/(app)/inventario/[id]/page.tsx
+  - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
+  - apps/web/app/(app)/cuestionario-preliminar/list-client.tsx
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - apps/web/components/questionnaire/supuestos-ai-act.tsx
+  - apps/web/components/questionnaire/field-view.tsx
+  - apps/web/tests/cuestionario-alta.test.ts
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
   - supabase/migrations/20260904090000_obligaciones_ai_act.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
@@ -46,7 +56,7 @@ Tomadas por el responsable del proyecto el 2026-10-19:
 
 ## 1. Situación actual
 
-Estado tras los bloques B13a (2026-10-22) y B13b (2026-10-22):
+Estado tras los bloques B13a, B13b y B13c (2026-10-22):
 
 - **Motor único (B13a).** Las reglas de §4 están implementadas en `lib/ai-act` y las usan el alta, la
   edición, la reclasificación y el alta desde sistemas detectados. El servicio de agentes ya no clasifica
@@ -56,9 +66,13 @@ Estado tras los bloques B13a (2026-10-22) y B13b (2026-10-22):
   respuestas se traducen a supuestos AI Act (`lib/preliminary-questionnaire/to-aiact.ts`) y el panel
   **Clasificación preliminar** muestra el resultado del motor en todas las secciones. Al completar, la
   clasificación se guarda en `preliminary_questionnaires.classification` (§7).
-- **Pendiente (B13c).** El volcado al asistente de alta (§6), el vínculo con el sistema
-  (`preliminary_questionnaires.ai_system_id`, que sigue sin usarse) y el bloqueo del cuestionario tras el
-  volcado (RN-W*).
+- **Volcado al alta (B13c).** Implementadas las reglas RN-W01 a RN-W15 de §6, con la simplificación de
+  RN-W04 indicada en §6.2. **Dar de alta en el inventario** abre el asistente relleno
+  (`lib/preliminary-questionnaire/to-wizard.ts`, tabla de §6.3) con el bloque **Supuestos AI Act** en el
+  paso 3, que también está en la edición del sistema. Al registrar, el cuestionario queda vinculado
+  (`preliminary_questionnaires.ai_system_id`) y es de solo lectura, también en la base de datos
+  (migración `20261022110000_cuestionario_vinculo.sql`). En el asistente, GPAI deja de ser una opción de
+  «¿Es este un sistema de inteligencia artificial?» y pasa a ser un indicador aparte (D3).
 - **Cuestionarios anteriores.** Los completados antes de B13b no tienen clasificación guardada y, mientras
   no se respondan las preguntas nuevas, se clasifican como **Pendiente de clasificar**.
 
@@ -391,23 +405,48 @@ sequenceDiagram
 
 ### 6.2 Reglas
 
-| Regla | Regla de negocio |
-|---|---|
-| **RN-W01** | **Dar de alta en el inventario** solo aparece en cuestionarios **Completados** sin sistema vinculado |
-| **RN-W02** | Abre `/inventario/nuevo?cuestionario={id}`. El servidor lee el cuestionario de la organización y lo convierte en datos iniciales del asistente con la tabla de §6.3 |
-| **RN-W03** | Un campo del alta con dos o más candidatos (por ejemplo, el dominio cuando hay supuestos de varios puntos del Anexo III) se deja vacío y se muestra la lista de candidatos |
-| **RN-W04** | El asistente muestra el aviso «Datos precargados desde el cuestionario «{título}»» y marca cada campo precargado. Todo sigue siendo editable |
-| **RN-W05** | Los supuestos AI Act del cuestionario (§7) se vuelcan a un bloque nuevo **Supuestos AI Act** del paso 3, editable. El motor clasifica con ellos (principio 2) |
-| **RN-W06** | Si la clasificación final del alta difiere de la preliminar, la vista previa lo indica («Preliminar: X · Actual: Y») y el historial guarda las dos. No bloquea |
-| **RN-W07** | Con una práctica prohibida, el alta muestra el aviso de RN-P12 y propone el estado Retirado |
-| **RN-W08** | Fuera del ámbito o «No es un sistema de IA»: se permite el alta para dejar constancia, con aviso. La clasificación queda con su motivo |
-| **RN-W09** | Al registrar, en la misma operación: se crea el sistema, se escribe `preliminary_questionnaires.ai_system_id` y se registra en el historial «Sistema registrado desde el cuestionario preliminar», con la clasificación preliminar y la final |
-| **RN-W10** | Si se abandona el alta, no se vincula nada |
-| **RN-W11** | Un cuestionario vinculado es de **solo lectura**. Para cambiar datos se edita la ficha del sistema |
-| **RN-W12** | Un sistema solo puede tener un cuestionario de origen (índice único sobre `ai_system_id`) |
-| **RN-W13** | Si se elimina el sistema, el vínculo se borra (la FK ya es `ON DELETE SET NULL`) y el cuestionario vuelve a ser editable |
-| **RN-W14** | La ficha del sistema enlaza con su cuestionario de origen |
-| **RN-W15** | Las respuestas sin campo en el alta (tabla de §6.4) se conservan en el cuestionario y se consultan desde ese enlace |
+| Regla | Regla de negocio | Estado |
+|---|---|---|
+| **RN-W01** | **Dar de alta en el inventario** solo aparece en cuestionarios **Completados** sin sistema vinculado | Implementado (B13c) |
+| **RN-W02** | Abre `/inventario/nuevo?cuestionario={id}`. El servidor lee el cuestionario de la organización y lo convierte en datos iniciales del asistente con la tabla de §6.3 | Implementado (B13c) |
+| **RN-W03** | Un campo del alta con dos o más candidatos (por ejemplo, el dominio cuando hay supuestos de varios puntos del Anexo III) se deja vacío y se muestra la lista de candidatos | Implementado (B13c) |
+| **RN-W04** | El asistente muestra el aviso «Datos precargados desde el cuestionario «{título}»» y marca cada campo precargado. Todo sigue siendo editable | Implementado con simplificación (B13c, ver nota) |
+| **RN-W05** | Los supuestos AI Act del cuestionario (§7) se vuelcan a un bloque nuevo **Supuestos AI Act** del paso 3, editable. El motor clasifica con ellos (principio 2) | Implementado (B13c) |
+| **RN-W06** | Si la clasificación final del alta difiere de la preliminar, la vista previa lo indica («Preliminar: X · Actual: Y») y el historial guarda las dos. No bloquea | Implementado (B13c) |
+| **RN-W07** | Con una práctica prohibida, el alta muestra el aviso de RN-P12 y propone el estado Retirado | Implementado (B13c) |
+| **RN-W08** | Fuera del ámbito o «No es un sistema de IA»: se permite el alta para dejar constancia, con aviso. La clasificación queda con su motivo | Implementado (B13c) |
+| **RN-W09** | Al registrar, en la misma operación: se crea el sistema, se escribe `preliminary_questionnaires.ai_system_id` y se registra en el historial «Sistema registrado desde el cuestionario preliminar», con la clasificación preliminar y la final | Implementado (B13c, ver nota) |
+| **RN-W10** | Si se abandona el alta, no se vincula nada | Implementado (B13c) |
+| **RN-W11** | Un cuestionario vinculado es de **solo lectura**. Para cambiar datos se edita la ficha del sistema | Implementado (B13c) |
+| **RN-W12** | Un sistema solo puede tener un cuestionario de origen (índice único sobre `ai_system_id`) | Implementado (B13c) |
+| **RN-W13** | Si se elimina el sistema, el vínculo se borra (la FK ya es `ON DELETE SET NULL`) y el cuestionario vuelve a ser editable | Implementado (FK existente; el trigger de B13c permite el cambio) |
+| **RN-W14** | La ficha del sistema enlaza con su cuestionario de origen | Implementado (B13c) |
+| **RN-W15** | Las respuestas sin campo en el alta (tabla de §6.4) se conservan en el cuestionario y se consultan desde ese enlace | Implementado (B13c) |
+
+> **ℹ Nota de implementación (B13c).**
+> - **RN-W01:** el botón aparece en el formulario solo si no hay cambios sin guardar (el alta usa las
+>   respuestas guardadas), y en el listado como **Dar de alta**; los vinculados muestran **En el
+>   inventario →**.
+> - **RN-W02:** con un cuestionario inexistente, sin completar o ya vinculado, la página muestra un error
+>   en lugar del asistente. El servidor vuelve a comprobarlo al registrar.
+> - **RN-W04 (simplificación):** el aviso lista los campos precargados, pero los campos no se marcan uno a
+>   uno en el formulario.
+> - **RN-W05:** el bloque es el mismo componente de preguntas que el cuestionario
+>   (`components/questionnaire/supuestos-ai-act.tsx` y `field-view.tsx`). Es opcional en el alta y en la
+>   edición: sin él, el motor usa la vía de respaldo. En la edición se carga desde `ai_systems.aiact_inputs`
+>   (`inputsToAnswers`). Los campos del alta que también son supuestos se combinan con el bloque
+>   (`wizardAiActInputs`): «¿Es IA?» y fine-tuning mandan sobre el bloque; el origen fija la propiedad si
+>   el bloque no la tiene o la contradice. Con bloque, los interruptores de GPAI y de práctica prohibida se ocultan.
+> - **RN-W07:** el aviso aparece si el motor da Práctica prohibida, con el botón **Marcar como Retirado**.
+> - **RN-W09:** no es una transacción de base de datos. El vínculo se escribe tras crear el sistema y solo
+>   si el cuestionario sigue sin sistema; si no, se borra el sistema y se muestra «No se pudo vincular el
+>   cuestionario: ya tiene un sistema. No se ha registrado el sistema.». El evento es
+>   `system_registered_from_questionnaire`, con `questionnaire_id`, `preliminary`, `preliminary_level`,
+>   `final` y `final_level`.
+> - **RN-W11:** solo lectura en el formulario (preguntas desactivadas, sin guardar ni completar), en las
+>   server actions (guardar y eliminar se rechazan) y en la base de datos (trigger
+>   `trg_preliminary_questionnaire_locked`, que impide cambiar `answers` y `status`).
+> - **RN-W12:** índice único parcial `uq_preliminary_questionnaires_ai_system`.
 
 ### 6.3 Correspondencia de campos
 
@@ -429,7 +468,7 @@ Claves del cuestionario (`answers`) → claves del asistente (`INIT` de `SystemW
 | Campo del alta | Origen | Transformación |
 |---|---|---|
 | `intendedUse` | `q8_uso` | Literal |
-| `outputTypes` | `c3` | `acceso_servicios` → `decision`; `perfiles` y `reconocimiento` → `clasificacion`; `predicciones` → `prediccion`; `decisiones` → `recomendacion`; `generacion` → `generacion`; `patrones` → `deteccion`; `asignacion` → `optimizacion`. Mismo orden de prioridad (hoy solo se guarda el primero, `I11`) |
+| `outputTypes` | `c3` | `acceso_servicios` → `decision`; `perfiles` y `reconocimiento` → `clasificacion`; `predicciones` → `prediccion`; `decisiones` → `recomendacion`; `generacion` → `generacion`; `patrones` → `deteccion`; `asignacion` → `optimizacion`. Mismo orden de prioridad. Se marcan todos; el alta sigue guardando solo el primero (`I11`) |
 | `interactsPersons` | `c3` | `true` si incluye `interaccion` |
 | `fullyAutomated` | — | Sin origen: se pide en el alta |
 
@@ -439,7 +478,7 @@ Claves del cuestionario (`answers`) → claves del asistente (`INIT` de `SystemW
 |---|---|---|
 | `isAISystem` | `q4_usa_ia` | Sí → `true`; No → `false` |
 | `isGPAI` | Q-08 | `true` solo con RN-G01 |
-| `prohibitedPractice` | `c1` | `true` si queda alguna práctica sin excepción (RN-P10) |
+| `prohibitedPractice` | `c1` | `true` si queda alguna práctica sin excepción (RN-P10). Con el bloque **Supuestos AI Act**, el interruptor se oculta y la práctica prohibida la decide el motor con `c1` |
 | `affectsPersons` | Anexo III | `true` si hay algún supuesto del Anexo III; si no, se pide en el alta |
 | `biometric` | `c2b_biometria`, `c1` | `true` si hay supuestos biométricos |
 | `criticalInfra` | `c2b_infra` | `true` si está marcado |
@@ -503,7 +542,8 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 
 **Implementado.** La clasificación preliminar se guarda en `preliminary_questionnaires.classification`
 (B13b): `{result, obligations, computed_at}`. Los supuestos AI Act, la categoría GPAI y el campo de ámbito
-del sistema se añadieron en B13a. El vínculo y el historial del volcado quedan para B13c.
+del sistema se añadieron en B13a. El vínculo (índice único y bloqueo por trigger) y el historial del
+volcado, en B13c (`20261022110000_cuestionario_vinculo.sql`).
 
 ## 8. Cambios en el cuestionario
 
@@ -554,6 +594,8 @@ Resultado esperado del motor para casos tipo. Sirven como pruebas de aceptación
 
 Los casos 1, 3, 5, 7, 8, 9, 11, 12, 13 y 15 están cubiertos, a partir de las respuestas del cuestionario,
 por `apps/web/tests/cuestionario-clasificacion.test.ts` (B13b).
+El volcado al alta (correspondencia de §6.3, RN-W03, RN-W05 y la conversión de los supuestos guardados en
+respuestas del bloque) lo cubre `apps/web/tests/cuestionario-alta.test.ts` (B13c).
 
 | # | Caso | Respuestas clave | Nivel | Otros resultados |
 |---|---|---|---|---|

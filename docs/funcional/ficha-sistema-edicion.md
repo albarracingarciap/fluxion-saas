@@ -4,9 +4,11 @@ titulo: Edición de la ficha del sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/[id]/editar/page.tsx
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - apps/web/components/questionnaire/supuestos-ai-act.tsx
   - apps/web/app/(app)/inventario/[id]/editar/edit-system-client.jsx
   - apps/web/app/(app)/inventario/[id]/editar/actions.ts
   - apps/web/components/inventory/SystemWizard.jsx
@@ -47,6 +49,12 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 Los mismos del [Alta de sistema](inventario-alta.md#campos), todos editables. Diferencias:
 
 - **Tipo de output:** se carga solo el que está guardado, aunque en el alta se marcaran varios.
+- **Supuestos AI Act** (paso 3): si el sistema tiene supuestos guardados (`ai_systems.aiact_inputs`), el
+  bloque se abre con ellos convertidos de nuevo en respuestas (`inputsToAnswers`) y se pueden cambiar,
+  añadir (**Indicar los supuestos AI Act**) o quitar (**Quitar supuestos**). Sin supuestos, el motor usa la
+  vía de respaldo. Ver [el bloque en el Alta de sistema](inventario-alta.md#paso-3--impacto-y-clasificación-ai-act).
+- **Cuestionario de origen:** la edición no muestra el aviso de datos precargados ni la clasificación
+  preliminar del cuestionario. El cuestionario vinculado no cambia al editar la ficha.
 - **Proveedores TIC críticos:** se separan por comas, así que un nombre que contenga una coma se parte en
   dos.
 - **Avance:** el asistente empieza siempre en el paso 1 y el botón de guardar solo está en el paso 7.

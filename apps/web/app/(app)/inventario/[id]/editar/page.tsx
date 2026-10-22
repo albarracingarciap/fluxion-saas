@@ -4,6 +4,8 @@ import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 import EditSystemClient from './edit-system-client';
+import type { AiActInputs } from '@/lib/ai-act';
+import { inputsToAnswers } from '@/lib/preliminary-questionnaire/to-wizard';
 
 const DATA_VOLUME_MAP: Record<string, string> = {
   menos_1gb: '<1 GB',
@@ -112,6 +114,7 @@ export default async function EditSystemPage({ params }: { params: { id: string 
       external_provider,
       frameworks,
       provider_origin,
+      aiact_inputs,
       value_chain_roles,
       has_fine_tuning,
       has_external_tools,
@@ -196,6 +199,8 @@ export default async function EditSystemPage({ params }: { params: { id: string 
     origin: system.provider_origin ?? '',
     valueChainRoles: system.value_chain_roles ?? [],
     hasFineTuning: system.has_fine_tuning ?? false,
+    // Supuestos AI Act guardados, editables en el bloque del paso 3 (B13c).
+    aiactAnswers: inputsToAnswers((system.aiact_inputs as AiActInputs | null) ?? null),
     hasExternalTools: system.has_external_tools ?? false,
     environments: system.active_environments ?? [],
     mlopsIntegration: system.mlops_integration ?? '',

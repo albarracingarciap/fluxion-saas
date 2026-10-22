@@ -137,6 +137,14 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
 
   if (systemError || !system) notFound();
 
+  // Cuestionario preliminar de origen (B13c, RN-W14).
+  const { data: cuestionarioOrigen } = await fluxion
+    .from('preliminary_questionnaires')
+    .select('id, title')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', params.id)
+    .maybeSingle();
+
   // Historial de clasificaciones (versión, método, autor, fecha)
   const { data: classificationEventRows } = await fluxion
     .from('classification_events')
@@ -702,7 +710,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
 
   return (
     <SystemDetailClient
-      system={system}
+      system={{ ...system, origin_questionnaire: cuestionarioOrigen ?? null }}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

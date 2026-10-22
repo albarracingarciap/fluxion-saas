@@ -83,6 +83,23 @@ export async function saveAISystem(formData: Record<string, any>) {
     return { error: 'No se encontró organización asociada al usuario.' };
   }
 
+  // Alta desde un cuestionario preliminar (B13c): tiene que ser de la
+  // organización, estar completado y no tener sistema vinculado (RN-W01, RN-W12).
+  const questionnaireId = typeof formData.questionnaireId === 'string' ? formData.questionnaireId : null;
+  let cuestionario: { id: string; title: string; classification: { result?: { display?: { label?: string }; level?: string | null } } | null } | null = null;
+  if (questionnaireId) {
+    const { data: q } = await fluxion
+      .from('preliminary_questionnaires')
+      .select('id, title, status, ai_system_id, classification')
+      .eq('organization_id', membership.organization_id)
+      .eq('id', questionnaireId)
+      .maybeSingle();
+    if (!q) return { error: 'No se encontró el cuestionario de origen.' };
+    if (q.status !== 'completado') return { error: 'El cuestionario de origen no está completado.' };
+    if (q.ai_system_id) return { error: 'El cuestionario de origen ya tiene un sistema vinculado.' };
+    cuestionario = q;
+  }
+
   // Motor único (B13a): con los supuestos AI Act si los hay; si no, por dominio y tipo de output.
   const classification = classifyWithCatalog({
     inputs: formData.aiactInputs ?? null,
@@ -201,7 +218,40 @@ export async function saveAISystem(formData: Record<string, any>) {
     return { error: error.message };
   }
 
+  // RN-W09: vínculo con el cuestionario en la misma operación. Solo si sigue
+  // sin vincular; si otra persona lo vinculó entretanto, el alta se deshace.
+  if (cuestionario) {
+    const { data: vinculado } = await fluxion
+      .from('preliminary_questionnaires')
+      .update({ ai_system_id: data.id })
+      .eq('id', cuestionario.id)
+      .eq('organization_id', membership.organization_id)
+      .is('ai_system_id', null)
+      .select('id');
+    if (!vinculado || vinculado.length === 0) {
+      await fluxion.from('ai_systems').delete().eq('id', data.id).eq('organization_id', membership.organization_id);
+      return { error: 'No se pudo vincular el cuestionario: ya tiene un sistema. No se ha registrado el sistema.' };
+    }
+  }
+
   await insertAiSystemHistoryEvents(fluxion, [
+    ...(cuestionario ? [{
+      ai_system_id: data.id,
+      organization_id: membership.organization_id,
+      event_type: 'system_registered_from_questionnaire',
+      event_title: 'Sistema registrado desde el cuestionario preliminar',
+      event_summary: `Registrado desde el cuestionario «${cuestionario.title}». Clasificación preliminar: `
+        + `${cuestionario.classification?.result?.display?.label ?? 'sin guardar'}; clasificación al registrar: ${cls.display.label}.`,
+      payload: {
+        questionnaire_id: cuestionario.id,
+        preliminary: cuestionario.classification?.result?.display?.label ?? null,
+        preliminary_level: cuestionario.classification?.result?.level ?? null,
+        final: cls.display.label,
+        final_level: cls.level,
+      },
+      actor_user_id: user.id,
+      created_at: now,
+    }] : []),
     {
       ai_system_id: data.id,
       organization_id: membership.organization_id,

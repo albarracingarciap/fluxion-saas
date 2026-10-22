@@ -20,6 +20,9 @@ fuente:
   - apps/web/lib/ai-act/server.ts
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - apps/web/app/(app)/inventario/nuevo/page.tsx
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
   - apps/web/app/(app)/inventario/actions/classification.ts
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
   - apps/web/app/(app)/inventario/[id]/modos-de-fallo/actions.ts
@@ -349,7 +352,7 @@ Se repite por cada sistema. Hay tres entradas:
 
 ```mermaid
 flowchart LR
-  Q[Cuestionario preliminar<br/>clasificación preliminar] -. sin volcado .-> A
+  Q[Cuestionario preliminar<br/>clasificación preliminar] -->|Dar de alta en el inventario| A
   A[Alta de sistema<br/>asistente de 7 pasos] --> F[Ficha del sistema]
   D[Sistemas detectados<br/>conectores] -->|Crear sistema nuevo| F
 ```
@@ -362,28 +365,30 @@ flowchart LR
 - **Qué recoge:** siete secciones (proyecto, información básica, sistema de IA, finalidad prevista con
   prácticas prohibidas y Anexo III, datos, forma de utilización y posición en la cadena de valor).
 - **Estados:** Borrador · Completado. Al completar se guarda la clasificación preliminar
-  (`preliminary_questionnaires.classification`).
+  (`preliminary_questionnaires.classification`). Al registrar el sistema desde el cuestionario, queda
+  vinculado (`ai_system_id`) y de solo lectura.
 - **Clasificación preliminar (B13b):** el panel **Clasificación preliminar** aplica el motor único a las
   respuestas en cada cambio. Es una propuesta: la clasificación del sistema se fija en el alta.
 
-> **⚠ GAP-07 · Resuelto en parte en B13b. El cuestionario no alimenta el alta.** Desde B13b recoge los
+> **✔ GAP-07 · Resuelto en B13b y B13c. El cuestionario alimenta el alta.** Desde B13b recoge los
 > supuestos AI Act, valida la completitud y la coherencia de las respuestas (RN-V01 a RN-V10) y clasifica
-> con el mismo motor que el alta, pero sus respuestas no se usan para crear el sistema: hay que volver a
-> introducirlas en el asistente (`E20`).
->
-> **Pendiente de implementar.** Alta del sistema a partir del cuestionario: volcado al asistente con el
-> bloque «Supuestos AI Act», vínculo con el sistema y bloqueo del cuestionario (B13c).
+> con el mismo motor que el alta. Desde B13c, **Dar de alta en el inventario** (en un cuestionario
+> completado y sin sistema) abre el asistente relleno con sus respuestas y sus supuestos AI Act
+> (`/inventario/nuevo?cuestionario={id}`). Al registrar, el cuestionario queda vinculado al sistema, de
+> solo lectura, y el historial guarda la clasificación preliminar y la final (`E20`). Ver
+> [Alta desde un cuestionario preliminar](inventario-alta.md#alta-desde-un-cuestionario-preliminar).
 
 ### 4.2 Alta de sistema
 
-- **Vista:** [Alta de sistema](inventario-alta.md) (**+ Registrar sistema**). Cualquier miembro.
+- **Vista:** [Alta de sistema](inventario-alta.md) (**+ Registrar sistema**, o **Dar de alta en el
+  inventario** desde un cuestionario completado). Cualquier miembro.
 - **Pasos:** 1 Identificación · 2 Propósito · 3 Impacto · 4 Datos · 5 Tecnología · 6 Gobierno ·
   7 Controles. Solo una docena de campos impiden avanzar; el resto son recomendados.
 - **Datos que condicionan el resto del flujo:**
 
   | Dato (paso) | Qué condiciona |
   |---|---|
-  | ¿Es IA? · GPAI · práctica prohibida · biometría · infraestructura crítica · dominio · tipo de output · afecta a personas (1-3) | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai), obligaciones y [suelo AI Act](../glosario.md#suelo-ai-act) |
+  | ¿Es IA? · GPAI · práctica prohibida · biometría · infraestructura crítica · dominio · tipo de output · afecta a personas · bloque **Supuestos AI Act** (1-3) | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai), obligaciones y [suelo AI Act](../glosario.md#suelo-ai-act) |
   | Rol en la cadena de valor (5) | Obligaciones aplicables y documentos (por ejemplo, FRIA) |
   | Datos personales y categorías especiales (4) | Avisos de DPIA y sección S2 de la AISIA |
   | Periodicidad y próxima revisión (6) | Fecha de próxima auditoría en la ficha |
@@ -393,8 +398,10 @@ flowchart LR
 - **Al registrar:** se clasifica con el motor único de clasificación AI Act, se guarda el sistema con el
   resultado, se registran «Sistema registrado» y «Clasificación AI Act calculada» en el historial y se
   envía el resultado al servicio de agentes, que registra la versión 1 de la clasificación y crea las
-  obligaciones en estado **Sugerida**. Mientras el alta no recoja los supuestos AI Act (B13c), la
-  clasificación es aproximada, por dominio y tipo de output, y lo indica con un aviso.
+  obligaciones en estado **Sugerida**. Desde B13c, el paso 3 recoge los supuestos AI Act en el bloque
+  **Supuestos AI Act** (relleno si el alta viene de un cuestionario). Sin ese bloque, la clasificación es
+  aproximada, por dominio y tipo de output, y lo indica con un aviso. Desde un cuestionario se registra
+  además «Sistema registrado desde el cuestionario preliminar» y se vincula el cuestionario.
 
 > **💡 Sugerencia.** Definir las **etiquetas** del sistema en el alta pensando en el alcance de la
 > Declaración de Aplicabilidad (por ejemplo, `sgai`). Sin etiquetas de alcance en la Declaración, entran
@@ -459,7 +466,9 @@ flowchart TD
 > referencia y las obligaciones usan los códigos del catálogo, así que un sistema prohibido conserva la
 > obligación del Art. 5 (`I1` a `I4`). Los sistemas existentes no se reclasifican en bloque: quedan
 > «Pendiente de revisar con el motor nuevo».
-> Desde B13b, el cuestionario preliminar también clasifica con este motor.
+> Desde B13b, el cuestionario preliminar también clasifica con este motor y, desde B13c, el alta y la
+> edición recogen los supuestos AI Act en el bloque «Supuestos AI Act», así que el motor puede clasificar
+> con las reglas y no solo por la vía de respaldo.
 >
 > **Pendiente de implementar.** Migración de los sistemas con nivel GPAI a la categoría GPAI y ajustes
 > del catálogo de obligaciones (B13d).
@@ -998,7 +1007,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-03 | 0 | Onboarding de invitados no guarda datos | Fricción | `A2` |
 | GAP-04 | 1 | Gobernanza en texto libre, sin uso | Fricción | `A11` |
 | GAP-05 | 1 | Comités sin sesiones ni actas | Fricción | — |
-| GAP-07 | 2 | Cuestionario preliminar desconectado del alta (clasifica con el motor común desde B13b; volcado al alta en B13c) | Fricción | `E20` |
+| GAP-07 | 2 | ✔ Resuelto en B13b y B13c: cuestionario preliminar desconectado del alta | — | `E20` |
 | GAP-08 | 2 | Alta desde sistema detectado: ✔ clasifica desde B13a; sin obligaciones sugeridas ni historial | Fricción | `I20` |
 | GAP-16 | 5 | ✔ Resuelto en B05: «Guardar borrador» no guardaba decisiones | — | `R7` |
 | GAP-23 | 6 | AISIA no actualizable; precarga no guardada | Fricción | `E19` |
@@ -1041,7 +1050,8 @@ En orden de prioridad.
    las sesiones de comité para la revisión por la dirección.
 9. **Reevaluación guiada.** Usar la próxima revisión del sistema, los incidentes graves y los cambios en
    la ficha como disparadores que abran una tarea de reevaluación.
-10. **Conectar el cuestionario preliminar con el alta**, para no introducir dos veces los mismos datos.
+10. ✔ **Conectar el cuestionario preliminar con el alta**, para no introducir dos veces los mismos datos
+    (hecho en B13c).
 
 ## Aclaraciones
 

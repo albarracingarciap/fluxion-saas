@@ -56,6 +56,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B13a · Motor único de clasificación AI Act | Integrado en `main` | `fase2/b13a-motor-ai-act` | 2026-10-22 | **Sí** · `20261022090000_ai_act_motor_unico.sql` |
 | Glosario: motor de clasificación tras B13a | Integrado en `main` | `docs/glosario-b13a` | 2026-10-22 | No |
 | B13b · Cuestionario preliminar con clasificación preliminar | Integrado en `main` | `fase2/b13b-cuestionario` | 2026-10-22 | **Sí** · `20261022100000_cuestionario_clasificacion.sql` |
+| B13c · Alta en el inventario desde el cuestionario y bloque Supuestos AI Act | Integrado en `main` | `fase2/b13c-volcado-alta` | 2026-10-22 | **Sí** · `20261022110000_cuestionario_vinculo.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -87,6 +88,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261021130000_terminologia_gaps.sql` | Terminología | «gap» en la etiqueta de la bandeja, el nombre de la política por defecto de exclusión (si no se ha cambiado) y el mensaje del trigger | Antes o después de desplegar; solo cambia textos |
 | `supabase/migrations/20261022090000_ai_act_motor_unico.sql` | B13a | Columnas del motor en `ai_systems` (supuestos, ámbito, resultado, versión de reglas, GPAI, revisión pendiente); eventos con nivel `pending` o nulo; traduce las claves de obligación a los códigos del catálogo (archiva duplicadas); marca los sistemas existentes «Pendiente de revisar con el motor nuevo» | **Antes** de desplegar B13a, y **desplegar a la vez la web y el servicio de agentes** (cambia el contrato entre ambos). Revisa el aviso `B13a: N sistemas pendientes…; M obligaciones con código del catálogo` |
 | `supabase/migrations/20261022100000_cuestionario_clasificacion.sql` | B13b | Columna `preliminary_questionnaires.classification` (clasificación preliminar guardada al completar) | Antes de desplegar B13b |
+| `supabase/migrations/20261022110000_cuestionario_vinculo.sql` | B13c | Índice único sobre `preliminary_questionnaires.ai_system_id` (un cuestionario de origen por sistema) y trigger `trg_preliminary_questionnaire_locked` (un cuestionario vinculado no cambia sus respuestas ni su estado) | **Antes** de desplegar B13c. Si algún sistema tuviera ya dos cuestionarios vinculados, el índice fallará: desvincula los sobrantes antes |
 
 ---
 
@@ -1406,3 +1408,38 @@ negocio de evaluación de impacto y de clasificación AI Act; modelo de datos; e
 **Pendiente.** B13c: **Dar de alta en el inventario** desde el cuestionario, volcado al asistente, bloque **Supuestos
 AI Act** en el alta, vínculo y bloqueo. Los cuestionarios completados antes de B13b no tienen clasificación guardada
 y quedan «Pendiente de clasificar» hasta responder las preguntas nuevas.
+
+---
+
+## B13c · Alta en el inventario desde el cuestionario y bloque Supuestos AI Act
+
+**Fecha:** 2026-10-22 · **Rama:** `fase2/b13c-volcado-alta` ·
+**Migración:** **sí**, `supabase/migrations/20261022110000_cuestionario_vinculo.sql`
+
+**Problema** (GAP-07; `E20`): un cuestionario completado no servía para dar de alta el sistema; había que volver a
+escribir los datos en el asistente, y el alta clasificaba solo por dominio y tipo de output, sin los supuestos del
+AI Act que el cuestionario ya recogía.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Cuestionario | Botón **Dar de alta en el inventario** en un cuestionario completado y sin cambios sin guardar; en el listado, «Dar de alta» o «En el inventario →». Un cuestionario vinculado es de solo lectura (aviso, formulario desactivado y comprobación en el servidor y en la base de datos) |
+| Alta (`/inventario/nuevo?cuestionario=`) | El asistente se abre relleno con las respuestas (nombre, finalidad, dominio, datos, origen, fine-tuning, práctica prohibida y supuestos) y un aviso con los campos precargados (RN-W02 a RN-W05). Al registrar, el cuestionario se vincula de forma condicional; si el vínculo falla, se deshace el alta (RN-W09) |
+| Bloque **Supuestos AI Act** (paso 3) | Las preguntas del cuestionario sobre lo que hace el sistema, en el alta y en la edición (desde `ai_systems.aiact_inputs`). Con el bloque, el motor clasifica con las reglas del AI Act; sin él, por la vía de respaldo. «¿Es IA?» y fine-tuning mandan sobre el bloque; el origen fija la propiedad si el bloque no la tiene o la contradice |
+| Práctica prohibida | Aviso con el botón **Marcar como Retirado** (RN-W07); no bloquea el alta |
+| Ficha | Enlace «Registrado desde el cuestionario preliminar «…»»; evento de historial «Alta» (filtro Edición) y eventos de clasificación en el filtro AI Act |
+| Base de datos | Un cuestionario de origen por sistema (RN-W12) y bloqueo del cuestionario vinculado (RN-W11); al borrar el sistema se desvincula y vuelve a ser editable (RN-W13) |
+
+**Verificación.** `npm test` 86/86 (volcado de respuestas al asistente, combinación con los campos del alta,
+precedencia del origen y precarga de la práctica prohibida). Migración probada en el Postgres local: bloqueo,
+índice único y desvinculación. `tsc --noEmit` sin errores, `next lint` sin avisos, `check-server-actions.sh`
+correcto. No se ha probado en el navegador.
+
+**Documentación.** Funcionales del alta, la edición, la ficha, el formulario y el listado del cuestionario y el flujo
+completo; negocio de inventario, evaluación de impacto y clasificación AI Act; modelo de datos y servicio de agentes;
+especificación del cuestionario v0.3 (estado de las reglas RN-W). TODO 12 resuelto; 266, 267 y 270 a 272 resueltos;
+nuevos 269 (glosario) y 78 anotado.
+
+**Pendiente.** B13d (GPAI fuera de los niveles de riesgo, `v_system_obligations` según RN-O03 y RN-O04, catálogo de
+obligaciones: Art. 50 dividido, Art. 27, Art. 6.4). Glosario tras B13b y B13c (TODO 268 y 269).
