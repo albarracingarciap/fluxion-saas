@@ -141,10 +141,18 @@ Los artículos del AI Act se citan según su texto oficial en español. Las clá
 No usar: «usuario» para responsable del despliegue (término de borradores anteriores del AI Act), «fabricante» para proveedor.
 
 ### Clasificación AI Act
-- **Definición:** proceso que determina el nivel de riesgo AI Act de un sistema de IA y, con él, sus obligaciones. Puede hacerla el Asistente de clasificación AI Act, el motor de reglas o una persona, y cada clasificación queda versionada.
-- **No usar:** «categorización», «scoring AI Act».
-- **En el código:** `fluxion.classification_events` (`method` ∈ `initial`, `rules_engine`, `ai_agent`, `manual_review`); `ai_systems.aiact_risk_level`.
+- **Definición:** proceso que determina el ámbito y el nivel de riesgo AI Act de un sistema de IA y, con ellos, sus obligaciones. La calcula el **motor de clasificación** (uno solo para toda la aplicación) a partir de los **supuestos AI Act** del sistema; el Asistente de clasificación AI Act puede proponer otra, y una persona la confirma al conciliar. Cada clasificación queda versionada, con su fundamento y la versión de las reglas.
+- **Clasificación aproximada:** la que hace el motor cuando el sistema no tiene supuestos AI Act, a partir de su dominio y su tipo de output. Lleva un aviso que lo indica.
+- **Pendiente de revisar con el motor nuevo:** marca de los sistemas clasificados antes del motor único (B13a). Desaparece al conciliar una reclasificación.
+- **No usar:** «categorización», «scoring AI Act», «motor de reglas» (hubo dos; ahora es el motor de clasificación).
+- **En el código:** motor en `apps/web/lib/ai-act` (`AIACT_RULES_VERSION`); `fluxion.classification_events` (`method` ∈ `initial`, `rules_engine`, `ai_agent`, `manual_review`); `ai_systems.aiact_risk_level`, `aiact_result`, `aiact_review_pending`.
 - **Normativa:** AI Act, Art. 5, 6 y 50; Anexo III.
+
+### Supuestos AI Act
+- **Definición:** respuestas concretas sobre lo que hace un sistema que determinan su clasificación: exclusiones del Art. 2, prácticas del Art. 5 y sus excepciones, Anexo I, puntos del Anexo III, excepción del Art. 6.3, supuestos del Art. 50 y relación con modelos GPAI. Sin respuesta no equivale a «no».
+- **No usar:** «factores», «criterios».
+- **En el código:** `ai_systems.aiact_inputs` (tipo `AiActInputs` en `apps/web/lib/ai-act`).
+- **Normativa:** AI Act, Art. 2, 5, 6, 50 y 51 a 55; Anexos I y III.
 
 ### Reclasificación
 - **Definición:** nueva clasificación de un sistema ya clasificado. Si cambia el conjunto de obligaciones, la organización concilia las diferencias (acepta, excluye o conserva cada obligación).
@@ -165,18 +173,18 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Pendiente de clasificar | `pending` | — |
 
 - **Modelo de IA de uso general (GPAI)** no es un nivel de riesgo: es una categoría aparte (ver «Categoría GPAI»). Un sistema basado en un modelo GPAI se clasifica por lo que hace (decisión DP-10 y D3, 2026-10-20).
-- > **Pendiente de implementar.** El campo todavía admite el valor `gpai`; deja de usarse con el nuevo cuestionario preliminar (B13), que migra esos sistemas a `is_gpai` y a «Pendiente de clasificar».
+- > **Pendiente de implementar.** El campo todavía admite el valor `gpai`. Desde B13a el motor de clasificación ya no lo asigna; B13d migra los sistemas que lo tienen a `is_gpai` y a «Pendiente de clasificar».
 
 ### Categoría GPAI
 - **Definición:** relación de un sistema u organización con los modelos de IA de uso general, independiente del nivel de riesgo. Valores: **Proveedor de modelo GPAI** (la organización desarrolla un modelo GPAI y lo introduce en el mercado), **con riesgo sistémico** (sí, no o sin determinar) y **Sistema basado en un modelo GPAI de terceros** (usa el modelo de otro, por ejemplo por API; es informativo y no genera obligaciones de proveedor de modelo).
 - **No usar:** «nivel GPAI», «riesgo GPAI».
-- **En el código:** `ai_systems.is_gpai` (proveedor de modelo GPAI). Los demás indicadores llegan con B13.
+- **En el código:** `ai_systems.is_gpai` (proveedor de modelo GPAI), `gpai_systemic_risk` (`yes`, `no`, `unknown`) y `gpai_third_party_based`.
 - **Normativa:** AI Act, Art. 3.63, 51, 53 y 55.
 
 ### Ámbito del AI Act
 - **Definición:** si un sistema queda sujeto al AI Act. Valores: **Dentro del ámbito**, **Fuera del ámbito** (con su motivo, por ejemplo uso puramente personal o fines exclusivamente militares) y **No es un sistema de IA** (no cumple la definición del Art. 3.1). Solo los sistemas dentro del ámbito tienen nivel de riesgo.
 - **No usar:** «exento», «no aplica» a secas.
-- **En el código:** campo de ámbito aparte del nivel de riesgo (decisión DP-10). Se crea con el nuevo cuestionario preliminar (B13).
+- **En el código:** `ai_systems.aiact_scope` (`in_scope`, `out_of_scope`, `not_ai_system`, `pending`) y `aiact_scope_reason`, aparte del nivel de riesgo (decisión DP-10, B13a).
 - **Normativa:** AI Act, Art. 2 y Art. 3.1.
 
 ### Obligación
@@ -742,7 +750,7 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 ### Asistente de clasificación AI Act
 - **Definición:** función de IA que propone el nivel de riesgo AI Act de un sistema y su justificación, que una persona confirma.
 - **No usar:** «Agente 1», «clasificador».
-- **En el código:** `services/agents/fluxion_agents/routes/classification.py`; `api/agent/classify-system`.
+- **En el código:** `services/agents/fluxion_agents/routes/classification.py` (`/api/v1/systems/{id}/reclassify/ai`, ruta web `reclassify-ai`). Recibe la clasificación del motor como referencia.
 
 ### Generador de documentos
 - **Definición:** función de IA prevista para redactar automáticamente los documentos regulatorios.
