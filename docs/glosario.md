@@ -22,6 +22,10 @@ fuente:
   - supabase/migrations/20261019090000_plan_control_libre.sql
   - docs/producto/plan-resolucion-gaps.md
   - docs/producto/cuestionario-preliminar-reglas.md
+  - apps/web/lib/preliminary-questionnaire/to-aiact.ts
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
+  - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
   - apps/web/lib/modules/registry.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
@@ -144,14 +148,16 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** proceso que determina el ámbito y el nivel de riesgo AI Act de un sistema de IA y, con ellos, sus obligaciones. La calcula el **motor de clasificación** (uno solo para toda la aplicación) a partir de los **supuestos AI Act** del sistema; el Asistente de clasificación AI Act puede proponer otra, y una persona la confirma al conciliar. Cada clasificación queda versionada, con su fundamento y la versión de las reglas.
 - **Clasificación aproximada:** la que hace el motor cuando el sistema no tiene supuestos AI Act, a partir de su dominio y su tipo de output. Lleva un aviso que lo indica.
 - **Pendiente de revisar con el motor nuevo:** marca de los sistemas clasificados antes del motor único (B13a). Desaparece al conciliar una reclasificación.
+- **Clasificación preliminar:** la que el mismo motor calcula con las respuestas del cuestionario preliminar, antes de que exista el sistema. Se muestra en el panel **Clasificación preliminar** del cuestionario y en el listado («Preliminar: …»), y se guarda al completar el cuestionario. Es orientativa: la clasificación del sistema se fija al darlo de alta.
 - **No usar:** «categorización», «scoring AI Act», «motor de reglas» (hubo dos; ahora es el motor de clasificación).
 - **En el código:** motor en `apps/web/lib/ai-act` (`AIACT_RULES_VERSION`); `fluxion.classification_events` (`method` ∈ `initial`, `rules_engine`, `ai_agent`, `manual_review`); `ai_systems.aiact_risk_level`, `aiact_result`, `aiact_review_pending`.
 - **Normativa:** AI Act, Art. 5, 6 y 50; Anexo III.
 
 ### Supuestos AI Act
 - **Definición:** respuestas concretas sobre lo que hace un sistema que determinan su clasificación: exclusiones del Art. 2, prácticas del Art. 5 y sus excepciones, Anexo I, puntos del Anexo III, excepción del Art. 6.3, supuestos del Art. 50 y relación con modelos GPAI. Sin respuesta no equivale a «no».
+- Se recogen en el cuestionario preliminar y en el bloque **Supuestos AI Act** del alta y de la edición del sistema, con las mismas preguntas. Al dar de alta un sistema desde un cuestionario, el bloque llega relleno.
 - **No usar:** «factores», «criterios».
-- **En el código:** `ai_systems.aiact_inputs` (tipo `AiActInputs` en `apps/web/lib/ai-act`).
+- **En el código:** `ai_systems.aiact_inputs` (tipo `AiActInputs` en `apps/web/lib/ai-act`); bloque `components/questionnaire/supuestos-ai-act.tsx`.
 - **Normativa:** AI Act, Art. 2, 5, 6, 50 y 51 a 55; Anexos I y III.
 
 ### Reclasificación
@@ -525,10 +531,10 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «impacto» a secas.
 
 ### Cuestionario preliminar
-- **Definición:** cuestionario previo al alta de un sistema de IA que recoge la información inicial necesaria para orientar su clasificación y evaluación.
+- **Definición:** cuestionario previo al alta de un sistema de IA que recoge la información inicial necesaria para orientar su clasificación y evaluación. Calcula una clasificación preliminar (ver «Clasificación AI Act») y, una vez completado, permite dar de alta el sistema en el inventario con sus respuestas.
+- **Cuestionario de origen:** el cuestionario desde el que se dio de alta un sistema. Cada sistema tiene como mucho uno; queda vinculado y es de solo lectura (los cambios se hacen en la ficha del sistema). Si se borra el sistema, el cuestionario se desvincula y vuelve a ser editable.
 - **No usar:** «encuesta», «pre-alta».
-- **En el código:** `fluxion.preliminary_questionnaires` (`status` ∈ `borrador`, `completado`); `lib/preliminary-questionnaire/schema.ts`.
-- > TODO: confirmar el propósito exacto; el vínculo con el sistema (`ai_system_id`) existe pero no se usa todavía.
+- **En el código:** `fluxion.preliminary_questionnaires` (`status` ∈ `borrador`, `completado`; `classification`; `ai_system_id`, con el índice `uq_preliminary_questionnaires_ai_system` y el trigger `trg_preliminary_questionnaire_locked`); `lib/preliminary-questionnaire/schema.ts`, `to-aiact.ts` (respuestas → supuestos AI Act) y `to-wizard.ts` (respuestas → alta).
 
 ### Documentación del sistema
 - **Definición:** módulo que genera los documentos regulatorios de un sistema de IA a partir de plantillas: documentación técnica (Anexo IV), evaluación de impacto en los derechos fundamentales (FRIA), evaluación de impacto relativa a la protección de datos (DPIA) y ficha del modelo (model card). Cada documento se redacta, se aprueba y se exporta a PDF.

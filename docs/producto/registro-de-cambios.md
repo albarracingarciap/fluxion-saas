@@ -57,6 +57,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: motor de clasificación tras B13a | Integrado en `main` | `docs/glosario-b13a` | 2026-10-22 | No |
 | B13b · Cuestionario preliminar con clasificación preliminar | Integrado en `main` | `fase2/b13b-cuestionario` | 2026-10-22 | **Sí** · `20261022100000_cuestionario_clasificacion.sql` |
 | B13c · Alta en el inventario desde el cuestionario y bloque Supuestos AI Act | Integrado en `main` | `fase2/b13c-volcado-alta` | 2026-10-22 | **Sí** · `20261022110000_cuestionario_vinculo.sql` |
+| Glosario: cuestionario preliminar tras B13b y B13c | Integrado en `main` | `docs/glosario-b13c` | 2026-10-22 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1443,3 +1444,16 @@ nuevos 269 (glosario) y 78 anotado.
 
 **Pendiente.** B13d (GPAI fuera de los niveles de riesgo, `v_system_obligations` según RN-O03 y RN-O04, catálogo de
 obligaciones: Art. 50 dividido, Art. 27, Art. 6.4). Glosario tras B13b y B13c (TODO 268 y 269).
+
+---
+
+## Glosario: cuestionario preliminar tras B13b y B13c
+
+**Fecha:** 2026-10-22 · **Rama:** `docs/glosario-b13c` · **Migración:** no
+
+A petición del responsable, `glosario.md` incorpora (TODO 268 y 269):
+- **Clasificación AI Act:** subapartado **Clasificación preliminar** (la del cuestionario, orientativa).
+- **Supuestos AI Act:** se recogen también en el bloque **Supuestos AI Act** del alta y de la edición.
+- **Cuestionario preliminar:** propósito (clasificación preliminar y alta en el inventario), subapartado
+  **Cuestionario de origen** (vínculo, solo lectura, desvinculación al borrar el sistema) y «En el código» con
+  `classification`, el índice, el trigger, `to-aiact.ts` y `to-wizard.ts`. Se retira el TODO del vínculo sin uso.
