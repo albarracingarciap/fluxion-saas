@@ -54,6 +54,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: Evidencia tras B12 | Integrado en `main` | `docs/glosario-evidencia` | 2026-10-21 | No |
 | Terminología: «gap» y «exclusión» (fuera del plan) | Integrado en `main` | `docs/termino-exclusion-gap` | 2026-10-21 | **Sí** · `20261021130000_terminologia_gaps.sql` |
 | B13a · Motor único de clasificación AI Act | Integrado en `main` | `fase2/b13a-motor-ai-act` | 2026-10-22 | **Sí** · `20261022090000_ai_act_motor_unico.sql` |
+| Glosario: motor de clasificación tras B13a | Integrado en `main` | `docs/glosario-b13a` | 2026-10-22 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
