@@ -161,7 +161,7 @@ de cada uno está en [`_mapa.md`](_mapa.md).
 
 ### Servicios
 
-- [Servicio de agentes](tecnica/servicio-agentes.md): clasificación AI Act (motor de reglas y agente de IA) y asistente
+- [Servicio de agentes](tecnica/servicio-agentes.md): clasificación AI Act (eventos, conciliación y agente de IA, con el motor único de la web) y asistente
 - [RAG y corpus normativo](tecnica/rag.md): corpus, búsqueda vectorial y recuperación
 - [Generación de PDF](tecnica/generacion-pdf.md): renderer, composición HTML y registro inmutable
 - [Almacenamiento de ficheros](tecnica/almacenamiento-ficheros.md): MinIO/S3, Supabase Storage y copias de seguridad

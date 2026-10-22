@@ -9,6 +9,7 @@ fuente:
   - apps/web/app/(app)/inventario/page.tsx
   - apps/web/app/(app)/inventario/systems-table-client.tsx
   - apps/web/lib/supabase/middleware.ts
+  - apps/web/lib/ai-act/server.ts
 ---
 
 # Inventario
@@ -59,9 +60,16 @@ Orden: de más reciente a más antiguo. Sin paginación.
 |---|---|---|
 | **Sistema** | Nombre; debajo, versión y responsable | `ai_systems.name`, `version`, `ai_owner` |
 | **Dominio** | Finanzas y Banca, Seguros, Crédito y Scoring, Salud y Medicina, RRHH y Empleo, Educación, Seguridad Pública, Justicia y Legal, Migración, Infraestructura Crítica, Marketing, Operaciones, Atención al Cliente, Cumplimiento, Otro | `ai_systems.domain` |
-| **Clasificación AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · GPAI · Pendiente | `ai_systems.aiact_risk_level` ([nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act)) |
+| **Clasificación AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · GPAI · Pendiente. Los sistemas fuera del ámbito del AI Act o que no son IA aparecen como «Pendiente» | `ai_systems.aiact_risk_level` ([nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act)) |
 | **Estado** | Producción · Desarrollo · Piloto · Deprecado · Retirado | `ai_systems.status` |
 | **ISO 42001** | Porcentaje con barra, o «—» | `ai_systems.iso_42001_score` |
+
+> **Pendiente de implementar.** GPAI ya no es un nivel de riesgo: el motor único de clasificación (B13a)
+> no lo asigna. El valor y su filtro se mantienen para los sistemas existentes hasta su migración a la
+> [categoría GPAI](../glosario.md#categoría-gpai) (B13d).
+
+> TODO: confirmar cómo debe mostrar el listado los sistemas «Fuera del ámbito» y «No es un sistema de
+> IA», que hoy aparecen como «Pendiente» (`aiact_scope` no se lee en el listado).
 
 Filtros, que se aplican en el navegador y no se guardan en la URL:
 

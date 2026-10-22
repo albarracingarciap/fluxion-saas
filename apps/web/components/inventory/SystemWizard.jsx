@@ -1264,6 +1264,14 @@ export default function SystemWizard({
     if (result?.error) {
       setSaveError(result.error);
     } else {
+      if (result?.reclasificacion === 'no_disponible') {
+        // La clasificación se propone al servicio de clasificación (B13a); si no
+        // responde, los datos se guardan pero la clasificación no se revisa.
+        window.alert('Los cambios se han guardado, pero no se pudo revisar la clasificación AI Act: el servicio de clasificación no respondió. Usa «✏ Revisar clasificación» en la ficha.');
+      }
+      if (result?.reclasificacion === 'pendiente_previa') {
+        window.alert('Los cambios se han guardado, pero la clasificación no se ha revisado: el sistema ya tiene una reclasificación pendiente de conciliar. Concíliala en la ficha y, si hace falta, usa «✏ Revisar clasificación».');
+      }
       router.push(mode === 'create' ? '/inventario' : `/inventario/${systemId}`);
     }
   };

@@ -11,6 +11,8 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/editar/actions.ts
   - apps/web/components/inventory/SystemWizard.jsx
   - apps/web/lib/ai-systems/scoring.ts
+  - apps/web/lib/ai-act/server.ts
+  - services/agents/fluxion_agents/routes/classification.py
   - supabase/migrations/00000000000001_schema.sql
 ---
 
@@ -21,8 +23,8 @@ asistente de siete pasos que el [Alta de sistema](inventario-alta.md), con los d
 
 ## Propósito
 
-Mantener actualizada la información del sistema y recalcular su clasificación AI Act cuando cambian sus
-características.
+Mantener actualizada la información del sistema y proponer una nueva clasificación AI Act cuando cambian
+sus características.
 
 ## Acceso y permisos
 
@@ -57,17 +59,31 @@ Los mismos del [Alta de sistema](inventario-alta.md#campos), todos editables. Di
 | **✓ Guardar cambios** (paso 7) | Roles con permiso | Server action `updateAISystem` | Ver abajo. Después navega a la [Ficha del sistema](ficha-sistema.md) |
 
 `updateAISystem` hace lo siguiente:
-1. Recalcula la clasificación AI Act con las reglas del alta.
-2. Actualiza todos los campos del sistema, su nivel de riesgo, su base, su motivo y sus obligaciones.
-3. Registra en el [historial del sistema](../glosario.md#historial-del-sistema) dos eventos fijos, «Ficha
-   del sistema actualizada» y «Clasificación AI Act recalculada», sin el detalle de qué campos cambiaron.
+1. Clasifica el sistema con el motor único de clasificación AI Act (`classifyWithCatalog`), el mismo del
+   [Alta de sistema](inventario-alta.md#clasificación-con-el-motor-único).
+2. Actualiza los campos del sistema. No toca la clasificación vigente (nivel, base, motivo, obligaciones,
+   práctica prohibida, modelo GPAI) ni quién creó el sistema (`created_by`).
+3. Envía el resultado al servicio de agentes (`/api/v1/systems/{id}/reclassify`), que lo compara con la
+   clasificación vigente:
+   - **Si cambian el nivel de riesgo o las obligaciones:** abre una
+     [reclasificación](../glosario.md#reclasificación) pendiente, que se concilia en la
+     [Ficha del sistema](ficha-sistema.md) con **Confirmar cambios**.
+   - **Si no cambian:** actualiza el detalle de la clasificación vigente (fundamento, resultado del motor,
+     versión de las reglas, ámbito, categoría GPAI, supuestos AI Act y práctica prohibida) y retira la
+     marca «Pendiente de revisar con el motor nuevo».
+   - **Si ya hay una reclasificación pendiente:** no hace nada con la clasificación.
+4. Registra en el [historial del sistema](../glosario.md#historial-del-sistema) «Ficha del sistema
+   actualizada», sin el detalle de qué campos cambiaron, y, si se abrió una reclasificación,
+   «Reclasificación AI Act propuesta» (`classification_proposed`): «Con los datos editados, el motor
+   propone… Pendiente de conciliar en la ficha.».
 
-> TODO: confirmar tres comportamientos al guardar.
-> - Editar sobrescribe el campo de quién creó el sistema con quien lo edita.
-> - Editar no inicia una [reclasificación](../glosario.md#reclasificación) con conciliación de
->   obligaciones: cambia el nivel de riesgo del sistema, pero no sus obligaciones ni la versión de la
->   clasificación. Para eso hay que reclasificar desde la ficha.
-> - Se registra «Clasificación recalculada» aunque no haya cambiado nada.
+Si el servicio de agentes no responde, los cambios se guardan y aparece el aviso «Los cambios se han
+guardado, pero no se pudo revisar la clasificación AI Act: el servicio de clasificación no respondió. Usa
+«✏ Revisar clasificación» en la ficha.».
+
+Con una reclasificación ya pendiente, la edición se guarda y avisa: «Los cambios se han guardado, pero la
+clasificación no se ha revisado: el sistema ya tiene una reclasificación pendiente de conciliar. Concíliala en la
+ficha y, si hace falta, usa «✏ Revisar clasificación».».
 
 ## Validaciones
 

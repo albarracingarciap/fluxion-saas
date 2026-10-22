@@ -53,6 +53,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B12 · Biblioteca de evidencias única | Integrado en `main` | `fase2/b12-evidencias-unicas` | 2026-10-21 | **Sí** · `20261021120000_evidencias_biblioteca_unica.sql` |
 | Glosario: Evidencia tras B12 | Integrado en `main` | `docs/glosario-evidencia` | 2026-10-21 | No |
 | Terminología: «gap» y «exclusión» (fuera del plan) | Integrado en `main` | `docs/termino-exclusion-gap` | 2026-10-21 | **Sí** · `20261021130000_terminologia_gaps.sql` |
+| B13a · Motor único de clasificación AI Act | Integrado en `main` | `fase2/b13a-motor-ai-act` | 2026-10-22 | **Sí** · `20261022090000_ai_act_motor_unico.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -82,6 +83,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql` | B11g | Con sesión de usuario no se aprueban evidencias (`trg_evidence_review_rules`), AISIA (`trg_aisia_lifecycle_rules`) ni la Declaración (`trg_soa_lifecycle_rules`); abre la solicitud de las AISIA enviadas, evidencias pendientes y Declaraciones en revisión que no la tenían (o las devuelve a borrador) | **Antes** de desplegar B11g, después de las de B11e y B11f. Revisa el aviso `B11g: N solicitudes abiertas, M objetos devueltos a borrador` |
 | `supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql` | B12 | Copia `fluxion.evidences` a `system_evidences` con el mismo id; `treatment_actions.evidence_id` → `system_evidences`; la severidad residual solo pasa al FMEA con evidencia válida (si no, `evidence_pending`, que se completa al validarse); abre la revisión de las copias pendientes; `fluxion.evidences` queda como histórico | **Antes** de desplegar B12. Conviene una copia de seguridad previa y comparar recuentos: el aviso `B12: N evidencias de acciones en la biblioteca (…)` debe coincidir con `select count(*) from fluxion.evidences` |
 | `supabase/migrations/20261021130000_terminologia_gaps.sql` | Terminología | «gap» en la etiqueta de la bandeja, el nombre de la política por defecto de exclusión (si no se ha cambiado) y el mensaje del trigger | Antes o después de desplegar; solo cambia textos |
+| `supabase/migrations/20261022090000_ai_act_motor_unico.sql` | B13a | Columnas del motor en `ai_systems` (supuestos, ámbito, resultado, versión de reglas, GPAI, revisión pendiente); eventos con nivel `pending` o nulo; traduce las claves de obligación a los códigos del catálogo (archiva duplicadas); marca los sistemas existentes «Pendiente de revisar con el motor nuevo» | **Antes** de desplegar B13a, y **desplegar a la vez la web y el servicio de agentes** (cambia el contrato entre ambos). Revisa el aviso `B13a: N sistemas pendientes…; M obligaciones con código del catálogo` |
 
 ---
 
@@ -1332,3 +1334,40 @@ producto, y «excluir»/«exclusión» nombran la disposición de un gap.
 
 **Verificación.** Migración probada dos veces en el Postgres local. `tsc --noEmit` sin errores, `next lint` sin
 avisos.
+
+---
+
+## B13a · Motor único de clasificación AI Act
+
+**Fecha:** 2026-10-22 · **Rama:** `fase2/b13a-motor-ai-act` ·
+**Migración:** **sí**, `supabase/migrations/20261022090000_ai_act_motor_unico.sql` (aplicar antes de desplegar; web y
+servicio de agentes se despliegan juntos)
+
+**Problema** (GAP-07 a GAP-10; `I1`-`I4`, `I7`, `I10`, `I17`): dos motores de reglas (TypeScript en el alta y la
+edición; Python en la reclasificación) con reglas distintas, dominios inexistentes y sin regla de prohibido; GPAI
+como nivel de riesgo; obligaciones con dos vocabularios de códigos; la edición sobrescribía la clasificación sin
+evento; la conciliación dejaba la cabecera desactualizada y sin historial; **Sistemas detectados** no clasificaba.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Motor (`lib/ai-act`) | Puro, con las reglas `RN-A`, `RN-P`, `RN-H`, `RN-E`, `RN-T`, `RN-G`, `RN-R` y `RN-O` de la especificación, fundamento y avisos, y versión de reglas. Con supuestos AI Act aplica las reglas; sin ellos, una vía de respaldo por dominio y tipo de output (aviso «Clasificación aproximada»). GPAI deja de ser nivel (D3). Los 15 casos de la especificación son tests |
+| Datos (migración) | `ai_systems`: `aiact_inputs`, `aiact_scope` (DP-10), `aiact_result`, `aiact_rules_version`, `gpai_systemic_risk`, `gpai_third_party_based`, `aiact_review_pending`. Eventos con nivel `pending` o nulo. Obligaciones con los códigos del catálogo |
+| Servicio de agentes | Deja de clasificar por reglas: `/classify` y `/reclassify` reciben el resultado del motor; **Clasificar con IA** lo recibe como referencia, con el catálogo de códigos y un prompt corregido. La conciliación actualiza la cabecera completa y los campos revisados |
+| Web | Alta, edición, **✏ Revisar clasificación**, **Clasificar con IA**, **Sistemas detectados** y la pantalla de clasificación usan el motor. La edición propone la reclasificación (no la sobrescribe ni cambia el creador). Historial «Reclasificación AI Act propuesta» y «Clasificación AI Act conciliada» |
+| Ficha | «Fuera del ámbito» / «No es un sistema de IA», avisos del motor y la marca «Pendiente de revisar con el motor nuevo» (sistemas existentes, sin reclasificar en bloque) |
+| Retirado | Panel de clasificación con IA sin uso, sus rutas web y los endpoints Python asociados; `reviewSystemClassification` |
+
+**Verificación.** Motor: 17 tests (los 15 casos de la especificación y dos de control); `npm test` 66/66. Migración
+probada dos veces en el Postgres local (traducción de claves, Art. 53 unificado con la obligación más avanzada,
+eventos). `tsc --noEmit` sin errores, `next lint` sin avisos, `check-server-actions.sh` y `check-python.sh`
+correctos. **No se ha probado de punta a punta con el servicio de agentes en marcha** (alta, revisión, conciliación y
+clasificación con IA) ni en el navegador: conviene recorrerlo tras desplegar.
+
+**Documentación.** Funcionales del alta, la ficha, la edición, los descubrimientos, el inventario y el flujo
+completo; negocio de clasificación AI Act; técnicos del servicio de agentes, la API interna y el modelo de datos;
+`_incidencias.md` (`I1`-`I4`, `I7`, `I10`, `I17`; `I20` en parte); TODO 256 a 264 (262 ya resuelto).
+
+**Pendiente.** B13b (cuestionario y panel de clasificación preliminar), B13c (volcado al alta y bloque **Supuestos
+AI Act**), B13d (GPAI y catálogo de obligaciones: Art. 50 dividido, Art. 27, Art. 6.4).

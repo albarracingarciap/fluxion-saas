@@ -10,9 +10,13 @@ fuente:
   - apps/web/app/(app)/inventario/nuevo/actions.ts
   - apps/web/components/inventory/SystemWizard.jsx
   - apps/web/lib/ai-systems/scoring.ts
+  - apps/web/lib/ai-act/index.ts
+  - apps/web/lib/ai-act/fallback.ts
+  - apps/web/lib/ai-act/server.ts
   - apps/web/lib/ai-systems/history.ts
   - services/agents/fluxion_agents/routes/classification.py
   - supabase/migrations/00000000000001_schema.sql
+  - supabase/migrations/20261022090000_ai_act_motor_unico.sql
 ---
 
 # Alta de sistema
@@ -88,7 +92,7 @@ En la columna «Obligatorio»:
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
-| **¿Es este un sistema de inteligencia artificial?** | tarjetas | Sí | Sí, es un sistema de IA · Es un modelo GPAI · No, no es IA | `is_ai_system`, `is_gpai` |
+| **¿Es este un sistema de inteligencia artificial?** | tarjetas | Sí | Sí, es un sistema de IA · Es un modelo GPAI · No, no es IA. «Es un modelo GPAI» marca el sistema como IA y a la organización como proveedora de un modelo GPAI; no fija el nivel de riesgo | `is_ai_system`, `is_gpai` |
 | **¿Las salidas del sistema afectan directamente a personas físicas?** | tarjetas | Marcado | Solo si es IA | `affects_persons` |
 | **Procesa datos biométricos** | interruptor | No | Anexo III §1 | `uses_biometric_data` |
 | **Gestiona infraestructura crítica** | interruptor | No | Anexo III §2 | `manages_critical_infra` |
@@ -165,7 +169,7 @@ En la columna «Obligatorio»:
 | Bloque | Contenido |
 |---|---|
 | **Ficha del sistema** | Nombre, dominio, estado, versión, output, tipo de IA, si afecta a personas, supervisión, responsable y revisión |
-| **Clasificación AI Act · Preliminar** | [Nivel de riesgo](../glosario.md#nivel-de-riesgo-ai-act), base legal, motivo y principales obligaciones. Se calcula en el navegador con las mismas reglas que al guardar |
+| **Clasificación AI Act · Preliminar** | [Nivel de riesgo](../glosario.md#nivel-de-riesgo-ai-act), base legal, motivo y principales obligaciones. Se calcula en el navegador con el motor único de clasificación (`lib/ai-act`), el mismo que al guardar. Si el sistema no es IA o faltan datos para clasificar, muestra «—» y «Completa al menos dominio, tipo de output y si afecta a personas.». Las obligaciones de la vista previa son orientativas: las que se guardan salen del catálogo de obligaciones |
 | **Madurez ISO 42001** | Desde el paso 5. Puntuación de gobierno sobre 10 comprobaciones |
 | Cierre (paso 7) | «Listo para registrar», o «Registrar con N gap(s) crítico(s)» si falta documentación técnica, logging, pruebas de robustez, mecanismo de reclamación, DPIA o revisión del DPO |
 
@@ -180,18 +184,18 @@ En la columna «Obligatorio»:
 | **✓ Registrar sistema** (paso 7) | Todos | Server action `saveAISystem` | Ver abajo. Después navega al [Inventario](inventario.md) |
 
 `saveAISystem` hace lo siguiente:
-1. Recalcula la clasificación en el servidor.
-2. Crea la fila en `ai_systems` con el nivel de riesgo, su base, su motivo y sus obligaciones.
+1. Clasifica el sistema en el servidor con el motor único (`classifyWithCatalog`, de `lib/ai-act/server.ts`)
+   y calcula las obligaciones sugeridas a partir del catálogo `compliance.obligations` y de los roles en
+   la cadena de valor.
+2. Crea la fila en `ai_systems` con el nivel de riesgo, su base, su motivo, las etiquetas de las
+   obligaciones y el resultado completo del motor (ámbito, avisos, versión de las reglas, categoría GPAI).
+   Ver [Clasificación con el motor único](#clasificación-con-el-motor-único).
 3. Registra en el [historial del sistema](../glosario.md#historial-del-sistema) los eventos «Sistema
-   registrado» y «Clasificación AI Act calculada».
-4. Pide al servicio de agentes la clasificación inicial (`/api/v1/systems/{id}/classify`). Esta registra
-   la versión de clasificación y crea las obligaciones en estado «Sugerida». Si falla, el alta no se
-   bloquea.
-
-> TODO: confirmar qué clasificación manda. La que guarda el alta y la que registra el servicio de agentes
-> usan reglas distintas. Por ejemplo, la segunda no detecta prácticas prohibidas y no tiene reglas para
-> educación, salud, justicia o migración, así que el nivel del sistema y sus obligaciones pueden no
-> coincidir.
+   registrado» y «Clasificación AI Act calculada». Si la clasificación es aproximada, el resumen lo
+   indica: «(aproximación sin supuestos AI Act)».
+4. Envía el resultado del motor al servicio de agentes (`/api/v1/systems/{id}/classify`), que registra la
+   versión 1 de la clasificación y crea las obligaciones en estado «Sugerida» con los códigos del
+   catálogo (`AI-ACT-ART9`…). El servicio ya no clasifica por su cuenta. Si falla, el alta no se bloquea.
 
 ## Validaciones
 
@@ -206,24 +210,46 @@ En la columna «Obligatorio»:
 
 ## Estados
 
-El sistema se crea con el estado elegido en el paso 1 y el nivel de riesgo resultante, o «Pendiente» si
-no es IA o faltan datos.
+El sistema se crea con el estado elegido en el paso 1 y el resultado de la clasificación: un nivel de
+riesgo, «Pendiente de clasificar» si faltan datos, o «No es un sistema de IA» si así se ha indicado.
 
-### Reglas de clasificación al guardar
+### Clasificación con el motor único
 
-Se aplica la primera que se cumple:
+La clasificación la calcula el motor único de clasificación AI Act (`lib/ai-act`), el mismo que usan la
+edición, la reclasificación y la [Ficha del sistema](ficha-sistema.md). Las reglas están en la
+especificación [Cuestionario preliminar: reglas de clasificación](../producto/cuestionario-preliminar-reglas.md)
+y cada resultado guarda la versión de las reglas con la que se calculó (`aiact_rules_version`). El motor
+tiene dos vías:
 
-| # | Condición | Nivel |
+- **Con supuestos AI Act** (`supuestos`): aplica las reglas de la especificación a los supuestos guardados
+  en `ai_systems.aiact_inputs` (exclusiones del Art. 2, prácticas del Art. 5, Anexo I, Anexo III,
+  Art. 6.3, Art. 50 y GPAI).
+- **De respaldo** (`respaldo`): si el sistema no tiene supuestos, aproxima la clasificación con el
+  dominio, el tipo de output y los indicadores del paso 3. El resultado lleva el aviso «Clasificación
+  aproximada por dominio y tipo de output: faltan los supuestos del AI Act.».
+
+> **Pendiente de implementar.** El asistente todavía no recoge los supuestos AI Act: el bloque que los
+> pide y su paso desde el cuestionario preliminar llegan con B13b y B13c. Hasta entonces, el alta
+> clasifica siempre por la vía de respaldo.
+
+Reglas de la vía de respaldo; se aplica la primera que se cumple:
+
+| # | Condición | Resultado |
 |---|---|---|
-| 1 | No es un sistema de IA | Pendiente |
+| 1 | No es un sistema de IA | No es un sistema de IA (sin nivel de riesgo) |
 | 2 | Práctica prohibida | Práctica prohibida (Art. 5) |
-| 3 | Modelo GPAI | Modelo de IA de uso general (Art. 51-53) |
-| 4 | Biometría que afecta a personas | Alto riesgo (Anexo III §1) |
-| 5 | Infraestructura crítica | Alto riesgo (§2) |
-| 6 | Educación, RRHH o crédito, finanzas y seguros con decisiones, clasificación o predicción que afectan a personas | Alto riesgo (§3, §4, §5) |
-| 7 | Salud, seguridad, justicia o migración que afectan a personas | Alto riesgo |
-| 8 | Genera contenido o interactúa con personas | Riesgo limitado (Art. 50) |
-| 9 | Resto | Riesgo mínimo |
+| 3 | Biometría que afecta a personas | Alto riesgo (Anexo III §1) |
+| 4 | Infraestructura crítica (indicador o dominio) | Alto riesgo (§2) |
+| 5 | Educación, RRHH o crédito, finanzas y seguros con decisiones, clasificación o predicción que afectan a personas | Alto riesgo (§3, §4, §5) |
+| 6 | Salud, seguridad, justicia o migración que afectan a personas | Alto riesgo |
+| 7 | Genera contenido | Riesgo limitado (Art. 50.2) |
+| 8 | Interactúa con personas | Riesgo limitado (Art. 50.1) |
+| 9 | No se sabe si es IA o falta el tipo de output | Pendiente de clasificar |
+| 10 | Resto | Riesgo mínimo |
+
+El [modelo de IA de uso general (GPAI)](../glosario.md#categoría-gpai) ya no es un nivel de riesgo: un
+sistema marcado como modelo GPAI se clasifica por lo que hace, y la marca solo indica que la organización
+es proveedora de un modelo GPAI (`is_gpai`).
 
 ## Vistas relacionadas
 

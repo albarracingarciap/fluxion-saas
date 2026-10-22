@@ -802,6 +802,8 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
 - **Depende de:** B00 (los 15 casos de prueba de la especificación son los tests de aceptación); DP-10.
 - **Riesgo:** reclasificar los sistemas existentes cambiaría sus obligaciones. No reclasificar en bloque:
   marcar «Pendiente de revisar con el motor nuevo» y que cada organización concilie.
+- **Estado (2026-10-22).** B13a integrado (motor único, servicio de agentes sin reglas propias, códigos de
+  obligación del catálogo). Quedan B13b, B13c y B13d.
 
 ## Fase 3 · Conexión y simplificación
 

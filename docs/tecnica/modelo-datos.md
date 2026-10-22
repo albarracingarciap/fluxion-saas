@@ -39,6 +39,7 @@ fuente:
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
+  - supabase/migrations/20261022090000_ai_act_motor_unico.sql
 ---
 
 # Modelo de datos
@@ -125,9 +126,9 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level`, `value_chain_roles`, `owner_profile_id`, `human_oversight_owner_id`, `human_oversight_backup_id` (B23b), `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000` |
+| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level`, columnas del motor único de clasificación (B13a, ver abajo), `value_chain_roles`, `owner_profile_id`, `human_oversight_owner_id`, `human_oversight_backup_id` (B23b), `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000`, `20261022090000` |
 | `fluxion.ai_system_history` | [Historial del sistema](../glosario.md#historial-del-sistema) | `event_type`, `payload`, `actor_user_id` → `auth.users` | `00000000000001` |
-| `fluxion.classification_events` | [Clasificación AI Act](../glosario.md#clasificación-ai-act) | `version`, `method`, `risk_level`, `obligations_set`, `status`. Solo un `pending_reconciliation` por sistema | `00000000000001` |
+| `fluxion.classification_events` | [Clasificación AI Act](../glosario.md#clasificación-ai-act) | `version`, `method`, `risk_level` (admite nulo y `pending`; `gpai` solo para el histórico), `obligations_set` (códigos del catálogo), `status`. Solo un `pending_reconciliation` por sistema | `00000000000001`, `20261022090000` |
 | `fluxion.classification_diffs` | [Reclasificación](../glosario.md#reclasificación) | `diff_type` ∈ `added`, `removed`, `unchanged`; `resolution` | `00000000000001` |
 | `compliance.obligations` | [Obligación](../glosario.md#obligación) (catálogo) | `code` único, `framework`, `article`, `scope`, `applies_to_roles` | `00000000000005`, `20260904090000`, `20260911090000` |
 | `fluxion.system_obligations` | [Obligación](../glosario.md#obligación) (por sistema) | `obligation_code`, `status`, `priority`, `owner_user_id` → `auth.users` | `00000000000001` |
@@ -136,6 +137,33 @@ erDiagram
 | `fluxion.connector_connections`, `connector_sync_runs` | — | `connector_type` ∈ `mlflow`, `github`, `gitlab`; `secret_id` (Vault); estado de la última sincronización | `20260818100000` |
 
 `system_obligations` no tiene FK al catálogo: se relaciona por `obligation_code` (línea discontinua).
+Desde B13a, `obligation_code` y `obligation_key` guardan el código del catálogo (`AI-ACT-ART9`…).
+
+**Columnas del motor único de clasificación en `ai_systems`** (migración `20261022090000`):
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `aiact_inputs` | jsonb | Supuestos AI Act del sistema (exclusiones del Art. 2, prácticas del Art. 5, Anexo I, Anexo III, Art. 6.3, Art. 50, GPAI). Nulo: sin supuestos, clasificación de respaldo |
+| `aiact_scope` | text, por defecto `in_scope` | Ámbito del AI Act, aparte del nivel (DP-10): `in_scope`, `out_of_scope`, `not_ai_system` o `pending` |
+| `aiact_scope_reason` | text | Artículo y motivo si está fuera del ámbito |
+| `aiact_result` | jsonb | Resultado completo del motor: fundamento, avisos, vía del alto riesgo, Art. 6.3, Art. 50, GPAI y roles |
+| `aiact_rules_version` | text | Versión de las reglas con que se calculó (`AIACT_RULES_VERSION`) |
+| `is_gpai` | boolean | Redefinida (D3): la organización es proveedora de un modelo GPAI. Ya no es un nivel |
+| `gpai_systemic_risk` | text | `yes`, `no` o `unknown`; nulo si no aplica |
+| `gpai_third_party_based` | boolean, por defecto `false` | Sistema basado en un modelo GPAI de terceros (informativo) |
+| `aiact_review_pending` | boolean, por defecto `false` | Clasificado antes del motor único: «Pendiente de revisar con el motor nuevo» hasta que se concilia una reclasificación |
+
+> **Pendiente de implementar.** `aiact_risk_level` todavía admite `gpai`. Los sistemas con ese nivel se
+> migran a `is_gpai` y «Pendiente de clasificar» en B13d.
+
+**Datos que transforma la migración `20261022090000`:**
+- traduce las claves antiguas de obligación (`art_9`, `art_53_doc`, `art_53_copyright`,
+  `art_53_training`, textos «Art. N») al código del catálogo en `system_obligations`,
+  `classification_events.obligations_set` y `classification_diffs.obligation_key`; el `Art. 71` pasa a
+  `AI-ACT-ART49`. La función `fluxion.aiact_obligation_code(text)` hace la traducción;
+- archiva las obligaciones que quedan duplicadas en un mismo sistema (por ejemplo, las tres del
+  Art. 53), conservando la más avanzada;
+- marca `aiact_review_pending = true` en los sistemas sin resultado del motor. No reclasifica en bloque.
 
 ### Riesgo y tratamiento
 

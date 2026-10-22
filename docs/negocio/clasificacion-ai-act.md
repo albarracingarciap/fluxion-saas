@@ -6,8 +6,14 @@ modulo: clasificacion-ai-act
 audiencia: comercial
 version: 0.1
 fuente:
+  - apps/web/lib/ai-act/index.ts
+  - apps/web/lib/ai-act/rules.ts
+  - apps/web/lib/ai-act/fallback.ts
+  - apps/web/lib/ai-act/obligations.ts
   - apps/web/lib/ai-systems/scoring.ts
   - apps/web/app/(app)/inventario/nuevo/actions.ts
+  - apps/web/app/(app)/inventario/[id]/editar/actions.ts
+  - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
   - apps/web/app/(app)/inventario/actions/classification.ts
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
   - apps/web/components/classification/ReconciliationPanel.tsx
@@ -15,6 +21,7 @@ fuente:
   - services/agents/fluxion_agents/routes/classification.py
   - services/agents/fluxion_agents/prompts/classification.py
   - services/agents/fluxion_agents/rag/retriever.py
+  - supabase/migrations/20261022090000_ai_act_motor_unico.sql
 ---
 
 # Clasificación AI Act
@@ -37,9 +44,13 @@ mano es lento, poco homogéneo entre equipos y difícil de mantener cuando el si
 aporta:
 
 - **Propuesta inmediata:** al dar de alta un sistema se obtiene una primera clasificación por reglas.
+- **Un único criterio:** el alta, la edición, la revisión manual y la pantalla de clasificación aplican
+  las mismas reglas, de modo que un sistema no recibe conclusiones distintas según dónde se mire. Cada
+  resultado guarda su fundamento, los avisos sobre datos que faltan o se contradicen y la versión de las
+  reglas con que se calculó.
 - **Análisis asistido por IA:** el [Asistente de clasificación AI Act](../glosario.md#asistente-de-clasificación-ai-act)
   analiza el sistema con el texto del Reglamento y las guías de las autoridades, y señala cuándo su
-  conclusión no coincide con la del motor de reglas.
+  conclusión no coincide con la de las reglas.
 - **Decisión humana:** ningún cambio de clasificación se aplica hasta que una persona concilia sus
   efectos sobre las obligaciones.
 - **Versiones:** cada clasificación queda registrada con su método, su fecha y su autor. Si una
@@ -67,28 +78,36 @@ flowchart TD
   C --> D{¿Reclasificar?}
   D -->|Clasificar con IA| E[Propuesta del asistente<br/>con base normativa]
   D -->|Revisión manual| F[Factores ajustados<br/>por una persona]
-  E --> H{¿Cambian las<br/>obligaciones?}
+  D -->|Edición de los datos| G[Reclasificación<br/>propuesta]
+  E --> H{¿Cambian el nivel o<br/>las obligaciones?}
   F --> H
+  G --> H
   H -->|No| I[Se mantiene la clasificación]
   H -->|Sí| J[Conciliación de obligaciones<br/>por una persona] --> K[Nueva versión vigente]
 ```
 
-1. **Clasificación inicial.** Al dar de alta el sistema, un motor de reglas lo clasifica con un orden
+1. **Clasificación inicial.** Al dar de alta el sistema, el motor de clasificación de Fluxion lo
+   clasifica. Primero comprueba si el sistema está dentro del [ámbito del AI Act](../glosario.md#ámbito-del-ai-act): si no es un sistema de IA
+   o está excluido (por ejemplo, por uso exclusivamente militar o de investigación), el resultado es «No
+   es un sistema de IA» o «Fuera del ámbito», sin nivel de riesgo. Dentro del ámbito, aplica un orden
    fijo:
    - si presenta una práctica prohibida, es «Práctica prohibida»;
-   - si es un modelo de IA de uso general, «Modelo de IA de uso general»;
-   - si encaja en un supuesto del Anexo III (por ejemplo, biometría, empleo o servicios esenciales),
-     «Alto riesgo»;
+   - si encaja en un supuesto de alto riesgo (Anexo I o Anexo III, por ejemplo, biometría, empleo o
+     servicios esenciales), «Alto riesgo»;
    - si tiene obligaciones de transparencia, «Riesgo limitado»;
    - en el resto de casos, «Riesgo mínimo».
 
-   Mientras no se clasifica, figura como «Pendiente de clasificar». Con la clasificación se generan las
-   obligaciones sugeridas.
+   Si faltan datos para decidir, figura como «Pendiente de clasificar». Con la clasificación se generan
+   las obligaciones sugeridas, según el nivel de riesgo y el papel de la organización en la cadena de
+   valor.
 
-   > TODO: confirmar qué motor de reglas manda. En el alta intervienen dos: uno fija el nivel de riesgo
-   > con el orden descrito; el otro registra la versión de la clasificación y genera las obligaciones,
-   > pero no evalúa prácticas prohibidas y da prioridad al modelo de uso general sobre el resto. Con
-   > datos que indiquen una práctica prohibida, ambos pueden no coincidir.
+   El motor trabaja con los **supuestos del AI Act** de cada sistema (exclusiones, prácticas
+   prohibidas, anexos, excepciones y transparencia). Cuando un sistema no los tiene, hace una
+   **clasificación aproximada** a partir del sector de aplicación y del tipo de resultado, y la marca con
+   un aviso para que se revise.
+
+   > **Pendiente de implementar.** Recoger los supuestos del AI Act en el cuestionario preliminar y en el
+   > alta del sistema. Hasta entonces, las clasificaciones son aproximadas.
 2. **Clasificación con IA.** Desde la ficha se puede pedir una clasificación al asistente. Este sigue
    el árbol de decisión del AI Act:
    - prácticas prohibidas (Art. 5);
@@ -97,15 +116,17 @@ flowchart TD
    - transparencia (Art. 50);
    - papel de proveedor o responsable del despliegue.
 
-   Se apoya en el [corpus normativo](../glosario.md#corpus-normativo) y usa el motor de reglas como
-   referencia: si sus conclusiones no coinciden, lo indica en la explicación. Si la clasificación
+   Se apoya en el [corpus normativo](../glosario.md#corpus-normativo) y usa el resultado del motor de
+   clasificación como referencia: si sus conclusiones no coinciden, lo indica en la explicación. Si la clasificación
    propuesta es la misma que la vigente, Fluxion lo comunica y no cambia nada.
 3. **Revisión manual.** Una persona puede ajustar los factores que determinan la clasificación (dominio,
    tipo de resultado, si afecta a personas, biometría, infraestructura crítica, modelo de uso general…).
    Antes de guardar ve la clasificación resultante y sus obligaciones.
-4. **[Reclasificación](../glosario.md#reclasificación).** Tanto la clasificación con IA como la revisión
-   manual, si cambian el conjunto de obligaciones, crean una reclasificación pendiente. Solo puede haber
-   una por sistema, y se puede cancelar.
+4. **[Reclasificación](../glosario.md#reclasificación).** La clasificación con IA, la revisión manual y
+   la edición de los datos del sistema, si cambian el nivel de riesgo o el conjunto de obligaciones,
+   crean una reclasificación pendiente. Editar los datos del sistema nunca cambia la clasificación por sí
+   solo: la propone y queda constancia en el historial del sistema. Solo puede haber una reclasificación
+   pendiente por sistema, y se puede cancelar.
 5. **Conciliación de obligaciones.** Si la nueva clasificación cambia el conjunto de obligaciones,
    Fluxion muestra la diferencia y pide una decisión:
    - **Obligaciones nuevas:** se aceptan o se excluyen.
@@ -114,23 +135,31 @@ flowchart TD
    - **Obligaciones que desaparecen sin trabajo:** se archivan automáticamente.
    - **Obligaciones que no cambian:** se conservan.
 
-   Al terminar, la nueva clasificación pasa a ser la vigente y la anterior queda en el histórico.
+   Al terminar, la nueva clasificación pasa a ser la vigente, con su nivel, su fundamento y su
+   explicación; la anterior queda en el histórico y el historial del sistema registra la conciliación.
 
 Un sistema clasificado como «Práctica prohibida» no puede desplegarse en la UE: Fluxion lo indica como
 retirada o rediseño obligatorio.
 
-> TODO: confirmar el tratamiento comercial de «Modelo de IA de uso general». En el AI Act es una
-> categoría de modelo, no un nivel de riesgo de sistema, pero Fluxion la guarda como nivel.
+**Modelos de IA de uso general.** No son un nivel de riesgo, sino una
+[categoría aparte](../glosario.md#categoría-gpai): un sistema basado en un modelo de uso general se
+clasifica por lo que hace. Si la organización es proveedora de un modelo de uso general, se le suman las
+obligaciones de proveedor de modelo (Art. 53, y Art. 55 si el modelo tiene riesgo sistémico).
 
-> **Pendiente de implementar.** Mostrar el razonamiento del asistente en directo y las fuentes
-> normativas consultadas. Existe un panel con esa función, pero ninguna pantalla lo usa todavía.
+> **Pendiente de implementar.** Los sistemas que ya figuraban con el nivel «Modelo de IA de uso general»
+> se trasladarán a la categoría aparte y quedarán «Pendiente de clasificar».
+
+**Sistemas clasificados antes del motor actual.** No se reclasifican de forma automática: muestran el
+aviso «Pendiente de revisar con el motor nuevo» hasta que una persona revisa su clasificación y concilia
+el resultado.
 
 ## Relación normativa
 
 | Norma | Referencia | Qué cubre la clasificación |
 |---|---|---|
+| AI Act | Art. 2 y Art. 3.1 | Ámbito de aplicación: exclusiones y definición de sistema de IA |
 | AI Act | Art. 5 | Detección de prácticas prohibidas |
-| AI Act | Art. 6, Anexo I y Anexo III | Determinación del alto riesgo, por ámbito de uso o como componente de seguridad de un producto regulado |
+| AI Act | Art. 6, Anexo I y Anexo III | Determinación del alto riesgo, por ámbito de uso o como componente de seguridad de un producto regulado, y excepción del Art. 6.3 |
 | AI Act | Art. 50 | Obligaciones de transparencia (riesgo limitado) |
 | AI Act | Art. 3.63 y Art. 51 a 55 | Modelos de IA de uso general y riesgo sistémico |
 | AI Act | Art. 3.3, 3.4 y 25 | Papel de proveedor o responsable del despliegue |
