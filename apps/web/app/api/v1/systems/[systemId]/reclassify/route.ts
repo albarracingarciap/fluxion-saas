@@ -1,54 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
-const AGENT_URL = process.env.AGENT_SERVER_URL || 'http://localhost:8001'
+import { createClient } from '@/lib/supabase/server'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
+import {
+  callClassificationService,
+  classifyWithCatalog,
+  enginePayload,
+  fallbackFieldsFromRow,
+  loadAiActCatalog,
+} from '@/lib/ai-act/server'
+import type { AiActInputs, FallbackFields } from '@/lib/ai-act'
 
-async function getUserToken(): Promise<string | null> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set() {},
-        remove() {},
-      },
-    }
-  )
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token || null
-}
-
+/**
+ * Reclasificación desde **✏ Revisar clasificación** (B13a).
+ *
+ * El servidor clasifica con el motor único: los supuestos AI Act del sistema
+ * si los tiene; si no, los campos de la ventana sobre los de la ficha. El
+ * servicio Python solo compara con la clasificación vigente y abre la
+ * conciliación. Los campos de la ventana viajan en el evento y se guardan en
+ * la ficha al conciliar.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: { systemId: string } }
 ) {
-  const token = await getUserToken()
-  if (!token) {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
-  const body = await request.json()
+  const body = (await request.json().catch(() => ({}))) as { fields?: Partial<FallbackFields> & Record<string, unknown>; review_notes?: string }
 
-  const agentResponse = await fetch(
-    `${AGENT_URL}/api/v1/systems/${params.systemId}/reclassify`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+  // RLS: solo se lee si el sistema es de la organización del usuario.
+  const { data: row } = await createFluxionClient()
+    .from('ai_systems')
+    .select('*')
+    .eq('id', params.systemId)
+    .maybeSingle()
+  if (!row) return NextResponse.json({ error: 'Sistema no encontrado' }, { status: 404 })
+
+  const fields: FallbackFields = { ...fallbackFieldsFromRow(row), ...(body.fields ?? {}) }
+  const classification = classifyWithCatalog({
+    inputs: (row.aiact_inputs as AiActInputs | null) ?? null,
+    fields,
+    roles: (row.value_chain_roles as string[] | null) ?? [],
+    catalog: await loadAiActCatalog(),
+  })
+
+  let res
+  try {
+    res = await callClassificationService({
+      path: `/api/v1/systems/${params.systemId}/reclassify`,
+      accessToken: session.access_token,
+      body: {
+        classification: enginePayload(classification),
+        factors: body.fields ?? {},
+        review_notes: body.review_notes,
       },
-      body: JSON.stringify(body),
-    }
-  )
-
-  const data = await agentResponse.json()
-
-  if (!agentResponse.ok) {
-    return NextResponse.json(data, { status: agentResponse.status })
+    })
+  } catch (err) {
+    console.error('[reclassify] No se pudo conectar con el servicio de clasificación:', err)
+    return NextResponse.json({ error: 'No se pudo conectar con el servicio de clasificación.' }, { status: 503 })
   }
-
-  return NextResponse.json(data)
+  return NextResponse.json(res.data, { status: res.ok ? 200 : res.status })
 }

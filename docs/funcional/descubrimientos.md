@@ -9,6 +9,8 @@ fuente:
   - apps/web/app/(app)/inventario/descubrimientos/page.tsx
   - apps/web/app/(app)/inventario/descubrimientos/descubrimientos-client.tsx
   - apps/web/app/(app)/inventario/descubrimientos/actions.ts
+  - apps/web/lib/ai-act/server.ts
+  - apps/web/lib/ai-act/fallback.ts
   - apps/web/app/(app)/layout.tsx
   - supabase/migrations/20260818140000_connectors_discovered_assets.sql
   - supabase/migrations/20260827090000_shadow_ai.sql
@@ -81,17 +83,26 @@ valor, pero conviene rotarlas…».
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Vincular a un sistema** › seleccionar › **Vincular** | Roles con permiso | `linkDiscovery`: comprueba que el sistema es de la organización y pasa a `linked` | A partir de ahí, el conector publica [señales](../glosario.md#señal-de-riesgo) en el historial de ese sistema |
-| **Crear sistema nuevo** › **Crear y vincular ›** | Roles con permiso | `createSystemFromDiscovery`: crea el sistema con nombre, dominio y estado (Desarrollo por defecto) y lo vincula | Navega a la [Ficha del sistema](ficha-sistema.md) del sistema nuevo |
+| **Crear sistema nuevo** › **Crear y vincular ›** | Roles con permiso | `createSystemFromDiscovery`: crea el sistema con nombre, dominio y estado (Desarrollo por defecto), lo clasifica con el motor único de clasificación AI Act y lo vincula | Navega a la [Ficha del sistema](ficha-sistema.md) del sistema nuevo |
 | **Descartar** | Roles con permiso | `ignoreDiscovery`: pasa a `ignored` con el motivo | — |
 | **Reabrir** | Roles con permiso | `reopenDiscovery`: vuelve a `pending` y borra la decisión anterior | No borra el sistema creado, si lo hubo |
 
 Ninguna acción escribe en el historial del sistema ni en el registro de auditoría.
 
+**Clasificación al crear.** Como solo se conocen el nombre, el dominio y el estado, el motor usa la vía de
+respaldo (ver [Alta de sistema](inventario-alta.md#clasificación-con-el-motor-único)) y el sistema queda
+normalmente «Pendiente de clasificar», con el aviso «Clasificación aproximada por dominio y tipo de output:
+faltan los supuestos del AI Act.» en la ficha. Con el dominio Infraestructura crítica queda en «Alto
+riesgo» (Anexo III §2). Se guardan el resultado del motor, las etiquetas de las obligaciones sugeridas,
+quién lo clasificó y cuándo. `created_by` guarda el usuario (`auth.users.id`), como en el alta desde el
+asistente.
+
 > TODO: confirmar el alta desde un sistema detectado.
 > - El sistema se crea solo con nombre, dominio y estado, sin la descripción, las versiones ni el enlace
 >   del activo.
-> - A diferencia del [Alta de sistema](inventario-alta.md), no se clasifica automáticamente ni deja
->   evento en el historial.
+> - A diferencia del [Alta de sistema](inventario-alta.md), no registra la versión de la clasificación
+>   en el servicio de agentes, así que no crea obligaciones en estado «Sugerida», ni deja evento en el
+>   historial.
 > - El selector de dominio muestra los códigos internos y no los nombres.
 
 ## Validaciones

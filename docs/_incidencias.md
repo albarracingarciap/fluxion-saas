@@ -108,26 +108,26 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 
 | Id | Incidencia | Tipo | Prior. | Verif. | Ref. |
 |---|---|---|---|---|---|
-| I1 | **Dos motores de reglas.** El TypeScript (alta y edición) y el Python (reclasificación) difieren en prácticas prohibidas, biometría, infraestructura crítica, educación, salud, seguridad, justicia, migración y Art. 50 | Incongruencia | Alta | Código | 26, 80, 201 |
-| I2 | El motor Python compara con los dominios `finanzas_banca` y `atencion_cliente`, que no existen: esos sistemas salen `minimal` | Error | Alta | Código | 201 |
-| I3 | El motor Python no tiene regla de prohibido e ignora `prohibited_practice` | Error | Alta | Código | 201 |
-| I4 | La clasificación con IA descarta `art_5`: un sistema prohibido queda sin obligaciones | Error | Alta | Análisis | 191, 202 |
+| I1 | **✔ Resuelta en B13a** (requiere la migración `20261022090000`): un solo motor, `lib/ai-act`; el servicio Python ya no clasifica por reglas. **Dos motores de reglas.** El TypeScript (alta y edición) y el Python (reclasificación) difieren en prácticas prohibidas, biometría, infraestructura crítica, educación, salud, seguridad, justicia, migración y Art. 50 | Incongruencia | Alta | Código | 26, 80, 201 |
+| I2 | **✔ Resuelta en B13a:** el motor Python se ha retirado. El motor Python compara con los dominios `finanzas_banca` y `atencion_cliente`, que no existen: esos sistemas salen `minimal` | Error | Alta | Código | 201 |
+| I3 | **✔ Resuelta en B13a:** el motor Python se ha retirado. El motor Python no tiene regla de prohibido e ignora `prohibited_practice` | Error | Alta | Código | 201 |
+| I4 | **✔ Resuelta en B13a:** el agente usa los códigos del catálogo (`AI-ACT-ART5`…) y se validan contra él. La clasificación con IA descarta `art_5`: un sistema prohibido queda sin obligaciones | Error | Alta | Análisis | 191, 202 |
 | I5 | `classify` no actualiza el nivel de riesgo de la ficha, y la acción de alta no comprueba la respuesta | Error | Media | Código | 201 |
 | I6 | La reconciliación no es atómica y no valida la resolución elegida | Error | Media | Análisis | 191, 203 |
-| I7 | **Revisar clasificación** no envía tres factores que sí usa la vista previa | Error | Media | Análisis | 84 |
+| I7 | **✔ Resuelta en B13a:** la revisión envía todos los factores de la ventana. **Revisar clasificación** no envía tres factores que sí usa la vista previa | Error | Media | Análisis | 84 |
 | I8 | Al recargar con una reclasificación pendiente, la reconciliación ya no se puede abrir | Error | Media | Análisis | 88 |
 | I9 | Resolver o excluir una obligación nacida de una reconciliación crea un duplicado | Error | Media | Análisis | 89 |
-| I10 | Reclasificar y conciliar no dejan historial ni actualizan la justificación de la cabecera | Carencia | Media | Análisis | 90 |
+| I10 | **✔ Resuelta en B13a:** la conciliación actualiza la cabecera completa y deja «Clasificación AI Act conciliada» en el historial. Reclasificar y conciliar no dejan historial ni actualizan la justificación de la cabecera | Carencia | Media | Análisis | 90 |
 | I11 | Alta: el **Tipo de output** admite varias opciones, pero solo se guarda la primera | Error | Media | Análisis | 78 |
 | I12 | Alta: la madurez ISO 42001 de la vista previa no se guarda | Error | Baja | Análisis | 79 |
 | I13 | Alta: los datos de los campos que se ocultan se guardan igualmente | Error | Baja | Análisis | 81 |
 | I14 | Ficha: **Exportar PDF** y **Abrir agente** no hacen nada | Error | Media | Análisis | 82 |
 | I15 | Ficha: varios eventos del historial aparecen como «Evento» y no se pueden filtrar | Error | Baja | Análisis | 85 |
 | I16 | Ficha: el modal de evidencias permite fijar «Válida» sin revisión y solo admite URL | Incongruencia | Media | Análisis | 86 |
-| I17 | Edición: sobrescribe quién creó el sistema y no inicia reconciliación | Error | Media | Análisis | 92 |
+| I17 | **✔ Resuelta en B13a:** la edición no toca `created_by` y propone una reclasificación que se concilia en la ficha. Edición: sobrescribe quién creó el sistema y no inicia reconciliación | Error | Media | Análisis | 92 |
 | I18 | Edición: los roles sin permiso recorren el asistente entero y fallan al guardar | Carencia | Baja | Análisis | 91 |
 | I19 | Sistemas detectados: los hallazgos se ordenan por gravedad como texto (los críticos al final) | Error | Media | Análisis | 93 |
-| I20 | Sistemas detectados: el alta crea el sistema sin descripción ni enlace y no lo clasifica | Carencia | Media | Análisis | 94 |
+| I20 | **✔ Resuelta en parte en B13a:** el sistema ya se clasifica (normalmente «Pendiente de clasificar»); siguen faltando la descripción y el enlace. Sistemas detectados: el alta crea el sistema sin descripción ni enlace y no lo clasifica | Carencia | Media | Análisis | 94 |
 | I21 | Inventario: **Próximas revisiones** mide antigüedad, no revisiones reales | Incongruencia | Baja | Análisis | 77 |
 | I22 | Las obligaciones de cada sistema no salen del catálogo; el cálculo por rol en la cadena de valor solo lo usa una pantalla sin uso | Incongruencia | Media | Código | 29, 179 |
 | I23 | El tratamiento de GPAI como nivel de riesgo no coincide con el AI Act, donde es una categoría de modelo | Decisión | Media | — | 8, 27 |

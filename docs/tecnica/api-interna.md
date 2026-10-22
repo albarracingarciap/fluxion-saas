@@ -13,6 +13,7 @@ fuente:
   - apps/web/app/api/v1/systems/[systemId]/reclassify-ai/route.ts
   - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
   - apps/web/app/api/v1/systems/[systemId]/classification-events/[eventId]/route.ts
+  - apps/web/lib/ai-act/server.ts
   - apps/web/app/api/documents/v1/renders/[id]/download/route.ts
   - apps/web/app/api/organization/upload-logo/route.ts
   - apps/web/app/api/user/upload-avatar/route.ts
@@ -32,7 +33,7 @@ servicio de agentes a los que reenvían. La API para sistemas externos está en
 | Grupo | Ruta Next | Destino | Llamado desde |
 |---|---|---|---|
 | Asistente | `/api/agent/assistant/*` | Servicio de agentes, `routes/assistant.py` | `components/assistant/AssistantPanel.tsx` |
-| Clasificación | `/api/v1/systems/[systemId]/*` | Servicio de agentes, `routes/classification.py` | `inventario/[id]/system-detail-client.tsx`, `components/classification/ReconciliationPanel.tsx` |
+| Clasificación | `/api/v1/systems/[systemId]/*` | Motor único de clasificación (`lib/ai-act`) y servicio de agentes, `routes/classification.py` | `inventario/[id]/system-detail-client.tsx`, `components/classification/ReconciliationPanel.tsx` |
 | Documentos | `/api/documents/v1/renders/[id]/download` | MinIO/S3 | [Expediente documental](../funcional/expediente-documental.md), [Aprobaciones](../funcional/aprobaciones.md) |
 | Ficheros de perfil | `/api/organization/upload-logo`, `/api/user/upload-avatar` | Supabase Storage | [Organización](../funcional/organizacion.md), [Onboarding](../funcional/onboarding.md), [Perfil](../funcional/perfil.md) |
 
@@ -52,18 +53,21 @@ sequenceDiagram
 ```
 
 La clasificación inicial de un sistema nuevo no pasa por estas rutas. La server action del
-[alta de sistema](../funcional/inventario-alta.md) llama directamente a
-`POST /api/v1/systems/{id}/classify` del servicio de agentes.
+[alta de sistema](../funcional/inventario-alta.md) clasifica con el motor único y envía el resultado
+directamente a `POST /api/v1/systems/{id}/classify` del servicio de agentes. La server action de la
+[edición de la ficha](../funcional/ficha-sistema-edicion.md) hace lo mismo con
+`POST /api/v1/systems/{id}/reclassify`.
 
 ## Modelo de datos
 
 | Objeto | Tipo | Campos clave | Lo escribe |
 |---|---|---|---|
 | `fluxion.assistant_conversations` | tabla | `user_id`, `organization_id`, `title`, `messages` (jsonb), `context_page`, `context_system`, `last_message_at` | Asistente |
-| `fluxion.classification_events` | tabla | `ai_system_id`, `version`, `method` (`manual_review`, `ai_agent`), `status` (`pending_reconciliation`, `reconciled`, `superseded`), `classification_factors` | Reclasificación |
+| `fluxion.classification_events` | tabla | `ai_system_id`, `version`, `method` (`initial`, `manual_review`, `ai_agent`), `status` (`pending_reconciliation`, `reconciled`, `superseded`), `obligations_set` (códigos del catálogo), `classification_factors` | Clasificación inicial y reclasificación |
 | `fluxion.classification_diffs` | tabla | `event_id`, obligación, cambio (`added`, `removed`, `unchanged`), `resolution`, `resolution_note` | Reclasificación y reconciliación |
 | `fluxion.system_obligations` | tabla | `status`, `exclusion_justification`, `archived_at` | Reconciliación |
-| `fluxion.ai_systems` | tabla | `aiact_risk_level`, `current_classification_event_id` | Reconciliación |
+| `fluxion.ai_systems` | tabla | Cabecera de la clasificación (`aiact_risk_level`, `aiact_risk_basis`, `aiact_risk_reason`, `aiact_obligations`, `aiact_scope`, `aiact_result`, GPAI, `aiact_review_pending`…), `current_classification_event_id` | Reconciliación |
+| `fluxion.ai_system_history` | tabla | Evento `classification_reconciled` | Ruta `reconcile` |
 | `fluxion.document_renders` | tabla | PDF generados; lectura filtrada por RLS | — |
 | `fluxion.organizations.logo_url` | columna | URL pública del logo | Subida del logo |
 
@@ -143,32 +147,38 @@ data: {"type": "complete", "conversation_id": "0b6c…"}
 
 | Método | Ruta Next | Ruta en el servicio de agentes | Descripción |
 |---|---|---|---|
-| `POST` | `/api/v1/systems/[systemId]/reclassify` | `/api/v1/systems/{id}/reclassify` | Revisión manual con el motor de reglas |
-| `POST` | `/api/v1/systems/[systemId]/reclassify-ai` | `/api/v1/systems/{id}/reclassify/ai` | Clasificación con IA |
-| `POST` | `/api/v1/systems/[systemId]/reconcile` | `/api/v1/systems/{id}/reconcile` | Aplica las decisiones sobre los cambios |
+| `POST` | `/api/v1/systems/[systemId]/reclassify` | `/api/v1/systems/{id}/reclassify` | Revisión manual: clasifica con el motor único en la web |
+| `POST` | `/api/v1/systems/[systemId]/reclassify-ai` | `/api/v1/systems/{id}/reclassify/ai` | Clasificación con IA, con el motor único como referencia |
+| `POST` | `/api/v1/systems/[systemId]/reconcile` | `/api/v1/systems/{id}/reconcile` | Aplica las decisiones sobre los cambios y registra el evento en el historial |
 | `DELETE` | `/api/v1/systems/[systemId]/classification-events/[eventId]` | ídem | Cancela una reclasificación pendiente |
 
 **`reclassify`:**
-- **Entrada:** `{factors, review_notes?}`, con `factors`:
-  - obligatorios: `domain`, `output_type`, `affects_persons`;
-  - opcionales, `false` por defecto: `has_biometric`, `is_gpai`, `manages_critical_infrastructure`,
-    `affects_vulnerable_groups`, `involves_minors`;
-  - opcional: `intended_use`.
-- **Proceso:**
-  1. Ejecuta el motor de reglas.
-  2. Compara el resultado con la última clasificación reconciliada.
-  3. Si hay cambios, crea un evento `pending_reconciliation`, con versión n+1 y una diferencia por
-     obligación.
-  4. Las diferencias sin cambio se conservan, y las retiradas sin trabajo hecho se archivan.
+- **Entrada (ruta Next):** `{fields, review_notes?}`, con los campos de la ventana **✏ Revisar
+  clasificación**: `domain`, `intendedUse`, `outputType`, `interactsPersons`, `isAISystem`, `isGPAI`,
+  `prohibitedPractice`, `affectsPersons`, `vulnerableGroups`, `hasMinors`, `biometric`, `criticalInfra`.
+- **Proceso en la ruta Next:**
+  1. Lee el sistema con el cliente de sesión (RLS); 404 «Sistema no encontrado» si no es de la
+     organización.
+  2. Clasifica con el motor único (`classifyWithCatalog`): con los supuestos de `aiact_inputs` si los
+     hay; si no, con los campos de la ventana sobre los de la ficha.
+  3. Envía al servicio `{classification, factors, review_notes}`, donde `classification` es el
+     `EngineClassification` y `factors` los campos de la ventana.
+- **Proceso en el servicio:**
+  1. Compara el nivel y los códigos de obligación con la última clasificación reconciliada.
+  2. Si hay cambios, crea un evento `pending_reconciliation`, con versión n+1, el resultado del motor en
+     `classification_factors` y una diferencia por obligación.
+  3. Las diferencias sin cambio se conservan, y las retiradas sin trabajo hecho se archivan.
 
 **`reclassify-ai`:**
-- **Entrada:** sin cuerpo.
+- **Entrada (ruta Next):** sin cuerpo.
 - **Proceso:**
-  1. Ejecuta el motor de reglas como referencia.
-  2. Recupera 8 fragmentos del corpus.
+  1. La ruta Next clasifica el sistema con el motor único y lo envía como referencia: `{reference}`.
+  2. El servicio recupera 8 fragmentos del corpus y añade al prompt la referencia y el catálogo de
+     obligaciones.
   3. Llama a OpenAI.
-  4. Valida el nivel de riesgo (`prohibited`, `high`, `limited`, `minimal`, `gpai`) y las obligaciones.
-  5. Si el nivel difiere del del motor de reglas, marca `divergence`.
+  4. Valida el nivel de riesgo (`prohibited`, `high`, `limited`, `minimal`) y descarta las obligaciones
+     que no están en el catálogo.
+  5. Si el nivel difiere del del motor único, marca `divergence`.
   6. El cálculo de las diferencias es el mismo que en `reclassify`.
 
 **Respuesta de las dos:**
@@ -182,8 +192,13 @@ data: {"type": "complete", "conversation_id": "0b6c…"}
   - Una obligación añadida y aceptada se crea como pendiente; si se excluye, se crea como excluida con su
     justificación.
   - Las retiradas que se archivan quedan marcadas.
-  - El evento pasa a `reconciled`, los anteriores a `superseded`, y se actualiza el nivel de riesgo del
-    sistema.
+  - El evento pasa a `reconciled` y los anteriores a `superseded`.
+  - Se actualiza la cabecera de la clasificación en `ai_systems`: nivel, base, justificación, etiquetas
+    de las obligaciones, práctica prohibida y `aiact_review_pending = false`; si el evento trae el
+    resultado del motor, también ámbito, resultado, versión de las reglas, GPAI y supuestos; y los campos
+    editados en la ventana de revisión. Ver [Servicio de agentes](servicio-agentes.md#motor-único-de-clasificación).
+  - Si el servicio responde bien, la ruta Next registra en el historial del sistema el evento
+    `classification_reconciled`, «Clasificación AI Act conciliada». Si falla, no bloquea la respuesta.
 - **Respuesta:** `{"data":{"event_id","version","message":"Clasificación actualizada a versión N."}}`.
 
 **`DELETE classification-events`:** borra un evento en `pending_reconciliation` y responde
@@ -193,27 +208,25 @@ data: {"type": "complete", "conversation_id": "0b6c…"}
 
 | Código | Mensaje |
 |---|---|
-| 404 | «Sistema no encontrado o sin acceso» |
+| 404 | «Sistema no encontrado o sin acceso»; en las rutas Next `reclassify` y `reclassify-ai`, «Sistema no encontrado» |
 | 409 | «Hay una reclasificación pendiente de reconciliación. Resuelve los cambios antes de iniciar una nueva clasificación.» |
 | 404 | «Evento de clasificación no encontrado o ya reconciliado.» |
 | 422 | «Falta decisión para la obligación '{label}'.» / «La obligación '{label}' requiere una nota para ser {resolución}.» |
 | 502 | «Error del agente IA: …» / «El agente devolvió una respuesta sin formato JSON válido.» |
-| 503 | «Cliente OpenAI no disponible»; en el proxy, «No se pudo conectar con el agente de clasificación…» |
+| 503 | «Cliente OpenAI no disponible»; en la ruta `reclassify-ai`, «No se pudo conectar con el agente de clasificación…»; en la ruta `reclassify`, «No se pudo conectar con el servicio de clasificación.» |
 
 ```http
 POST /api/v1/systems/7d1e…/reclassify
-{"factors":{"domain":"rrhh","output_type":"decision","affects_persons":true},"review_notes":"Cambio de uso"}
+{"fields":{"domain":"rrhh","outputType":"decision","affectsPersons":true,"isAISystem":true},"review_notes":"Cambio de uso"}
 
-200 {"data":{"has_changes":true,"event_id":"e2a9…","version":2,"risk_level":"high","risk_label":"Alto Riesgo"}}
+200 {"data":{"has_changes":true,"event_id":"e2a9…","version":2,"risk_level":"high","risk_label":"Alto riesgo"}}
 ```
 
 > TODO: confirmar varios comportamientos de la clasificación.
-> - **Sistemas prohibidos:** la clasificación con IA pierde su obligación del Art. 5, porque no figura
->   entre las obligaciones admitidas.
 > - **Reconciliación:** no es atómica, y no se comprueba que la resolución elegida sea válida para el tipo
 >   de cambio.
-> - **Proxys:** varios no controlan que el servicio de agentes esté caído o responda algo que no es JSON,
->   y devuelven un error 500.
+> - **Proxy de `reconcile`:** no controla que el servicio de agentes esté caído o responda algo que no es
+>   JSON, y devuelve un error 500.
 
 ### Documentos
 

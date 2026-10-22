@@ -1,34 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+
+import { createClient } from '@/lib/supabase/server'
+import { createFluxionClient } from '@/lib/supabase/fluxion'
+import {
+  classifyWithCatalog,
+  enginePayload,
+  fallbackFieldsFromRow,
+  loadAiActCatalog,
+} from '@/lib/ai-act/server'
+import type { AiActInputs, FallbackFields } from '@/lib/ai-act'
 
 const AGENT_URL = process.env.AGENT_SERVER_URL || 'http://localhost:8001'
 
-async function getUserToken(): Promise<string | null> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set() {},
-        remove() {},
-      },
-    }
-  )
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token || null
-}
-
+/**
+ * **Clasificar con IA** (B13a): el agente clasifica con RAG y el resultado del
+ * motor único viaja como referencia para detectar divergencias.
+ */
 export async function POST(
   _request: NextRequest,
   { params }: { params: { systemId: string } }
 ) {
-  const token = await getUserToken()
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
   if (!token) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
+
+  const { data: row } = await createFluxionClient()
+    .from('ai_systems')
+    .select('*')
+    .eq('id', params.systemId)
+    .maybeSingle()
+  if (!row) return NextResponse.json({ error: 'Sistema no encontrado' }, { status: 404 })
+
+  const fields: FallbackFields = fallbackFieldsFromRow(row)
+  const reference = enginePayload(classifyWithCatalog({
+    inputs: (row.aiact_inputs as AiActInputs | null) ?? null,
+    fields,
+    roles: (row.value_chain_roles as string[] | null) ?? [],
+    catalog: await loadAiActCatalog(),
+  }))
 
   let agentResponse: Response
   try {
@@ -40,6 +52,7 @@ export async function POST(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify({ reference }),
       }
     )
   } catch (err) {

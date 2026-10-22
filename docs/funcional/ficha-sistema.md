@@ -19,7 +19,13 @@ fuente:
   - apps/web/components/classification/ClassificationHistorySection.tsx
   - apps/web/app/api/v1/systems/[systemId]/reclassify-ai/route.ts
   - apps/web/app/api/v1/systems/[systemId]/reclassify/route.ts
+  - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
+  - apps/web/lib/ai-act/index.ts
+  - apps/web/lib/ai-act/obligations.ts
+  - apps/web/lib/ai-act/server.ts
+  - apps/web/lib/ai-systems/scoring.ts
   - services/agents/fluxion_agents/routes/classification.py
+  - supabase/migrations/20261022090000_ai_act_motor_unico.sql
   - apps/web/app/(app)/inventario/[id]/responsables-card.tsx
   - apps/web/app/(app)/inventario/[id]/responsables-actions.ts
   - apps/web/lib/approvals/open.ts
@@ -97,20 +103,29 @@ o un Responsable del sistema:
 
 **Clasificación AI Act — Resultado general:**
 - Nivel de riesgo, con la versión de la clasificación vigente, su método (clasificación inicial, revisión
-  manual, agente IA o motor de reglas), el autor y la fecha.
+  manual, agente IA o motor de reglas), el autor y la fecha. Si el sistema está fuera del ámbito del AI Act
+  (`aiact_scope`), en lugar del nivel muestra «Fuera del ámbito» o «No es un sistema de IA».
 - Fundamento, explicación y obligaciones.
+- Bajo la explicación, los avisos del motor único de clasificación (`aiact_result.warnings`), por ejemplo
+  «Clasificación aproximada por dominio y tipo de output: faltan los supuestos del AI Act.».
+- Si el sistema se clasificó antes del motor único (`aiact_review_pending`) y no hay una reclasificación
+  pendiente, la insignia «Pendiente de revisar con el motor nuevo». Al pasar el cursor: «Se clasificó
+  antes del motor único. Usa ✏ Revisar clasificación para revisarlo con las reglas actuales.». Desaparece
+  al conciliar una reclasificación.
 
 **Obligaciones aplicables:**
 
 | Columna | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|
 | Obligación | Título de la [obligación](../glosario.md#obligación) | `system_obligations.obligation_label` / `title` |
-| Referencia | Artículo o clave | `obligation_key` / `obligation_code` |
+| Referencia | Código del catálogo (`AI-ACT-ART9`…) | `obligation_key` / `obligation_code` |
 | Estado | Pendiente · En progreso · Resuelta · Bloqueada · Excluida | `status` |
 | Evidencias | Sin evidencias · En curso · Documentada (alguna válida) · Resuelta · Bloqueada · Excluida | Evidencias vinculadas |
 
 En sistemas antiguos sin obligaciones registradas, la lista se deriva de la clasificación guardada en
-el sistema y se puede aceptar con **Aceptar sugerencias**.
+el sistema y se puede aceptar con **Aceptar sugerencias**. Al aceptar o excluir, el texto de la cabecera
+(«Art. 9 — …») se traduce al código del catálogo (`catalogCodeFromRef`), para que case con las
+obligaciones ya guardadas.
 
 **Resolver obligación** (modal):
 
@@ -127,7 +142,8 @@ el sistema y se puede aceptar con **Aceptar sugerencias**.
 > (`owner_user_id`).
 
 **Revisar clasificación** (modal): permite ajustar los factores y ver la clasificación resultante antes
-de guardarla.
+de guardarla. La vista previa y el servidor usan el mismo motor único de clasificación; si el sistema
+tiene supuestos AI Act, estos mandan sobre los factores de la ventana.
 
 | Campo | Tipo | Descripción y valores |
 |---|---|---|
@@ -135,15 +151,13 @@ de guardarla.
 | **Tipo de output** | selector | Sin definir o uno de los tipos |
 | **Uso previsto** | texto | — |
 | **¿Afecta directamente a personas físicas?** | Sí · No · Sin definir | Necesario para el alto riesgo por dominio |
-| **Factores de clasificación** | casillas | Es un sistema de IA · Es modelo GPAI · Puede ser práctica prohibida · Procesa datos biométricos · Gestiona infraestructura crítica · Interactúa directamente con personas · Afecta a grupos vulnerables (informativo) · Involucra menores (informativo) |
+| **Factores de clasificación** | casillas | Es un sistema de IA · Es modelo GPAI · Puede ser práctica prohibida · Procesa datos biométricos · Gestiona infraestructura crítica · Interactúa directamente con personas · Afecta a grupos vulnerables (informativo) · Involucra menores (informativo). «Es modelo GPAI» no fija un nivel de riesgo: marca a la organización como proveedora de un modelo GPAI |
 | **Notas de revisión** | texto largo | — |
 
 La columna derecha muestra la clasificación actual, la clasificación recalculada y las obligaciones
-resultantes.
-
-> TODO: confirmar los factores de **Revisar clasificación**. La revisión no envía al servidor tres de
-> ellos (es sistema de IA, práctica prohibida, interactúa con personas), aunque la vista previa sí los
-> usa.
+resultantes. Todos los factores viajan al servidor. Al conciliar la reclasificación, los campos de la
+ventana (salvo «Es modelo GPAI» y «Puede ser práctica prohibida», que se derivan del resultado) se
+guardan en la ficha del sistema.
 
 **Historial de clasificaciones:** tarjetas por versión, activa o superada, con método, autor, fecha,
 fundamento, notas y cambios en las obligaciones.
@@ -234,9 +248,9 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Clasificar con IA** | Todos | Pide al servicio de agentes una nueva clasificación con IA, apoyada en el [corpus normativo](../glosario.md#corpus-normativo), con el motor de reglas como referencia | Si cambia el conjunto de obligaciones, crea una [reclasificación](../glosario.md#reclasificación) pendiente. Si no, avisa «El agente IA ha confirmado la clasificación actual — no hay cambios.» |
-| **✏ Revisar clasificación** › **Guardar revisión** | Todos | Reclasificación manual con los factores del modal | Ídem |
-| **Confirmar cambios** (reconciliación) | Todos | Concilia las obligaciones nuevas (aceptar o excluir con motivo) y las que desaparecen con trabajo hecho (conservar o archivar con nota) | La nueva clasificación pasa a vigente y actualiza el nivel de riesgo del sistema |
+| **Clasificar con IA** | Todos | Pide al servicio de agentes una nueva clasificación con IA, apoyada en el [corpus normativo](../glosario.md#corpus-normativo), con el resultado del motor único como referencia | Si cambian el nivel de riesgo o el conjunto de obligaciones, crea una [reclasificación](../glosario.md#reclasificación) pendiente. Si no, avisa «El agente IA ha confirmado la clasificación actual — no hay cambios.» |
+| **✏ Revisar clasificación** › **Guardar revisión** | Todos | Reclasificación manual: el servidor clasifica con el motor único y los factores del modal | Ídem. Si no hay cambios: «La clasificación no ha cambiado. El conjunto de obligaciones se mantiene.» |
+| **Confirmar cambios** (reconciliación) | Todos | Concilia las obligaciones nuevas (aceptar o excluir con motivo) y las que desaparecen con trabajo hecho (conservar o archivar con nota) | La nueva clasificación pasa a vigente: actualiza el nivel, el fundamento, la explicación, las obligaciones y el ámbito de la cabecera, y retira «Pendiente de revisar con el motor nuevo». Historial «Clasificación AI Act conciliada» |
 | **Cancelar reclasificación** | Todos | Descarta la reclasificación pendiente | La borra |
 | **Aceptar** / **Aceptar sugerencias** | Todos | `acceptSystemObligations` | Crea las obligaciones en Pendiente. Historial «Obligaciones aceptadas» |
 | **Excluir** | Todos | `excludeSystemObligation`, con justificación obligatoria | Historial «Obligación excluida» |
@@ -274,16 +288,16 @@ No hay botones de aprobar ni rechazar. Ver [AISIA](aisia.md).
 > TODO: confirmar el comportamiento con obligaciones nacidas de una reconciliación. Al resolverlas o
 > excluirlas, se crea una obligación duplicada en lugar de actualizarse.
 
-> TODO: confirmar el efecto de reclasificar y conciliar en el resto de la ficha.
-> - No dejan evento en el historial.
-> - No actualizan la explicación ni el fundamento que muestra la cabecera.
+> TODO: confirmar el alcance de conciliar una clasificación con IA. Actualiza el nivel, el fundamento y
+> la explicación, pero no el ámbito ni los avisos del motor, que siguen siendo los de la clasificación
+> anterior.
 
 ## Validaciones
 
 | Situación | Mensaje |
 |---|---|
 | Ya hay una reclasificación pendiente | «Hay una reclasificación pendiente de reconciliación. Resuelve los cambios antes de iniciar una nueva clasificación.» |
-| Servicio de agentes no disponible | «No se pudo conectar con el agente de clasificación…» |
+| Servicio de agentes no disponible | En **Clasificar con IA**, «Error: No se pudo conectar con el agente de clasificación…»; en **✏ Revisar clasificación**, «Error al reclasificar. Intenta de nuevo.» |
 | Falta una decisión en la reconciliación | «Faltan decisiones en N obligación/es.» |
 | Excluir sin justificación | «Por favor, indica una justificación para la exclusión.» |
 | Evidencia de otro sistema | «Alguna de las evidencias seleccionadas no pertenece a este sistema.» |

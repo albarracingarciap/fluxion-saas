@@ -1,3 +1,5 @@
+import { classifySystem, type AiActInputs, type FallbackFields, type ValueChainRole } from '@/lib/ai-act';
+
 const ART_HIGH = [
   'Art. 9 — Sistema de gestión de riesgos',
   'Art. 10 — Gobernanza de datos de entrenamiento',
@@ -8,7 +10,7 @@ const ART_HIGH = [
   'Art. 15 — Precisión, robustez y ciberseguridad',
   'Art. 16 — Obligaciones del proveedor',
   'Art. 43 — Evaluación de conformidad',
-  'Art. 71 — Registro en EU AI Office',
+  'Art. 49 — Registro en la base de datos de la UE',
 ];
 
 const ISO_CHECKS = [
@@ -24,153 +26,37 @@ const ISO_CHECKS = [
   { key: 'hasAdversarialTest', label: 'Test de robustez', points: 7 },
 ];
 
+/**
+ * Vista previa de la clasificación AI Act con la forma que esperan el asistente
+ * de alta y la ventana de revisión. Desde B13a delega en el motor único
+ * (`lib/ai-act`): con supuestos (`aiactInputs`) aplica las reglas; sin ellos,
+ * la vía de respaldo. GPAI ya no es un nivel (D3). Las obligaciones son una
+ * orientación: las definitivas salen del catálogo en el servidor.
+ */
 export function classifyAIAct(f: Record<string, unknown>) {
-  if (f.isAISystem === false) return null;
-  if (f.prohibitedPractice) {
-    return {
-      level: 'prohibited',
-      label: '⛔ Práctica Prohibida',
-      basis: 'Art. 5 — Prohibición absoluta',
-      reason: 'El sistema tiene características que corresponden a prácticas prohibidas. NO puede desplegarse en la UE.',
-      obls: [
-        '⛔ Despliegue prohibido en la UE',
-        'Retirada o rediseño obligatorio',
-        'Art. 5 — Sistemas de manipulación, scoring social, biometría remota en tiempo real',
-      ],
-    };
+  const r = classifySystem({
+    inputs: (f.aiactInputs as AiActInputs | null | undefined) ?? null,
+    fields: f as FallbackFields,
+    roles: (Array.isArray(f.valueChainRoles) ? f.valueChainRoles : []) as ValueChainRole[],
+  });
+  if (r.scope === 'not_ai_system') return null;
+  if (r.scope === 'out_of_scope') {
+    return { level: 'out_of_scope', label: r.display.label, basis: r.display.basis, reason: r.display.reason, obls: [] as string[] };
   }
+  if (r.level === 'pending' && r.method === 'respaldo') return null;
 
-  if (f.isGPAI) {
-    return {
-      level: 'gpai',
-      label: 'Modelo GPAI',
-      basis: 'Art. 51-53 — IA de uso general',
-      reason: 'Modelo de propósito general. Obligaciones de transparencia, documentación y —si hay riesgo sistémico— Art. 55.',
-      obls: [
-        'Art. 53 — Documentación técnica',
-        'Art. 53 — Política de copyright',
-        'Art. 53 — Resumen de datos de entrenamiento',
-        'Art. 55 — Riesgo sistémico (si aplica)',
-      ],
-    };
+  const obls: string[] = [];
+  if (r.level === 'prohibited') {
+    obls.push('⛔ Despliegue prohibido en la UE', 'Retirada o rediseño obligatorio', 'Art. 5 — Prácticas prohibidas');
+  } else {
+    if (r.level === 'high' && !(r.highRiskRoute?.annex === 'I' && r.highRiskRoute.section === 'B')) obls.push(...ART_HIGH);
+    for (const t of r.transparency) obls.push(`Art. ${t.article} — Transparencia (${t.obligated === 'provider' ? 'proveedor' : 'responsable del despliegue'})`);
+    if (r.gpai.modelProvider) {
+      obls.push('Art. 53 — Obligaciones del proveedor de modelo GPAI');
+      if (r.gpai.systemicRisk === 'yes') obls.push('Art. 55 — Riesgo sistémico');
+    }
   }
-
-  const hi = f.affectsPersons;
-  const outputType = f.outputType;
-  const domain = f.domain;
-
-  if (f.biometric && hi) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §1 — Biometría',
-      reason: 'Sistema que procesa datos biométricos de personas físicas para identificación remota o categorización.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (f.criticalInfra || f.domain === 'infra') {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §2 — Infraestructura crítica',
-      reason: 'Sistema que gestiona componentes de infraestructura crítica (energía, agua, transporte...).',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (domain === 'educacion' && hi && ['decision', 'clasificacion', 'prediccion'].includes(String(outputType))) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §3 — Educación y formación',
-      reason: 'Sistema que determina el acceso a formación, evalúa a estudiantes o afecta su trayectoria educativa.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (domain === 'rrhh' && hi && ['decision', 'clasificacion', 'prediccion'].includes(String(outputType))) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §4 — Empleo y RRHH',
-      reason: 'Sistema que interviene en selección, evaluación, promoción o despido de personas trabajadoras.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if ((domain === 'credito' || domain === 'finanzas' || domain === 'seguros') && hi && ['decision', 'prediccion', 'clasificacion'].includes(String(outputType))) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §5 — Servicios financieros esenciales',
-      reason: 'Sistema que evalúa solvencia, asigna crédito o determina condiciones de seguros para personas.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (domain === 'salud' && hi) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §5 / Anexo I — Salud',
-      reason: 'Sistema en el ámbito sanitario que puede afectar diagnósticos, tratamientos o decisiones clínicas.',
-      obls: [...ART_HIGH, 'MDR/IVDR (si aplica como producto sanitario)'],
-    };
-  }
-
-  if ((domain === 'seguridad' || domain === 'justicia') && hi) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §6/8 — Seguridad / Justicia',
-      reason: 'Sistema usado en seguridad pública, aplicación de la ley o administración de justicia.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (domain === 'migracion' && hi) {
-    return {
-      level: 'high',
-      label: 'Alto Riesgo',
-      basis: 'Anexo III §7 — Migración y fronteras',
-      reason: 'Sistema que afecta decisiones sobre visados, asilo o control fronterizo.',
-      obls: ART_HIGH,
-    };
-  }
-
-  if (outputType === 'generacion') {
-    return {
-      level: 'limited',
-      label: 'Riesgo Limitado',
-      basis: 'Art. 50.2/50.4 — Contenido sintético',
-      reason: 'Sistema que genera texto, imágenes u otro contenido sintético. Obligación de disclosure y marcado.',
-      obls: [
-        'Art. 50.2 — Marcar contenido como generado por IA',
-        'Art. 50.4 — Deep fakes: consentimiento o disclosure claro',
-      ],
-    };
-  }
-
-  if (f.interactsPersons) {
-    return {
-      level: 'limited',
-      label: 'Riesgo Limitado',
-      basis: 'Art. 50.1 — Interacción con personas',
-      reason: 'Sistema que interactúa directamente con personas (chatbot, asistente). Debe informar de su naturaleza IA.',
-      obls: ['Art. 50.1 — Disclosure obligatorio: el usuario debe saber que interactúa con IA'],
-    };
-  }
-
-  if (f.isAISystem === null || !outputType) return null;
-
-  return {
-    level: 'minimal',
-    label: 'Riesgo Mínimo',
-    basis: 'Sin categoría específica AI Act',
-    reason: 'No se han identificado factores que activen categorías de riesgo del AI Act. Buenas prácticas voluntarias recomendadas.',
-    obls: [],
-  };
+  return { level: r.level ?? 'pending', label: r.display.label, basis: r.display.basis, reason: r.display.reason, obls, result: r };
 }
 
 export function getStatusWeight(val: unknown) {

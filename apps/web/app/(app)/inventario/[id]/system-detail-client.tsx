@@ -43,6 +43,7 @@ import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFai
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
+import { catalogCodeFromRef } from '@/lib/ai-act';
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog';
 import { ReconciliationPanel } from '@/components/classification/ReconciliationPanel';
 import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
@@ -172,6 +173,11 @@ export type SystemDetailData = {
   aiact_obligations: string[] | null;
   aiact_classified_at: string | null;
   aiact_classified_by: string | null;
+  /** Motor único (B13a). */
+  aiact_scope?: 'in_scope' | 'out_of_scope' | 'not_ai_system' | 'pending' | null;
+  aiact_scope_reason?: string | null;
+  aiact_result?: { method?: string; warnings?: Array<{ rule: string; text: string }>; rulesVersion?: string } | null;
+  aiact_review_pending?: boolean | null;
   processes_personal_data: boolean | null;
   data_categories: string[] | null;
   special_categories: string[] | null;
@@ -1736,7 +1742,13 @@ export function SystemDetailClient({
   );
 
   const domainMeta = DOMAIN_LABELS[system.domain] ?? DOMAIN_LABELS.otro;
-  const riskMeta = RISK_CONFIG[liveRiskLevel] ?? RISK_CONFIG[system.aiact_risk_level] ?? RISK_CONFIG.pending;
+  // Fuera del ámbito o no es IA: el nivel no aplica (DP-10, B13a).
+  const riskMeta = system.aiact_scope === 'out_of_scope'
+    ? { ...RISK_CONFIG.pending, label: 'Fuera del ámbito' }
+    : system.aiact_scope === 'not_ai_system'
+      ? { ...RISK_CONFIG.pending, label: 'No es un sistema de IA' }
+      : RISK_CONFIG[liveRiskLevel] ?? RISK_CONFIG[system.aiact_risk_level] ?? RISK_CONFIG.pending;
+  const avisosMotor = system.aiact_result?.warnings ?? [];
   const statusMeta = STATUS_CONFIG[system.status] ?? STATUS_CONFIG.deprecado;
 
   const obligations = useMemo(() => {
@@ -1776,7 +1788,8 @@ export function SystemDetailClient({
     );
 
     return (system.aiact_obligations ?? []).map((obligation) => {
-      const ref = obligation.split(' — ')[0] ?? obligation;
+      // Código del catálogo (B13a): casa con las obligaciones ya guardadas.
+      const ref = catalogCodeFromRef(obligation) ?? obligation.split(' — ')[0] ?? obligation;
       const persisted = persistedByCode.get(ref) ?? persistedByCode.get(obligation);
       const heuristicStatus = obligationStatusFromSystem(system, obligation);
       const systemStatus = persisted ? persisted.status : heuristicObligationStatus(heuristicStatus);
@@ -2475,17 +2488,22 @@ export function SystemDetailClient({
       const response = await fetch(`/api/v1/systems/${system.id}/reclassify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // El servidor clasifica con el motor único (B13a) y guarda estos campos
+        // en la ficha al conciliar.
         body: JSON.stringify({
-          factors: {
+          fields: {
             domain: classificationForm.domain,
-            output_type: classificationForm.outputType,
-            affects_persons: classificationForm.affectsPersons ?? false,
-            has_biometric: classificationForm.biometric ?? false,
-            is_gpai: classificationForm.isGPAI ?? false,
-            manages_critical_infrastructure: classificationForm.criticalInfra ?? false,
-            affects_vulnerable_groups: classificationForm.vulnerableGroups ?? false,
-            involves_minors: classificationForm.hasMinors ?? false,
-            intended_use: classificationForm.intendedUse || undefined,
+            intendedUse: classificationForm.intendedUse || null,
+            outputType: classificationForm.outputType,
+            interactsPersons: classificationForm.interactsPersons ?? false,
+            isAISystem: classificationForm.isAISystem ?? null,
+            isGPAI: classificationForm.isGPAI ?? false,
+            prohibitedPractice: classificationForm.prohibitedPractice ?? false,
+            affectsPersons: classificationForm.affectsPersons ?? false,
+            vulnerableGroups: classificationForm.vulnerableGroups ?? false,
+            hasMinors: classificationForm.hasMinors ?? false,
+            biometric: classificationForm.biometric ?? false,
+            criticalInfra: classificationForm.criticalInfra ?? false,
           },
           review_notes: classificationForm.reviewNotes || undefined,
         }),
@@ -2692,6 +2710,15 @@ export function SystemDetailClient({
                             Reclasificación v{pendingReconciliation.version} pendiente de reconciliación
                           </div>
                         )}
+                        {!pendingReconciliation && system.aiact_review_pending && (
+                          <div
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-ordim border border-orb font-sora text-[11px] text-or"
+                            title="Se clasificó antes del motor único. Usa ✏ Revisar clasificación para revisarlo con las reglas actuales."
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            Pendiente de revisar con el motor nuevo
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <button
                             onClick={handleAiClassify}
@@ -2719,6 +2746,16 @@ export function SystemDetailClient({
                     <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-4 border-l-2 border-re pl-3 ml-0.5">
                       {system.aiact_risk_reason ?? 'Aún no hay explicación narrativa disponible para esta clasificación.'}
                     </div>
+                    {avisosMotor.length > 0 && (
+                      <ul className="mb-4 space-y-1">
+                        {avisosMotor.map((w) => (
+                          <li key={w.rule + w.text} className="flex items-start gap-1.5 font-sora text-[12px] text-or">
+                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                            <span>{w.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <div className="flex gap-2 flex-wrap">
                       {(() => {
                         const badges = obligationRecords.length > 0

@@ -11,11 +11,11 @@ import { runClassificationEngine } from './actions';
 const NIVEL: Record<string, { label: string; texto: string; borde: string }> = {
   prohibited:     { label: 'Práctica prohibida', texto: 'text-re',   borde: 'border-re' },
   high:           { label: 'Alto riesgo',        texto: 'text-re',   borde: 'border-re' },
-  gpai:           { label: 'Propósito general',  texto: 'text-or',   borde: 'border-orb' },
   limited:        { label: 'Riesgo limitado',    texto: 'text-or',   borde: 'border-orb' },
   minimal:        { label: 'Riesgo mínimo',      texto: 'text-gr',   borde: 'border-grb' },
   pending:        { label: 'Sin determinar',     texto: 'text-lttm', borde: 'border-ltb' },
   not_ai_system:  { label: 'No es un sistema de IA', texto: 'text-lttm', borde: 'border-ltb' },
+  out_of_scope:   { label: 'Fuera del ámbito',  texto: 'text-lttm', borde: 'border-ltb' },
 };
 
 const ROL: Record<string, string> = {

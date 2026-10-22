@@ -14,6 +14,10 @@ fuente:
   - apps/web/app/(app)/dashboard/page.tsx
   - apps/web/lib/dashboard/data.ts
   - apps/web/app/(app)/inventario/nuevo/actions.ts
+  - apps/web/app/(app)/inventario/[id]/editar/actions.ts
+  - apps/web/app/(app)/inventario/descubrimientos/actions.ts
+  - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
+  - apps/web/lib/ai-act/server.ts
   - apps/web/app/(app)/inventario/actions/classification.ts
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
   - apps/web/app/(app)/inventario/[id]/modos-de-fallo/actions.ts
@@ -358,9 +362,12 @@ flowchart LR
 - **Estados:** Borrador · Completado.
 
 > **⚠ GAP-07 · El cuestionario no alimenta el alta.** Sus respuestas no se usan para clasificar ni para
-> crear el sistema: hay que volver a introducirlas en el asistente (`E20`).
+> crear el sistema: hay que volver a introducirlas en el asistente (`E20`). B13a deja preparado el motor
+> único de clasificación que compartirán el cuestionario y el alta, y el campo donde se guardan los
+> supuestos AI Act del sistema, pero todavía no hay ninguna pantalla que los recoja.
 >
-> **Pendiente de implementar.** Clasificación y alta del sistema a partir del cuestionario.
+> **Pendiente de implementar.** Clasificación del cuestionario con el motor único (B13b) y alta del
+> sistema a partir del cuestionario, con el bloque «Supuestos AI Act» (B13c).
 
 ### 4.2 Alta de sistema
 
@@ -371,16 +378,18 @@ flowchart LR
 
   | Dato (paso) | Qué condiciona |
   |---|---|
-  | ¿Es IA? · GPAI · práctica prohibida · biometría · infraestructura crítica · dominio · tipo de output · afecta a personas (1-3) | Nivel de riesgo AI Act, obligaciones y [suelo AI Act](../glosario.md#suelo-ai-act) |
+  | ¿Es IA? · GPAI · práctica prohibida · biometría · infraestructura crítica · dominio · tipo de output · afecta a personas (1-3) | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai), obligaciones y [suelo AI Act](../glosario.md#suelo-ai-act) |
   | Rol en la cadena de valor (5) | Obligaciones aplicables y documentos (por ejemplo, FRIA) |
   | Datos personales y categorías especiales (4) | Avisos de DPIA y sección S2 de la AISIA |
   | Periodicidad y próxima revisión (6) | Fecha de próxima auditoría en la ficha |
   | Etiquetas (1) | Inclusión en el alcance de la Declaración de Aplicabilidad |
   | Documentación, logging, supervisión, evaluación de riesgos (7) | Lista de comprobación del registro UE y deducciones del informe de brechas |
 
-- **Al registrar:** se clasifica con el motor de reglas, se guarda el sistema, se registran «Sistema
-  registrado» y «Clasificación AI Act calculada» en el historial y se pide al servicio de agentes la
-  clasificación inicial, que crea las obligaciones en estado **Sugerida**.
+- **Al registrar:** se clasifica con el motor único de clasificación AI Act, se guarda el sistema con el
+  resultado, se registran «Sistema registrado» y «Clasificación AI Act calculada» en el historial y se
+  envía el resultado al servicio de agentes, que registra la versión 1 de la clasificación y crea las
+  obligaciones en estado **Sugerida**. Mientras el alta no recoja los supuestos AI Act (B13c), la
+  clasificación es aproximada, por dominio y tipo de output, y lo indica con un aviso.
 
 > **💡 Sugerencia.** Definir las **etiquetas** del sistema en el alta pensando en el alcance de la
 > Declaración de Aplicabilidad (por ejemplo, `sgai`). Sin etiquetas de alcance en la Declaración, entran
@@ -391,9 +400,11 @@ flowchart LR
 - **Vista:** [Sistemas detectados](descubrimientos.md). Requiere un conector configurado.
 - **Acciones:** **Vincular a un sistema**, **Crear sistema nuevo** o **Descartar** con motivo.
 
-> **⚠ GAP-08 · El alta desde un sistema detectado no clasifica.** Crea el sistema solo con nombre,
-> dominio y estado, sin clasificación, sin obligaciones y sin evento en el historial (`I20`). Hay que
-> completar la ficha con **✏ Editar ficha** y clasificar desde la ficha.
+> **✔ GAP-08 · Resuelto en parte en B13a.** El alta desde un sistema detectado ya clasifica con el motor
+> único. Como solo se conocen el nombre, el dominio y el estado, el resultado suele ser «Pendiente de
+> clasificar», con el aviso de que faltan datos. Sigue sin registrar la versión de la clasificación ni las
+> obligaciones sugeridas, ni deja evento en el historial (`I20`). Hay que completar la ficha con
+> **✏ Editar ficha**, que propone la reclasificación.
 
 ---
 
@@ -419,10 +430,13 @@ flowchart TD
    su fundamento. Si no es correcto:
    - **Clasificar con IA**: propuesta del [asistente de clasificación](../glosario.md#asistente-de-clasificación-ai-act)
      con base en el [corpus normativo](../glosario.md#corpus-normativo);
-   - **✏ Revisar clasificación**: ajuste manual de los factores.
+   - **✏ Revisar clasificación**: ajuste manual de los factores; el servidor reclasifica con el motor
+     único.
 
-   Si cambia el conjunto de obligaciones, se abre una [reclasificación](../glosario.md#reclasificación)
-   pendiente que hay que conciliar con **Confirmar cambios**.
+   Si cambia el nivel de riesgo o el conjunto de obligaciones, se abre una
+   [reclasificación](../glosario.md#reclasificación) pendiente que hay que conciliar con **Confirmar
+   cambios**. Los sistemas clasificados antes del motor único muestran «Pendiente de revisar con el motor
+   nuevo» hasta que se concilia una reclasificación.
 2. **Aceptar o excluir obligaciones.** **Aceptar sugerencias** las pasa a «Pendiente». **Excluir** pide
    justificación.
 3. **Trabajar cada obligación.** **Resolver →**: estado (Pendiente, En progreso, Resuelta, Bloqueada),
@@ -431,15 +445,23 @@ flowchart TD
 - **Aprobación:** no hay. Ni la clasificación ni la conciliación ni la resolución de obligaciones pasan
   por un aprobador.
 - **Evidencias:** cada obligación se respalda con evidencias del sistema (ver [fase 8](#10-fase-8--evidencias)).
-- **Rastro:** historial del sistema (aceptar, excluir, resolver).
+- **Rastro:** historial del sistema (clasificación calculada, reclasificación propuesta al editar,
+  clasificación conciliada, aceptar, excluir, resolver).
 
-> **⚠ GAP-09 · Dos motores de clasificación.** El del alta y el de la reclasificación aplican reglas
-> distintas; el segundo no detecta prácticas prohibidas y falla en varios dominios. Un sistema prohibido
-> clasificado con IA puede quedar sin obligaciones (`I1` a `I4`).
+> **✔ GAP-09 · Resuelto en B13a.** Un solo motor de clasificación AI Act sirve al alta, la edición,
+> **✏ Revisar clasificación**, la pantalla de clasificación y el alta desde sistemas detectados; el
+> servicio de agentes ya no clasifica por reglas. **Clasificar con IA** recibe el resultado del motor como
+> referencia y las obligaciones usan los códigos del catálogo, así que un sistema prohibido conserva la
+> obligación del Art. 5 (`I1` a `I4`). Los sistemas existentes no se reclasifican en bloque: quedan
+> «Pendiente de revisar con el motor nuevo».
+>
+> **Pendiente de implementar.** Migración de los sistemas con nivel GPAI a la categoría GPAI y ajustes
+> del catálogo de obligaciones (B13d).
 
-> **⚠ GAP-10 · Clasificación sin aprobación ni rastro completo.** La clasificación es la decisión que
-> condiciona todo el expediente, pero cualquier miembro la cambia y concilia sin aprobación, y la
-> reclasificación no deja evento en el historial (`I10`).
+> **⚠ GAP-10 · Clasificación sin aprobación.** La clasificación es la decisión que condiciona todo el
+> expediente, pero cualquier miembro la cambia y concilia sin aprobación. ✔ El rastro se resolvió en
+> B13a: la conciliación deja «Clasificación AI Act conciliada» en el historial y actualiza la cabecera
+> completa (`I10`).
 
 > **⚠ GAP-11 · Las obligaciones no se actualizan desde las demás fases.** Aprobar el plan de tratamiento
 > no resuelve la obligación de gestión de riesgos (AI Act, Art. 9), aprobar el Anexo IV no resuelve la de
@@ -878,8 +900,9 @@ del expediente, y dejar las anteriores como sustituidas.
 >
 > **Pendiente de implementar.** Disparadores de reevaluación del FMEA (decisión 63).
 
-> **ℹ Aclaración.** Editar la ficha del sistema no inicia la reconciliación de la clasificación (`I17`):
-> si un cambio afecta al nivel de riesgo, hay que lanzar **Revisar clasificación** a mano.
+> **ℹ Aclaración.** Desde B13a, editar la ficha del sistema propone una reclasificación (`I17`): si
+> cambian el nivel de riesgo o las obligaciones, queda una reclasificación pendiente de conciliar en la
+> ficha y el historial registra «Reclasificación AI Act propuesta».
 
 ---
 
@@ -947,14 +970,14 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-32 | 10 | La reevaluación no es posible: AISIA y disparadores (FMEA y plan resueltos en B07) | Corta | `E19` |
 | GAP-13 | 4 | ✔ Resuelto en B05 y B07: evaluación FMEA sin estado final | — | `R3` |
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
-| GAP-09 | 3 | Dos motores de clasificación; prohibidos sin obligaciones | Debilita | `I1`-`I4` |
+| GAP-09 | 3 | ✔ Resuelto en B13a: dos motores de clasificación; prohibidos sin obligaciones (falta la migración GPAI, B13d) | — | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
 | GAP-17 | 5 | ✔ Resuelto en B11c: cancelación, caducidad y avisos del circuito de aprobación | — | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | ✔ Resuelto en B12 |
 | GAP-22 | 6 | AISIA sin acta y sin el aprobador de DP-01 (rol, segregación y Declaración resueltos en B08) | Debilita | — |
 | GAP-24 | 7 | Aprobadores del expediente por plantilla (ciclo, segregación, versiones, rótulo y evidencia resueltos en B09) | Debilita | — |
 | GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |
-| GAP-10 | 3 | Clasificación sin aprobación ni historial | Debilita | `I10` |
+| GAP-10 | 3 | Clasificación sin aprobación (historial resuelto en B13a) | Debilita | `I10` |
 | GAP-11 | 3 | Obligaciones no se actualizan desde las demás fases | Debilita | — |
 | GAP-12, GAP-31 | 3, 9 | Cláusulas del SGAI de ISO/IEC 42001 sin flujo; obligaciones ISO no aplicadas | Debilita | `I22` |
 | GAP-29 | 9 | Estado de controles de la Declaración desconectado del tratamiento | Debilita | — |
@@ -969,8 +992,8 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-03 | 0 | Onboarding de invitados no guarda datos | Fricción | `A2` |
 | GAP-04 | 1 | Gobernanza en texto libre, sin uso | Fricción | `A11` |
 | GAP-05 | 1 | Comités sin sesiones ni actas | Fricción | — |
-| GAP-07 | 2 | Cuestionario preliminar desconectado del alta | Fricción | `E20` |
-| GAP-08 | 2 | Alta desde sistema detectado sin clasificar | Fricción | `I20` |
+| GAP-07 | 2 | Cuestionario preliminar desconectado del alta (motor común listo en B13a; conexión en B13b y B13c) | Fricción | `E20` |
+| GAP-08 | 2 | Alta desde sistema detectado: ✔ clasifica desde B13a; sin obligaciones sugeridas ni historial | Fricción | `I20` |
 | GAP-16 | 5 | ✔ Resuelto en B05: «Guardar borrador» no guardaba decisiones | — | `R7` |
 | GAP-23 | 6 | AISIA no actualizable; precarga no guardada | Fricción | `E19` |
 | GAP-27 | 8 | Caducidades sin aviso al responsable | Fricción | — |
