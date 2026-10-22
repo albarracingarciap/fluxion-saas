@@ -96,3 +96,18 @@ export function suggestObligations(params: {
   }
   return out
 }
+
+/**
+ * Código del catálogo a partir de un texto de la cabecera («Art. 9 — …»,
+ * «Art. 50.1») o de un código ya canónico. Mismo criterio que la migración
+ * 20261022090000 (`aiact_obligation_code`): el Art. 71 se registra como el 49.
+ * Devuelve null si no se reconoce.
+ */
+export function catalogCodeFromRef(ref: string | null | undefined): string | null {
+  if (!ref) return null
+  if (ref.startsWith('AI-ACT-')) return ref
+  const m = /^(?:art_|Art\. ?)(\d+)/.exec(ref.trim())
+  if (!m) return null
+  const num = m[1] === '71' ? '49' : m[1]
+  return `AI-ACT-ART${num}`
+}

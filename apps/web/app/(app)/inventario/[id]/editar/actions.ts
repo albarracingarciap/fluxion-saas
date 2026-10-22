@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
-import { classifyAIAct } from '@/lib/ai-systems/scoring';
+import { callClassificationService, classificationColumns, classifyWithCatalog, enginePayload, loadAiActCatalog } from '@/lib/ai-act/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -83,12 +83,17 @@ export async function updateAISystem(formData: Record<string, any>) {
     return { error: 'No se encontró organización asociada al usuario.' };
   }
 
-  const classification = classifyAIAct(formData);
+  const classification = classifyWithCatalog({
+    inputs: formData.aiactInputs ?? null,
+    fields: formData,
+    roles: Array.isArray(formData.valueChainRoles) ? formData.valueChainRoles : [],
+    catalog: await loadAiActCatalog(),
+  });
+  const cls = classification.result;
 
   // Build the insert payload mapping wizard fields → DB columns
   const payload = {
     organization_id: membership.organization_id,
-    created_by: user.id,
 
     // Step 1 — Identification
     name: formData.name,
@@ -113,19 +118,11 @@ export async function updateAISystem(formData: Record<string, any>) {
 
     // Step 3 — AI Act classification
     is_ai_system: formData.isAISystem ?? null,
-    is_gpai: formData.isGPAI ?? false,
-    prohibited_practice: formData.prohibitedPractice ?? false,
     affects_persons: formData.affectsPersons ?? null,
     vulnerable_groups: formData.vulnerableGroups ?? false,
     involves_minors: formData.hasMinors ?? false,
     uses_biometric_data: formData.biometric ?? false,
     manages_critical_infra: formData.criticalInfra ?? false,
-    aiact_risk_level: classification?.level ?? 'pending',
-    aiact_risk_basis: classification?.basis ?? null,
-    aiact_risk_reason: classification?.reason ?? null,
-    aiact_obligations: classification?.obls ?? [],
-    aiact_classified_at: now,
-    aiact_classified_by: user.id,
 
     // Step 4 — Data
     processes_personal_data: formData.processesPersonalData ?? null,
@@ -209,6 +206,45 @@ export async function updateAISystem(formData: Record<string, any>) {
     return { error: error.message };
   }
 
+  // La clasificación no se sobrescribe al editar (B13a, I17): se propone. El
+  // servicio compara con la vigente; si cambia el nivel o las obligaciones,
+  // abre una reclasificación que se concilia en la ficha. Si no cambia, se
+  // actualiza su detalle (fundamento, versión de las reglas, supuestos).
+  let reclasificacion: 'propuesta' | 'sin_cambios' | 'pendiente_previa' | 'no_disponible' = 'no_disponible';
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const res = await callClassificationService({
+        path: `/api/v1/systems/${systemId}/reclassify`,
+        accessToken: session.access_token,
+        body: {
+          classification: enginePayload(classification),
+          factors: { origen: 'edicion' },
+          review_notes: 'Propuesta al editar la ficha del sistema.',
+        },
+      });
+      const body = res.data as { data?: { has_changes?: boolean } } | null;
+      if (res.status === 409) reclasificacion = 'pendiente_previa';
+      else if (res.ok) reclasificacion = body?.data?.has_changes ? 'propuesta' : 'sin_cambios';
+    }
+  } catch (e) {
+    console.error('updateAISystem · reclasificación (no bloqueante):', e);
+  }
+
+  if (reclasificacion === 'sin_cambios') {
+    await fluxion
+      .from('ai_systems')
+      .update({
+        ...classificationColumns(classification),
+        aiact_inputs: formData.aiactInputs ?? null,
+        prohibited_practice: cls.level === 'prohibited' || (cls.method === 'respaldo' && Boolean(formData.prohibitedPractice)),
+        aiact_classified_at: now,
+        aiact_classified_by: user.id,
+      })
+      .eq('id', systemId)
+      .eq('organization_id', membership.organization_id);
+  }
+
   await insertAiSystemHistoryEvents(fluxion, [
     {
       ai_system_id: systemId,
@@ -222,25 +258,24 @@ export async function updateAISystem(formData: Record<string, any>) {
       },
       actor_user_id: user.id,
     },
-    {
+    ...(reclasificacion === 'propuesta' ? [{
       ai_system_id: systemId,
       organization_id: membership.organization_id,
-      event_type: 'classification_recalculated',
-      event_title: 'Clasificación AI Act recalculada',
-      event_summary: classification?.label
-        ? `La clasificación vigente pasó a ${classification.label.toLowerCase()}.`
-        : 'Se recalculó la clasificación del sistema tras la edición.',
+      event_type: 'classification_proposed',
+      event_title: 'Reclasificación AI Act propuesta',
+      event_summary: `Con los datos editados, el motor propone ${cls.display.label.toLowerCase()}. Pendiente de conciliar en la ficha.`,
       payload: {
-        risk_level: classification?.level ?? 'pending',
-        basis: classification?.basis ?? null,
-        obligations: classification?.obls ?? [],
+        risk_level: cls.level,
+        scope: cls.scope,
+        basis: cls.display.basis,
+        rules_version: cls.rulesVersion,
+        obligations: classification.obligations.map((o) => o.code),
       },
       actor_user_id: user.id,
-      created_at: payload.aiact_classified_at,
-    },
+    }] : []),
   ]);
 
   revalidatePath('/inventario');
   revalidatePath(`/inventario/${systemId}`);
-  return { success: true, id: data.id };
+  return { success: true, id: data.id, reclasificacion };
 }

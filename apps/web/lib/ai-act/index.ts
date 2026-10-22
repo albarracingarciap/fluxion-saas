@@ -12,7 +12,7 @@ import type { AiActInputs, AiActResult, ValueChainRole } from './types'
 export * from './types'
 export { classifyAiAct } from './rules'
 export { classifyByFallback, type FallbackFields } from './fallback'
-export { suggestObligations } from './obligations'
+export { catalogCodeFromRef, suggestObligations } from './obligations'
 export { ANNEX_III, ANNEX_I_SECTION, LEVEL_LABELS, PROHIBITED_PRACTICES } from './catalog'
 
 export function classifySystem(params: {

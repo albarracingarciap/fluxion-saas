@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
-import { classifyAIAct } from '@/lib/ai-systems/scoring';
+import { callClassificationService, classificationColumns, classifyWithCatalog, enginePayload, loadAiActCatalog } from '@/lib/ai-act/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -83,7 +83,14 @@ export async function saveAISystem(formData: Record<string, any>) {
     return { error: 'No se encontró organización asociada al usuario.' };
   }
 
-  const classification = classifyAIAct(formData);
+  // Motor único (B13a): con los supuestos AI Act si los hay; si no, por dominio y tipo de output.
+  const classification = classifyWithCatalog({
+    inputs: formData.aiactInputs ?? null,
+    fields: formData,
+    roles: Array.isArray(formData.valueChainRoles) ? formData.valueChainRoles : [],
+    catalog: await loadAiActCatalog(),
+  });
+  const cls = classification.result;
 
   // Build the insert payload mapping wizard fields → DB columns
   const payload = {
@@ -113,17 +120,15 @@ export async function saveAISystem(formData: Record<string, any>) {
 
     // Step 3 — AI Act classification
     is_ai_system: formData.isAISystem ?? null,
-    is_gpai: formData.isGPAI ?? false,
-    prohibited_practice: formData.prohibitedPractice ?? false,
+    // Con supuestos, la práctica prohibida la decide el motor.
+    prohibited_practice: cls.method === 'supuestos' ? cls.level === 'prohibited' : (formData.prohibitedPractice ?? false),
     affects_persons: formData.affectsPersons ?? null,
     vulnerable_groups: formData.vulnerableGroups ?? false,
     involves_minors: formData.hasMinors ?? false,
     uses_biometric_data: formData.biometric ?? false,
     manages_critical_infra: formData.criticalInfra ?? false,
-    aiact_risk_level: classification?.level ?? 'pending',
-    aiact_risk_basis: classification?.basis ?? null,
-    aiact_risk_reason: classification?.reason ?? null,
-    aiact_obligations: classification?.obls ?? [],
+    ...classificationColumns(classification),
+    aiact_inputs: formData.aiactInputs ?? null,
     aiact_classified_at: now,
     aiact_classified_by: user.id,
 
@@ -215,13 +220,15 @@ export async function saveAISystem(formData: Record<string, any>) {
       organization_id: membership.organization_id,
       event_type: 'classification_recalculated',
       event_title: 'Clasificación AI Act calculada',
-      event_summary: classification?.label
-        ? `El sistema quedó clasificado como ${classification.label.toLowerCase()}.`
-        : 'Se recalculó la clasificación inicial del sistema.',
+      event_summary: `El sistema quedó clasificado como ${cls.display.label.toLowerCase()}`
+        + (cls.method === 'respaldo' ? ' (aproximación sin supuestos AI Act).' : '.'),
       payload: {
-        risk_level: classification?.level ?? 'pending',
-        basis: classification?.basis ?? null,
-        obligations: classification?.obls ?? [],
+        risk_level: cls.level ?? 'pending',
+        scope: cls.scope,
+        basis: cls.display.basis,
+        method: cls.method,
+        rules_version: cls.rulesVersion,
+        obligations: classification.obligations.map((o) => o.code),
       },
       actor_user_id: user.id,
       created_at: payload.aiact_classified_at,
@@ -232,13 +239,12 @@ export async function saveAISystem(formData: Record<string, any>) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      const agentUrl = process.env.AGENT_SERVER_URL || 'http://localhost:8001';
-      await fetch(`${agentUrl}/api/v1/systems/${data.id}/classify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+      // El servicio registra el evento inicial y las obligaciones sugeridas con
+      // el resultado del motor único; ya no clasifica por su cuenta (B13a).
+      await callClassificationService({
+        path: `/api/v1/systems/${data.id}/classify`,
+        accessToken: session.access_token,
+        body: { classification: enginePayload(classification) },
       });
     }
   } catch (classifyError) {

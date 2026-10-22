@@ -29,73 +29,49 @@ Dado el perfil del sistema y los fragmentos normativos que se te proporcionan:
 
 ## Árbol de decisión que debes seguir
 
-Aplica este árbol en orden estricto:
+Aplica este árbol en orden estricto (es el del motor único de Fluxion):
 
-1. PRÁCTICAS PROHIBIDAS (Art. 5) — si detectas cualquiera, nivel = "prohibited"
-   - Manipulación subliminal (Art. 5.1.a)
-   - Explotación de vulnerabilidades (Art. 5.1.b)
-   - Puntuación social (Art. 5.1.c)
-   - Identificación biométrica remota en tiempo real (Art. 5.1.d)
-   - Inferencia de atributos sensibles a partir de biometría (Art. 5.1.e)
-   - BD de reconocimiento facial por scraping (Art. 5.1.f)
-   - Predicción de comportamiento criminal (Art. 5.1.g)
-   - Reconocimiento de emociones en trabajo/educación (Art. 5.1.h)
+1. PRÁCTICAS PROHIBIDAS (Art. 5.1) — si detectas cualquiera sin excepción, nivel = "prohibited"
+   - a) Técnicas subliminales, manipuladoras o engañosas
+   - b) Explotación de vulnerabilidades (edad, discapacidad, situación social o económica)
+   - c) Puntuación social
+   - d) Predicción del riesgo de delinquir basada solo en perfiles (salvo apoyo a una valoración
+     humana basada en hechos objetivos)
+   - e) Bases de reconocimiento facial por extracción masiva de imágenes
+   - f) Reconocimiento de emociones en el trabajo o la educación (salvo motivos médicos o de seguridad)
+   - g) Categorización biométrica por atributos sensibles
+   - h) Identificación biométrica remota en tiempo real en espacios públicos con fines policiales
+     (salvo los supuestos tasados del Art. 5.1.h)
 
-2. MODELO GPAI (Arts. 51-55) — si is_gpai = true, nivel = "gpai"
-   - Evalúa si hay riesgo sistémico (Art. 55)
-   - obligations_set = ["art_53_doc", "art_53_copyright", "art_53_training", "art_55"]
+2. ALTO RIESGO — si aplica, nivel = "high"
+   - Art. 6.1 y Anexo I: componente de seguridad de un producto regulado, o producto en sí,
+     que requiere evaluación de la conformidad de terceros.
+   - Art. 6.2 y Anexo III: 1 biometría · 2 infraestructuras críticas · 3 educación ·
+     4 empleo · 5 servicios esenciales (5.b solvencia, 5.c seguros de vida y salud) ·
+     6 garantía del cumplimiento del Derecho · 7 migración · 8 justicia y procesos democráticos.
+   - Art. 6.3: un sistema del Anexo III no es de alto riesgo si cumple alguna condición del
+     Art. 6.3 y no elabora perfiles de personas físicas.
 
-3. ALTO RIESGO (Art. 6 + Anexo III) — si aplica alguno, nivel = "high"
-   - §1: Infraestructura crítica
-   - §2: Educación (acceso, evaluación)
-   - §3: Empleo y RRHH (selección, promoción, monitorización)
-   - §4: Servicios esenciales (scoring crediticio, seguros, banca)
-   - §5: Aplicación de la ley
-   - §6: Migración y asilo
-   - §7: Administración de justicia
-   - §8: Procesos democráticos
-   También vía Anexo II (componente de seguridad en producto regulado)
+3. RIESGO LIMITADO (Art. 50) — nivel = "limited" si no es prohibido ni de alto riesgo y:
+   - 50.1 interactúa directamente con personas físicas
+   - 50.2 genera contenido sintético de audio, imagen, vídeo o texto
+   - 50.3 reconocimiento de emociones o categorización biométrica
+   - 50.4 ultrasuplantaciones o texto publicado para informar sobre asuntos de interés público
+   Los supuestos del Art. 50 también se suman a un sistema de alto riesgo.
 
-4. RIESGO LIMITADO (Art. 50) — obligaciones de transparencia, nivel = "limited"
-   - Chatbot / sistema conversacional con usuario (Art. 50.1)
-   - Reconocimiento de emociones fuera de trabajo/educación (Art. 50.3)
-   - Generación de contenido sintético / deepfakes (Art. 50.4)
-   - Identificación biométrica no prohibida
+4. RIESGO MÍNIMO — por exclusión, nivel = "minimal".
 
-5. RIESGO MÍNIMO — por exclusión, nivel = "minimal"
+El modelo de IA de uso general (GPAI) NO es un nivel de riesgo: es una categoría aparte. Un
+sistema basado en un modelo GPAI se clasifica por lo que hace. Si la organización es
+proveedora de un modelo GPAI, añade las obligaciones de los Art. 53 (y 55 con riesgo sistémico).
 
-## Catálogo de obligaciones — claves canónicas
+## Catálogo de obligaciones
 
-Cuando determines qué obligaciones aplican, usa EXCLUSIVAMENTE estas claves.
-No inventes claves ni uses etiquetas libres.
-
-| Clave            | Obligación                                      | Aplica cuando                    |
-|------------------|-------------------------------------------------|----------------------------------|
-| art_5            | Práctica prohibida — sin despliegue posible     | nivel = prohibited               |
-| art_9            | Sistema de gestión de riesgos                   | nivel = high                     |
-| art_10           | Gobernanza de datos de entrenamiento            | nivel = high                     |
-| art_11           | Documentación técnica completa                  | nivel = high                     |
-| art_12           | Registro automático de actividad (logs)         | nivel = high                     |
-| art_13           | Transparencia e información a usuarios          | nivel = high                     |
-| art_14           | Supervisión humana obligatoria                  | nivel = high                     |
-| art_15           | Precisión, robustez y ciberseguridad            | nivel = high                     |
-| art_16           | Obligaciones del proveedor                      | nivel = high + is_provider       |
-| art_43           | Evaluación de conformidad                       | nivel = high                     |
-| art_50           | Disclosure de interacción con IA                | nivel = limited                  |
-| art_53_doc       | Documentación técnica GPAI                      | nivel = gpai                     |
-| art_53_copyright | Política de copyright GPAI                      | nivel = gpai                     |
-| art_53_training  | Resumen de datos de entrenamiento GPAI          | nivel = gpai                     |
-| art_55           | Riesgo sistémico GPAI                           | nivel = gpai                     |
-| art_71           | Registro en EU AI Office                        | nivel = high                     |
-
-Reglas de asignación:
-- nivel = "prohibited"  → obligations_set = ["art_5"] únicamente
-- nivel = "gpai"        → obligations_set = ["art_53_doc", "art_53_copyright", "art_53_training", "art_55"]
-- nivel = "high"        → obligations_set incluye art_9 a art_15 + art_43 + art_71 como base
-  - Añadir art_16 si is_provider = true
-  - Omitir art_14 solo si hay justificación explícita documentada en classification_note
-- nivel = "limited"     → obligations_set = ["art_50"]
-- nivel = "minimal"     → obligations_set = []
+Usa EXCLUSIVAMENTE los códigos del catálogo que se incluye en el mensaje del usuario
+(«AI-ACT-ART9», «AI-ACT-ART50»…). No inventes códigos ni uses etiquetas libres.
+- nivel = "prohibited" → obligations_set = ["AI-ACT-ART5"] únicamente.
+- Las obligaciones dependen del rol de la organización (proveedor, responsable del despliegue…):
+  asigna solo las que correspondan a sus roles.
 
 ## Reglas de comportamiento
 
@@ -116,10 +92,10 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta.
 No incluyas texto fuera del JSON. No uses markdown. No uses bloques de código.
 
 {
-  "aiact_risk_level": "prohibited" | "high" | "limited" | "minimal" | "gpai",
+  "aiact_risk_level": "prohibited" | "high" | "limited" | "minimal",
   "confidence": "high" | "medium" | "low",
 
-  "obligations_set": ["art_9", "art_10", ...],
+  "obligations_set": ["AI-ACT-ART9", "AI-ACT-ART10", ...],
 
   "classification_factors": {
     "domain": "finanzas_banca" | "credito" | "rrhh" | "atencion_cliente" | "salud" | "educacion" | "infraestructura" | "justicia" | "migracion" | "otro",
@@ -194,7 +170,7 @@ No incluyas texto fuera del JSON. No uses markdown. No uses bloques de código.
 # USER PROMPT BUILDER
 # ═══════════════════════════════════════════════════════════
 
-def build_classification_user_prompt(system: dict, chunks: list) -> str:
+def build_classification_user_prompt(system: dict, chunks: list, catalog: dict | None = None) -> str:
     """
     Construye el prompt de usuario con la ficha del sistema
     y los chunks RAG recuperados por el retriever.
@@ -253,14 +229,20 @@ def build_classification_user_prompt(system: dict, chunks: list) -> str:
         system_profile += f"""
 ### Clasificación del motor de reglas (referencia)
 
-El motor de reglas determinista ha producido esta clasificación previa.
+El motor único de Fluxion ha producido esta clasificación con las reglas del AI Act.
 Úsala como punto de partida. Si tu análisis diverge, documenta el motivo
 en classification_note y añade un flag con severity="warning".
 
+- Ámbito: {rules_engine_result.get('scope', '—')}
 - Nivel: {rules_engine_result.get('risk_level', '—')}
 - Obligaciones: {', '.join(rules_engine_result.get('obligations_set', []))}
 - Basis: {rules_engine_result.get('basis', '—')}
 """
+
+    if catalog:
+        system_profile += "\n### Catálogo de obligaciones (códigos válidos)\n\n"
+        for code, label in sorted(catalog.items()):
+            system_profile += f"- {code}: {label}\n"
 
     if chunks:
         rag_context = "\n## Contexto normativo relevante (recuperado del corpus)\n\n"

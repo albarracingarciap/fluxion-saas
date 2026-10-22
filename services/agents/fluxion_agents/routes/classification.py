@@ -33,57 +33,46 @@ from fluxion_common.telemetry import llm_span
 logger = logging.getLogger("fluxion_agents.classification")
 
 # ─────────────────────────────────────────────────────────────
-# LABELS DE OBLIGACIONES
+# CLASIFICACIÓN DEL MOTOR ÚNICO (B13a)
 # ─────────────────────────────────────────────────────────────
+#
+# La clasificación AI Act la calcula un solo motor, en la aplicación web
+# (apps/web/lib/ai-act). Este servicio ya no clasifica por reglas: recibe el
+# resultado del motor y se ocupa de los eventos de clasificación y de la
+# conciliación de obligaciones. Las obligaciones usan los códigos del catálogo
+# compliance.obligations (AI-ACT-ART9…).
 
-OBLIGATION_LABELS: dict[str, str] = {
-    "art_9":             "Art. 9 — Sistema de gestión de riesgos",
-    "art_10":            "Art. 10 — Gobernanza de datos de entrenamiento",
-    "art_11":            "Art. 11 — Documentación técnica completa",
-    "art_12":            "Art. 12 — Registro automático de actividad (logs)",
-    "art_13":            "Art. 13 — Transparencia e información a usuarios",
-    "art_14":            "Art. 14 — Supervisión humana obligatoria",
-    "art_15":            "Art. 15 — Precisión, robustez y ciberseguridad",
-    "art_16":            "Art. 16 — Obligaciones del proveedor",
-    "art_43":            "Art. 43 — Evaluación de conformidad",
-    "art_50":            "Art. 50 — Disclosure de interacción con IA",
-    "art_71":            "Art. 71 — Registro en EU AI Office",
-    # GPAI (Art. 51-55)
-    "art_53_doc":        "Art. 53 — Documentación técnica",
-    "art_53_copyright":  "Art. 53 — Política de copyright",
-    "art_53_training":   "Art. 53 — Resumen de datos de entrenamiento",
-    "art_55":            "Art. 55 — Riesgo sistémico (si aplica)",
-}
-
-HIGH_RISK_FULL = [
-    "art_9", "art_10", "art_11", "art_12",
-    "art_13", "art_14", "art_15", "art_16", "art_43", "art_71",
-]
-
-GPAI_OBLIGATIONS = [
-    "art_53_doc", "art_53_copyright", "art_53_training", "art_55",
-]
+VALID_LEVELS = {"prohibited", "high", "limited", "minimal", "pending"}
 
 
-# ─────────────────────────────────────────────────────────────
-# MODELOS PYDANTIC
-# ─────────────────────────────────────────────────────────────
+class EngineObligation(BaseModel):
+    code: str
+    label: str
 
-class ClassificationFactors(BaseModel):
-    domain: str
-    output_type: str
-    affects_persons: bool
-    has_biometric: bool = False
-    is_gpai: bool = False
-    manages_critical_infrastructure: bool = False
-    affects_vulnerable_groups: bool = False
-    involves_minors: bool = False
-    intended_use: Optional[str] = None
+
+class EngineClassification(BaseModel):
+    scope: str  # in_scope | out_of_scope | not_ai_system | pending
+    risk_level: Optional[str] = None  # None fuera del ámbito o si no es IA
+    risk_label: str
+    basis: str
+    reason: str
+    obligations: list[EngineObligation] = []
+    result: dict = {}
+    inputs: Optional[dict] = None
+
+
+class ClassifyRequest(BaseModel):
+    classification: EngineClassification
 
 
 class ReclassifyRequest(BaseModel):
-    factors: ClassificationFactors
+    classification: EngineClassification
+    factors: dict = {}
     review_notes: Optional[str] = None
+
+
+class AiReclassifyRequest(BaseModel):
+    reference: EngineClassification
 
 
 class ReconcileDecision(BaseModel):
@@ -97,125 +86,33 @@ class ReconcileRequest(BaseModel):
     decisions: list[ReconcileDecision]
 
 
-# ─────────────────────────────────────────────────────────────
-# MOTOR DE REGLAS
-# ─────────────────────────────────────────────────────────────
+# Campos de la ventana «Revisar clasificación» → columnas de ai_systems.
+FORM_COLUMNS = {
+    "domain":            "domain",
+    "intendedUse":       "intended_use",
+    "outputType":        "output_type",
+    "interactsPersons":  "interacts_persons",
+    "isAISystem":        "is_ai_system",
+    "affectsPersons":    "affects_persons",
+    "vulnerableGroups":  "vulnerable_groups",
+    "hasMinors":         "involves_minors",
+    "biometric":         "uses_biometric_data",
+    "criticalInfra":     "manages_critical_infra",
+}
 
-def run_classification_engine(factors: ClassificationFactors) -> dict:
-    f = factors
 
-    # GPAI toma precedencia sobre todas las categorías de riesgo (igual que en el motor TS)
-    if f.is_gpai:
-        return {
-            "risk_level": "gpai",
-            "risk_label": "Modelo GPAI",
-            "basis": "Art. 51-53 — IA de uso general",
-            "reason": (
-                "Modelo de propósito general. Obligaciones de transparencia, "
-                "documentación y —si hay riesgo sistémico— Art. 55."
-            ),
-            "obligations_set": GPAI_OBLIGATIONS,
-        }
+def _catalog_labels(sb: Client) -> dict[str, str]:
+    """Etiqueta «Art. N — título» de cada código AI Act del catálogo."""
+    res = sb.schema("compliance").table("obligations") \
+        .select("code, article, title") \
+        .eq("framework", "AI_ACT") \
+        .execute()
+    return {o["code"]: f"{o['article']} — {o['title']}" for o in (res.data or [])}
 
-    if f.has_biometric:
-        return {
-            "risk_level": "high",
-            "risk_label": "Alto Riesgo",
-            "basis": "Anexo III §1 — Biometría",
-            "reason": (
-                "Sistema que procesa datos biométricos de personas físicas "
-                "para identificación remota o categorización."
-            ),
-            "obligations_set": HIGH_RISK_FULL,
-        }
 
-    if (
-        f.domain in ("finanzas_banca", "credito")
-        and f.output_type in ("decision", "prediccion")
-        and f.affects_persons
-    ):
-        return {
-            "risk_level": "high",
-            "risk_label": "Alto Riesgo",
-            "basis": "Anexo III §5(b)",
-            "reason": (
-                "Sistema que evalúa la solvencia de personas para el acceso "
-                "a servicios financieros esenciales."
-            ),
-            "obligations_set": HIGH_RISK_FULL,
-        }
-
-    if (
-        f.domain == "rrhh"
-        and f.output_type in ("decision", "clasificacion")
-        and f.affects_persons
-    ):
-        return {
-            "risk_level": "high",
-            "risk_label": "Alto Riesgo",
-            "basis": "Anexo III §4",
-            "reason": (
-                "Sistema que interviene en decisiones de empleo o gestión "
-                "de personas en el ámbito laboral."
-            ),
-            "obligations_set": ["art_9", "art_11", "art_14", "art_71"],
-        }
-
-    if f.manages_critical_infrastructure and f.affects_persons:
-        return {
-            "risk_level": "high",
-            "risk_label": "Alto Riesgo",
-            "basis": "Anexo III §2",
-            "reason": (
-                "Sistema que gestiona o interviene en componentes de infraestructura "
-                "crítica que pueden afectar a personas."
-            ),
-            "obligations_set": HIGH_RISK_FULL,
-        }
-
-    if f.output_type == "generacion":
-        return {
-            "risk_level": "limited",
-            "risk_label": "Riesgo Limitado",
-            "basis": "Artículo 50",
-            "reason": (
-                "Sistema de generación de contenido que requiere disclosure "
-                "de interacción con IA."
-            ),
-            "obligations_set": ["art_50"],
-        }
-
-    if f.domain == "atencion_cliente" and f.output_type == "clasificacion":
-        return {
-            "risk_level": "limited",
-            "risk_label": "Riesgo Limitado",
-            "basis": "Artículo 50.1",
-            "reason": "Sistema de interacción con usuarios que debe informar del uso de IA.",
-            "obligations_set": ["art_50"],
-        }
-
-    if not f.affects_persons:
-        return {
-            "risk_level": "minimal",
-            "risk_label": "Riesgo Mínimo",
-            "basis": "Sin aplicación Anexo III ni Art. 50",
-            "reason": (
-                "El sistema no afecta directamente a personas físicas y no cae "
-                "en categorías de riesgo específicas."
-            ),
-            "obligations_set": [],
-        }
-
-    return {
-        "risk_level": "minimal",
-        "risk_label": "Riesgo Mínimo",
-        "basis": "Fuera de categorías Anexo III",
-        "reason": (
-            "No se han detectado elementos que activen las categorías de "
-            "alto riesgo del AI Act."
-        ),
-        "obligations_set": [],
-    }
+def _event_payload(c: EngineClassification, factors: Optional[dict] = None) -> dict:
+    """classification_factors del evento: resultado del motor, supuestos y formulario."""
+    return {"engine_result": c.result, "inputs": c.inputs, "form": factors or {}}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -226,6 +123,7 @@ def compute_diff(
     current_keys: list[str],
     new_keys: list[str],
     existing_obligations: dict[str, dict],
+    labels: dict[str, str],
 ) -> list[dict]:
     current_set = set(current_keys)
     new_set = set(new_keys)
@@ -234,7 +132,7 @@ def compute_diff(
     for key in sorted(new_set - current_set):
         result.append({
             "obligation_key": key,
-            "obligation_label": OBLIGATION_LABELS.get(key, key),
+            "obligation_label": labels.get(key, key),
             "diff_type": "added",
             "previous_obligation_id": None,
             "previous_status": None,
@@ -244,7 +142,7 @@ def compute_diff(
         existing = existing_obligations.get(key, {})
         result.append({
             "obligation_key": key,
-            "obligation_label": OBLIGATION_LABELS.get(key, key),
+            "obligation_label": labels.get(key, key),
             "diff_type": "removed",
             "previous_obligation_id": existing.get("id"),
             "previous_status": existing.get("status"),
@@ -254,7 +152,7 @@ def compute_diff(
         existing = existing_obligations.get(key, {})
         result.append({
             "obligation_key": key,
-            "obligation_label": OBLIGATION_LABELS.get(key, key),
+            "obligation_label": labels.get(key, key),
             "diff_type": "unchanged",
             "previous_obligation_id": existing.get("id"),
             "previous_status": existing.get("status"),
@@ -322,21 +220,6 @@ def _assert_no_pending_reconciliation(sb: Client, system_id: str) -> None:
         )
 
 
-def _extract_factors_from_system(system: dict) -> ClassificationFactors:
-    """Extrae los factores de clasificación del registro de ai_systems."""
-    return ClassificationFactors(
-        domain=system.get("domain") or "",
-        output_type=system.get("output_type") or "",
-        affects_persons=bool(system.get("affects_persons")),
-        has_biometric=bool(system.get("biometric") or system.get("uses_biometric_data")),
-        is_gpai=bool(system.get("is_gpai")),
-        manages_critical_infrastructure=bool(system.get("critical_infra") or system.get("manages_critical_infra")),
-        affects_vulnerable_groups=bool(system.get("vulnerable_groups") or system.get("affects_vulnerable_groups")),
-        involves_minors=bool(system.get("has_minors") or system.get("involves_minors")),
-        intended_use=system.get("intended_use") or system.get("purpose"),
-    )
-
-
 # ─────────────────────────────────────────────────────────────
 # REGISTRO DE RUTAS
 # ─────────────────────────────────────────────────────────────
@@ -353,11 +236,12 @@ def register_classification_routes(
     @app.post("/api/v1/systems/{system_id}/classify")
     async def classify_initial(
         system_id: str,
+        request: ClassifyRequest,
         authorization: str = Header(None),
     ):
         """
-        Primera clasificación de un sistema recién registrado.
-        Lee los factores directamente del sistema en DB.
+        Primera clasificación de un sistema recién registrado, con el resultado
+        del motor único que envía la aplicación web (B13a).
         Crea el classification_event (reconciled) y las system_obligations (suggested).
         """
         user = verify_token(authorization)
@@ -379,8 +263,9 @@ def register_classification_routes(
         if system.get("current_classification_event_id"):
             raise HTTPException(409, "El sistema ya tiene una clasificación activa.")
 
-        factors = _extract_factors_from_system(system)
-        classification = run_classification_engine(factors)
+        c = request.classification
+        keys = [o.code for o in c.obligations]
+        labels = {o.code: o.label for o in c.obligations}
 
         version = _get_next_version(sb, system_id)
         event_id = str(uuid4())
@@ -391,24 +276,25 @@ def register_classification_routes(
             "organization_id":        org_id,
             "version":                version,
             "method":                 "initial",
-            "risk_level":             classification["risk_level"],
-            "risk_label":             classification["risk_label"],
-            "basis":                  classification["basis"],
-            "reason":                 classification["reason"],
-            "obligations_set":        classification["obligations_set"],
-            "classification_factors": factors.model_dump(),
+            "risk_level":             c.risk_level,
+            "risk_label":             c.risk_label,
+            "basis":                  c.basis,
+            "reason":                 c.reason,
+            "obligations_set":        keys,
+            "classification_factors": _event_payload(c),
             "created_by":             profile_id,
             "status":                 "reconciled",
         }).execute()
 
-        for key in classification["obligations_set"]:
-            label = OBLIGATION_LABELS.get(key, key)
+        for key in keys:
+            label = labels.get(key, key)
             sb.schema("fluxion").table("system_obligations").insert({
                 "id":                      str(uuid4()),
                 "ai_system_id":            system_id,
                 "organization_id":         org_id,
                 "source_framework":        "AI_ACT",
                 "title":                   label,
+                "obligation_code":         key,
                 "obligation_key":          key,
                 "obligation_label":        label,
                 "status":                  "suggested",
@@ -421,16 +307,16 @@ def register_classification_routes(
 
         logger.info(
             f"Clasificación inicial: sistema {system_id} → "
-            f"{classification['risk_level']} (v{version})"
+            f"{c.risk_level} (v{version})"
         )
 
         return {
             "data": {
                 "event_id":        event_id,
                 "version":         version,
-                "risk_level":      classification["risk_level"],
-                "risk_label":      classification["risk_label"],
-                "obligations_set": classification["obligations_set"],
+                "risk_level":      c.risk_level,
+                "risk_label":      c.risk_label,
+                "obligations_set": keys,
             }
         }
 
@@ -488,17 +374,18 @@ def register_classification_routes(
                 .execute()
             if sys_res.data:
                 lvl = sys_res.data.get("aiact_risk_level") or ""
-                current_risk = lvl if lvl in ("prohibited", "high", "limited", "minimal", "gpai") else None
+                current_risk = lvl if lvl in VALID_LEVELS else None
 
-        new_classification = run_classification_engine(request.factors)
-        new_keys = new_classification["obligations_set"]
+        c = request.classification
+        new_keys = [o.code for o in c.obligations]
+        labels = {**_catalog_labels(sb), **{o.code: o.label for o in c.obligations}}
 
         # Sin cambios → no crear evento
-        if set(current_keys) == set(new_keys) and current_risk == new_classification["risk_level"]:
+        if set(current_keys) == set(new_keys) and current_risk == c.risk_level:
             return {"data": {"has_changes": False}}
 
         existing_obligations = _get_active_obligations(sb, system_id)
-        diff_items = compute_diff(current_keys, new_keys, existing_obligations)
+        diff_items = compute_diff(current_keys, new_keys, existing_obligations, labels)
 
         version = _get_next_version(sb, system_id)
         event_id = str(uuid4())
@@ -510,12 +397,12 @@ def register_classification_routes(
             "organization_id":        org_id,
             "version":                version,
             "method":                 "manual_review",
-            "risk_level":             new_classification["risk_level"],
-            "risk_label":             new_classification["risk_label"],
-            "basis":                  new_classification["basis"],
-            "reason":                 new_classification["reason"],
+            "risk_level":             c.risk_level,
+            "risk_label":             c.risk_label,
+            "basis":                  c.basis,
+            "reason":                 c.reason,
             "obligations_set":        new_keys,
-            "classification_factors": request.factors.model_dump(),
+            "classification_factors": _event_payload(c, request.factors),
             "created_by":             profile_id,
             "review_notes":           request.review_notes,
             "status":                 "pending_reconciliation",
@@ -541,7 +428,7 @@ def register_classification_routes(
 
         logger.info(
             f"Reclasificación: sistema {system_id} → "
-            f"{new_classification['risk_level']} (v{version}, pending_reconciliation)"
+            f"{c.risk_level} (v{version}, pending_reconciliation)"
         )
 
         return {
@@ -549,8 +436,8 @@ def register_classification_routes(
                 "has_changes": True,
                 "event_id":    event_id,
                 "version":     version,
-                "risk_level":  new_classification["risk_level"],
-                "risk_label":  new_classification["risk_label"],
+                "risk_level":  c.risk_level,
+                "risk_label":  c.risk_label,
             }
         }
 
@@ -699,11 +586,41 @@ def register_classification_routes(
             "status": "reconciled",
         }).eq("id", request.event_id).execute()
 
-        # Actualizar ai_systems
-        sb.schema("fluxion").table("ai_systems").update({
+        # Actualizar ai_systems: la cabecera completa, no solo el nivel (B13a, I10).
+        labels = _catalog_labels(sb)
+        nivel = event["risk_level"] if event["risk_level"] in VALID_LEVELS else "pending"
+        update = {
             "current_classification_event_id": request.event_id,
-            "aiact_risk_level": event["risk_level"],
-        }).eq("id", system_id).execute()
+            "aiact_risk_level":    nivel,
+            "aiact_risk_basis":    event.get("basis"),
+            "aiact_risk_reason":   event.get("reason"),
+            "aiact_obligations":   [labels.get(k, k) for k in (event.get("obligations_set") or [])],
+            "aiact_classified_at": datetime.now(timezone.utc).isoformat(),
+            "aiact_review_pending": False,
+            "prohibited_practice": nivel == "prohibited",
+        }
+        engine_result = (event.get("classification_factors") or {}).get("engine_result") or {}
+        if engine_result:
+            gpai = engine_result.get("gpai") or {}
+            update.update({
+                "aiact_result":           engine_result,
+                "aiact_scope":            engine_result.get("scope") or "in_scope",
+                "aiact_scope_reason":     engine_result.get("scopeReason"),
+                "aiact_rules_version":    engine_result.get("rulesVersion"),
+                "is_gpai":                bool(gpai.get("modelProvider")),
+                "gpai_systemic_risk":     gpai.get("systemicRisk"),
+                "gpai_third_party_based": bool(gpai.get("thirdPartyBased")),
+            })
+            inputs = (event.get("classification_factors") or {}).get("inputs")
+            if inputs is not None:
+                update["aiact_inputs"] = inputs
+        # Campos editados en la ventana de revisión: pasan a la ficha, para que
+        # la próxima clasificación parta de ellos (B13a).
+        form = (event.get("classification_factors") or {}).get("form") or {}
+        for campo, columna in FORM_COLUMNS.items():
+            if campo in form:
+                update[columna] = form[campo]
+        sb.schema("fluxion").table("ai_systems").update(update).eq("id", system_id).execute()
 
         logger.info(
             f"Reconciliación completada: sistema {system_id} → "
@@ -798,12 +715,14 @@ def register_classification_routes(
     @app.post("/api/v1/systems/{system_id}/reclassify/ai")
     async def reclassify_with_ai(
         system_id: str,
+        request: AiReclassifyRequest,
         authorization: str = Header(None),
     ):
         """
         Reclasifica un sistema usando el agente IA.
-        El agente produce risk_level + obligations_set; el motor de reglas
-        actúa como referencia para detectar divergencias.
+        El agente produce risk_level + obligations_set con los códigos del
+        catálogo; el resultado del motor único (lo envía la web) actúa como
+        referencia para detectar divergencias (B13a).
         Si hay diferencias respecto a la clasificación activa, crea un evento
         pending_reconciliation y devuelve has_changes: true.
         """
@@ -827,16 +746,22 @@ def register_classification_routes(
 
         _assert_no_pending_reconciliation(sb, system_id)
 
-        # Referencia del motor de reglas determinista
-        factors = _extract_factors_from_system(system)
-        rules_result = run_classification_engine(factors)
+        # Referencia del motor único y catálogo de obligaciones
+        ref = request.reference
+        labels = _catalog_labels(sb)
+        rules_result = {
+            "risk_level":      ref.risk_level,
+            "scope":           ref.scope,
+            "basis":           ref.basis,
+            "obligations_set": [o.code for o in ref.obligations],
+        }
 
         # RAG: recuperar fragmentos normativos relevantes
         chunks, _ = retrieve_for_classification(system, max_chunks=8)
 
-        # Inyectar resultado del motor de reglas en el perfil enviado al agente
+        # Inyectar el resultado del motor en el perfil enviado al agente
         system_with_rules = {**system, "rules_engine_classification": rules_result}
-        user_prompt = build_classification_user_prompt(system_with_rules, chunks)
+        user_prompt = build_classification_user_prompt(system_with_rules, chunks, labels)
 
         # Llamada sincrónica al agente (no streaming)
         try:
@@ -871,12 +796,12 @@ def register_classification_routes(
 
         # Validar nivel de riesgo
         ai_risk_level = ai_result.get("aiact_risk_level")
-        valid_levels = {"prohibited", "high", "limited", "minimal", "gpai"}
+        valid_levels = {"prohibited", "high", "limited", "minimal"}
         if ai_risk_level not in valid_levels:
             raise HTTPException(502, f"Nivel de riesgo inválido del agente: {ai_risk_level!r}")
 
         # Validar obligations_set contra el catálogo canónico
-        valid_keys = set(OBLIGATION_LABELS.keys())
+        valid_keys = set(labels.keys())
         raw_obligations = ai_result.get("obligations_set") or []
         validated_obligations = [k for k in raw_obligations if k in valid_keys]
         invalid_keys = [k for k in raw_obligations if k not in valid_keys]
@@ -884,11 +809,10 @@ def register_classification_routes(
             logger.warning(f"Claves de obligaciones desconocidas eliminadas: {invalid_keys}")
 
         risk_labels_map = {
-            "prohibited": "Práctica Prohibida",
-            "high":       "Alto Riesgo",
-            "limited":    "Riesgo Limitado",
-            "minimal":    "Riesgo Mínimo",
-            "gpai":       "Modelo GPAI",
+            "prohibited": "Práctica prohibida",
+            "high":       "Alto riesgo",
+            "limited":    "Riesgo limitado",
+            "minimal":    "Riesgo mínimo",
         }
         risk_label = risk_labels_map.get(ai_risk_level, ai_risk_level)
 
@@ -928,14 +852,14 @@ def register_classification_routes(
                 .execute()
             if sys_res.data:
                 lvl = sys_res.data.get("aiact_risk_level") or ""
-                current_risk = lvl if lvl in valid_levels else None
+                current_risk = lvl if lvl in VALID_LEVELS else None
 
         # Sin cambios → respuesta rápida
         if set(current_keys) == set(validated_obligations) and current_risk == ai_risk_level:
             return {"data": {"has_changes": False}}
 
         existing_obligations = _get_active_obligations(sb, system_id)
-        diff_items = compute_diff(current_keys, validated_obligations, existing_obligations)
+        diff_items = compute_diff(current_keys, validated_obligations, existing_obligations, labels)
 
         version = _get_next_version(sb, system_id)
         event_id = str(uuid4())
@@ -947,10 +871,8 @@ def register_classification_routes(
             basis_parts.append(f"{item.get('section', '')}: {item.get('description', '')}")
         if not basis_parts:
             if ai_risk_level == "prohibited":
-                basis_parts = ["Art. 5 — Práctica Prohibida"]
-            elif ai_risk_level == "gpai":
-                basis_parts = ["Arts. 51-55 — Modelo GPAI"]
-        basis = "; ".join(basis_parts) or rules_result.get("basis", "")
+                basis_parts = ["Art. 5 — Práctica prohibida"]
+        basis = "; ".join(basis_parts) or (rules_result.get("basis") or "")
 
         classification_note = ai_result.get("classification_note") or ""
         reason = (divergence_prefix + classification_note)[:4000]
@@ -961,7 +883,7 @@ def register_classification_routes(
                 k: v for k, v in ai_result.items()
                 if k not in ("classification_note",)
             },
-            "rules_engine_reference": rules_result,
+            "engine_reference": ref.result,
         }
 
         sb.schema("fluxion").table("classification_events").insert({

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { hasAnyRole } from '@/lib/auth/roles'
+import { classificationColumns, classifyWithCatalog, loadAiActCatalog } from '@/lib/ai-act/server'
 
 /**
  * Conciliación de descubrimientos.
@@ -80,7 +81,7 @@ async function requireResolver() {
 
   const { data: profile } = await fluxion
     .from('profiles')
-    .select('id, organization_id, role, roles')
+    .select('id, user_id, organization_id, role, roles')
     .eq('user_id', user.id)
     .single()
 
@@ -231,10 +232,11 @@ export async function reopenDiscovery(id: string): Promise<{ success?: true; err
 /**
  * Crea un sistema en el inventario a partir de un descubrimiento y lo vincula.
  *
- * Solo se piden los campos obligatorios. La clasificación, el propósito y el
- * resto del expediente los completa la persona después: inventar esos datos
- * desde los metadatos de un modelo sería fabricar declaraciones que nadie ha
- * hecho.
+ * Solo se piden los campos obligatorios. El propósito y el resto del
+ * expediente los completa la persona después: inventar esos datos desde los
+ * metadatos de un modelo sería fabricar declaraciones que nadie ha hecho. Se
+ * clasifica con el motor único (B13a, GAP-08): con tan pocos datos queda
+ * «Pendiente de clasificar», con el aviso de lo que falta.
  */
 export async function createSystemFromDiscovery(
   id: string,
@@ -247,15 +249,25 @@ export async function createSystemFromDiscovery(
   if (!name) return { error: 'El nombre es obligatorio.' }
 
   const admin = createAdminFluxionClient()
+  const classification = classifyWithCatalog({
+    inputs: null,
+    fields: { domain: input.domain },
+    roles: [],
+    catalog: await loadAiActCatalog(),
+  })
 
   const { data: system, error: insErr } = await admin
     .from('ai_systems')
     .insert({
       organization_id: profile.organization_id,
-      created_by:      profile.id,
+      // auth.users.id, como en el alta desde el asistente.
+      created_by:      profile.user_id,
       name,
       domain:          input.domain,
       status:          input.status,
+      ...classificationColumns(classification),
+      aiact_classified_at: new Date().toISOString(),
+      aiact_classified_by: profile.user_id,
     })
     .select('id')
     .single()

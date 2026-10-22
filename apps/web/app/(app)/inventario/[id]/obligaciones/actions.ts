@@ -1,5 +1,6 @@
 'use server';
 
+import { catalogCodeFromRef } from '@/lib/ai-act';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -227,13 +228,16 @@ export async function acceptSystemObligations(aiSystemId: string, obligations: {
     .eq('source_framework', 'AI_ACT');
 
   const existingCodes = new Set(existing?.map(e => e.obligation_code) ?? []);
+  // Códigos del catálogo (B13a), no el texto de la cabecera.
   const toInsert = obligations
+    .map(o => ({ ...o, code: catalogCodeFromRef(o.code) ?? o.code }))
     .filter(o => !existingCodes.has(o.code))
     .map(o => ({
       ai_system_id: aiSystemId,
       organization_id: membership.organization_id,
       source_framework: 'AI_ACT',
       obligation_code: o.code,
+      obligation_key: o.code,
       title: o.title,
       description: `Obligación aplicable derivada de ${o.title}.`,
       status: 'pending',
@@ -290,12 +294,16 @@ export async function excludeSystemObligation(input: {
 
   if (!system) return { error: 'No se encontró el sistema.' };
 
+  // Código del catálogo (B13a), no el texto de la cabecera.
+  const code = catalogCodeFromRef(input.code) ?? input.code;
+
   const { data: existing } = await adminFluxion
     .from('system_obligations')
     .select('id')
     .eq('ai_system_id', input.aiSystemId)
     .eq('source_framework', 'AI_ACT')
-    .eq('obligation_code', input.code)
+    .eq('obligation_code', code)
+    .is('archived_at', null)
     .maybeSingle();
 
   const now = new Date().toISOString();
@@ -303,7 +311,8 @@ export async function excludeSystemObligation(input: {
     ai_system_id: input.aiSystemId,
     organization_id: membership.organization_id,
     source_framework: 'AI_ACT',
-    obligation_code: input.code,
+    obligation_code: code,
+    obligation_key: code,
     title: input.title,
     description: `Obligación excluida: ${input.title}`,
     status: 'excluded',
