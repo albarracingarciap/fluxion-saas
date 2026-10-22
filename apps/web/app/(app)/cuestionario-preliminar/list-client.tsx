@@ -59,6 +59,17 @@ export function QuestionnaireListClient({ items }: { items: QuestionnaireSummary
                   Actualizado {new Date(q.updatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               </Link>
+              {q.aiSystemId ? (
+                <Link href={`/inventario/${q.aiSystemId}`}
+                  className="px-2.5 py-1 rounded-full border border-cyan-border bg-cyan-dim2 font-sora text-[11px] text-cyan-700 whitespace-nowrap">
+                  En el inventario →
+                </Link>
+              ) : q.status === 'completado' ? (
+                <Link href={`/inventario/nuevo?cuestionario=${q.id}`}
+                  className="px-2.5 py-1 rounded-full border border-ltb bg-ltcard font-sora text-[11px] text-ltt2 hover:text-brand-cyan whitespace-nowrap">
+                  Dar de alta
+                </Link>
+              ) : null}
               {q.classificationLabel && (
                 <span title={q.classificationBasis ?? undefined}
                   className="px-2.5 py-1 rounded-full border border-ltb bg-ltcard2 font-sora text-[11px] text-ltt2 whitespace-nowrap">

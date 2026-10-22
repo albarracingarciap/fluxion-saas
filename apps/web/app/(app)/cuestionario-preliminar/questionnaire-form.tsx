@@ -5,132 +5,24 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
 
-import { NONE, SECTIONS, isVisible, type Answers, type Field } from '@/lib/preliminary-questionnaire/schema'
+import { SECTIONS, isVisible, type Answers } from '@/lib/preliminary-questionnaire/schema'
+import { FieldView } from '@/components/questionnaire/field-view'
 import type { CatalogObligation } from '@/lib/ai-act'
 import { saveQuestionnaire } from './actions'
 import { ClassificationPanel } from './classification-panel'
 
-const LABEL = 'font-plex text-[10px] uppercase tracking-[0.7px] text-ltt2'
-const INPUT =
-  'w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] text-ltt font-sora outline-none focus:border-brand-cyan'
-
-const chip = (on: boolean) =>
-  `px-3 py-1.5 rounded-[7px] border font-sora text-[12px] transition-colors ${
-    on
-      ? 'border-cyan-border bg-cyan-dim2 text-cyan-700'
-      : 'border-ltb bg-ltcard2 text-lttm hover:border-ltb2'
-  }`
-
-function FieldView({
-  field, answers, set,
-}: {
-  field: Field
-  answers: Answers
-  set: (key: string, value: string | string[]) => void
-}) {
-  const value = answers[field.key]
-  const str = typeof value === 'string' ? value : ''
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="font-sora text-[13px] font-medium text-ltt">
-        {field.label}
-        {field.required && <span className="text-re"> *</span>}
-      </p>
-      {field.hint && <p className="font-sora text-[11.5px] text-lttm -mt-0.5">{field.hint}</p>}
-
-      {field.type === 'text' && (
-        <input className={INPUT} value={str} placeholder={field.placeholder}
-          onChange={(e) => set(field.key, e.target.value)} />
-      )}
-
-      {field.type === 'date' && (
-        <input type="date" className={INPUT} value={str} onChange={(e) => set(field.key, e.target.value)} />
-      )}
-
-      {field.type === 'textarea' && (
-        <textarea className={INPUT} rows={3} value={str} placeholder={field.placeholder}
-          onChange={(e) => set(field.key, e.target.value)} />
-      )}
-
-      {field.type === 'radio' && (
-        <div className="flex flex-col gap-1.5">
-          {field.options.map((o) => (
-            <button key={o.value} type="button"
-              onClick={() => set(field.key, str === o.value ? '' : o.value)}
-              className={`${chip(str === o.value)} text-left`}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {field.type === 'yesno' && (
-        <>
-          <div className="flex gap-1.5 flex-wrap">
-            {[
-              { v: 'si', l: 'Sí' },
-              { v: 'no', l: 'No' },
-              ...(field.naLabel ? [{ v: 'na', l: field.naLabel }] : []),
-            ].map((o) => (
-              <button key={o.v} type="button"
-                onClick={() => set(field.key, str === o.v ? '' : o.v)}
-                className={`${chip(str === o.v)} ${o.v === 'na' ? 'text-left' : ''}`}>
-                {o.l}
-              </button>
-            ))}
-          </div>
-          {field.detail && str !== '' && str !== 'na' && (!field.detail.onlyIfYes || str === 'si') && (
-            <div className="mt-1">
-              <p className={`${LABEL} mb-1.5`}>
-                {field.detail.label}
-                {field.detail.required && <span className="text-re"> · obligatorio</span>}
-              </p>
-              <textarea className={INPUT} rows={2} placeholder={field.detail.placeholder}
-                value={typeof answers[`${field.key}__detalle`] === 'string' ? (answers[`${field.key}__detalle`] as string) : ''}
-                onChange={(e) => set(`${field.key}__detalle`, e.target.value)} />
-            </div>
-          )}
-        </>
-      )}
-
-      {field.type === 'checks' && (
-        <div className={`grid gap-1.5 ${field.columns === 2 ? 'md:grid-cols-2' : ''}`}>
-          {[...field.options, ...(field.noneLabel ? [{ value: NONE, label: field.noneLabel }] : [])].map((o) => {
-            const list = Array.isArray(value) ? value : []
-            const on = list.includes(o.value)
-            // «Ninguno» es excluyente con las demás opciones (RN-V02).
-            const next = on
-              ? list.filter((x) => x !== o.value)
-              : o.value === NONE ? [NONE] : [...list.filter((x) => x !== NONE), o.value]
-            return (
-              <button key={o.value} type="button"
-                onClick={() => set(field.key, next)}
-                className={`${chip(on)} text-left flex items-start gap-2`}>
-                <span className={`mt-[2px] w-[14px] h-[14px] shrink-0 rounded-[4px] border flex items-center justify-center ${
-                  on ? 'bg-brand-cyan border-brand-cyan text-white' : 'border-ltb2 bg-ltcard'
-                }`}>
-                  {on && <Check size={10} strokeWidth={3} />}
-                </span>
-                <span>{o.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function QuestionnaireForm({
-  id: initialId, initialAnswers, initialStatus, catalog,
+  id: initialId, initialAnswers, initialStatus, catalog, aiSystemId = null,
 }: {
   id?: string
   initialAnswers: Answers
   initialStatus: 'borrador' | 'completado'
   /** Catálogo de obligaciones para el panel «Clasificación preliminar» (B13b). */
   catalog: { obligations: CatalogObligation[]; labels: Record<string, string> } | null
+  /** Sistema dado de alta desde el cuestionario (B13c): solo lectura (RN-W11). */
+  aiSystemId?: string | null
 }) {
+  const soloLectura = Boolean(aiSystemId)
   const router = useRouter()
   const [id, setId] = useState(initialId)
   const [answers, setAnswers] = useState<Answers>(initialAnswers)
@@ -140,6 +32,8 @@ export function QuestionnaireForm({
   const [error, setError] = useState<string | null>(null)
   const [missing, setMissing] = useState<{ section: string; label: string }[]>([])
   const [saved, setSaved] = useState(false)
+  // Cambios sin guardar: el alta usa las respuestas guardadas.
+  const [dirty, setDirty] = useState(false)
 
   const section = SECTIONS[step]
   const last = step === SECTIONS.length - 1
@@ -147,6 +41,7 @@ export function QuestionnaireForm({
   const set = (key: string, value: string | string[]) => {
     setAnswers((a) => ({ ...a, [key]: value }))
     setSaved(false)
+    setDirty(true)
   }
 
   const save = (complete: boolean) => {
@@ -161,6 +56,7 @@ export function QuestionnaireForm({
       }
       setStatus(res.status)
       setSaved(true)
+      setDirty(false)
       if (complete) {
         router.push('/cuestionario-preliminar')
         return
@@ -201,6 +97,29 @@ export function QuestionnaireForm({
         </span>
       </div>
 
+      {soloLectura && (
+        <div className="border border-cyan-border bg-cyan-dim2 rounded-[12px] p-4 flex items-center gap-3">
+          <ClipboardList size={16} className="text-cyan-700 shrink-0" />
+          <p className="font-sora text-[12.5px] text-ltt flex-1">
+            Este cuestionario dio lugar a un sistema del inventario y es de solo lectura. Para cambiar datos, edita la ficha del sistema.
+          </p>
+          <Link href={`/inventario/${aiSystemId}`} className="font-sora text-[12.5px] text-cyan-700 hover:underline whitespace-nowrap">
+            Ver la ficha →
+          </Link>
+        </div>
+      )}
+      {!soloLectura && status === 'completado' && id && !dirty && (
+        <div className="border border-ltb bg-ltcard rounded-[12px] p-4 flex items-center gap-3">
+          <p className="font-sora text-[12.5px] text-ltt2 flex-1">
+            Cuestionario completado. Puedes registrar el sistema en el inventario con estas respuestas: el alta se abre rellena y la revisas antes de guardar.
+          </p>
+          <Link href={`/inventario/nuevo?cuestionario=${id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[12.5px] font-medium whitespace-nowrap">
+            Dar de alta en el inventario
+          </Link>
+        </div>
+      )}
+
       <ClassificationPanel answers={answers} catalog={catalog} />
 
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Secciones">
@@ -217,6 +136,7 @@ export function QuestionnaireForm({
         ))}
       </nav>
 
+      <fieldset disabled={soloLectura} className="contents">
       <section className="bg-ltcard border border-ltb rounded-[14px] p-7 shadow-[0_4px_24px_rgba(0,74,173,0.04)] flex flex-col gap-6">
         <div>
           <p className="font-plex text-[11px] uppercase tracking-[1px] text-lttm mb-1">
@@ -240,6 +160,7 @@ export function QuestionnaireForm({
           </div>
         ))}
       </section>
+      </fieldset>
 
       {error && (
         <div className="border border-reb bg-red-dim rounded-[12px] p-4 flex items-start gap-3">
@@ -265,6 +186,7 @@ export function QuestionnaireForm({
 
         <div className="flex items-center gap-3">
           {saved && !pending && <span className="font-sora text-[12px] text-lttm">Guardado</span>}
+          {!soloLectura && <>
           <button type="button" disabled={pending} onClick={() => save(false)}
             className="px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg transition-colors disabled:opacity-50">
             {pending ? 'Guardando…' : 'Guardar borrador'}
@@ -277,6 +199,13 @@ export function QuestionnaireForm({
           ) : (
             <button type="button" onClick={() => setStep(step + 1)}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[9px] text-white bg-gradient-to-r from-brand-cyan to-brand-blue font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all">
+              Siguiente <ChevronRight size={15} />
+            </button>
+          )}
+          </>}
+          {soloLectura && !last && (
+            <button type="button" onClick={() => setStep(step + 1)}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[9px] border border-ltb text-ltt font-sora text-[13px] font-medium hover:bg-ltbg">
               Siguiente <ChevronRight size={15} />
             </button>
           )}

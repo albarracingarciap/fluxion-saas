@@ -178,6 +178,8 @@ export type SystemDetailData = {
   aiact_scope_reason?: string | null;
   aiact_result?: { method?: string; warnings?: Array<{ rule: string; text: string }>; rulesVersion?: string } | null;
   aiact_review_pending?: boolean | null;
+  /** Cuestionario preliminar del que se registró (B13c). */
+  origin_questionnaire?: { id: string; title: string } | null;
   processes_personal_data: boolean | null;
   data_categories: string[] | null;
   special_categories: string[] | null;
@@ -2746,6 +2748,15 @@ export function SystemDetailClient({
                     <div className="font-sora text-[13px] text-ltt2 leading-relaxed mb-4 border-l-2 border-re pl-3 ml-0.5">
                       {system.aiact_risk_reason ?? 'Aún no hay explicación narrativa disponible para esta clasificación.'}
                     </div>
+                    {system.origin_questionnaire && (
+                      <p className="mb-3 font-sora text-[12px] text-ltt2">
+                        Registrado desde el cuestionario preliminar{' '}
+                        <Link href={`/cuestionario-preliminar/${system.origin_questionnaire.id}`} className="text-brand-cyan hover:underline">
+                          «{system.origin_questionnaire.title}»
+                        </Link>
+                        {' '}(sus respuestas sin campo en la ficha se consultan allí).
+                      </p>
+                    )}
                     {avisosMotor.length > 0 && (
                       <ul className="mb-4 space-y-1">
                         {avisosMotor.map((w) => (

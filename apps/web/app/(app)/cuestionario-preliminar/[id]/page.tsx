@@ -28,5 +28,5 @@ export default async function CuestionarioPage({ params }: { params: { id: strin
   }
 
   const catalog = await loadAiActCatalog()
-  return <QuestionnaireForm id={data.id} initialAnswers={data.answers} initialStatus={data.status} catalog={catalog} />
+  return <QuestionnaireForm id={data.id} initialAnswers={data.answers} initialStatus={data.status} catalog={catalog} aiSystemId={data.aiSystemId} />
 }

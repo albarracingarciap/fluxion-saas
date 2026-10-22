@@ -1,0 +1,66 @@
+// Cuestionario preliminar → asistente de alta (B13c).
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+
+import { answersToInputs } from '../lib/preliminary-questionnaire/to-aiact'
+import { inputsToAnswers, questionnaireToWizard, wizardAiActInputs } from '../lib/preliminary-questionnaire/to-wizard'
+import { NONE, type Answers } from '../lib/preliminary-questionnaire/schema'
+
+const respuestas: Answers = {
+  responsable: 'Ana Pérez',
+  q1_tipo: 'proyecto',
+  q2_objeto: 'Scoring de solvencia para préstamos',
+  q3_datos_personales: 'si',
+  q4_usa_ia: 'si',
+  q5_tecnologia: 'XGBoost',
+  q8_uso: 'Evaluar la solvencia de solicitantes',
+  propiedad: 'propio_organizacion',
+  pos_roles: ['proveedor', 'responsable_despliegue'],
+  c1: [NONE], c2a: [NONE], c2b_solvencia: ['solvencia'],
+  c3: ['predicciones', 'perfiles'],
+  gpai_desarrolla: 'no', gpai_usa_terceros: 'no',
+  u_forma: ['fine_tuning'],
+}
+
+test('volcado §6.3: identificación, propósito, impacto, tecnología y gobierno', () => {
+  const { initial, prefilledKeys, domainCandidates } = questionnaireToWizard(respuestas)
+  assert.equal(initial.name, 'XGBoost')
+  assert.equal(initial.domain, 'credito')
+  assert.equal(initial.status, 'desarrollo')
+  assert.deepEqual(initial.outputTypes, ['clasificacion', 'prediccion'])
+  assert.equal(initial.affectsPersons, true)
+  assert.equal(initial.origin, 'interno')
+  assert.deepEqual(initial.valueChainRoles, ['provider', 'deployer'])
+  assert.equal(initial.hasFineTuning, true)
+  assert.equal(initial.aiOwner, 'Ana Pérez')
+  assert.deepEqual(domainCandidates, [])
+  assert.ok(prefilledKeys.includes('domain') && !prefilledKeys.includes('aiactAnswers'))
+})
+
+test('varios supuestos del Anexo III: el dominio queda vacío con sus candidatos (RN-W03)', () => {
+  const { initial, domainCandidates } = questionnaireToWizard({ ...respuestas, c2b_empleo: ['seleccion'] })
+  assert.equal(initial.domain, undefined)
+  assert.deepEqual(domainCandidates.sort(), ['credito', 'rrhh'])
+})
+
+test('los supuestos se conservan y el asistente clasifica con ellos', () => {
+  const { initial } = questionnaireToWizard(respuestas)
+  const inputs = wizardAiActInputs({ ...initial, aiactAnswers: initial.aiactAnswers as Answers })
+  assert.deepEqual(inputs?.annexIII, ['5b'])
+  assert.equal(inputs?.fineTuning, true)
+  assert.equal(wizardAiActInputs({ isAISystem: true }), null)
+})
+
+test('ida y vuelta: supuestos guardados → respuestas → supuestos', () => {
+  const a: Answers = {
+    ...respuestas,
+    c1: ['emociones'], c1_exc_emociones: 'si', c1_exc_emociones__detalle: 'Seguridad',
+    c2a: ['componente_seguridad', 'evaluacion_terceros'], c2a_productos: ['maquinaria'],
+    c63_invoca: 'si', c63_condiciones: ['d'], c63_perfiles: 'no', c63_justificacion: 'Preparatoria',
+    gpai_desarrolla: 'si', gpai_computo: 'desconoce', q_organismo_publico: 'no',
+  }
+  const inputs = answersToInputs(a)
+  assert.deepEqual(answersToInputs({ q4_usa_ia: 'si', ...inputsToAnswers(inputs)! }).annexIII, inputs.annexIII)
+  const vuelta = answersToInputs({ q4_usa_ia: 'si', ...inputsToAnswers(inputs)!, u_forma: ['fine_tuning'] })
+  assert.deepEqual(vuelta, inputs)
+})
