@@ -228,8 +228,9 @@ tiene dos vías:
   dominio, el tipo de output y los indicadores del paso 3. El resultado lleva el aviso «Clasificación
   aproximada por dominio y tipo de output: faltan los supuestos del AI Act.».
 
-> **Pendiente de implementar.** El asistente todavía no recoge los supuestos AI Act: el bloque que los
-> pide y su paso desde el cuestionario preliminar llegan con B13b y B13c. Hasta entonces, el alta
+> **Pendiente de implementar.** El asistente todavía no recoge los supuestos AI Act. El
+> [cuestionario preliminar](cuestionario-preliminar-formulario.md) ya los recoge desde B13b, pero el bloque
+> del alta que los pide y el volcado desde el cuestionario llegan con B13c. Hasta entonces, el alta
 > clasifica siempre por la vía de respaldo.
 
 Reglas de la vía de respaldo; se aplica la primera que se cumple:

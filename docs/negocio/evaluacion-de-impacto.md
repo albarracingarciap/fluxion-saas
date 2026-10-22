@@ -13,9 +13,13 @@ fuente:
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - apps/web/app/(app)/cuestionario-preliminar/questionnaire-form.tsx
   - apps/web/lib/preliminary-questionnaire/schema.ts
+  - apps/web/lib/preliminary-questionnaire/to-aiact.ts
+  - apps/web/app/(app)/cuestionario-preliminar/classification-panel.tsx
+  - apps/web/app/(app)/cuestionario-preliminar/list-client.tsx
   - apps/web/app/(app)/plantillas/soa-iso42001/actions.ts
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
+  - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
   - supabase/migrations/20261020150100_aprobaciones_politicas_defecto.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - docs/modulos/aisia-auditoria.md
@@ -124,12 +128,24 @@ stateDiagram-v2
    - datos e información;
    - forma de utilización;
    - posición en la cadena de valor.
-2. Se guarda como borrador hasta completarlo; Fluxion indica qué campos obligatorios faltan.
-3. Los cuestionarios se listan y se pueden retomar desde el panel principal.
+2. La finalidad prevista recoge los [supuestos AI Act](../glosario.md#supuestos-ai-act) del sistema:
+   prácticas prohibidas y sus excepciones, productos regulados (Anexo I), ámbitos de alto riesgo
+   (Anexo III) y la excepción del Art. 6.3, obligaciones de transparencia y relación con modelos de IA de
+   uso general. Cada bloque se responde de forma explícita, con una opción «Ninguno» cuando no aplica: una
+   pregunta sin responder no equivale a «no».
+3. Mientras se rellena, Fluxion muestra en todas las secciones una **clasificación preliminar**: nivel de
+   riesgo o ámbito, fundamento, avisos, roles en la cadena de valor y obligaciones sugeridas. La calcula
+   el mismo motor de clasificación que el alta del sistema. Es una propuesta: la
+   [clasificación AI Act](../glosario.md#clasificación-ai-act) del sistema se fija al darlo de alta.
+4. Se guarda como borrador hasta completarlo. Para completarlo, Fluxion exige los campos obligatorios y
+   que no haya respuestas contradictorias (por ejemplo, indicar que no se usa IA y marcar supuestos). Al
+   completarlo, guarda la clasificación preliminar.
+5. Los cuestionarios se listan, con su clasificación preliminar, y se pueden retomar desde el panel
+   principal.
 
 > **Pendiente de implementar.**
-> - Clasificación a partir del cuestionario preliminar y alta del sistema desde sus respuestas. Hoy el
->   cuestionario solo guarda la información.
+> - Alta del sistema en el inventario a partir del cuestionario preliminar, con sus respuestas ya
+>   rellenas.
 > - Propuesta de contenido por IA para las secciones de la AISIA.
 > - Acceso condicionado a la activación del módulo. Hoy AISIA, riesgos de negocio y cuestionario
 >   preliminar están disponibles para todas las organizaciones.
@@ -142,6 +158,7 @@ stateDiagram-v2
 
 | Norma | Referencia | Qué cubre |
 |---|---|---|
+| AI Act | Art. 5, Art. 6 y Anexos I y III, Art. 50 | Supuestos que recoge el cuestionario preliminar para la clasificación preliminar |
 | ISO/IEC 42001 | §6.1.4 | Evaluación de impacto de los sistemas de IA sobre individuos, grupos y sociedad |
 | ISO/IEC 42001 | Anexo A.5 | Controles de evaluación de impactos de los sistemas de IA |
 | ISO/IEC 42001 | §6.1 | Riesgos para los objetivos de la organización, que cubre el registro de riesgos de negocio |

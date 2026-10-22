@@ -635,6 +635,9 @@ export function coherenceErrors(answers: Answers): string[] {
   if (answers.c2b_ninguno === 'si' && tieneAnexoIII(answers)) {
     out.push('Has marcado «Ninguno de los supuestos» del bloque B y también algún supuesto.')
   }
+  if (answers.c2b_ninguno === 'no' && !tieneAnexoIII(answers) && answers.q4_usa_ia !== 'no') {
+    out.push('En el bloque B (Anexo III) has respondido que sí aplica algún supuesto, pero no has marcado ninguno.')
+  }
   for (const s of SECTIONS) for (const b of s.blocks) for (const f of b.fields) {
     if (f.type === 'checks' && f.noneLabel && has(answers, f.key, NONE) && list(answers, f.key).length > 1) {
       out.push(`«${f.noneLabel}» es incompatible con las demás opciones de «${f.label}».`)

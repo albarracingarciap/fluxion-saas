@@ -40,6 +40,7 @@ fuente:
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
+  - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
 ---
 
 # Modelo de datos
@@ -244,7 +245,7 @@ erDiagram
 | `fluxion.task_gap_links` | — | Vínculo entre tarea y `gap_key` | `00000000000001` |
 | `fluxion.organization_soa_controls`, `organization_soa_metadata`, `organization_soa_system_links`, `soa_lifecycle_log` | [Declaración de Aplicabilidad ISO 42001](../glosario.md#declaración-de-aplicabilidad-iso-42001) | `control_code` único por organización (el catálogo de 38 controles está en `apps/web/lib/templates/iso42001-catalog.ts`), `is_applicable`, `lifecycle_status` | `00000000000001` |
 | `fluxion.aisia_assessments`, `aisia_sections` | [AISIA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia) | `version` única por sistema, `status`; secciones S1-S6 con `data jsonb` | `00000000000001` |
-| `fluxion.preliminary_questionnaires` | [Cuestionario preliminar](../glosario.md#cuestionario-preliminar) | `status` ∈ `borrador`, `completado`; `answers jsonb` | `20260915090000` |
+| `fluxion.preliminary_questionnaires` | [Cuestionario preliminar](../glosario.md#cuestionario-preliminar) | `status` ∈ `borrador`, `completado`; `answers jsonb`; `classification jsonb` (B13b): copia de la clasificación preliminar al completar, con `result` (resultado del motor único, con fundamento, avisos y `rulesVersion`), `obligations` (`[{code, label}]`) y `computed_at`. Es `null` en los borradores y en los cuestionarios completados antes de B13b | `20260915090000`, `20261022100000` |
 
 Las [brechas](../glosario.md#brecha) no se guardan: se calculan en `apps/web/lib/gaps/data.ts`. Solo
 se persisten las disposiciones y los vínculos con tareas.

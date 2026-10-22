@@ -22,6 +22,7 @@ fuente:
   - services/agents/fluxion_agents/prompts/classification.py
   - services/agents/fluxion_agents/rag/retriever.py
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
+  - apps/web/lib/preliminary-questionnaire/to-aiact.ts
 ---
 
 # Clasificación AI Act
@@ -106,8 +107,11 @@ flowchart TD
    **clasificación aproximada** a partir del sector de aplicación y del tipo de resultado, y la marca con
    un aviso para que se revise.
 
-   > **Pendiente de implementar.** Recoger los supuestos del AI Act en el cuestionario preliminar y en el
-   > alta del sistema. Hasta entonces, las clasificaciones son aproximadas.
+   El [cuestionario preliminar](../glosario.md#cuestionario-preliminar) ya recoge los supuestos del AI
+   Act y propone con ellos una clasificación preliminar, que se guarda al completarlo.
+
+   > **Pendiente de implementar.** Llevar los supuestos del cuestionario preliminar al alta del sistema y
+   > recogerlos en el propio alta. Hasta entonces, las clasificaciones de los sistemas son aproximadas.
 2. **Clasificación con IA.** Desde la ficha se puede pedir una clasificación al asistente. Este sigue
    el árbol de decisión del AI Act:
    - prácticas prohibidas (Art. 5);

@@ -110,9 +110,10 @@ Cada resultado lleva la versión de las reglas (`AIACT_RULES_VERSION`).
   añade el aviso `RN-F00` «Clasificación aproximada por dominio y tipo de output: faltan los supuestos del
   AI Act.».
 
-> **Pendiente de implementar.** La interfaz para introducir los supuestos AI Act (cuestionario
-> preliminar, B13b, y bloque «Supuestos AI Act» del alta, B13c). Hasta entonces todos los sistemas se
-> clasifican por la vía de respaldo.
+> **Pendiente de implementar.** El bloque «Supuestos AI Act» del alta y el volcado desde el cuestionario
+> preliminar (B13c). El cuestionario ya recoge los supuestos y clasifica con el motor desde B13b
+> (`lib/preliminary-questionnaire/to-aiact.ts`), pero solo como clasificación preliminar: hasta B13c todos
+> los sistemas se clasifican por la vía de respaldo.
 
 **Resultado (`AiActResult`):** ámbito (`in_scope`, `out_of_scope`, `not_ai_system`, `pending`) y su
 motivo; nivel (`prohibited`, `high`, `limited`, `minimal`, `pending`, o `null` fuera del ámbito); vía del

@@ -102,3 +102,8 @@ test('coherencia: «ninguno» con otros roles y Anexo I incompleto', () => {
   assert.ok(coherenceErrors(base({ pos_roles: ['ninguno', 'proveedor'] })).some((e) => e.includes('RN-V08')))
   assert.ok(coherenceErrors(base({ c2a: ['componente_seguridad'] })).some((e) => e.includes('RN-V06')))
 })
+
+test('bloque B: «No» a «Ninguno» sin marcar ningún supuesto no se puede completar', () => {
+  assert.ok(coherenceErrors(base({ c2b_ninguno: 'no' })).some((e) => e.includes('bloque B')))
+  assert.equal(coherenceErrors(base({ c2b_ninguno: 'no', c2b_solvencia: ['solvencia'] })).length, 0)
+})

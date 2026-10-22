@@ -55,6 +55,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Terminología: «gap» y «exclusión» (fuera del plan) | Integrado en `main` | `docs/termino-exclusion-gap` | 2026-10-21 | **Sí** · `20261021130000_terminologia_gaps.sql` |
 | B13a · Motor único de clasificación AI Act | Integrado en `main` | `fase2/b13a-motor-ai-act` | 2026-10-22 | **Sí** · `20261022090000_ai_act_motor_unico.sql` |
 | Glosario: motor de clasificación tras B13a | Integrado en `main` | `docs/glosario-b13a` | 2026-10-22 | No |
+| B13b · Cuestionario preliminar con clasificación preliminar | Integrado en `main` | `fase2/b13b-cuestionario` | 2026-10-22 | **Sí** · `20261022100000_cuestionario_clasificacion.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -85,6 +86,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql` | B12 | Copia `fluxion.evidences` a `system_evidences` con el mismo id; `treatment_actions.evidence_id` → `system_evidences`; la severidad residual solo pasa al FMEA con evidencia válida (si no, `evidence_pending`, que se completa al validarse); abre la revisión de las copias pendientes; `fluxion.evidences` queda como histórico | **Antes** de desplegar B12. Conviene una copia de seguridad previa y comparar recuentos: el aviso `B12: N evidencias de acciones en la biblioteca (…)` debe coincidir con `select count(*) from fluxion.evidences` |
 | `supabase/migrations/20261021130000_terminologia_gaps.sql` | Terminología | «gap» en la etiqueta de la bandeja, el nombre de la política por defecto de exclusión (si no se ha cambiado) y el mensaje del trigger | Antes o después de desplegar; solo cambia textos |
 | `supabase/migrations/20261022090000_ai_act_motor_unico.sql` | B13a | Columnas del motor en `ai_systems` (supuestos, ámbito, resultado, versión de reglas, GPAI, revisión pendiente); eventos con nivel `pending` o nulo; traduce las claves de obligación a los códigos del catálogo (archiva duplicadas); marca los sistemas existentes «Pendiente de revisar con el motor nuevo» | **Antes** de desplegar B13a, y **desplegar a la vez la web y el servicio de agentes** (cambia el contrato entre ambos). Revisa el aviso `B13a: N sistemas pendientes…; M obligaciones con código del catálogo` |
+| `supabase/migrations/20261022100000_cuestionario_clasificacion.sql` | B13b | Columna `preliminary_questionnaires.classification` (clasificación preliminar guardada al completar) | Antes de desplegar B13b |
 
 ---
 
@@ -1372,3 +1374,35 @@ completo; negocio de clasificación AI Act; técnicos del servicio de agentes, l
 
 **Pendiente.** B13b (cuestionario y panel de clasificación preliminar), B13c (volcado al alta y bloque **Supuestos
 AI Act**), B13d (GPAI y catálogo de obligaciones: Art. 50 dividido, Art. 27, Art. 6.4).
+
+---
+
+## B13b · Cuestionario preliminar con clasificación preliminar
+
+**Fecha:** 2026-10-22 · **Rama:** `fase2/b13b-cuestionario` ·
+**Migración:** **sí**, `supabase/migrations/20261022100000_cuestionario_clasificacion.sql`
+
+**Problema** (GAP-07; `E20`): el cuestionario recogía respuestas pero no clasificaba; algunas preguntas no
+distinguían «no aplica» de «sin responder», tenían textos que no coincidían con el AI Act (exclusión profesional,
+infraestructuras críticas), faltaban supuestos (excepciones del Art. 5, Art. 6.3, Art. 50.4, GPAI, Art. 25, Art. 27)
+y una pregunta estaba duplicada.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Preguntas (Q-01 a Q-13) | «Ninguno» excluyente en prácticas, Anexo I y funciones, y una sola pregunta «¿Ninguno de los supuestos de este bloque?» para todo el Anexo III (decisión de interfaz, TODO 265); excepciones del Art. 5.1 con justificación; componente/producto y ferroviario en el Anexo I; texto del Anexo III punto 2; bloque del Art. 6.3; Art. 50.4; bloque GPAI; uso personal (Art. 2.10) en lugar de «profesional»; organismo público (Art. 27); Art. 25; sin la propiedad duplicada; definición del Art. 3.1 en la pregunta 4 |
+| Reglas (RN-V01 a RN-V10) | Obligatorios con campos condicionales; sin IA no se piden la finalidad ni la posición; con exclusión del Art. 2 la finalidad es opcional; las contradicciones impiden completar; el detalle «En caso afirmativo» solo con «Sí» |
+| Clasificación | Respuestas → supuestos AI Act (`to-aiact.ts`) y el motor único de B13a. Panel **Clasificación preliminar** en todas las secciones (nivel o ámbito, fundamento, transparencia, GPAI, roles, avisos y obligaciones sugeridas); al completar se guarda con la versión de las reglas y se muestra en el listado |
+
+**Verificación.** `npm test` 80/80 (casos de la especificación a partir de respuestas y reglas RN-V). Migración
+probada dos veces en el Postgres local. `tsc --noEmit` sin errores, `next lint` sin avisos,
+`check-server-actions.sh` correcto. No se ha probado en el navegador.
+
+**Documentación.** Funcionales del formulario y del listado del cuestionario, flujo completo (GAP-07 en parte);
+negocio de evaluación de impacto y de clasificación AI Act; modelo de datos; especificación del cuestionario (§1, §5,
+§8 con columna de estado); TODO 139 en parte; TODO 265 a 268 (266 y 267 resueltos).
+
+**Pendiente.** B13c: **Dar de alta en el inventario** desde el cuestionario, volcado al asistente, bloque **Supuestos
+AI Act** en el alta, vínculo y bloqueo. Los cuestionarios completados antes de B13b no tienen clasificación guardada
+y quedan «Pendiente de clasificar» hasta responder las preguntas nuevas.

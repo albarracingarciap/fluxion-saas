@@ -18,6 +18,8 @@ fuente:
   - apps/web/app/(app)/inventario/descubrimientos/actions.ts
   - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
   - apps/web/lib/ai-act/server.ts
+  - apps/web/app/(app)/cuestionario-preliminar/actions.ts
+  - apps/web/lib/preliminary-questionnaire/to-aiact.ts
   - apps/web/app/(app)/inventario/actions/classification.ts
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
   - apps/web/app/(app)/inventario/[id]/modos-de-fallo/actions.ts
@@ -347,7 +349,7 @@ Se repite por cada sistema. Hay tres entradas:
 
 ```mermaid
 flowchart LR
-  Q[Cuestionario preliminar] -. sin conexión .-> A
+  Q[Cuestionario preliminar<br/>clasificación preliminar] -. sin volcado .-> A
   A[Alta de sistema<br/>asistente de 7 pasos] --> F[Ficha del sistema]
   D[Sistemas detectados<br/>conectores] -->|Crear sistema nuevo| F
 ```
@@ -359,15 +361,18 @@ flowchart LR
   menú.
 - **Qué recoge:** siete secciones (proyecto, información básica, sistema de IA, finalidad prevista con
   prácticas prohibidas y Anexo III, datos, forma de utilización y posición en la cadena de valor).
-- **Estados:** Borrador · Completado.
+- **Estados:** Borrador · Completado. Al completar se guarda la clasificación preliminar
+  (`preliminary_questionnaires.classification`).
+- **Clasificación preliminar (B13b):** el panel **Clasificación preliminar** aplica el motor único a las
+  respuestas en cada cambio. Es una propuesta: la clasificación del sistema se fija en el alta.
 
-> **⚠ GAP-07 · El cuestionario no alimenta el alta.** Sus respuestas no se usan para clasificar ni para
-> crear el sistema: hay que volver a introducirlas en el asistente (`E20`). B13a deja preparado el motor
-> único de clasificación que compartirán el cuestionario y el alta, y el campo donde se guardan los
-> supuestos AI Act del sistema, pero todavía no hay ninguna pantalla que los recoja.
+> **⚠ GAP-07 · Resuelto en parte en B13b. El cuestionario no alimenta el alta.** Desde B13b recoge los
+> supuestos AI Act, valida la completitud y la coherencia de las respuestas (RN-V01 a RN-V10) y clasifica
+> con el mismo motor que el alta, pero sus respuestas no se usan para crear el sistema: hay que volver a
+> introducirlas en el asistente (`E20`).
 >
-> **Pendiente de implementar.** Clasificación del cuestionario con el motor único (B13b) y alta del
-> sistema a partir del cuestionario, con el bloque «Supuestos AI Act» (B13c).
+> **Pendiente de implementar.** Alta del sistema a partir del cuestionario: volcado al asistente con el
+> bloque «Supuestos AI Act», vínculo con el sistema y bloqueo del cuestionario (B13c).
 
 ### 4.2 Alta de sistema
 
@@ -454,6 +459,7 @@ flowchart TD
 > referencia y las obligaciones usan los códigos del catálogo, así que un sistema prohibido conserva la
 > obligación del Art. 5 (`I1` a `I4`). Los sistemas existentes no se reclasifican en bloque: quedan
 > «Pendiente de revisar con el motor nuevo».
+> Desde B13b, el cuestionario preliminar también clasifica con este motor.
 >
 > **Pendiente de implementar.** Migración de los sistemas con nivel GPAI a la categoría GPAI y ajustes
 > del catálogo de obligaciones (B13d).
@@ -992,7 +998,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-03 | 0 | Onboarding de invitados no guarda datos | Fricción | `A2` |
 | GAP-04 | 1 | Gobernanza en texto libre, sin uso | Fricción | `A11` |
 | GAP-05 | 1 | Comités sin sesiones ni actas | Fricción | — |
-| GAP-07 | 2 | Cuestionario preliminar desconectado del alta (motor común listo en B13a; conexión en B13b y B13c) | Fricción | `E20` |
+| GAP-07 | 2 | Cuestionario preliminar desconectado del alta (clasifica con el motor común desde B13b; volcado al alta en B13c) | Fricción | `E20` |
 | GAP-08 | 2 | Alta desde sistema detectado: ✔ clasifica desde B13a; sin obligaciones sugeridas ni historial | Fricción | `I20` |
 | GAP-16 | 5 | ✔ Resuelto en B05: «Guardar borrador» no guardaba decisiones | — | `R7` |
 | GAP-23 | 6 | AISIA no actualizable; precarga no guardada | Fricción | `E19` |
