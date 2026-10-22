@@ -115,7 +115,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | id | Ruta del .md | Tipo | Audiencia | Módulo | Ficheros fuente | Estado |
 |---|---|---|---|---|---|---|
 | FUN-INVENTARIO | `docs/funcional/inventario.md` | funcional | tecnica | inventario | `(app)/inventario/{page.tsx,systems-table-client.tsx}` | borrador |
-| FUN-INVENTARIO-ALTA | `docs/funcional/inventario-alta.md` | funcional | tecnica | inventario | `(app)/inventario/nuevo/*`, `components/inventory/SystemWizard.jsx` | borrador |
+| FUN-INVENTARIO-ALTA | `docs/funcional/inventario-alta.md` | funcional | tecnica | inventario | `(app)/inventario/nuevo/*`, `components/inventory/SystemWizard.jsx`, `components/questionnaire/*`, `lib/preliminary-questionnaire/to-wizard.ts` | borrador |
 | FUN-FICHA-SISTEMA | `docs/funcional/ficha-sistema.md` | funcional | tecnica | inventario | `(app)/inventario/[id]/{page.tsx,system-detail-client.tsx,causal-map-canvas.tsx}`, `(app)/inventario/[id]/{obligaciones,modos-de-fallo,evidencias}/actions.ts`, `components/classification/*` | borrador |
 | FUN-FICHA-EDICION | `docs/funcional/ficha-sistema-edicion.md` | funcional | tecnica | inventario | `(app)/inventario/[id]/editar/*` | borrador |
 | FUN-DESCUBRIMIENTOS | `docs/funcional/descubrimientos.md` | funcional | tecnica | descubrimiento-inventario | `(app)/inventario/descubrimientos/*` | borrador |
@@ -228,7 +228,7 @@ entre los de `CLAUDE.md`; se añadió a petición del responsable (2026-10-19).
 
 | id | Ruta del .md | Tipo | Audiencia | Módulo | Ficheros fuente | Estado |
 |---|---|---|---|---|---|---|
-| PRD-CUESTIONARIO-REGLAS | `docs/producto/cuestionario-preliminar-reglas.md` | especificacion | producto, tecnica | evaluacion-de-impacto | `lib/preliminary-questionnaire/{schema.ts,to-aiact.ts}`, `(app)/cuestionario-preliminar/*`, `components/inventory/SystemWizard.jsx`, `lib/ai-systems/scoring.ts`, `(app)/inventario/nuevo/actions.ts`, `mig/20260915090000_cuestionario_preliminar.sql`, `mig/20260904090000_obligaciones_ai_act.sql`, `mig/20260911090000_rol_cadena_de_valor.sql` | borrador |
+| PRD-CUESTIONARIO-REGLAS | `docs/producto/cuestionario-preliminar-reglas.md` | especificacion | producto, tecnica | evaluacion-de-impacto | `lib/preliminary-questionnaire/{schema.ts,to-aiact.ts,to-wizard.ts}`, `components/questionnaire/*`, `(app)/cuestionario-preliminar/*`, `components/inventory/SystemWizard.jsx`, `lib/ai-systems/scoring.ts`, `(app)/inventario/nuevo/actions.ts`, `mig/20260915090000_cuestionario_preliminar.sql`, `mig/20260904090000_obligaciones_ai_act.sql`, `mig/20260911090000_rol_cadena_de_valor.sql` | borrador |
 | PRD-PLAN-GAPS | `docs/producto/plan-resolucion-gaps.md` | especificacion | producto, tecnica | transversal | `docs/funcional/flujo-completo-evaluacion.md`, `docs/producto/cuestionario-preliminar-reglas.md`, `docs/_incidencias.md`, `(app)/inventario/[id]/fmea/**/actions.ts`, `lib/fmea/*`, `lib/approvals/effects.ts`, `(app)/plantillas/soa-iso42001/*`, `(app)/inventario/[id]/aisia/actions.ts`, `lib/dashboard/data.ts`, `lib/evaluations/data.ts` | borrador |
 | PRD-REGISTRO-CAMBIOS | `docs/producto/registro-de-cambios.md` | especificacion | producto, tecnica | transversal | `docs/producto/plan-resolucion-gaps.md`, historial de git | borrador |
 

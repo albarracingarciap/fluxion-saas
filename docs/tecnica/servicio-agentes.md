@@ -20,6 +20,7 @@ fuente:
   - apps/web/app/api/v1/systems/[systemId]/reclassify-ai/route.ts
   - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
   - apps/web/lib/ai-act/server.ts
+  - apps/web/lib/preliminary-questionnaire/to-wizard.ts
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
   - packages/py-common/fluxion_common/telemetry.py
   - recursos/agent4_assistant_spec.md
@@ -110,10 +111,11 @@ Cada resultado lleva la versión de las reglas (`AIACT_RULES_VERSION`).
   añade el aviso `RN-F00` «Clasificación aproximada por dominio y tipo de output: faltan los supuestos del
   AI Act.».
 
-> **Pendiente de implementar.** El bloque «Supuestos AI Act» del alta y el volcado desde el cuestionario
-> preliminar (B13c). El cuestionario ya recoge los supuestos y clasifica con el motor desde B13b
-> (`lib/preliminary-questionnaire/to-aiact.ts`), pero solo como clasificación preliminar: hasta B13c todos
-> los sistemas se clasifican por la vía de respaldo.
+Los supuestos los recoge el bloque «Supuestos AI Act» del alta y de la edición (B13c), con las mismas
+preguntas del cuestionario preliminar: las respuestas se traducen a `AiActInputs` con
+`lib/preliminary-questionnaire/to-aiact.ts` y se combinan con los campos del alta en `wizardAiActInputs`
+(`lib/preliminary-questionnaire/to-wizard.ts`). El alta desde un cuestionario los trae ya rellenos. Sin
+bloque, el sistema se clasifica por la vía de respaldo.
 
 **Resultado (`AiActResult`):** ámbito (`in_scope`, `out_of_scope`, `not_ai_system`, `pending`) y su
 motivo; nivel (`prohibited`, `high`, `limited`, `minimal`, `pending`, o `null` fuera del ámbito); vía del

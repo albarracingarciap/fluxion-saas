@@ -100,6 +100,9 @@ export function questionnaireToWizard(a: Answers): WizardPrefill {
   if (a.q4_usa_ia === 'si') put('isAISystem', true)
   if (a.q4_usa_ia === 'no') initial.isAISystem = false
   if (inputs.gpai?.providesModel === true) put('isGPAI', true)
+  // RN-P10: alguna práctica del Art. 5 sin excepción declarada.
+  const sinExcepcion = (inputs.prohibited?.practices ?? []).filter((p) => !(inputs.prohibited?.exceptions[p] ?? '').trim())
+  if (sinExcepcion.length > 0) put('prohibitedPractice', true)
   if ((inputs.annexIII ?? []).length > 0) put('affectsPersons', true)
   const biometricos = (inputs.annexIII ?? []).some((p) => p.startsWith('1'))
     || lista(a, 'c1').some((p) => ['categorizacion_biometrica', 'rbi_tiempo_real', 'emociones', 'scraping_facial'].includes(p))
@@ -228,8 +231,14 @@ export function wizardAiActInputs(f: {
   if (!f.aiactAnswers) return null
   const inputs = answersToInputs({ ...f.aiactAnswers, q4_usa_ia: f.isAISystem === true ? 'si' : f.isAISystem === false ? 'no' : undefined })
   inputs.fineTuning = Boolean(f.hasFineTuning)
-  if (!inputs.ownership && f.origin) {
-    inputs.ownership = f.origin === 'interno' ? 'propio_organizacion' : 'tercero_organizacion'
+  // El origen del paso 5 manda si contradice la propiedad del bloque: un
+  // desarrollo interno no es de un tercero, ni al revés. Si coincide, se
+  // conserva la del bloque (que distingue si es para un cliente).
+  if (f.origin) {
+    const propio = f.origin === 'interno'
+    if (!inputs.ownership || inputs.ownership.startsWith('propio') !== propio) {
+      inputs.ownership = propio ? 'propio_organizacion' : 'tercero_organizacion'
+    }
   }
   return inputs
 }

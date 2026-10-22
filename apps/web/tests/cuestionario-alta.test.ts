@@ -64,3 +64,16 @@ test('ida y vuelta: supuestos guardados → respuestas → supuestos', () => {
   const vuelta = answersToInputs({ q4_usa_ia: 'si', ...inputsToAnswers(inputs)!, u_forma: ['fine_tuning'] })
   assert.deepEqual(vuelta, inputs)
 })
+
+test('el origen del paso 5 manda sobre la propiedad del bloque si la contradice (B13c)', () => {
+  const { initial } = questionnaireToWizard(respuestas)
+  const supuestos = initial.aiactAnswers as Answers
+  assert.equal(wizardAiActInputs({ aiactAnswers: supuestos, origin: 'interno' })?.ownership, 'propio_organizacion')
+  assert.equal(wizardAiActInputs({ aiactAnswers: supuestos, origin: 'saas' })?.ownership, 'tercero_organizacion')
+  assert.equal(wizardAiActInputs({ aiactAnswers: { ...supuestos, propiedad: 'propio_cliente' }, origin: 'interno' })?.ownership, 'propio_cliente')
+})
+
+test('práctica prohibida sin excepción: se precarga (RN-P10)', () => {
+  assert.equal(questionnaireToWizard({ ...respuestas, c1: ['scoring_social'] }).initial.prohibitedPractice, true)
+  assert.equal(questionnaireToWizard({ ...respuestas, c1: ['emociones'], c1_exc_emociones: 'si', c1_exc_emociones__detalle: 'x' }).initial.prohibitedPractice, undefined)
+})

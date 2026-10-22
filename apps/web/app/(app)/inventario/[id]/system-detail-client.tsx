@@ -755,10 +755,15 @@ function computeEvidenceBadge(status: string, evStatuses: string[]): { label: st
   return { label: 'En curso', colorClass: 'text-or', dotClass: 'bg-or' };
 }
 
+/** Eventos de clasificación AI Act (B13a: propuesta y conciliación). */
+const EVENTOS_AIACT = ['classification_recalculated', 'classification_reviewed', 'classification_proposed', 'classification_reconciled'];
+
 function getHistoryEventVisual(eventType: string) {
-  if (eventType === 'system_created') return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Alta' };
+  if (eventType === 'system_created' || eventType === 'system_registered_from_questionnaire') {
+    return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Alta' };
+  }
   if (eventType === 'system_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Edición' };
-  if (eventType === 'classification_recalculated' || eventType === 'classification_reviewed') {
+  if (EVENTOS_AIACT.includes(eventType)) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
   if (eventType === 'iso_recalculated') return { tone: 'bg-ordim text-or border-orb', label: 'ISO 42001' };
@@ -771,9 +776,9 @@ function getHistoryEventVisual(eventType: string) {
 
 const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => boolean }[] = [
   { key: 'all',         label: 'Todos',        match: () => true },
-  { key: 'aiact',       label: 'AI Act',       match: (t) => t === 'classification_recalculated' || t === 'classification_reviewed' },
+  { key: 'aiact',       label: 'AI Act',       match: (t) => EVENTOS_AIACT.includes(t) },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
-  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' },
+  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },

@@ -4,9 +4,11 @@ titulo: Ficha del sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/[id]/page.tsx
+  - apps/web/app/(app)/inventario/nuevo/actions.ts
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
   - apps/web/app/(app)/inventario/[id]/causal-map-canvas.tsx
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
@@ -106,6 +108,11 @@ o un Responsable del sistema:
   manual, agente IA o motor de reglas), el autor y la fecha. Si el sistema está fuera del ámbito del AI Act
   (`aiact_scope`), en lugar del nivel muestra «Fuera del ámbito» o «No es un sistema de IA».
 - Fundamento, explicación y obligaciones.
+- Si el sistema se registró desde un [cuestionario preliminar](../glosario.md#cuestionario-preliminar)
+  (`preliminary_questionnaires.ai_system_id`), bajo la explicación: «Registrado desde el cuestionario
+  preliminar «{título}» (sus respuestas sin campo en la ficha se consultan allí).». El título enlaza al
+  [formulario del cuestionario](cuestionario-preliminar-formulario.md), que es de solo lectura mientras
+  esté vinculado.
 - Bajo la explicación, los avisos del motor único de clasificación (`aiact_result.warnings`), por ejemplo
   «Clasificación aproximada por dominio y tipo de output: faltan los supuestos del AI Act.».
 - Si el sistema se clasificó antes del motor único (`aiact_review_pending`) y no hay una reclasificación
@@ -190,6 +197,10 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 
 > TODO: confirmar las etiquetas del historial. Varios eventos aparecen como «Evento» y quedan fuera de los
 > filtros: obligaciones aceptadas y promoción, descarte, restauración o recálculo de modos de fallo.
+
+El alta desde un cuestionario preliminar (`system_registered_from_questionnaire`) aparece como «Alta» y en
+el filtro **Edición**. Los eventos de clasificación (recálculo, revisión, propuesta y conciliación) aparecen
+en el filtro **AI Act**.
 
 ### Pestaña Evidencias
 

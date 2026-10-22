@@ -4,12 +4,13 @@ titulo: Formulario del cuestionario preliminar
 tipo: funcional
 modulo: evaluacion-de-impacto
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/app/(app)/cuestionario-preliminar/nuevo/page.tsx
   - apps/web/app/(app)/cuestionario-preliminar/[id]/page.tsx
   - apps/web/app/(app)/cuestionario-preliminar/questionnaire-form.tsx
   - apps/web/app/(app)/cuestionario-preliminar/classification-panel.tsx
+  - apps/web/components/questionnaire/field-view.tsx
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - apps/web/lib/preliminary-questionnaire/schema.ts
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
@@ -17,6 +18,7 @@ fuente:
   - apps/web/lib/ai-act/rules.ts
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
   - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
+  - supabase/migrations/20261022110000_cuestionario_vinculo.sql
 ---
 
 # Formulario del cuestionario preliminar
@@ -41,12 +43,17 @@ interno.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Rellenar, guardar y completar |
+| Todos los roles | Sí | Rellenar, guardar, completar y dar de alta el sistema en el inventario |
+
+Un cuestionario vinculado a un sistema del inventario es de solo lectura para todos los roles (ver
+[Estados](#estados)).
 
 ## Campos
 
 Las secciones se recorren con pestañas numeradas o con **Anterior** y **Siguiente**. Todas las respuestas
-se guardan en `preliminary_questionnaires.answers` con la clave de cada pregunta.
+se guardan en `preliminary_questionnaires.answers` con la clave de cada pregunta. Cada pregunta se pinta
+con el componente compartido `FieldView` (`components/questionnaire/field-view.tsx`), que también usa el
+bloque **Supuestos AI Act** del [Alta de sistema](inventario-alta.md#paso-3--impacto-y-clasificación-ai-act).
 
 | Tipo de campo | Comportamiento |
 |---|---|
@@ -90,9 +97,8 @@ Reglas de obligatoriedad:
 > [especificación](../producto/cuestionario-preliminar-reglas.md#8-cambios-en-el-cuestionario) (Q-01).
 > Cumple la misma función: distinguir «no aplica» de «sin responder».
 
-> TODO: confirmar que el bloque B se puede completar respondiendo «No» a **¿Ninguno de los supuestos de
-> este bloque?** sin marcar ningún supuesto. El cuestionario se completa, pero el Anexo III queda sin
-> responder y la clasificación preliminar es «Pendiente de clasificar».
+Responder «No» a **¿Ninguno de los supuestos de este bloque?** sin marcar ningún supuesto es una
+contradicción: el cuestionario no se puede completar (ver [Validaciones](#validaciones)).
 
 El título del cuestionario se toma de la tecnología, el nombre comercial o el objeto, por ese orden. El
 responsable sale de la pregunta **Responsable del proyecto**.
@@ -127,6 +133,13 @@ un bloque sin responder no equivale a «no» y deja la clasificación en «Pendi
 | Obligaciones sugeridas | Nombres del catálogo de obligaciones según el nivel, los roles y la respuesta sobre organismo público, o «Ninguna con las respuestas actuales.» |
 | Nota | «Propuesta del motor de clasificación (reglas {versión}). La clasificación del sistema se fija al darlo de alta.» |
 
+### Avisos sobre el formulario
+
+| Aviso | Cuándo | Contenido |
+|---|---|---|
+| Alta en el inventario | Cuestionario completado, sin sistema vinculado y sin cambios sin guardar desde que se abrió o se guardó | «Cuestionario completado. Puedes registrar el sistema en el inventario con estas respuestas: el alta se abre rellena y la revisas antes de guardar.» y el botón **Dar de alta en el inventario** |
+| Solo lectura | Cuestionario vinculado a un sistema (`ai_system_id`) | «Este cuestionario dio lugar a un sistema del inventario y es de solo lectura. Para cambiar datos, edita la ficha del sistema.» y el enlace **Ver la ficha →** |
+
 ## Acciones
 
 | Acción | Quién | Qué hace | Efectos |
@@ -134,12 +147,14 @@ un bloque sin responder no equivale a «no» y deja la clasificación en «Pendi
 | **Guardar borrador** | Todos | `saveQuestionnaire`: crea o actualiza el cuestionario | Muestra «Guardado». Si el cuestionario estaba completado, vuelve a borrador y se borra la clasificación guardada (`classification` = `null`) |
 | **Completar cuestionario** (sección 7) | Todos | Comprueba los obligatorios y las contradicciones, clasifica las respuestas en el servidor con el motor único (`classifyWithCatalog`) y lo marca como completado | Guarda la clasificación preliminar en `preliminary_questionnaires.classification` (resultado, obligaciones sugeridas y fecha). Vuelve a la lista |
 | **Anterior** / **Siguiente** / pestañas | Todos | Cambian de sección | No guardan: los cambios se pierden si se sale sin guardar |
+| **Dar de alta en el inventario** | Todos | Abre `/inventario/nuevo?cuestionario={id}` | Abre el [Alta de sistema](inventario-alta.md#alta-desde-un-cuestionario-preliminar) relleno con las respuestas guardadas. El cuestionario se vincula al registrar el sistema; si se abandona el alta, no se vincula nada |
+| **Ver la ficha →** | Todos | Abre la [Ficha del sistema](ficha-sistema.md) vinculado | — |
 
-> TODO: confirmar que guardar como borrador un cuestionario completado debe borrar la clasificación
-> preliminar guardada.
+En un cuestionario vinculado, las preguntas están desactivadas y no se muestran **Guardar borrador** ni
+**Completar cuestionario**; solo se puede navegar entre secciones.
 
-> **Pendiente de implementar.** Alta del sistema en el inventario a partir del cuestionario (volcado al
-> asistente de alta, vínculo con el sistema y bloqueo del cuestionario), en B13c.
+Guardar como borrador un cuestionario completado borra la clasificación preliminar guardada a propósito:
+la clasificación guardada corresponde siempre a las respuestas con las que se completó.
 
 ## Validaciones
 
@@ -150,6 +165,7 @@ Al pulsar **Completar cuestionario**:
 | Faltan obligatorios | «Faltan N campos obligatorios para completar el cuestionario.», con la lista «{sección}: {pregunta}» |
 | Hay contradicciones | «Hay respuestas contradictorias: resuélvelas para completar el cuestionario.», con la lista «Coherencia: {contradicción}» |
 | Sesión sin organización | «No se encontró la organización del usuario.» |
+| Cuestionario vinculado a un sistema (al guardar o completar) | «El cuestionario está vinculado a un sistema y es de solo lectura: edita la ficha del sistema.» |
 
 Contradicciones que impiden completar:
 
@@ -168,9 +184,18 @@ stateDiagram-v2
   [*] --> Borrador: guardar
   Borrador --> Completado: completar (guarda la clasificación preliminar)
   Completado --> Borrador: guardar de nuevo (borra la clasificación guardada)
+  Completado --> Vinculado: registrar el sistema desde el alta
+  Vinculado --> Completado: se elimina el sistema
 ```
 
-Un cuestionario completado sigue siendo editable. Los completados antes de B13b no tienen clasificación
+**Vinculado** no es un valor de `status` (sigue siendo `completado`): es el cuestionario con
+`ai_system_id`. Es de solo lectura en la interfaz, en las server actions y en la base de datos (trigger
+`trg_preliminary_questionnaire_locked`, que impide cambiar `answers` y `status` mientras esté vinculado).
+Si se elimina el sistema, la clave foránea pone `ai_system_id` a nulo y el cuestionario vuelve a ser
+editable. Cada cuestionario da lugar a un solo sistema y cada sistema tiene como mucho un cuestionario de
+origen.
+
+Un cuestionario completado y sin vincular sigue siendo editable. Los completados antes de B13b no tienen clasificación
 guardada y, mientras no se respondan las preguntas nuevas, el panel los muestra como «Pendiente de
 clasificar».
 
