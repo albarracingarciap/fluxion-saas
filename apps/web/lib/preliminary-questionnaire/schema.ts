@@ -9,11 +9,24 @@
 //   text/textarea/date/radio  -> string
 //   yesno                     -> 'si' | 'no' | 'na'
 //   yesno con `detail`        -> además `${key}__detalle` (string)
-//   checks                    -> string[] con los `value` marcados
+//   checks                    -> string[] con los `value` marcados; «Ninguno de los
+//                                anteriores» se guarda como NONE (RN-V02, B13b)
+//
+// `showIf` oculta un campo que no aplica; un campo oculto no se exige.
 
 export type Option = { value: string; label: string }
 
-type Base = { key: string; label: string; hint?: string; required?: boolean }
+type Base = {
+  key: string
+  label: string
+  hint?: string
+  required?: boolean
+  /** Solo se muestra (y se exige) si se cumple (B13b). */
+  showIf?: (a: Answers) => boolean
+}
+
+/** Valor de «Ninguno de los anteriores» en un campo de casillas (RN-V02). */
+export const NONE = '__ninguno'
 
 export type Field =
   | (Base & { type: 'text' | 'textarea' | 'date'; placeholder?: string })
@@ -21,11 +34,24 @@ export type Field =
   | (Base & {
       type: 'yesno'
       naLabel?: string
-      detail?: { label: string; required?: boolean; placeholder?: string }
+      /** `onlyIfYes`: el detalle solo se pide con «Sí» (RN-V10). */
+      detail?: { label: string; required?: boolean; placeholder?: string; onlyIfYes?: boolean }
     })
-  | (Base & { type: 'checks'; options: Option[]; columns?: 1 | 2 })
+  | (Base & {
+      type: 'checks'
+      options: Option[]
+      columns?: 1 | 2
+      /** Opción excluyente «Ninguno de los anteriores» (RN-V02). */
+      noneLabel?: string
+    })
 
-export type Block = { heading?: string; description?: string; fields: Field[] }
+export type Block = {
+  heading?: string
+  description?: string
+  fields: Field[]
+  /** Solo se muestra si se cumple (B13b). */
+  showIf?: (a: Answers) => boolean
+}
 
 export type Section = {
   id: string
@@ -35,6 +61,20 @@ export type Section = {
 }
 
 export type Answers = Record<string, string | string[] | undefined>
+
+const list = (a: Answers, k: string): string[] => (Array.isArray(a[k]) ? (a[k] as string[]) : [])
+const has = (a: Answers, k: string, v: string) => list(a, k).includes(v)
+
+/** Grupos del Anexo III (bloque B de la clase 2). */
+export const C2B_KEYS = [
+  'c2b_biometria', 'c2b_infra', 'c2b_educacion', 'c2b_empleo', 'c2b_asistencia', 'c2b_solvencia',
+  'c2b_seguros', 'c2b_emergencias', 'c2b_ley', 'c2b_migracion', 'c2b_justicia',
+] as const
+
+/** Algún supuesto del Anexo III marcado (Q-06 y Q-11 solo aparecen entonces). */
+export const tieneAnexoIII = (a: Answers) => C2B_KEYS.some((k) => list(a, k).some((v) => v !== NONE))
+/** Algún supuesto del Anexo I marcado. */
+const tieneAnexoI = (a: Answers) => list(a, 'c2a').some((v) => v !== NONE)
 
 const NA_PROPIO = 'No aplica, es un desarrollo propio y no se utiliza ningún modelo de terceros.'
 const NA_CLIENTE = 'No aplica, el sistema de IA es adquirido directamente por el cliente.'
@@ -79,22 +119,17 @@ export const SECTIONS: Section[] = [
           { type: 'textarea', key: 'q2_objeto', label: '2. Objeto del proyecto / oportunidad', hint: 'Especifica de forma clara y precisa el objeto.', required: true },
           {
             type: 'yesno', key: 'q3_datos_personales', label: '3. ¿Se van a tratar datos personales en la prestación de los servicios?', required: true,
-            detail: { label: 'Datos personales objeto del tratamiento', required: true },
+            detail: { label: 'Datos personales objeto del tratamiento', required: true, onlyIfYes: true },
           },
-          { type: 'yesno', key: 'q4_usa_ia', label: '4. ¿Se va a utilizar tecnología IA en el proyecto / oportunidad?', required: true },
           {
-            type: 'radio', key: 'q4_propiedad', label: 'En caso afirmativo, ¿de quién es el sistema de IA?',
-            options: opts(
-              ['tercero_cliente', 'Propiedad de un tercero (Microsoft, Google…) y adquirido directamente por el cliente'],
-              ['tercero_organizacion', 'Propiedad de un tercero (Microsoft, Google…) y adquirido por la organización'],
-              ['propio_organizacion', 'Desarrollo propio, con la propiedad intelectual de la organización'],
-              ['propio_cliente', 'Desarrollo propio para un cliente, cuya propiedad intelectual pertenecerá al cliente'],
-            ),
+            type: 'yesno', key: 'q4_usa_ia', label: '4. ¿Se va a utilizar tecnología IA en el proyecto / oportunidad?', required: true,
+            // Q-13: la definición del Art. 3.1, para no marcar «Sí» por cualquier automatización.
+            hint: 'Sistema de IA (AI Act, Art. 3.1): sistema basado en una máquina, diseñado para funcionar con distintos niveles de autonomía, que puede mostrar capacidad de adaptación tras el despliegue y que, para objetivos explícitos o implícitos, infiere de la información de entrada que recibe la manera de generar resultados (predicciones, contenidos, recomendaciones o decisiones) que pueden influir en entornos físicos o virtuales. Una automatización por reglas fijas no lo es.',
           },
           { type: 'text', key: 'q5_tecnologia', label: '5. ¿Qué tecnología se va a utilizar?', hint: 'Nombre de la IA.' },
           {
             type: 'yesno', key: 'q6_autoriza', label: '6. ¿El cliente ha autorizado el uso de IA?', naLabel: 'No aplica',
-            detail: { label: 'Nombre del cliente' },
+            detail: { label: 'Nombre del cliente', onlyIfYes: true },
           },
           { type: 'yesno', key: 'q7_contrato', label: '7. ¿En el contrato con el cliente se hace referencia al uso de tecnología IA?', naLabel: 'No aplica' },
           { type: 'textarea', key: 'q8_uso', label: '8. Describe de forma precisa y clara el uso que se va a hacer de la IA' },
@@ -111,7 +146,9 @@ export const SECTIONS: Section[] = [
               ['cooperacion', 'Sistemas de IA utilizados por autoridades públicas u organizaciones internacionales en terceros países para la cooperación policial y judicial'],
               ['id', 'Actividades de investigación y desarrollo de la IA'],
               ['open_source', 'Componentes de inteligencia artificial con licencias libres y de código abierto'],
-              ['profesional', 'El sistema de IA se utiliza para actividades exclusivamente profesionales'],
+              // Q-09: sustituye a `profesional` («actividades exclusivamente profesionales»),
+              // que decía lo contrario del Art. 2.10 y no se trata como exclusión.
+              ['uso_personal', 'Uso por personas físicas en el marco de una actividad puramente personal de carácter no profesional'],
             ),
           },
         ],
@@ -179,7 +216,8 @@ export const SECTIONS: Section[] = [
         description: 'Prácticas de IA prohibidas.',
         fields: [
           {
-            type: 'checks', key: 'c1', label: 'Prácticas',
+            type: 'checks', key: 'c1', label: 'Prácticas', required: true,
+            noneLabel: 'Ninguna de las anteriores',
             options: opts(
               ['subliminal', 'Técnicas subliminales o manipuladoras asistidas por IA para influir en una decisión que de otro modo no se habría tomado, de modo que provoque o sea posible que provoque perjuicios considerables a esa persona o grupo de personas'],
               ['vulnerabilidades', 'Explotación de vulnerabilidades basadas en la edad, discapacidad o situaciones sociales o económicas específicas para distorsionar el comportamiento y causar o poder causar daños significativos'],
@@ -191,6 +229,28 @@ export const SECTIONS: Section[] = [
               ['scoring_social', 'Evaluación o clasificación de individuos o grupos basada en el comportamiento social o las características personales, que conduzca a un trato perjudicial o desfavorable en contextos distintos a los de la recopilación original, o desproporcionado respecto a su comportamiento o gravedad'],
             ),
           },
+          // Q-02: excepciones del Art. 5.1. Con «Sí» y su justificación, la práctica
+          // deja de ser prohibida y se evalúa como supuesto del Anexo III (RN-P11).
+          {
+            type: 'yesno', key: 'c1_exc_riesgo_delito', showIf: (a) => has(a, 'c1', 'riesgo_delito'),
+            label: 'Excepción (Art. 5.1.d): ¿el sistema solo apoya una valoración humana basada en hechos objetivos y verificables directamente relacionados con una actividad delictiva?',
+            detail: { label: 'Justificación', required: true, onlyIfYes: true },
+          },
+          {
+            type: 'yesno', key: 'c1_exc_emociones', showIf: (a) => has(a, 'c1', 'emociones'),
+            label: 'Excepción (Art. 5.1.f): ¿se usa por motivos médicos o de seguridad?',
+            detail: { label: 'Justificación', required: true, onlyIfYes: true },
+          },
+          {
+            type: 'yesno', key: 'c1_exc_categorizacion_biometrica', showIf: (a) => has(a, 'c1', 'categorizacion_biometrica'),
+            label: 'Excepción (Art. 5.1.g): ¿se limita al etiquetado o filtrado de conjuntos de datos biométricos adquiridos lícitamente, en el ámbito de la aplicación de la ley?',
+            detail: { label: 'Justificación', required: true, onlyIfYes: true },
+          },
+          {
+            type: 'yesno', key: 'c1_exc_rbi_tiempo_real', showIf: (a) => has(a, 'c1', 'rbi_tiempo_real'),
+            label: 'Excepción (Art. 5.1.h): ¿se usa en uno de los supuestos tasados del Art. 5.1.h, con la autorización previa de los Art. 5.2 a 5.7?',
+            detail: { label: 'Justificación', required: true, onlyIfYes: true },
+          },
         ],
       },
       {
@@ -198,14 +258,17 @@ export const SECTIONS: Section[] = [
         description: 'Componente de seguridad de un producto o producto sujeto a legislación de armonización.',
         fields: [
           {
-            type: 'checks', key: 'c2a', label: 'Supuestos',
+            type: 'checks', key: 'c2a', label: 'Supuestos', required: true,
+            noneLabel: 'Ninguno de los anteriores',
             options: opts(
               ['componente_seguridad', 'El sistema de IA está destinado a ser utilizado como componente de seguridad de un producto (componente que cumple una función de seguridad o cuyo fallo pone en peligro la salud y seguridad de las personas o los bienes)'],
+              // Q-03: separado del componente de seguridad (Art. 6.1.a).
+              ['producto', 'El sistema de IA es en sí mismo un producto regulado por la legislación de armonización del Anexo I'],
               ['evaluacion_terceros', 'El producto del que el sistema es componente de seguridad, o el propio sistema como producto, debe someterse a una evaluación de la conformidad de terceros para su introducción en el mercado o puesta en servicio'],
             ),
           },
           {
-            type: 'checks', key: 'c2a_productos', columns: 2,
+            type: 'checks', key: 'c2a_productos', columns: 2, showIf: tieneAnexoI,
             label: 'Si has marcado alguna opción anterior, indica a qué categorías de producto afecta',
             options: opts(
               ['maquinaria', 'Maquinaria'],
@@ -226,13 +289,14 @@ export const SECTIONS: Section[] = [
               ['marinos', 'Equipos marinos'],
               ['motor_remolques', 'Vehículos de motor y sus remolques y unidades técnicas independientes destinados a dichos vehículos'],
               ['motor_seguridad', 'Vehículos de motor y sus remolques, sistemas, componentes y unidades técnicas independientes, en lo que respecta a su seguridad general y a la protección de los ocupantes y de los usuarios vulnerables de la vía pública'],
+              ['ferroviario', 'Interoperabilidad del sistema ferroviario'],
             ),
           },
         ],
       },
       {
         heading: 'Supuestos clase 2 · Bloque B',
-        description: 'Ámbitos de alto riesgo.',
+        description: 'Ámbitos de alto riesgo (Anexo III). Si no aplica ninguno, márcalo abajo: sin respuesta no equivale a «no».',
         fields: [
           {
             type: 'checks', key: 'c2b_biometria', label: 'Identificación por biometría remota',
@@ -244,7 +308,8 @@ export const SECTIONS: Section[] = [
           {
             type: 'checks', key: 'c2b_infra', label: 'Gestión y operación de infraestructuras críticas',
             options: opts(
-              ['componente_seguridad', 'Componentes de seguridad en la gestión y funcionamiento de las infraestructuras digitales críticas del tráfico rodado, ferroviario y aéreo, salvo que estén regulados en la legislación de armonización o en la normativa sectorial'],
+              // Q-04: texto del Anexo III, punto 2.
+              ['componente_seguridad', 'Componentes de seguridad en la gestión y el funcionamiento de infraestructuras digitales críticas, del tráfico rodado o del suministro de agua, gas, calefacción o electricidad'],
             ),
           },
           {
@@ -317,13 +382,47 @@ export const SECTIONS: Section[] = [
               ['electoral', 'Influir en el resultado de una elección o referéndum o en el comportamiento electoral (se excluyen las herramientas de organización administrativa o logística de campañas a cuya salida no estén expuestas las personas físicas)'],
             ),
           },
+          {
+            type: 'yesno', key: 'c2b_ninguno', required: true,
+            label: '¿Ninguno de los supuestos de este bloque? (Anexo III)',
+            hint: '«Sí» si el sistema no encaja en ninguno de los ámbitos anteriores. Es incompatible con marcar alguno.',
+          },
+        ],
+      },
+      {
+        // Q-06: excepción del Art. 6.3, solo con supuestos del Anexo III.
+        heading: 'Excepción del Art. 6.3',
+        description: 'Un sistema del Anexo III no es de alto riesgo si no plantea un riesgo importante para la salud, la seguridad o los derechos fundamentales y cumple alguna de estas condiciones. Es una valoración del proveedor con efectos legales.',
+        showIf: tieneAnexoIII,
+        fields: [
+          { type: 'yesno', key: 'c63_invoca', label: '¿Se invoca la excepción del Art. 6.3?', required: true },
+          {
+            type: 'checks', key: 'c63_condiciones', label: 'Condiciones que se cumplen', required: true,
+            showIf: (a) => a.c63_invoca === 'si',
+            options: opts(
+              ['a', 'a) Realiza una tarea procedimental limitada'],
+              ['b', 'b) Mejora el resultado de una actividad humana realizada previamente'],
+              ['c', 'c) Detecta patrones de decisión o desviaciones sin sustituir ni influir en la valoración humana previa sin la debida revisión humana'],
+              ['d', 'd) Realiza una tarea preparatoria de una evaluación'],
+            ),
+          },
+          {
+            type: 'yesno', key: 'c63_perfiles', label: '¿El sistema elabora perfiles de personas físicas?', required: true,
+            showIf: (a) => a.c63_invoca === 'si',
+            hint: 'Si elabora perfiles, siempre es de alto riesgo y la excepción no es válida.',
+          },
+          {
+            type: 'textarea', key: 'c63_justificacion', label: 'Justificación de la excepción', required: true,
+            showIf: (a) => a.c63_invoca === 'si',
+          },
         ],
       },
       {
         heading: 'Supuestos clase 3',
         fields: [
           {
-            type: 'checks', key: 'c3', label: 'Funciones del sistema',
+            type: 'checks', key: 'c3', label: 'Funciones del sistema', required: true,
+            noneLabel: 'Ninguna de las anteriores',
             options: opts(
               ['generacion', 'Generación o transformación de contenido (texto, código fuente, imágenes, audio o vídeo)'],
               ['reconocimiento', 'Reconocimiento de imágenes, texto o voz para su procesamiento'],
@@ -336,7 +435,39 @@ export const SECTIONS: Section[] = [
               ['acceso_servicios', 'Concesión o denegación del acceso a servicios o establecimiento de sus condiciones'],
             ),
           },
+          // Q-07: Art. 50.4.
+          { type: 'yesno', key: 'c3_deepfake', label: '¿Genera o manipula imagen, audio o vídeo que constituya una ultrasuplantación (deep fake)?' },
+          { type: 'yesno', key: 'c3_texto_publico', label: '¿Genera texto que se publica para informar al público sobre asuntos de interés público?' },
           { type: 'textarea', key: 'c_descripcion', label: 'Describe más detalladamente cada una de las opciones elegidas' },
+        ],
+      },
+      {
+        // Q-08: GPAI es una categoría aparte, no un nivel de riesgo (D3).
+        heading: 'Modelo de IA de uso general (GPAI)',
+        description: 'Relación con los modelos de IA de uso general (Art. 3.63 y 51 a 55). No cambia el nivel de riesgo del sistema.',
+        fields: [
+          {
+            type: 'yesno', key: 'gpai_desarrolla', required: true,
+            label: '¿La organización desarrolla un modelo de IA de uso general y lo introduce en el mercado?',
+          },
+          {
+            type: 'radio', key: 'gpai_computo', label: 'Cómputo de entrenamiento del modelo', required: true,
+            showIf: (a) => a.gpai_desarrolla === 'si',
+            options: opts(
+              ['mas', 'Más de 10^25 FLOP, o designado por la Comisión (riesgo sistémico)'],
+              ['menos', 'Menos de 10^25 FLOP'],
+              ['desconoce', 'Se desconoce'],
+            ),
+          },
+          {
+            type: 'yesno', key: 'gpai_licencia_libre', label: '¿Se publica con una licencia libre y de código abierto?',
+            showIf: (a) => a.gpai_desarrolla === 'si',
+          },
+          { type: 'yesno', key: 'gpai_usa_terceros', label: '¿El sistema usa un modelo de IA de uso general de un tercero (por ejemplo, vía API)?' },
+          {
+            type: 'yesno', key: 'gpai_modifica', label: '¿La organización modifica ese modelo (fine-tuning) y lo introduce en el mercado?',
+            showIf: (a) => a.gpai_usa_terceros === 'si',
+          },
         ],
       },
     ],
@@ -365,7 +496,7 @@ export const SECTIONS: Section[] = [
       {
         heading: 'Utilización de desarrollos previos',
         fields: [
-          { type: 'yesno', key: 'p_reutiliza', label: '¿Para la creación del modelo se va a reutilizar software desarrollado por la organización?', detail: { label: 'En caso afirmativo, nombre del software / producto y justificación', required: true } },
+          { type: 'yesno', key: 'p_reutiliza', label: '¿Para la creación del modelo se va a reutilizar software desarrollado por la organización?', detail: { label: 'En caso afirmativo, nombre del software / producto y justificación', required: true, onlyIfYes: true } },
           { type: 'yesno', key: 'p_trazable', label: '¿Se podrá demostrar y documentar el origen y las distintas modificaciones que se lleven a cabo sobre dicho software?', detail: { label: 'Justifica tu respuesta', required: true } },
           { type: 'yesno', key: 'p_derechos', label: '¿Se ha comprobado que los desarrollos previos no vulneran derechos de terceros? (por ejemplo, porque se trate de un desarrollo a medida exclusivo para un cliente)', detail: { label: 'Justifica tu respuesta', required: true } },
         ],
@@ -404,7 +535,7 @@ export const SECTIONS: Section[] = [
       {
         fields: [
           {
-            type: 'checks', key: 'pos_roles', label: 'Selecciona la opción o las opciones que consideres más correctas', columns: 1,
+            type: 'checks', key: 'pos_roles', label: 'Selecciona la opción o las opciones que consideres más correctas', columns: 1, required: true,
             options: opts(
               ['proveedor', 'Proveedor: persona física o jurídica, autoridad pública, órgano u organismo que desarrolle un sistema de IA o un modelo de IA de uso general (o para el que se desarrolle) y lo introduzca en el mercado o ponga en servicio con su propio nombre o marca, previo pago o gratuitamente'],
               ['distribuidor', 'Distribuidor: persona física o jurídica de la cadena de suministro, distinta del proveedor o el importador, que comercialice un sistema de IA en el mercado de la Unión'],
@@ -416,6 +547,22 @@ export const SECTIONS: Section[] = [
           },
           { type: 'textarea', key: 'pos_justificacion', label: 'Justifica detalladamente la opción escogida' },
           { type: 'text', key: 'pos_cliente', label: 'Cliente (interno o externo) para el que se desarrolla el sistema', hint: 'En su caso.' },
+          // Q-10: ámbito del Art. 27 (FRIA).
+          {
+            type: 'yesno', key: 'q_organismo_publico',
+            label: '¿La organización es un organismo de derecho público o una entidad privada que presta servicios públicos?',
+          },
+        ],
+      },
+      {
+        // Q-11: Art. 25.1, solo con alto riesgo posible y sin rol de proveedor.
+        heading: 'Cambio de rol a proveedor (Art. 25)',
+        description: 'Si se cumple alguno de estos supuestos en un sistema de alto riesgo, la organización pasa a ser proveedora.',
+        showIf: (a) => (tieneAnexoIII(a) || tieneAnexoI(a)) && !has(a, 'pos_roles', 'proveedor'),
+        fields: [
+          { type: 'yesno', key: 'a25_marca', label: '¿Se comercializa con el nombre o la marca de la organización?' },
+          { type: 'yesno', key: 'a25_modificacion', label: '¿La organización lo ha modificado sustancialmente?' },
+          { type: 'yesno', key: 'a25_finalidad', label: '¿La organización ha cambiado su finalidad prevista?' },
         ],
       },
     ],
@@ -425,18 +572,40 @@ export const SECTIONS: Section[] = [
 const isEmpty = (v: Answers[string]) =>
   v === undefined || (typeof v === 'string' ? v.trim() === '' : v.length === 0)
 
-/** Campos obligatorios sin responder, para poder marcar el cuestionario como completado. */
+/** ¿Se ve este campo? (bloque y campo con `showIf`). */
+export function isVisible(item: { showIf?: (a: Answers) => boolean }, answers: Answers): boolean {
+  return !item.showIf || item.showIf(answers)
+}
+
+/** Exclusión del Art. 2 que saca del ámbito (todas salvo el código abierto, RN-V04). */
+const excluidoDelAmbito = (a: Answers) =>
+  list(a, 'q10_exclusiones').some((v) => ['militar', 'cooperacion', 'id', 'uso_personal'].includes(v))
+
+/**
+ * Campos obligatorios sin responder (RN-V01, RN-V03, RN-V04, RN-V10). Un
+ * campo oculto no se exige; sin IA no se piden la finalidad ni la posición en
+ * la cadena; con una exclusión del Art. 2, la finalidad pasa a opcional.
+ */
 export function missingRequired(answers: Answers): { section: string; label: string }[] {
   const missing: { section: string; label: string }[] = []
+  const sinIA = answers.q4_usa_ia === 'no'
   for (const s of SECTIONS) {
+    if (sinIA && (s.id === 'finalidad' || s.id === 'posicion')) continue // RN-V03
+    const opcional = s.id === 'finalidad' && excluidoDelAmbito(answers) // RN-V04
     for (const b of s.blocks) {
+      if (!isVisible(b, answers)) continue
       for (const f of b.fields) {
-        if (f.required && isEmpty(answers[f.key])) {
+        if (!isVisible(f, answers)) continue
+        if (f.required && !opcional && isEmpty(answers[f.key])) {
+          // El bloque B queda respondido con cualquier supuesto marcado.
+          if (f.key === 'c2b_ninguno' && tieneAnexoIII(answers)) continue
           missing.push({ section: s.title, label: f.label })
         }
-        // La justificación solo se exige si la pregunta se ha respondido.
+        // El detalle de un sí/no se pide si se ha respondido; los marcados
+        // «En caso afirmativo», solo con «Sí» (RN-V10).
         if (f.type === 'yesno' && f.detail?.required && !isEmpty(answers[f.key])) {
-          if (answers[f.key] !== 'na' && isEmpty(answers[`${f.key}__detalle`])) {
+          const pide = f.detail.onlyIfYes ? answers[f.key] === 'si' : answers[f.key] !== 'na'
+          if (pide && isEmpty(answers[`${f.key}__detalle`])) {
             missing.push({ section: s.title, label: `${f.label} — ${f.detail.label}` })
           }
         }
@@ -444,6 +613,37 @@ export function missingRequired(answers: Answers): { section: string; label: str
     }
   }
   return missing
+}
+
+/**
+ * Contradicciones que impiden completar el cuestionario (RN-V05, RN-V06,
+ * RN-V08 y exclusiones de «Ninguno»).
+ */
+export function coherenceErrors(answers: Answers): string[] {
+  const out: string[] = []
+  const supuestos = list(answers, 'c1').some((v) => v !== NONE) || tieneAnexoI(answers)
+    || tieneAnexoIII(answers) || list(answers, 'c3').some((v) => v !== NONE)
+  if (answers.q4_usa_ia === 'no' && supuestos) {
+    out.push('Se indica que no se usa IA, pero hay supuestos marcados en la finalidad prevista (RN-V05).')
+  }
+  if (tieneAnexoI(answers) !== (list(answers, 'c2a_productos').length > 0)) {
+    out.push('Anexo I incompleto: marca a la vez los supuestos y las categorías de producto, o ninguno (RN-V06).')
+  }
+  if (has(answers, 'pos_roles', 'ninguno') && list(answers, 'pos_roles').length > 1) {
+    out.push('«No aplican las opciones anteriores» es incompatible con los demás roles (RN-V08).')
+  }
+  if (answers.c2b_ninguno === 'si' && tieneAnexoIII(answers)) {
+    out.push('Has marcado «Ninguno de los supuestos» del bloque B y también algún supuesto.')
+  }
+  if (answers.c2b_ninguno === 'no' && !tieneAnexoIII(answers) && answers.q4_usa_ia !== 'no') {
+    out.push('En el bloque B (Anexo III) has respondido que sí aplica algún supuesto, pero no has marcado ninguno.')
+  }
+  for (const s of SECTIONS) for (const b of s.blocks) for (const f of b.fields) {
+    if (f.type === 'checks' && f.noneLabel && has(answers, f.key, NONE) && list(answers, f.key).length > 1) {
+      out.push(`«${f.noneLabel}» es incompatible con las demás opciones de «${f.label}».`)
+    }
+  }
+  return out
 }
 
 /** Título con el que se reconoce el cuestionario en el listado. */

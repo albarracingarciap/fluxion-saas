@@ -4,11 +4,16 @@ titulo: Cuestionario preliminar, reglas de clasificación AI Act y volcado al al
 tipo: especificacion
 modulo: evaluacion-de-impacto
 audiencia: producto, tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/lib/preliminary-questionnaire/schema.ts
+  - apps/web/lib/preliminary-questionnaire/to-aiact.ts
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - apps/web/app/(app)/cuestionario-preliminar/questionnaire-form.tsx
+  - apps/web/app/(app)/cuestionario-preliminar/classification-panel.tsx
+  - apps/web/lib/ai-act/rules.ts
+  - apps/web/tests/cuestionario-clasificacion.test.ts
+  - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
   - apps/web/components/inventory/SystemWizard.jsx
   - apps/web/lib/ai-systems/scoring.ts
   - apps/web/app/(app)/inventario/nuevo/actions.ts
@@ -41,16 +46,21 @@ Tomadas por el responsable del proyecto el 2026-10-19:
 
 ## 1. Situación actual
 
-- El cuestionario guarda las respuestas en `preliminary_questionnaires.answers` y no clasifica ni da de
-  alta. La columna `ai_system_id` existe, reservada para el vínculo con el inventario, pero no se usa.
-- El alta clasifica con `classifyAIAct` (`lib/ai-systems/scoring.ts`), que deduce el alto riesgo del
-  **dominio** y del **tipo de output**. Es una aproximación: no conoce los supuestos concretos del
-  Anexo III ni el Anexo I, no aplica la excepción del Art. 6.3 ni las exclusiones del Art. 2, y trata GPAI
-  como nivel.
-- El servicio de agentes clasifica con un segundo motor que tiene reglas distintas
-  (`_incidencias.md`, `I1`-`I4`).
-- El asistente de alta ya acepta datos iniciales (`initialData`, usado hoy en la edición), así que el
-  volcado puede reutilizarlo.
+Estado tras los bloques B13a (2026-10-22) y B13b (2026-10-22):
+
+- **Motor único (B13a).** Las reglas de §4 están implementadas en `lib/ai-act` y las usan el alta, la
+  edición, la reclasificación y el alta desde sistemas detectados. El servicio de agentes ya no clasifica
+  por reglas. Sin supuestos AI Act, el motor hace una clasificación aproximada con el dominio y el tipo de
+  output (principio 2).
+- **Cuestionario (B13b).** Incluye los cambios Q-01 a Q-13 de §8 y las reglas RN-V01 a RN-V12 de §5. Sus
+  respuestas se traducen a supuestos AI Act (`lib/preliminary-questionnaire/to-aiact.ts`) y el panel
+  **Clasificación preliminar** muestra el resultado del motor en todas las secciones. Al completar, la
+  clasificación se guarda en `preliminary_questionnaires.classification` (§7).
+- **Pendiente (B13c).** El volcado al asistente de alta (§6), el vínculo con el sistema
+  (`preliminary_questionnaires.ai_system_id`, que sigue sin usarse) y el bloqueo del cuestionario tras el
+  volcado (RN-W*).
+- **Cuestionarios anteriores.** Los completados antes de B13b no tienen clasificación guardada y, mientras
+  no se respondan las preguntas nuevas, se clasifican como **Pendiente de clasificar**.
 
 ## 2. Principios
 
@@ -133,10 +143,11 @@ el código y en las pruebas.
 | **RN-A07** | `q10_exclusiones` incluye la exclusión por uso personal no profesional (ver Q-09) | **Fuera del ámbito** · Art. 2.10 |
 | **RN-A08** | Varias exclusiones | Se aplica la primera de este orden: A03, A04, A07, A05, A06. Todas constan en el fundamento |
 
-> **⚠ Error en el cuestionario actual.** La opción `profesional` dice «El sistema de IA se utiliza para
+> **✔ Corregido en B13b (Q-09).** La antigua opción `profesional` decía «El sistema de IA se utiliza para
 > actividades **exclusivamente profesionales**». El Art. 2.10 excluye el uso **personal de carácter no
-> profesional**: la opción dice lo contrario y excluiría del ámbito a casi cualquier sistema de una
-> empresa. Hasta corregirla (Q-09), el motor **no debe tratarla como exclusión**.
+> profesional**: la opción decía lo contrario y excluía del ámbito a casi cualquier sistema de una
+> empresa. Se sustituyó por `uso_personal`, y las respuestas guardadas con `profesional` **no se tratan
+> como exclusión**.
 
 ### 4.2 Prácticas prohibidas (AI Act, Art. 5.1)
 
@@ -333,9 +344,27 @@ Las obligaciones salen del catálogo (`compliance.obligations`), cruzando su alc
 | **RN-V07** | Excepción del Art. 5 (Q-02) o del Art. 6.3 (Q-06) sin justificación | No se puede completar |
 | **RN-V08** | `pos_roles` con `ninguno` y otro rol | No se puede completar |
 | **RN-V09** | Excepción del Art. 6.3 invocada con perfilado (RN-E02) | Aviso visible en el resultado |
-| **RN-V10** | Detalle de un sí/no marcado «En caso afirmativo» | Solo se exige si la respuesta es Sí (hoy se exige también con No, `E20`) |
+| **RN-V10** | Detalle de un sí/no marcado «En caso afirmativo» | Solo se exige si la respuesta es Sí (antes de B13b se exigía también con No, `E20`) |
 | **RN-V11** | La clasificación preliminar se recalcula en cada guardado y se muestra en el cuestionario | Panel **Clasificación preliminar** visible en todas las secciones |
 | **RN-V12** | Al **Completar**, se guarda una copia del resultado con la versión de las reglas | Ver §7 |
+
+**Implementado en B13b** (`missingRequired` y `coherenceErrors` de `schema.ts`). Diferencias con el texto
+de la tabla:
+
+- **RN-V01:** el bloque `c2b_*` se considera respondido con algún supuesto marcado o con la pregunta
+  `c2b_ninguno` (ver la nota de Q-01 en §8).
+- **RN-V02:** la opción «Ninguno» existe en `c1`, `c2a` y `c3` (se guarda como `__ninguno`); el bloque
+  `c2b_*` tiene una sola pregunta «Ninguno» para todo el Anexo III.
+- **RN-V05:** además del aviso en el resultado, impide **Completar**, igual que RN-V06, RN-V08 y la
+  incompatibilidad de «Ninguno» con otras opciones. Mensaje: «Hay respuestas contradictorias: resuélvelas
+  para completar el cuestionario.».
+- **RN-V07:** la justificación de las excepciones del Art. 5 y del Art. 6.3 es obligatoria cuando se
+  invocan; la pregunta de excepción del Art. 5 no lo es (sin responder, la práctica sigue siendo
+  prohibida).
+- **RN-V09:** lo emite el motor como aviso RN-E02.
+- **RN-V10:** aplica a las preguntas 3 y 6 y a la reutilización de software (`p_reutiliza`).
+- **RN-V11:** el panel se recalcula en cada cambio de respuesta, no solo al guardar; no guarda nada.
+- Un campo oculto por una condición (bloques de Q-02, Q-06, Q-08 y Q-11) no se exige.
 
 ## 6. Volcado al asistente de alta
 
@@ -472,23 +501,48 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 **Decidido (DP-10, 2026-10-20).** «Fuera del ámbito» y «No es un sistema de IA» se guardan en un **campo de
 ámbito aparte**, no como valores nuevos de `aiact_risk_level`.
 
+**Implementado.** La clasificación preliminar se guarda en `preliminary_questionnaires.classification`
+(B13b): `{result, obligations, computed_at}`. Los supuestos AI Act, la categoría GPAI y el campo de ámbito
+del sistema se añadieron en B13a. El vínculo y el historial del volcado quedan para B13c.
+
 ## 8. Cambios en el cuestionario
 
-| Id | Cambio | Motivo | Reglas |
-|---|---|---|---|
-| **Q-01** | Opción «Ninguno de los anteriores» en `c1`, `c2a`, cada `c2b_*` y `c3`, excluyente | Distinguir «no aplica» de «sin responder» | RN-V02 |
-| **Q-02** | Preguntas de excepción para `riesgo_delito`, `emociones`, `categorizacion_biometrica` y `rbi_tiempo_real`, con justificación | Excepciones del Art. 5.1 | RN-P04 a P08, P11 |
-| **Q-03** | Separar «es componente de seguridad» de «es en sí mismo un producto»; añadir **Interoperabilidad del sistema ferroviario** a `c2a_productos` | Art. 6.1 y Anexo I Sección B | RN-H01, H04 |
-| **Q-04** | Corregir el texto de `c2b_infra` según el Anexo III, punto 2 | Texto erróneo | RN-H12 |
-| **Q-05** | Revisar `c2b_seguros` · `admisibilidad` (retirada del cuestionario el 2026-10-20, a la espera de revisión jurídica) | No figura en el Anexo III | RN-H17 |
-| **Q-06** | Bloque nuevo **Excepción del Art. 6.3**: ¿se invoca?, condiciones a) a d), «¿El sistema elabora perfiles de personas físicas?» y justificación. Solo visible con supuestos del Anexo III | Art. 6.3 | RN-E01 a E04 |
-| **Q-07** | Preguntas nuevas: «¿Genera o manipula imagen, audio o vídeo que constituya una ultrasuplantación?» y «¿Genera texto que se publica para informar al público sobre asuntos de interés público?» | Art. 50.4 | RN-T04 |
-| **Q-08** | Bloque nuevo **Modelo de IA de uso general**: ¿la organización desarrolla un modelo GPAI y lo introduce en el mercado?, cómputo de entrenamiento (más o menos de 10^25 FLOP, o desconocido), ¿licencia libre?, ¿el sistema usa un modelo GPAI de terceros? | D3 | RN-G01 a G06 |
-| **Q-09** | Sustituir la exclusión `profesional` por «Uso por personas físicas en el marco de una actividad puramente personal de carácter no profesional» | Texto invertido | RN-A07 |
-| **Q-10** | Pregunta «¿La organización es un organismo de derecho público o una entidad privada que presta servicios públicos?» | Ámbito del Art. 27 | RN-O06 |
-| **Q-11** | Preguntas del Art. 25 (solo con alto riesgo y sin rol Proveedor): ¿se comercializa con nombre o marca propios?, ¿se ha modificado sustancialmente?, ¿se ha cambiado su finalidad prevista? | Cambio de rol a proveedor | RN-R06 |
-| **Q-12** | Eliminar `q4_propiedad`, duplicada de `propiedad` | `E20` | — |
-| **Q-13** | Ayuda en `q4_usa_ia` con la definición de sistema de IA del Art. 3.1 | Evitar que se marque «Sí» por cualquier automatización | RN-A01 |
+| Id | Cambio | Motivo | Reglas | Estado |
+|---|---|---|---|---|
+| **Q-01** | Opción «Ninguno de los anteriores» en `c1`, `c2a`, cada `c2b_*` y `c3`, excluyente | Distinguir «no aplica» de «sin responder» | RN-V02 | Implementado con variación en `c2b_*` (B13b, ver nota) |
+| **Q-02** | Preguntas de excepción para `riesgo_delito`, `emociones`, `categorizacion_biometrica` y `rbi_tiempo_real`, con justificación | Excepciones del Art. 5.1 | RN-P04 a P08, P11 | Implementado (B13b) |
+| **Q-03** | Separar «es componente de seguridad» de «es en sí mismo un producto»; añadir **Interoperabilidad del sistema ferroviario** a `c2a_productos` | Art. 6.1 y Anexo I Sección B | RN-H01, H04 | Implementado (B13b) |
+| **Q-04** | Corregir el texto de `c2b_infra` según el Anexo III, punto 2 | Texto erróneo | RN-H12 | Implementado (B13b) |
+| **Q-05** | Revisar `c2b_seguros` · `admisibilidad` (retirada del cuestionario el 2026-10-20, a la espera de revisión jurídica) | No figura en el Anexo III | RN-H17 | Opción retirada el 2026-10-20; revisión jurídica abierta |
+| **Q-06** | Bloque nuevo **Excepción del Art. 6.3**: ¿se invoca?, condiciones a) a d), «¿El sistema elabora perfiles de personas físicas?» y justificación. Solo visible con supuestos del Anexo III | Art. 6.3 | RN-E01 a E04 | Implementado (B13b) |
+| **Q-07** | Preguntas nuevas: «¿Genera o manipula imagen, audio o vídeo que constituya una ultrasuplantación?» y «¿Genera texto que se publica para informar al público sobre asuntos de interés público?» | Art. 50.4 | RN-T04 | Implementado (B13b) |
+| **Q-08** | Bloque nuevo **Modelo de IA de uso general**: ¿la organización desarrolla un modelo GPAI y lo introduce en el mercado?, cómputo de entrenamiento (más o menos de 10^25 FLOP, o desconocido), ¿licencia libre?, ¿el sistema usa un modelo GPAI de terceros? | D3 | RN-G01 a G06 | Implementado (B13b) |
+| **Q-09** | Sustituir la exclusión `profesional` por «Uso por personas físicas en el marco de una actividad puramente personal de carácter no profesional» | Texto invertido | RN-A07 | Implementado (B13b) |
+| **Q-10** | Pregunta «¿La organización es un organismo de derecho público o una entidad privada que presta servicios públicos?» | Ámbito del Art. 27 | RN-O06 | Implementado (B13b) |
+| **Q-11** | Preguntas del Art. 25 (solo con alto riesgo y sin rol Proveedor): ¿se comercializa con nombre o marca propios?, ¿se ha modificado sustancialmente?, ¿se ha cambiado su finalidad prevista? | Cambio de rol a proveedor | RN-R06 | Implementado (B13b) |
+| **Q-12** | Eliminar `q4_propiedad`, duplicada de `propiedad` | `E20` | — | Implementado (B13b) |
+| **Q-13** | Ayuda en `q4_usa_ia` con la definición de sistema de IA del Art. 3.1 | Evitar que se marque «Sí» por cualquier automatización | RN-A01 | Implementado (B13b) |
+
+> **ℹ Nota de implementación (B13b).**
+> - **Q-01:** por decisión de producto, el bloque `c2b_*` no tiene una opción «Ninguno» en cada uno de
+>   sus once grupos, sino una sola pregunta sí/no, `c2b_ninguno` («¿Ninguno de los supuestos de este
+>   bloque? (Anexo III)»). Es obligatoria salvo que se marque algún supuesto del Anexo III e incompatible
+>   con marcar alguno. Cumple la intención de RN-V02. Pendiente de validar por el responsable del proyecto.
+> - **Q-02:** claves `c1_exc_riesgo_delito`, `c1_exc_emociones`, `c1_exc_categorizacion_biometrica` y
+>   `c1_exc_rbi_tiempo_real`, visibles solo con la práctica marcada.
+> - **Q-03:** opción `producto` en `c2a`; `c2a_productos` añade `ferroviario` y solo se muestra con algún
+>   supuesto de `c2a`.
+> - **Q-05:** las respuestas guardadas con `c2b_seguros` · `admisibilidad` se tratan como el Anexo III,
+>   punto 5.c, hasta la revisión jurídica.
+> - **Q-06:** claves `c63_invoca`, `c63_condiciones`, `c63_perfiles` y `c63_justificacion`.
+> - **Q-07:** `c3_deepfake` y `c3_texto_publico`. **Q-08:** `gpai_desarrolla` (obligatoria),
+>   `gpai_computo`, `gpai_licencia_libre`, `gpai_usa_terceros` y `gpai_modifica` (fine-tuning de un modelo
+>   de terceros, solo si se usa uno).
+> - **Q-09:** opción `uso_personal`; las respuestas guardadas con `profesional` ya no se tratan como
+>   exclusión. **Q-10:** `q_organismo_publico`. **Q-11:** `a25_marca`, `a25_modificacion` y
+>   `a25_finalidad`, visibles con supuestos del Anexo I o III y sin el rol Proveedor.
+> - **Q-12:** las respuestas guardadas con `q4_propiedad` se siguen leyendo como propiedad si falta
+>   `propiedad`.
 
 Los cambios de texto no rompen las respuestas guardadas porque las claves se mantienen (comentario de
 `schema.ts`). Las preguntas nuevas necesitan claves nuevas; los cuestionarios ya completados quedan con
@@ -498,12 +552,15 @@ clasificación **Pendiente** hasta que se respondan.
 
 Resultado esperado del motor para casos tipo. Sirven como pruebas de aceptación.
 
+Los casos 1, 3, 5, 7, 8, 9, 11, 12, 13 y 15 están cubiertos, a partir de las respuestas del cuestionario,
+por `apps/web/tests/cuestionario-clasificacion.test.ts` (B13b).
+
 | # | Caso | Respuestas clave | Nivel | Otros resultados |
 |---|---|---|---|---|
 | 1 | Chatbot propio de atención al cliente sobre un LLM de terceros | `propiedad` `propio_organizacion`; `c3` `interaccion`, `generacion`; Q-08 usa modelo de terceros; roles proveedor y responsable del despliegue | Riesgo limitado | Art. 50.1 y 50.2 (proveedor); basado en modelo GPAI de terceros; Art. 4 |
 | 2 | Herramienta interna de resúmenes con un LLM comercial | `tercero_organizacion`; `c3` `generacion`; rol responsable del despliegue | Riesgo limitado | Ninguna obligación del Art. 50 para este rol (50.2 es del proveedor); Art. 4 |
 | 3 | Scoring de crédito propio | `c2b_solvencia` `solvencia`; roles proveedor y responsable del despliegue | Alto riesgo · Anexo III 5.b | Obligaciones de alto riesgo de ambos roles; FRIA (RN-O06) |
-| 4 | Detección de fraude en pagos | `c2b_solvencia` «Ninguno»; `c3` `patrones` | Riesgo mínimo | Art. 4 |
+| 4 | Detección de fraude en pagos | `c2b_ninguno` Sí (B13b: «Ninguno» único del bloque B); `c3` `patrones` | Riesgo mínimo | Art. 4 |
 | 5 | Cribado de CV que invoca el Art. 6.3 | `c2b_empleo` `seleccion`; excepción a); `c3` `perfiles` | Alto riesgo · Anexo III 4.a | Excepción **no válida** (RN-E02) |
 | 6 | Clasificación de expedientes con excepción del Art. 6.3 | `c2b_asistencia` `admisibilidad`; excepción d); sin perfilado; rol proveedor | Riesgo mínimo | Obligación de documentar y registrar (RN-O07) |
 | 7 | Detección de emociones de empleados | `c1` `emociones`; sin excepción | Práctica prohibida | Art. 5; retirada o rediseño |

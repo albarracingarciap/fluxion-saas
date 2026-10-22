@@ -4,12 +4,13 @@ titulo: Cuestionarios preliminares
 tipo: funcional
 modulo: evaluacion-de-impacto
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/cuestionario-preliminar/page.tsx
   - apps/web/app/(app)/cuestionario-preliminar/list-client.tsx
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - supabase/migrations/20260915090000_cuestionario_preliminar.sql
+  - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
 ---
 
 # Cuestionarios preliminares
@@ -41,6 +42,7 @@ Lista ordenada por la última modificación:
 | Título | Enlace al formulario. Se toma de la tecnología, el nombre comercial o el objeto del proyecto | `preliminary_questionnaires.title` |
 | Responsable · fecha | Responsable del proyecto y fecha de la última actualización | `project_lead`, `updated_at` |
 | Estado | Borrador · Completado | `status` |
+| Preliminar | Solo en los cuestionarios completados desde B13b: «Preliminar: {nivel o ámbito}» con la [clasificación AI Act](../glosario.md#clasificación-ai-act) preliminar guardada al completar. Al pasar el puntero muestra la base legal resumida | `classification` (`result.display.label` y `result.display.basis`) |
 
 ## Acciones
 

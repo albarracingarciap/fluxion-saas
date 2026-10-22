@@ -148,7 +148,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-AISIA | `docs/funcional/aisia.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/inventario/[id]/aisia/**` | borrador |
 | FUN-RIESGOS-NEGOCIO | `docs/funcional/riesgos-negocio.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/inventario/[id]/riesgos-negocio/*` | borrador |
 | FUN-CUESTIONARIO | `docs/funcional/cuestionario-preliminar.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/cuestionario-preliminar/{page.tsx,list-client.tsx,actions.ts}` | borrador |
-| FUN-CUESTIONARIO-FORM | `docs/funcional/cuestionario-preliminar-formulario.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/cuestionario-preliminar/{nuevo,[id]}/page.tsx`, `(app)/cuestionario-preliminar/questionnaire-form.tsx`, `lib/preliminary-questionnaire/schema.ts` | borrador |
+| FUN-CUESTIONARIO-FORM | `docs/funcional/cuestionario-preliminar-formulario.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/cuestionario-preliminar/{nuevo,[id]}/page.tsx`, `(app)/cuestionario-preliminar/{questionnaire-form.tsx,classification-panel.tsx}`, `lib/preliminary-questionnaire/{schema.ts,to-aiact.ts}`, `mig/20261022100000_cuestionario_clasificacion.sql` | borrador |
 
 ### 3.5 Operación diaria
 
@@ -228,7 +228,7 @@ entre los de `CLAUDE.md`; se añadió a petición del responsable (2026-10-19).
 
 | id | Ruta del .md | Tipo | Audiencia | Módulo | Ficheros fuente | Estado |
 |---|---|---|---|---|---|---|
-| PRD-CUESTIONARIO-REGLAS | `docs/producto/cuestionario-preliminar-reglas.md` | especificacion | producto, tecnica | evaluacion-de-impacto | `lib/preliminary-questionnaire/schema.ts`, `(app)/cuestionario-preliminar/*`, `components/inventory/SystemWizard.jsx`, `lib/ai-systems/scoring.ts`, `(app)/inventario/nuevo/actions.ts`, `mig/20260915090000_cuestionario_preliminar.sql`, `mig/20260904090000_obligaciones_ai_act.sql`, `mig/20260911090000_rol_cadena_de_valor.sql` | borrador |
+| PRD-CUESTIONARIO-REGLAS | `docs/producto/cuestionario-preliminar-reglas.md` | especificacion | producto, tecnica | evaluacion-de-impacto | `lib/preliminary-questionnaire/{schema.ts,to-aiact.ts}`, `(app)/cuestionario-preliminar/*`, `components/inventory/SystemWizard.jsx`, `lib/ai-systems/scoring.ts`, `(app)/inventario/nuevo/actions.ts`, `mig/20260915090000_cuestionario_preliminar.sql`, `mig/20260904090000_obligaciones_ai_act.sql`, `mig/20260911090000_rol_cadena_de_valor.sql` | borrador |
 | PRD-PLAN-GAPS | `docs/producto/plan-resolucion-gaps.md` | especificacion | producto, tecnica | transversal | `docs/funcional/flujo-completo-evaluacion.md`, `docs/producto/cuestionario-preliminar-reglas.md`, `docs/_incidencias.md`, `(app)/inventario/[id]/fmea/**/actions.ts`, `lib/fmea/*`, `lib/approvals/effects.ts`, `(app)/plantillas/soa-iso42001/*`, `(app)/inventario/[id]/aisia/actions.ts`, `lib/dashboard/data.ts`, `lib/evaluations/data.ts` | borrador |
 | PRD-REGISTRO-CAMBIOS | `docs/producto/registro-de-cambios.md` | especificacion | producto, tecnica | transversal | `docs/producto/plan-resolucion-gaps.md`, historial de git | borrador |
 
