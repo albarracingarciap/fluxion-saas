@@ -1638,7 +1638,7 @@ agentes; `_incidencias.md` (I11; I5 en parte por B13e). TODO 78 resuelto.
 
 A petición del responsable (TODO 277 y 278):
 - `_inventario.md` v1.5: §2.6 y §7.2 resueltos (solo `platform_admin` escribe en `/datos/*`); decisión 39 corregida
-  (`platform_admin` se usa; `partner` sigue sin uso); respuestas en §5.4, §8 y §11; §14.1 indica que, mientras el
+  (`platform_admin` se usa; `partner` sigue sin uso); notas en §5.1, §5.2, §8 y §11.2; §14.1 indica que, mientras el
   catálogo sea único, lo mantiene la administración de la plataforma.
 - `glosario.md`: entrada nueva **Administración de la plataforma**; **Catálogo estándar de Fluxion** y **Catálogo de
   tablas básicas** la mencionan.
