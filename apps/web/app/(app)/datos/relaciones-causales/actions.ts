@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,16 +13,9 @@ const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("No autorizado");
-  return session.user;
-}
-
 export async function getCausalRelationships(page = 1, pageSize = 50) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     const end = start + pageSize - 1;
 
@@ -61,7 +54,7 @@ export async function getCausalRelationships(page = 1, pageSize = 50) {
 
 export async function getCausalFamilies() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('causal_families')
       .select('id, name')
@@ -76,7 +69,7 @@ export async function getCausalFamilies() {
 
 export async function getCausalNodes() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('causal_nodes')
       .select('id, name, domain')
@@ -91,7 +84,7 @@ export async function getCausalNodes() {
 
 export async function createCausalRelationship(payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     
     const { data, error } = await adminClient
       .from('causal_relationships')
@@ -109,7 +102,7 @@ export async function createCausalRelationship(payload: Record<string, unknown>)
 
 export async function updateCausalRelationship(id: string, payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
 
     const { data, error } = await adminClient
       .from('causal_relationships')
@@ -128,7 +121,7 @@ export async function updateCausalRelationship(id: string, payload: Record<strin
 
 export async function deleteCausalRelationship(id: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
 
     const { error } = await adminClient
       .from('causal_relationships')

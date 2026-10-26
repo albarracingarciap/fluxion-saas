@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert, X, Archive, ArchiveRestore } from 'lucide-react';
 import { getObligations, createObligation, updateObligation, deleteObligation, setObligationRetired } from './actions';
+import { canEditCatalogs } from '../actions';
 
 const FRAMEWORKS = [
   { value: 'AI_ACT',    label: 'AI Act' },
@@ -60,6 +61,9 @@ function scopesFor(framework: string) {
 
 export default function ObligacionesPage() {
   const [mounted, setMounted]         = useState(false);
+  // Solo la administración de la plataforma modifica los catálogos (lib/auth/platform.ts).
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => { canEditCatalogs().then(setCanEdit); }, []);
   const [loading, setLoading]         = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData]               = useState<any[]>([]);
@@ -67,7 +71,6 @@ export default function ObligacionesPage() {
   const [page, setPage]               = useState(1);
   const [error, setError]             = useState<string | null>(null);
   const [filterFw, setFilterFw]       = useState('');
-  const [canRetire, setCanRetire]     = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,7 +90,6 @@ export default function ObligacionesPage() {
     if (res.success && res.data) {
       setData(res.data);
       setTotalCount(res.count || 0);
-      setCanRetire(Boolean(res.canRetire));
     } else {
       setError(res.error || 'Error al cargar obligaciones');
     }
@@ -159,6 +161,7 @@ export default function ObligacionesPage() {
               Catálogo maestro de obligaciones normativas por framework. Sirve como base para mapear qué evidencias son requeridas por cada artículo o cláusula.
             </p>
           </div>
+          {canEdit && (
           <button
             onClick={openNew}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all shrink-0"
@@ -166,6 +169,7 @@ export default function ObligacionesPage() {
             <Plus className="w-4 h-4" />
             Añadir Obligación
           </button>
+          )}
         </div>
       </section>
 
@@ -250,11 +254,12 @@ export default function ObligacionesPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
+                      {canEdit && (
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openEdit(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-dim rounded-md transition-colors" title="Editar">
                           <Edit2 size={15} />
                         </button>
-                        {canRetire && (
+                        {canEdit && (
                           <button
                             onClick={() => handleRetire(item.id, item.code, !item.retired_at)}
                             className="p-1.5 text-lttm hover:text-or hover:bg-ordim rounded-md transition-colors"
@@ -267,6 +272,7 @@ export default function ObligacionesPage() {
                           <Trash2 size={15} />
                         </button>
                       </div>
+                      )}
                     </td>
                   </tr>
                 ))}

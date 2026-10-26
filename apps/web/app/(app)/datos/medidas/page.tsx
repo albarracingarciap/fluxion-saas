@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert, X } from 'lucide-react';
 import { getControlTemplates, createControlTemplate, updateControlTemplate, deleteControlTemplate } from './actions';
+import { canEditCatalogs } from '../actions';
 
 const CATEGORIES = [
   { value: 'documentation', label: 'Documentación' },
@@ -38,6 +39,9 @@ const emptyForm = {
 
 export default function MedidasPage() {
   const [mounted, setMounted]         = useState(false);
+  // Solo la administración de la plataforma modifica los catálogos (lib/auth/platform.ts).
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => { canEditCatalogs().then(setCanEdit); }, []);
   const [loading, setLoading]         = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData]               = useState<any[]>([]);
@@ -133,6 +137,7 @@ export default function MedidasPage() {
               Plantillas de medidas de control y mitigación disponibles para vincular a modos de fallo. Todos los tenants consumen este catálogo en modo lectura.
             </p>
           </div>
+          {canEdit && (
           <button
             onClick={openNew}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all shrink-0"
@@ -140,6 +145,7 @@ export default function MedidasPage() {
             <Plus className="w-4 h-4" />
             Añadir Medida
           </button>
+          )}
         </div>
       </section>
 
@@ -227,6 +233,7 @@ export default function MedidasPage() {
                         <span className={`inline-block w-2 h-2 rounded-full ${item.is_active ? 'bg-gr' : 'bg-ltbl'}`} />
                       </td>
                       <td className="px-5 py-3.5">
+                        {canEdit && (
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => openEdit(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-dim rounded-md transition-colors" title="Editar">
                             <Edit2 size={15} />
@@ -235,6 +242,7 @@ export default function MedidasPage() {
                             <Trash2 size={15} />
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );

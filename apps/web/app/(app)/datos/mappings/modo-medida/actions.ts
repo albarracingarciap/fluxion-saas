@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,16 +10,9 @@ const adminClient = createClient(
   { db: { schema: 'compliance' } }
 );
 
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error('No autorizado');
-  return session.user;
-}
-
 export async function getModeMappings(page = 1, pageSize = 100) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     const { data, error, count } = await adminClient
       .from('failure_mode_control_refs')
@@ -38,7 +31,7 @@ export async function getModeMappings(page = 1, pageSize = 100) {
 
 export async function getAllFailureModes() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('failure_modes')
       .select('id, code, name, dimension_id')
@@ -52,7 +45,7 @@ export async function getAllFailureModes() {
 
 export async function getAllControlTemplates() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('control_templates')
       .select('id, code, title, category')
@@ -71,7 +64,7 @@ export async function createModeMapping(payload: {
   is_primary: boolean
 }) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('failure_mode_control_refs')
       .insert([payload])
@@ -90,7 +83,7 @@ export async function updateModeMapping(
   payload: { is_primary: boolean }
 ) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('failure_mode_control_refs')
       .update(payload)
@@ -107,7 +100,7 @@ export async function updateModeMapping(
 
 export async function deleteModeMapping(failureModeId: string, controlTemplateId: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('failure_mode_control_refs')
       .delete()

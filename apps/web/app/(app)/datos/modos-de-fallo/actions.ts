@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -14,18 +14,9 @@ const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// Verificación rápida de que es un admin real para seguridad adicional (opcional pero recomendada)
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("No autorizado");
-  // TODO: validar rol según fluxion.profiles cuando sea necesario
-  return session.user;
-}
-
 export async function getFailureModes(page = 1, pageSize = 50) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     const end = start + pageSize - 1;
 
@@ -48,7 +39,7 @@ export async function getFailureModes(page = 1, pageSize = 50) {
 
 export async function createFailureMode(payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     
     // Asignar w_calculated asumiendo R, I, D, E son enviados (R+I+D+E / etc.)
     // La fórmula exacta de RIDE según fluxion_plan_compliance_riesgos.md: (R*I*D*E)^{1/4} (Media geométrica? o Media aritmética?). 
@@ -70,7 +61,7 @@ export async function createFailureMode(payload: Record<string, unknown>) {
 
 export async function updateFailureMode(id: string, payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
 
     const { data, error } = await adminClient
       .from('failure_modes')
@@ -89,7 +80,7 @@ export async function updateFailureMode(id: string, payload: Record<string, unkn
 
 export async function deleteFailureMode(id: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
 
     const { error } = await adminClient
       .from('failure_modes')

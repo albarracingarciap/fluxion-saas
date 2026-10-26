@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,16 +10,9 @@ const adminClient = createClient(
   { db: { schema: 'compliance' } }
 );
 
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error('No autorizado');
-  return session.user;
-}
-
 export async function getMappings(page = 1, pageSize = 100) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     const { data, error, count } = await adminClient
       .from('obligation_evidence_types')
@@ -35,7 +28,7 @@ export async function getMappings(page = 1, pageSize = 100) {
 
 export async function getAllObligations() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('obligations')
       .select('id, code, title, framework')
@@ -50,7 +43,7 @@ export async function getAllObligations() {
 
 export async function getAllEvidenceTypes() {
   try {
-    await requireAdmin();
+    await requireSession();
     const { data, error } = await adminClient
       .from('evidence_types')
       .select('id, code, name, category')
@@ -70,7 +63,7 @@ export async function createMapping(payload: {
   notes?: string
 }) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('obligation_evidence_types')
       .insert([payload])
@@ -89,7 +82,7 @@ export async function updateMapping(
   payload: { requirement_level: string; notes?: string }
 ) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('obligation_evidence_types')
       .update(payload)
@@ -106,7 +99,7 @@ export async function updateMapping(
 
 export async function deleteMapping(obligationId: string, evidenceTypeId: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('obligation_evidence_types')
       .delete()

@@ -4,8 +4,10 @@ titulo: Modo de fallo y medida
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/mappings/modo-medida/page.tsx
   - apps/web/app/(app)/datos/mappings/modo-medida/actions.ts
   - apps/web/lib/fmea/data.ts
@@ -32,10 +34,11 @@ la evaluación FMEA y en el plan de tratamiento.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -71,8 +74,8 @@ Cada pareja modo-medida solo puede existir una vez. Al editar solo se puede camb
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Correspondencia** / **Editar** › **Guardar** | Todos | Crea la relación o cambia si es primaria | — |
-| **Eliminar** | Todos | Pide confirmación («¿Eliminar la correspondencia "{modo} → {medida}"?») y la borra | — |
+| **Añadir Correspondencia** / **Editar** › **Guardar** | Administración de la plataforma | Crea la relación o cambia si es primaria | — |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Eliminar la correspondencia "{modo} → {medida}"?») y la borra | — |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 ## Validaciones

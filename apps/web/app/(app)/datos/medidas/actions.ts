@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,16 +10,9 @@ const adminClient = createClient(
   { db: { schema: 'compliance' } }
 );
 
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error('No autorizado');
-  return session.user;
-}
-
 export async function getControlTemplates(page = 1, pageSize = 50, category?: string) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     let query = adminClient
       .from('control_templates')
@@ -37,7 +30,7 @@ export async function getControlTemplates(page = 1, pageSize = 50, category?: st
 
 export async function createControlTemplate(payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('control_templates')
       .insert([payload])
@@ -52,7 +45,7 @@ export async function createControlTemplate(payload: Record<string, unknown>) {
 
 export async function updateControlTemplate(id: string, payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('control_templates')
       .update(payload)
@@ -68,7 +61,7 @@ export async function updateControlTemplate(id: string, payload: Record<string, 
 
 export async function deleteControlTemplate(id: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('control_templates')
       .delete()

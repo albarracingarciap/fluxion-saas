@@ -62,6 +62,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: GPAI, nivel de riesgo y obligaciones tras B13d | Integrado en `main` | `docs/glosario-b13d` | 2026-10-26 | No |
 | Corrección: etiquetas de obligaciones retiradas en el diff de la clasificación con IA (fuera del plan) | Integrado en `main` | `fix/b13d-etiquetas-diff` | 2026-10-26 | No |
 | B13e · Cierres de B13: conciliación con IA, alta sin clasificación y catálogo | Integrado en `main` | `fase2/b13e-cierres` | 2026-10-26 | No |
+| Control de rol de Datos (fuera del plan, §7.2) | Integrado en `main` | `fase2/datos-control-rol` | 2026-10-26 | No (asignar `platform_admin` con SQL) |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1563,4 +1564,34 @@ agentes. TODO 259, 260, 261 y 274 resueltos.
 
 **Pendiente.** El resto de `/datos/*` sigue sin control de rol (hallazgo de seguridad §7.2 de `_inventario.md`,
 fuera de este bloque).
+
+---
+
+## Control de rol de Datos (fuera del plan)
+
+**Fecha:** 2026-10-26 · **Rama:** `fase2/datos-control-rol` · **Migración:** no (SQL de datos para asignar el rol)
+
+**Problema** (`_inventario.md` §7.2): las acciones de las siete vistas de **Datos** escriben con la service role en
+catálogos globales y solo comprobaban que hubiera sesión. Cualquier usuario de cualquier organización podía crear,
+editar o borrar obligaciones, medidas, tipos de evidencia, modos de fallo, relaciones causales y sus
+correspondencias, y el cambio afectaba a todos los clientes.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Autorización | Módulo `lib/auth/platform.ts`: `requireSession` (sesión verificada con `getUser`), `isPlatformAdmin` y `requirePlatformAdmin` (`profiles.platform_role` = `platform_admin`). Las lecturas exigen sesión; las escrituras de las siete vistas (crear, editar, borrar, retirar), la administración de la plataforma |
+| Vistas | `canEditCatalogs` (`app/(app)/datos/actions.ts`): sin el rol, no se muestran los botones de alta, edición, borrado ni retirada |
+
+Coherente con `_inventario.md` §14.1 (el catálogo estándar lo mantiene el equipo de Fluxion; la copia por organización
+que mantendrá el Administrador sigue pendiente).
+
+**Verificación.** `tsc --noEmit` sin errores, `next lint` sin avisos, `npm test` 86/86, `check-server-actions.sh`
+correcto. No se ha probado en el navegador.
+
+**Despliegue.** Solo web. Antes, asignar el rol a quien mantenga el catálogo; sin él, nadie puede editar los
+catálogos.
+
+**Documentación.** Funcionales del catálogo de tablas básicas y de sus siete vistas. TODO 277 (inventario) y 278
+(glosario) para el responsable.
 
