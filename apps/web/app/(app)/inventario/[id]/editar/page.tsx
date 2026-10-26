@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import EditSystemClient from './edit-system-client';
 import type { AiActInputs } from '@/lib/ai-act';
 import { inputsToAnswers } from '@/lib/preliminary-questionnaire/to-wizard';
+import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
 
 const DATA_VOLUME_MAP: Record<string, string> = {
   menos_1gb: '<1 GB',
@@ -84,6 +85,7 @@ export default async function EditSystemPage({ params }: { params: { id: string 
       intended_use,
       prohibited_uses,
       output_type,
+      output_types,
       fully_automated,
       interacts_persons,
       target_users,
@@ -162,7 +164,7 @@ export default async function EditSystemPage({ params }: { params: { id: string 
     technicalDesc: system.technical_description ?? '',
     intendedUse: system.intended_use ?? '',
     prohibitedUses: system.prohibited_uses ?? '',
-    outputTypes: system.output_type ? [system.output_type] : [],
+    outputTypes: normalizeOutputTypes(system.output_types, system.output_type),
     outputType: system.output_type ?? '',
     fullyAutomated: system.fully_automated,
     interactsPersons: system.interacts_persons ?? false,

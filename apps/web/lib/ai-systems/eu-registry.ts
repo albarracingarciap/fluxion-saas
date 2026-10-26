@@ -48,6 +48,7 @@ type EuRegistrySystemRow = {
   technical_description: string | null
   intended_use: string | null
   output_type: string | null
+  output_types: string[] | null
   aiact_risk_level: string
   aiact_risk_basis: string | null
   aiact_risk_reason: string | null
@@ -129,6 +130,7 @@ export async function buildEuRegistryData(params: {
       technical_description,
       intended_use,
       output_type,
+      output_types,
       aiact_risk_level,
       aiact_risk_basis,
       aiact_risk_reason,

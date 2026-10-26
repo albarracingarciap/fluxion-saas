@@ -80,6 +80,7 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
       aiact_risk_level,
       intended_use,
       output_type,
+      output_types,
       ai_system_type,
       provider_origin,
       external_provider,
@@ -130,6 +131,7 @@ export async function activateSystemFailureModes(input: ActivateSystemFailureMod
     aiactRiskLevel: system.aiact_risk_level,
     intendedUse: system.intended_use,
     outputType: system.output_type,
+    outputTypes: system.output_types,
     aiSystemType: system.ai_system_type,
     providerOrigin: system.provider_origin,
     externalProvider: system.external_provider,
@@ -576,7 +578,7 @@ export async function recalculateSystemFailureModes(input: RecalculateSystemFail
   const { data: system, error: systemError } = await fluxion
     .from('ai_systems')
     .select(`
-      id, name, domain, status, aiact_risk_level, intended_use, output_type,
+      id, name, domain, status, aiact_risk_level, intended_use, output_type, output_types,
       ai_system_type, provider_origin, external_provider, external_model,
       active_environments, data_sources, special_categories,
       is_ai_system, is_gpai, fully_automated, interacts_persons, affects_persons,
@@ -608,6 +610,7 @@ export async function recalculateSystemFailureModes(input: RecalculateSystemFail
     aiactRiskLevel: system.aiact_risk_level,
     intendedUse: system.intended_use,
     outputType: system.output_type,
+    outputTypes: system.output_types,
     aiSystemType: system.ai_system_type,
     providerOrigin: system.provider_origin,
     externalProvider: system.external_provider,

@@ -115,6 +115,7 @@ export function fallbackFieldsFromRow(row: Record<string, unknown>): FallbackFie
     criticalInfra: Boolean(row.manages_critical_infra),
     domain: (row.domain as string | null) ?? null,
     outputType: (row.output_type as string | null) ?? null,
+    outputTypes: (row.output_types as string[] | null) ?? null,
     interactsPersons: Boolean(row.interacts_persons),
   }
 }

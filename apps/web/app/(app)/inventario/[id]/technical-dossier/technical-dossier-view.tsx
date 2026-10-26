@@ -9,6 +9,7 @@ import {
   type TechnicalDossierData,
   TECH_DOC_RISK_LABELS,
 } from '@/lib/ai-systems/technical-dossier';
+import { formatOutputTypes } from '@/lib/ai-systems/output-types';
 
 function formatJoined(values: string[] | null | undefined) {
   if (!values || values.length === 0) return '—';
@@ -156,7 +157,7 @@ export function TechnicalDossierView({
                   </div>
                   <div className="bg-ltcard border border-ltb rounded-[12px] p-3">
                     <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Output</div>
-                    <div>{system.output_type || '—'}</div>
+                    <div>{formatOutputTypes(system.output_types, system.output_type) || '—'}</div>
                   </div>
                   <div className="bg-ltcard border border-ltb rounded-[12px] p-3">
                     <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Modelo base</div>

@@ -54,6 +54,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       prohibited_uses,
       usage_scale,
       output_type,
+      output_types,
       fully_automated,
       interacts_persons,
       target_users,

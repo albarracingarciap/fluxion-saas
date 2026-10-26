@@ -63,6 +63,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Corrección: etiquetas de obligaciones retiradas en el diff de la clasificación con IA (fuera del plan) | Integrado en `main` | `fix/b13d-etiquetas-diff` | 2026-10-26 | No |
 | B13e · Cierres de B13: conciliación con IA, alta sin clasificación y catálogo | Integrado en `main` | `fase2/b13e-cierres` | 2026-10-26 | No |
 | Control de rol de Datos (fuera del plan, §7.2) | Integrado en `main` | `fase2/datos-control-rol` | 2026-10-26 | No (asignar `platform_admin` con SQL) |
+| Varios tipos de output por sistema (fuera del plan, TODO 78) | Integrado en `main` | `fase2/tipos-output` | 2026-10-26 | **Sí** · `20261026100000_inventario_tipos_output.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -96,6 +97,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261022100000_cuestionario_clasificacion.sql` | B13b | Columna `preliminary_questionnaires.classification` (clasificación preliminar guardada al completar) | Antes de desplegar B13b |
 | `supabase/migrations/20261022110000_cuestionario_vinculo.sql` | B13c | Índice único sobre `preliminary_questionnaires.ai_system_id` (un cuestionario de origen por sistema) y trigger `trg_preliminary_questionnaire_locked` (un cuestionario vinculado no cambia sus respuestas ni su estado) | **Antes** de desplegar B13c. Si algún sistema tuviera ya dos cuestionarios vinculados, el índice fallará: desvincula los sobrantes antes |
 | `supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql` | B13d | Sistemas con nivel `gpai` → categoría GPAI (`is_gpai`), «Pendiente de clasificar» y pendientes de revisar; CHECK que impide el valor; columna `compliance.obligations.retired_at`; Art. 50 dividido en 50.1 a 50.4 (la fila antigua queda retirada), Art. 6.4 nuevo y descripción del Art. 27; vista `compliance.v_system_obligations` reescrita con RN-O01 a RN-O07 | **Antes** de desplegar B13d, y **desplegar a la vez la web y el servicio de agentes** (el prompt de la clasificación con IA deja de ofrecer las obligaciones retiradas). Revisa el aviso `B13d: N sistemas con nivel GPAI…` |
+| `supabase/migrations/20261026100000_inventario_tipos_output.sql` | Tipos de output | Columna `ai_systems.output_types` (copia el tipo actual de cada sistema) y trigger `trg_ai_systems_output_types`, que mantiene `output_type` como tipo principal | **Antes** de desplegar, web y servicio de agentes a la vez |
 
 ---
 
@@ -1594,4 +1596,36 @@ catálogos.
 
 **Documentación.** Funcionales del catálogo de tablas básicas y de sus siete vistas. TODO 277 (inventario) y 278
 (glosario) para el responsable.
+
+---
+
+## Varios tipos de output por sistema (fuera del plan)
+
+**Fecha:** 2026-10-26 · **Rama:** `fase2/tipos-output` ·
+**Migración:** **sí**, `supabase/migrations/20261026100000_inventario_tipos_output.sql`
+
+**Problema** (TODO 78, `I11`): el alta permitía marcar varios tipos de output, pero solo se guardaba el primero. La
+clasificación de respaldo, la activación de modos de fallo, los informes y el servicio de agentes trabajaban con un
+solo tipo: por ejemplo, un sistema de RRHH marcado «generación + decisión» no se detectaba como alto riesgo por la vía
+de respaldo.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos | `ai_systems.output_types` guarda todos los tipos, en orden; `output_type` es el principal (el primero) y lo mantiene un trigger, así que la vista de diagnóstico del FMEA, la función de prioridad y los escritores que solo conocen un tipo siguen funcionando |
+| Alta y edición | Guardan y cargan la lista completa (`lib/ai-systems/output-types.ts`) |
+| Clasificación de respaldo | Basta con que un tipo sea decisorio (Anexo III por dominio) o generativo (Art. 50.2) |
+| FMEA | La activación de modos de fallo considera generativo un sistema con «generación» en cualquier posición |
+| Ficha, Anexo IV, dossier técnico y registro UE | Muestran todos los tipos con su nombre |
+| **✏ Revisar clasificación** | Cambia el tipo principal y conserva los demás |
+| Servicio de agentes | El prompt y el RAG usan todos los tipos; la conciliación guarda la lista |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; ocho casos del trigger: migración,
+lista con repetidos, cambio del principal, mismo principal, lista vaciada, alta con un tipo, alta con lista, ambos a
+la vez). `npm test` 92/92 (seis tests nuevos), `tsc --noEmit` sin errores, `next lint` sin avisos,
+`check-server-actions.sh` y `check-python.sh` correctos. No se ha probado en el navegador.
+
+**Documentación.** Funcionales del alta, la edición y la ficha; técnicos del modelo de datos y del servicio de
+agentes; `_incidencias.md` (I11; I5 en parte por B13e). TODO 78 resuelto.
 

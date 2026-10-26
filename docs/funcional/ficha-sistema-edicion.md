@@ -4,7 +4,7 @@ titulo: Edición de la ficha del sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/app/(app)/inventario/[id]/editar/page.tsx
   - apps/web/lib/preliminary-questionnaire/to-wizard.ts
@@ -48,7 +48,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 
 Los mismos del [Alta de sistema](inventario-alta.md#campos), todos editables. Diferencias:
 
-- **Tipo de output:** se carga solo el que está guardado, aunque en el alta se marcaran varios.
+- **Tipo de output:** se cargan todos los tipos guardados (`output_types`), en su orden.
 - **Supuestos AI Act** (paso 3): si el sistema tiene supuestos guardados (`ai_systems.aiact_inputs`), el
   bloque se abre con ellos convertidos de nuevo en respuestas (`inputsToAnswers`) y se pueden cambiar,
   añadir (**Indicar los supuestos AI Act**) o quitar (**Quitar supuestos**). Sin supuestos, el motor usa la

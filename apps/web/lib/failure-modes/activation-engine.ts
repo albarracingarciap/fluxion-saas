@@ -47,6 +47,8 @@ export type FailureModeActivationContext = {
   aiactRiskLevel?: string | null;
   intendedUse?: string | null;
   outputType?: string | null;
+  /** Todos los tipos de output (TODO 78); si falta, se usa `outputType`. */
+  outputTypes?: string[] | null;
   aiSystemType?: string | null;
   providerOrigin?: string | null;
   externalProvider?: string | null;
@@ -179,9 +181,14 @@ function isWeakStatus(value: string | null | undefined) {
   return value === null || value === undefined || value === '' || value === 'no' || value === 'parcial' || value === 'proceso';
 }
 
+function outputTypesOf(context: FailureModeActivationContext): string[] {
+  if (context.outputTypes?.length) return context.outputTypes;
+  return context.outputType ? [context.outputType] : [];
+}
+
 export function deriveActivationSignals(context: FailureModeActivationContext): ActivationSignals {
   const domain = context.domain ?? null;
-  const outputType = context.outputType ?? null;
+  const outputs = outputTypesOf(context);
   const aiSystemType = context.aiSystemType ?? null;
   const providerOrigin = context.providerOrigin ?? null;
   const environments = context.activeEnvironments ?? [];
@@ -189,7 +196,7 @@ export function deriveActivationSignals(context: FailureModeActivationContext): 
   const isGenerative =
     context.isGPAI === true ||
     aiSystemType === 'generativo' ||
-    outputType === 'generacion' ||
+    outputs.includes('generacion') ||
     Boolean(context.externalModel);
 
   const isAgentic =
@@ -693,7 +700,7 @@ function computeFailureModePriority(
   else if (isPublicSectorDomainValue(domain)) signalSum += 5;
   if (signals.isCriticalInfrastructure) signalSum += 6;
 
-  const generativeSignal = context.isGPAI === true || normalizeText(context.outputType) === 'generacion';
+  const generativeSignal = context.isGPAI === true || outputTypesOf(context).some((o) => normalizeText(o) === 'generacion');
   if (generativeSignal) signalSum += 4;
 
   if (normalizeText(context.aiSystemType) === 'agentico' || context.hasExternalTools === true) signalSum += 4;

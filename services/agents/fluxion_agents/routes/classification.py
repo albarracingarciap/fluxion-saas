@@ -91,6 +91,7 @@ FORM_COLUMNS = {
     "domain":            "domain",
     "intendedUse":       "intended_use",
     "outputType":        "output_type",
+    "outputTypes":       "output_types",
     "interactsPersons":  "interacts_persons",
     "isAISystem":        "is_ai_system",
     "affectsPersons":    "affects_persons",

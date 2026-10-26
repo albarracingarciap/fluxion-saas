@@ -4,7 +4,7 @@ titulo: Modelo de datos
 tipo: tecnica
 modulo: transversal
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - supabase/migrations/00000000000000_extensions.sql
   - supabase/migrations/00000000000001_schema.sql
@@ -156,6 +156,13 @@ Desde B13a, `obligation_code` y `obligation_key` guardan el código del catálog
 | `gpai_systemic_risk` | text | `yes`, `no` o `unknown`; nulo si no aplica |
 | `gpai_third_party_based` | boolean, por defecto `false` | Sistema basado en un modelo GPAI de terceros (informativo) |
 | `aiact_review_pending` | boolean, por defecto `false` | Clasificado antes del motor único: «Pendiente de revisar con el motor nuevo» hasta que se concilia una reclasificación |
+
+**Tipos de output** (migración `20261026100000`, TODO 78):
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `output_types` | `ai_output_type[]`, por defecto `{}` | Todos los tipos de output, en el orden en que se marcaron |
+| `output_type` | `ai_output_type` | Tipo principal: el primero de `output_types`. Lo mantiene el trigger `trg_ai_systems_output_types`: si cambia la lista, fija el principal; si solo cambia el principal (escritores que solo conocen un tipo, ventana **Revisar clasificación**), sustituye al anterior en la lista y conserva el resto. La vista de diagnóstico del FMEA y `calculate_failure_mode_priority` siguen leyendo el principal |
 
 **GPAI fuera del nivel de riesgo** (migración `20261026090000`, B13d):
 - los sistemas que tenían `aiact_risk_level = 'gpai'` pasan a `is_gpai = true`, `aiact_risk_level =
