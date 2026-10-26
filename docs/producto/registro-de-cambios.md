@@ -64,6 +64,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B13e · Cierres de B13: conciliación con IA, alta sin clasificación y catálogo | Integrado en `main` | `fase2/b13e-cierres` | 2026-10-26 | No |
 | Control de rol de Datos (fuera del plan, §7.2) | Integrado en `main` | `fase2/datos-control-rol` | 2026-10-26 | No (asignar `platform_admin` con SQL) |
 | Varios tipos de output por sistema (fuera del plan, TODO 78) | Integrado en `main` | `fase2/tipos-output` | 2026-10-26 | **Sí** · `20261026100000_inventario_tipos_output.sql` |
+| Inventario v1.5 y glosario: administración de la plataforma | Integrado en `main` | `docs/inventario-glosario-plataforma` | 2026-10-26 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1628,4 +1629,17 @@ la vez). `npm test` 92/92 (seis tests nuevos), `tsc --noEmit` sin errores, `next
 
 **Documentación.** Funcionales del alta, la edición y la ficha; técnicos del modelo de datos y del servicio de
 agentes; `_incidencias.md` (I11; I5 en parte por B13e). TODO 78 resuelto.
+
+---
+
+## Inventario v1.5 y glosario: administración de la plataforma
+
+**Fecha:** 2026-10-26 · **Rama:** `docs/inventario-glosario-plataforma` · **Migración:** no
+
+A petición del responsable (TODO 277 y 278):
+- `_inventario.md` v1.5: §2.6 y §7.2 resueltos (solo `platform_admin` escribe en `/datos/*`); decisión 39 corregida
+  (`platform_admin` se usa; `partner` sigue sin uso); respuestas en §5.4, §8 y §11; §14.1 indica que, mientras el
+  catálogo sea único, lo mantiene la administración de la plataforma.
+- `glosario.md`: entrada nueva **Administración de la plataforma**; **Catálogo estándar de Fluxion** y **Catálogo de
+  tablas básicas** la mencionan.
 
