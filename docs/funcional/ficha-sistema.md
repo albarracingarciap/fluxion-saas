@@ -4,7 +4,7 @@ titulo: Ficha del sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.3
+version: 0.4
 fuente:
   - apps/web/app/(app)/inventario/[id]/page.tsx
   - apps/web/app/(app)/inventario/nuevo/actions.ts
@@ -172,7 +172,7 @@ tiene supuestos AI Act, estos mandan sobre los factores de la ventana.
 | Campo | Tipo | Descripción y valores |
 |---|---|---|
 | **Dominio** | selector | Los 15 dominios. «Infraestructura» marca infraestructura crítica |
-| **Tipo de output** | selector | Sin definir o uno de los tipos |
+| **Tipo de output** | selector | Sin definir o uno de los tipos. Es el tipo **principal**: al conciliar sustituye al principal anterior y los demás tipos del sistema se conservan |
 | **Uso previsto** | texto | — |
 | **¿Afecta directamente a personas físicas?** | Sí · No · Sin definir | Necesario para el alto riesgo por dominio |
 | **Factores de clasificación** | casillas | Es un sistema de IA · Es modelo GPAI · Puede ser práctica prohibida · Procesa datos biométricos · Gestiona infraestructura crítica · Interactúa directamente con personas · Afecta a grupos vulnerables (informativo) · Involucra menores (informativo). «Es modelo GPAI» no fija un nivel de riesgo: marca a la organización como proveedora de un modelo GPAI |

@@ -6,6 +6,7 @@ import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { callClassificationService, classificationColumns, classifyWithCatalog, enginePayload, loadAiActCatalog } from '@/lib/ai-act/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
 
 // Map free-text data volume strings from the wizard to their ENUM values
 const DATA_VOLUME_MAP: Record<string, string> = {
@@ -109,7 +110,8 @@ export async function updateAISystem(formData: Record<string, any>) {
     // Step 2 — Purpose
     intended_use: formData.intendedUse || null,
     prohibited_uses: formData.prohibitedUses || null,
-    output_type: formData.outputType || null,
+    // Todos los tipos marcados; el principal (output_type) lo fija el trigger (TODO 78).
+    output_types: normalizeOutputTypes(formData.outputTypes, formData.outputType),
     fully_automated: formData.fullyAutomated ?? null,
     interacts_persons: formData.interactsPersons ?? false,
     target_users: formData.targetUsers ?? [],

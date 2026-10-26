@@ -3,6 +3,7 @@ import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { formatOutputTypes } from '@/lib/ai-systems/output-types'
 
 /**
  * Composición de un documento regulatorio.
@@ -112,7 +113,7 @@ function deriveFromSystem(ref: string, s: SystemRow): string | null {
     case 'IV.2.b':
       return block(
         line('Descripción técnica', s.technical_description),
-        line('Tipo de salida', s.output_type),
+        line('Tipo de salida', formatOutputTypes(s.output_types, s.output_type) || null),
         line('Totalmente automatizado', s.fully_automated),
         line('Usuarios destinatarios', s.target_users),
         line('Usos prohibidos declarados', s.prohibited_uses),
@@ -202,7 +203,7 @@ function deriveFromSystem(ref: string, s: SystemRow): string | null {
       return block(
         line('Tareas previstas', s.intended_use),
         line('Tipo de sistema', s.ai_system_type),
-        line('Tipo de salida', s.output_type),
+        line('Tipo de salida', formatOutputTypes(s.output_types, s.output_type) || null),
       )
     case 'XII.1.b':
       return block(
@@ -234,7 +235,7 @@ function deriveFromSystem(ref: string, s: SystemRow): string | null {
         line('Ajuste fino', s.has_fine_tuning),
       )
     case 'XII.1.g':
-      return block(line('Tipo de salida', s.output_type))
+      return block(line('Tipo de salida', formatOutputTypes(s.output_types, s.output_type) || null))
     case 'XII.1.h':
       return block(
         line('Licencia', s.oss_license),

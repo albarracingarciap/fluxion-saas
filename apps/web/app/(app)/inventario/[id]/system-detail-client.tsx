@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import { formatOutputTypes, withPrincipalOutputType } from '@/lib/ai-systems/output-types';
 import dynamic from 'next/dynamic';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import Link from 'next/link';
@@ -155,6 +156,7 @@ export type SystemDetailData = {
   prohibited_uses: string | null;
   usage_scale: string | null;
   output_type: string | null;
+  output_types?: string[] | null;
   fully_automated: boolean | null;
   interacts_persons: boolean;
   target_users: string[] | null;
@@ -2087,6 +2089,7 @@ export function SystemDetailClient({
       domain: classificationForm.domain,
       intendedUse: classificationForm.intendedUse,
       outputType: classificationForm.outputType,
+      outputTypes: withPrincipalOutputType(system.output_types, classificationForm.outputType),
       interactsPersons: classificationForm.interactsPersons,
       isAISystem: classificationForm.isAISystem,
       isGPAI: classificationForm.isGPAI,
@@ -2097,7 +2100,7 @@ export function SystemDetailClient({
       biometric: classificationForm.biometric,
       criticalInfra: classificationForm.criticalInfra,
     });
-  }, [classificationForm]);
+  }, [classificationForm, system.output_types]);
 
   const selectedObligation = useMemo(
     () => obligations.find((item) => item.ref === selectedObligationCode) ?? null,
@@ -2531,6 +2534,7 @@ export function SystemDetailClient({
             domain: classificationForm.domain,
             intendedUse: classificationForm.intendedUse || null,
             outputType: classificationForm.outputType,
+            outputTypes: withPrincipalOutputType(system.output_types, classificationForm.outputType),
             interactsPersons: classificationForm.interactsPersons ?? false,
             isAISystem: classificationForm.isAISystem ?? null,
             isGPAI: classificationForm.isGPAI ?? false,
@@ -3018,7 +3022,7 @@ export function SystemDetailClient({
                       {system.prohibited_uses ?? <span className="text-lttm">—</span>}
                     </FichaField>
                     <FichaField label="Tipo de output">
-                      {system.output_type ? OUTPUT_LABELS[system.output_type] ?? system.output_type : <span className="text-lttm">—</span>}
+                      {formatOutputTypes(system.output_types, system.output_type) || <span className="text-lttm">—</span>}
                     </FichaField>
                     <FichaField label="¿Afecta a personas?">
                       <BoolBadge value={system.affects_persons} />

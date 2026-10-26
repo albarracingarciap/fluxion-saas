@@ -4,7 +4,7 @@ titulo: Servicio de agentes
 tipo: tecnica
 modulo: clasificacion-ai-act
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - services/agents/fluxion_agents/main.py
   - services/agents/fluxion_agents/models.py
@@ -160,8 +160,11 @@ en `ai_systems`:
   `aiact_rules_version`, `is_gpai`, `gpai_systemic_risk`, `gpai_third_party_based` y, si los hay,
   `aiact_inputs`;
 - los campos editados en **✏ Revisar clasificación** (`FORM_COLUMNS`): dominio, uso previsto, tipo de
-  output, interacción con personas, es IA, afecta a personas, grupos vulnerables, menores, biometría e
-  infraestructura crítica.
+  output principal y lista de tipos (`output_types`), interacción con personas, es IA, afecta a personas,
+  grupos vulnerables, menores, biometría e infraestructura crítica.
+
+El prompt de la clasificación con IA y la recuperación del RAG (`rag/retriever.py`) usan todos los tipos de
+output del sistema (`output_types`; si falta, el principal).
 
 El evento de `reclassify/ai` guarda en `classification_factors` el resultado del motor (`engine_result`) y
 los supuestos (`inputs`), como el resto de métodos (B13e). Al conciliarlo, el nivel y las obligaciones son los

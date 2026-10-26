@@ -22,7 +22,10 @@ export type FallbackFields = {
   biometric?: boolean | null
   criticalInfra?: boolean | null
   domain?: string | null
+  /** Tipo de output principal (el primero de `outputTypes`). */
   outputType?: string | null
+  /** Todos los tipos de output marcados; si falta, se usa `outputType`. */
+  outputTypes?: readonly string[] | null
   interactsPersons?: boolean | null
 }
 
@@ -69,20 +72,22 @@ export function classifyByFallback(f: FallbackFields, declaredRoles: readonly Va
   }
 
   const hi = f.affectsPersons === true
-  const out = String(f.outputType ?? '')
+  // Basta con que uno de los tipos de output marcados sea decisorio o generativo.
+  const outs = f.outputTypes?.length ? f.outputTypes : f.outputType ? [f.outputType] : []
+  const decisorio = outs.some((o) => DECISORIO.includes(o))
   const d = f.domain ?? ''
   const alto = (basis: string, reason: string) => fin('high', basis, reason)
 
   if (f.biometric && hi) return alto('Anexo III §1 — Biometría', 'Sistema que procesa datos biométricos de personas físicas para identificación remota o categorización.')
   if (f.criticalInfra || d === 'infra') return alto('Anexo III §2 — Infraestructura crítica', 'Sistema que gestiona componentes de infraestructura crítica (energía, agua, transporte...).')
-  if (d === 'educacion' && hi && DECISORIO.includes(out)) return alto('Anexo III §3 — Educación y formación', 'Sistema que determina el acceso a formación, evalúa a estudiantes o afecta su trayectoria educativa.')
-  if (d === 'rrhh' && hi && DECISORIO.includes(out)) return alto('Anexo III §4 — Empleo y RRHH', 'Sistema que interviene en selección, evaluación, promoción o despido de personas trabajadoras.')
-  if (['credito', 'finanzas', 'seguros'].includes(d) && hi && DECISORIO.includes(out)) return alto('Anexo III §5 — Servicios financieros esenciales', 'Sistema que evalúa solvencia, asigna crédito o determina condiciones de seguros para personas.')
+  if (d === 'educacion' && hi && decisorio) return alto('Anexo III §3 — Educación y formación', 'Sistema que determina el acceso a formación, evalúa a estudiantes o afecta su trayectoria educativa.')
+  if (d === 'rrhh' && hi && decisorio) return alto('Anexo III §4 — Empleo y RRHH', 'Sistema que interviene en selección, evaluación, promoción o despido de personas trabajadoras.')
+  if (['credito', 'finanzas', 'seguros'].includes(d) && hi && decisorio) return alto('Anexo III §5 — Servicios financieros esenciales', 'Sistema que evalúa solvencia, asigna crédito o determina condiciones de seguros para personas.')
   if (d === 'salud' && hi) return alto('Anexo III §5 / Anexo I — Salud', 'Sistema en el ámbito sanitario que puede afectar diagnósticos, tratamientos o decisiones clínicas.')
   if ((d === 'seguridad' || d === 'justicia') && hi) return alto('Anexo III §6/8 — Seguridad / Justicia', 'Sistema usado en seguridad pública, aplicación de la ley o administración de justicia.')
   if (d === 'migracion' && hi) return alto('Anexo III §7 — Migración y fronteras', 'Sistema que afecta decisiones sobre visados, asilo o control fronterizo.')
 
-  if (out === 'generacion') {
+  if (outs.includes('generacion')) {
     return fin('limited', 'Art. 50.2 — Contenido sintético',
       'Sistema que genera texto, imágenes u otro contenido sintético. Obligación de informar y marcar el contenido.',
       { transparency: [{ article: '50.2', obligated: 'provider', rule: 'RN-F01' }] })
@@ -92,7 +97,7 @@ export function classifyByFallback(f: FallbackFields, declaredRoles: readonly Va
       'Sistema que interactúa directamente con personas (chatbot, asistente). Debe informar de que es una IA.',
       { transparency: [{ article: '50.1', obligated: 'provider', rule: 'RN-F01' }] })
   }
-  if (f.isAISystem == null || !out) {
+  if (f.isAISystem == null || outs.length === 0) {
     return fin('pending', 'Pendiente de clasificar', 'Faltan datos para clasificar el sistema.')
   }
   return fin('minimal', 'Sin categoría específica del AI Act',

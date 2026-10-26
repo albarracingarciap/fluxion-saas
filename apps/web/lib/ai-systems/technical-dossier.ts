@@ -56,6 +56,7 @@ type TechnicalDossierSystemRow = {
   intended_use: string | null
   prohibited_uses: string | null
   output_type: string | null
+  output_types: string[] | null
   fully_automated: boolean | null
   interacts_persons: boolean
   target_users: string[] | null
@@ -208,6 +209,7 @@ export async function buildTechnicalDossierData(params: {
       intended_use,
       prohibited_uses,
       output_type,
+      output_types,
       fully_automated,
       interacts_persons,
       target_users,

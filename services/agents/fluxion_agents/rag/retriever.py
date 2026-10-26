@@ -98,7 +98,8 @@ def build_rag_queries(system: dict) -> list[dict]:
     """
     queries = []
     domain = system.get('domain', '')
-    output_type = system.get('output_type', '')
+    # Todos los tipos de output marcados; output_type es solo el principal (TODO 78).
+    output_types = system.get('output_types') or ([system['output_type']] if system.get('output_type') else [])
     affects_persons = system.get('affects_persons', False)
     biometric = system.get('biometric', False)
     is_gpai = system.get('is_gpai', False)
@@ -170,7 +171,7 @@ def build_rag_queries(system: dict) -> list[dict]:
         })
 
     # Decisiones que afectan a personas → Art. 6 obligaciones
-    if affects_persons and output_type in ['decision', 'clasificacion', 'puntuacion']:
+    if affects_persons and any(o in ['decision', 'clasificacion', 'puntuacion'] for o in output_types):
         queries.append({
             "query": "sistemas IA alto riesgo decisiones personas físicas obligaciones proveedor Art. 9",
             "source_types": ["eu_regulation"],
@@ -197,7 +198,7 @@ def build_rag_queries(system: dict) -> list[dict]:
         })
 
     # Chatbot / sistema conversacional → Art. 50 transparencia
-    if is_chatbot or system.get('output_type') == 'texto':
+    if is_chatbot or 'texto' in output_types:
         queries.append({
             "query": "chatbot sistema conversacional transparencia información usuario Art. 50",
             "source_types": ["eu_regulation"],

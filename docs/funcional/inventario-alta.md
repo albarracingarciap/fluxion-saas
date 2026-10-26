@@ -4,7 +4,7 @@ titulo: Alta de sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/app/(app)/inventario/nuevo/page.tsx
   - apps/web/app/(app)/inventario/nuevo/new-system-client.jsx
@@ -95,9 +95,10 @@ En la columna «Obligatorio»:
 | **Escala de uso** | selector | No | Desde menos de 100 hasta más de 100.000 decisiones al mes | `usage_scale` |
 | **Geografía de despliegue** | casillas | No | España, Portugal, Resto UE, EEUU, LATAM, Global | `geo_scope` |
 
-> TODO: confirmar el **Tipo de output**. Admite varias opciones, pero solo se guarda la primera marcada,
-> y la clasificación de respaldo solo tiene en cuenta esa. En el alta desde un cuestionario se marcan
-> todas, en orden de prioridad, así que la primera es la de mayor prioridad.
+El **Tipo de output** guarda todas las opciones marcadas, en el orden en que se marcaron
+(`ai_systems.output_types`); la primera es el tipo principal (`output_type`). La clasificación de respaldo y
+la activación de modos de fallo tienen en cuenta todas: basta con que una sea decisoria o generativa. En el
+alta desde un cuestionario se marcan en orden de prioridad, así que la principal es la de mayor prioridad.
 
 ### Paso 3 · Impacto y clasificación AI Act
 

@@ -112,13 +112,13 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | I2 | **✔ Resuelta en B13a:** el motor Python se ha retirado. El motor Python compara con los dominios `finanzas_banca` y `atencion_cliente`, que no existen: esos sistemas salen `minimal` | Error | Alta | Código | 201 |
 | I3 | **✔ Resuelta en B13a:** el motor Python se ha retirado. El motor Python no tiene regla de prohibido e ignora `prohibited_practice` | Error | Alta | Código | 201 |
 | I4 | **✔ Resuelta en B13a:** el agente usa los códigos del catálogo (`AI-ACT-ART5`…) y se validan contra él. La clasificación con IA descarta `art_5`: un sistema prohibido queda sin obligaciones | Error | Alta | Análisis | 191, 202 |
-| I5 | `classify` no actualiza el nivel de riesgo de la ficha, y la acción de alta no comprueba la respuesta | Error | Media | Código | 201 |
+| I5 | **✔ Resuelta en parte (B13e):** el alta comprueba la respuesta y avisa. `classify` no actualiza el nivel de riesgo de la ficha, y la acción de alta no comprueba la respuesta | Error | Media | Código | 201 |
 | I6 | La reconciliación no es atómica y no valida la resolución elegida | Error | Media | Análisis | 191, 203 |
 | I7 | **✔ Resuelta en B13a:** la revisión envía todos los factores de la ventana. **Revisar clasificación** no envía tres factores que sí usa la vista previa | Error | Media | Análisis | 84 |
 | I8 | Al recargar con una reclasificación pendiente, la reconciliación ya no se puede abrir | Error | Media | Análisis | 88 |
 | I9 | Resolver o excluir una obligación nacida de una reconciliación crea un duplicado | Error | Media | Análisis | 89 |
 | I10 | **✔ Resuelta en B13a:** la conciliación actualiza la cabecera completa y deja «Clasificación AI Act conciliada» en el historial. Reclasificar y conciliar no dejan historial ni actualizan la justificación de la cabecera | Carencia | Media | Análisis | 90 |
-| I11 | Alta: el **Tipo de output** admite varias opciones, pero solo se guarda la primera | Error | Media | Análisis | 78 |
+| I11 | **✔ Resuelta (2026-10-26):** se guardan todos los tipos (`output_types`). Alta: el **Tipo de output** admite varias opciones, pero solo se guarda la primera | Error | Media | Análisis | 78 |
 | I12 | Alta: la madurez ISO 42001 de la vista previa no se guarda | Error | Baja | Análisis | 79 |
 | I13 | Alta: los datos de los campos que se ocultan se guardan igualmente | Error | Baja | Análisis | 81 |
 | I14 | Ficha: **Exportar PDF** y **Abrir agente** no hacen nada | Error | Media | Análisis | 82 |

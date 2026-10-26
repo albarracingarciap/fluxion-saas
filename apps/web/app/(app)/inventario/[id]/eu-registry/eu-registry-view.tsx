@@ -8,6 +8,7 @@ import {
   type EuRegistryData,
   EU_REGISTRY_RISK_LABELS,
 } from '@/lib/ai-systems/eu-registry';
+import { formatOutputTypes } from '@/lib/ai-systems/output-types';
 
 export function EuRegistryView({
   aiSystemId,
@@ -171,7 +172,7 @@ export function EuRegistryView({
                 </div>
                 <div className="bg-ltcard border border-ltb rounded-[12px] p-3">
                   <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Output</div>
-                  <div>{system.output_type || '—'}</div>
+                  <div>{formatOutputTypes(system.output_types, system.output_type) || '—'}</div>
                 </div>
                 <div className="bg-ltcard border border-ltb rounded-[12px] p-3">
                   <div className="font-plex text-[9.5px] uppercase tracking-[0.8px] text-lttm mb-1">Responsable</div>

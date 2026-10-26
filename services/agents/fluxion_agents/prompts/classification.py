@@ -202,7 +202,7 @@ def build_classification_user_prompt(system: dict, chunks: list, catalog: dict |
 |----------|-------|
 | Dominio de aplicación | {fmt(system.get('domain'))} |
 | Tipo de sistema IA | {fmt(system.get('ai_system_type'))} |
-| Tipo de output | {fmt(system.get('output_type'))} |
+| Tipo de output | {fmt(system.get('output_types') or system.get('output_type'))} |
 | ¿Modelo GPAI? | {fmt(system.get('is_gpai'))} |
 | ¿Afecta directamente a personas? | {fmt(system.get('affects_persons'))} |
 | ¿Procesa datos biométricos? | {fmt(system.get('biometric') or system.get('uses_biometric_data'))} |
