@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert, X } from 'lucide-react';
-import { getObligations, createObligation, updateObligation, deleteObligation } from './actions';
+import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert, X, Archive, ArchiveRestore } from 'lucide-react';
+import { getObligations, createObligation, updateObligation, deleteObligation, setObligationRetired } from './actions';
 
 const FRAMEWORKS = [
   { value: 'AI_ACT',    label: 'AI Act' },
@@ -51,7 +51,12 @@ function scopeLabel(scope: string | null) {
   return SCOPES.find(s => s.value === (scope ?? ''))?.label ?? scope ?? '—';
 }
 
-const emptyForm = { code: '', framework: 'AI_ACT', article: '', title: '', description: '', scope: '' };
+const emptyForm = { code: '', framework: 'AI_ACT', article: '', title: '', description: '', scope: 'all' };
+
+/** Las obligaciones del AI Act necesitan ámbito: «Universal» no se sugiere nunca (B13e). */
+function scopesFor(framework: string) {
+  return framework === 'AI_ACT' ? SCOPES.filter(s => s.value !== '') : SCOPES;
+}
 
 export default function ObligacionesPage() {
   const [mounted, setMounted]         = useState(false);
@@ -62,6 +67,7 @@ export default function ObligacionesPage() {
   const [page, setPage]               = useState(1);
   const [error, setError]             = useState<string | null>(null);
   const [filterFw, setFilterFw]       = useState('');
+  const [canRetire, setCanRetire]     = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,10 +87,21 @@ export default function ObligacionesPage() {
     if (res.success && res.data) {
       setData(res.data);
       setTotalCount(res.count || 0);
+      setCanRetire(Boolean(res.canRetire));
     } else {
       setError(res.error || 'Error al cargar obligaciones');
     }
     setLoading(false);
+  };
+
+  const handleRetire = async (id: string, code: string, retire: boolean) => {
+    const pregunta = retire
+      ? `¿Retirar la obligación ${code}? Dejará de sugerirse a los sistemas; las ya registradas se conservan.`
+      : `¿Recuperar la obligación ${code}? Volverá a sugerirse en las próximas clasificaciones.`;
+    if (!confirm(pregunta)) return;
+    const res = await setObligationRetired(id, retire);
+    if (res.success) loadData();
+    else alert('Error: ' + res.error);
   };
 
   const handleDelete = async (id: string, code: string) => {
@@ -237,6 +254,15 @@ export default function ObligacionesPage() {
                         <button onClick={() => openEdit(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-dim rounded-md transition-colors" title="Editar">
                           <Edit2 size={15} />
                         </button>
+                        {canRetire && (
+                          <button
+                            onClick={() => handleRetire(item.id, item.code, !item.retired_at)}
+                            className="p-1.5 text-lttm hover:text-or hover:bg-ordim rounded-md transition-colors"
+                            title={item.retired_at ? 'Recuperar' : 'Retirar'}
+                          >
+                            {item.retired_at ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(item.id, item.code)} className="p-1.5 text-lttm hover:text-re hover:bg-red-dim rounded-md transition-colors" title="Eliminar">
                           <Trash2 size={15} />
                         </button>
@@ -294,7 +320,11 @@ export default function ObligacionesPage() {
                     <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Framework</label>
                     <select
                       value={formData.framework} required
-                      onChange={e => setFormData(p => ({ ...p, framework: e.target.value }))}
+                      onChange={e => setFormData(p => ({
+                        ...p,
+                        framework: e.target.value,
+                        scope: e.target.value === 'AI_ACT' && !p.scope ? 'all' : p.scope,
+                      }))}
                       className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     >
                       {FRAMEWORKS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
@@ -317,7 +347,7 @@ export default function ObligacionesPage() {
                       onChange={e => setFormData(p => ({ ...p, scope: e.target.value }))}
                       className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                     >
-                      {SCOPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      {scopesFor(formData.framework).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   </div>
                 </div>

@@ -63,7 +63,7 @@ Sin resultados: «No se encontraron obligaciones».
 | **Código único** | texto | Sí | Por ejemplo, «AI-ACT-ART9» |
 | **Framework** | selección | Sí | AI Act (por defecto) · ISO 42001 · RGPD · DORA · ENS · MDR/IVDR |
 | **Artículo / Cláusula** | texto | Sí | Por ejemplo, «Art. 9» |
-| **Ámbito** | selección | No | Universal (por defecto, sin ámbito) · Todo sistema en el ámbito (`all`) · Alto riesgo (`high_risk`) · Transparencia (Art. 50) (`transparency`) · Proveedor de modelo GPAI (`gpai`) |
+| **Ámbito** | selección | Sí en el AI Act | Universal (sin ámbito; no se ofrece en el AI Act, donde el valor por defecto es «Todo sistema en el ámbito») · Todo sistema en el ámbito (`all`) · Alto riesgo (`high_risk`) · Transparencia (Art. 50) (`transparency`) · Proveedor de modelo GPAI (`gpai`) |
 | **Título** | texto | Sí | Por ejemplo, «Sistema de gestión de riesgos» |
 | **Descripción** | texto largo | No | — |
 
@@ -92,11 +92,6 @@ la obligación `AI-ACT-ART50` queda **Retirada**. Tiene también la obligación 
 excepción del Art. 6.3 y registrar el sistema).
 
 > TODO: confirmar varias reglas del catálogo.
-> - **Ámbito Universal en el AI Act:** una obligación del AI Act sin ámbito no se sugiere a ningún sistema
->   (ni el motor ni la vista `compliance.v_system_obligations`). Confirmar si el formulario debe ofrecer
->   «Universal» para el AI Act.
-> - **Retirar una obligación:** el formulario no permite retirarla ni recuperarla (`retired_at`); solo lo
->   hace una migración.
 > - **Roles en la cadena de valor:** no se pueden ver ni editar.
 > - **Marcos RGPD, DORA, ENS y MDR/IVDR:** el formulario los ofrece, pero el catálogo estándar no tiene
 >   obligaciones de ellos.
@@ -106,6 +101,7 @@ excepción del Art. 6.3 y registrar el sistema).
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Añadir Obligación** / **Editar** › **Guardar** | Todos | Crea o actualiza la obligación | Cambia la cobertura de la obligación por modos de fallo y las obligaciones que se sugieren en las clasificaciones siguientes; no cambia las ya registradas en los sistemas |
+| **Retirar** / **Recuperar** | Administración de la plataforma (`profiles.platform_role` = `platform_admin`); el resto no ve el botón | Pide confirmación («¿Retirar la obligación {código}? Dejará de sugerirse a los sistemas; las ya registradas se conservan.» o «¿Recuperar la obligación {código}? Volverá a sugerirse en las próximas clasificaciones.») y fija o borra `retired_at` | Cambia las obligaciones que se sugieren en las clasificaciones siguientes; no cambia las ya registradas |
 | **Eliminar** | Todos | Pide confirmación («¿Eliminar la obligación {código}?») y la borra | Elimina también sus relaciones con tipos de evidencia, sin avisar |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
@@ -114,7 +110,9 @@ No hay mensaje de confirmación. Los errores se muestran en una ventana del nave
 
 ## Validaciones
 
-Código, marco, artículo y título obligatorios. El código no se puede repetir.
+Código, marco, artículo y título obligatorios. El código no se puede repetir. Una obligación del AI Act
+necesita ámbito: el formulario no ofrece «Universal» para el AI Act y, si llega sin ámbito, el servidor
+responde «Las obligaciones del AI Act necesitan un ámbito: sin él no se sugieren a ningún sistema.».
 
 ## Estados
 

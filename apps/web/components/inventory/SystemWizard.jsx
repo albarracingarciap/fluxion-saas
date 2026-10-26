@@ -1311,6 +1311,13 @@ export default function SystemWizard({
       if (result?.reclasificacion === 'pendiente_previa') {
         window.alert('Los cambios se han guardado, pero la clasificación no se ha revisado: el sistema ya tiene una reclasificación pendiente de conciliar. Concíliala en la ficha y, si hace falta, usa «✏ Revisar clasificación».');
       }
+      if (mode === 'create' && result?.clasificacionInicial === 'no_disponible') {
+        // El sistema existe, pero sin la primera versión de su clasificación ni
+        // sus obligaciones (B13e): se abre la ficha para recuperarlo.
+        window.alert('El sistema se ha registrado, pero no se han podido registrar su clasificación ni sus obligaciones sugeridas: el servicio de clasificación no respondió. Usa «✏ Revisar clasificación» en la ficha.');
+        router.push(`/inventario/${result.id}`);
+        return;
+      }
       router.push(mode === 'create' ? '/inventario' : `/inventario/${systemId}`);
     }
   };

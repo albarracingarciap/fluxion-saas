@@ -283,7 +283,11 @@ Si se abandona el alta, no se vincula nada y el cuestionario sigue disponible.
    registrar.
 5. Envía el resultado del motor al servicio de agentes (`/api/v1/systems/{id}/classify`), que registra la
    versión 1 de la clasificación y crea las obligaciones en estado «Sugerida» con los códigos del
-   catálogo (`AI-ACT-ART9`…). El servicio ya no clasifica por su cuenta. Si falla, el alta no se bloquea.
+   catálogo (`AI-ACT-ART9`…). El servicio ya no clasifica por su cuenta. Si falla, el alta no se deshace:
+   el asistente avisa «El sistema se ha registrado, pero no se han podido registrar su clasificación ni sus
+   obligaciones sugeridas: el servicio de clasificación no respondió. Usa «✏ Revisar clasificación» en la
+   ficha.» y abre la [Ficha del sistema](ficha-sistema.md) en lugar del Inventario. **✏ Revisar
+   clasificación** propone entonces todas las obligaciones para conciliar.
 
 ## Validaciones
 

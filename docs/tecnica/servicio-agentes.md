@@ -163,12 +163,16 @@ en `ai_systems`:
   output, interacción con personas, es IA, afecta a personas, grupos vulnerables, menores, biometría e
   infraestructura crítica.
 
-> TODO: confirmar el alcance de la reconciliación de una clasificación con IA. El evento de
-> `reclassify/ai` no guarda `engine_result`, así que al conciliarlo no se actualizan el ámbito, el
-> resultado del motor ni la categoría GPAI, y se conservan los avisos del resultado anterior.
+El evento de `reclassify/ai` guarda en `classification_factors` el resultado del motor (`engine_result`) y
+los supuestos (`inputs`), como el resto de métodos (B13e). Al conciliarlo, el nivel y las obligaciones son los
+del agente; `aiact_result`, el ámbito, la categoría GPAI y la versión de las reglas, los del motor. Si el
+agente fija un nivel, `aiact_scope` queda en `in_scope` (y `aiact_scope_reason` vacío) aunque el motor dijera
+otra cosa; la ficha compara `aiact_result` con la cabecera y muestra la divergencia. Los eventos del agente
+anteriores a B13e guardaban el resultado como `engine_reference`, que la conciliación también lee.
 
-> TODO: confirmar la respuesta de `classify` en el alta. La server action no comprueba si la llamada ha
-> ido bien: si falla, el sistema queda sin versión de clasificación ni obligaciones sugeridas.
+En el alta, `saveAISystem` comprueba la respuesta de `classify`. Si falla, devuelve
+`clasificacionInicial: 'no_disponible'`: el asistente avisa y abre la ficha, donde **✏ Revisar
+clasificación** (`reclassify`) propone todas las obligaciones, porque el sistema no tiene ninguna activa.
 
 ### Clasificación con IA
 
