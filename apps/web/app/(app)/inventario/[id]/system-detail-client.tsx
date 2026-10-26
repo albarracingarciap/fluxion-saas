@@ -181,6 +181,9 @@ export type SystemDetailData = {
     warnings?: Array<{ rule: string; text: string }>;
     rulesVersion?: string;
     gpai?: { modelProvider: boolean; systemicRisk: 'yes' | 'no' | 'unknown' | null; thirdPartyBased: boolean };
+    scope?: string;
+    level?: string | null;
+    display?: { label: string };
   } | null;
   aiact_review_pending?: boolean | null;
   /** Cuestionario preliminar del que se registró (B13c). */
@@ -1762,6 +1765,14 @@ export function SystemDetailClient({
       ? { ...RISK_CONFIG.pending, label: 'No es un sistema de IA' }
       : RISK_CONFIG[liveRiskLevel] ?? RISK_CONFIG[system.aiact_risk_level] ?? RISK_CONFIG.pending;
   const avisosMotor = system.aiact_result?.warnings ?? [];
+  // La clasificación vigente la puede fijar el Asistente o una revisión manual
+  // con otro nivel; el resultado del motor se conserva como referencia (B13e).
+  const motor = system.aiact_result;
+  const divergenciaMotor = motor?.display?.label && motor.scope
+    && (motor.scope !== system.aiact_scope
+      || (motor.scope === 'in_scope' && (motor.level ?? 'pending') !== system.aiact_risk_level))
+    ? motor.display.label
+    : null;
   // Categoría GPAI (D3): aparte del nivel de riesgo.
   const gpaiMotor = system.aiact_result?.gpai;
   const gpaiMeta = (gpaiMotor?.modelProvider ?? system.is_gpai)
@@ -2783,6 +2794,15 @@ export function SystemDetailClient({
                           «{system.origin_questionnaire.title}»
                         </Link>
                         {' '}(sus respuestas sin campo en la ficha se consultan allí).
+                      </p>
+                    )}
+                    {divergenciaMotor && (
+                      <p className="mb-3 flex items-start gap-1.5 font-sora text-[12px] text-or">
+                        <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                        <span>
+                          La clasificación vigente ({riskMeta.label}) difiere de la que propone el motor de clasificación
+                          ({divergenciaMotor}). Revísala si los supuestos AI Act del sistema han cambiado.
+                        </span>
                       </p>
                     )}
                     {avisosMotor.length > 0 && (

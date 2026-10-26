@@ -126,6 +126,10 @@ o un Responsable del sistema:
   preliminar «{título}» (sus respuestas sin campo en la ficha se consultan allí).». El título enlaza al
   [formulario del cuestionario](cuestionario-preliminar-formulario.md), que es de solo lectura mientras
   esté vinculado.
+- Si la clasificación vigente difiere de la que propone el motor (otro ámbito, u otro nivel dentro del
+  ámbito), por ejemplo porque la fijó el Asistente de clasificación o una revisión manual: «La
+  clasificación vigente ({nivel}) difiere de la que propone el motor de clasificación ({propuesta del
+  motor}). Revísala si los supuestos AI Act del sistema han cambiado.».
 - Bajo la explicación, los avisos del motor único de clasificación (`aiact_result.warnings`), por ejemplo
   «Clasificación aproximada por dominio y tipo de output: faltan los supuestos del AI Act.».
 - Si el sistema se clasificó antes del motor único (`aiact_review_pending`) y no hay una reclasificación
@@ -315,9 +319,10 @@ No hay botones de aprobar ni rechazar. Ver [AISIA](aisia.md).
 > TODO: confirmar el comportamiento con obligaciones nacidas de una reconciliación. Al resolverlas o
 > excluirlas, se crea una obligación duplicada en lugar de actualizarse.
 
-> TODO: confirmar el alcance de conciliar una clasificación con IA. Actualiza el nivel, el fundamento y
-> la explicación, pero no el ámbito ni los avisos del motor, que siguen siendo los de la clasificación
-> anterior.
+Conciliar una clasificación con IA fija el nivel, el fundamento, la explicación y las obligaciones que
+propone el Asistente; el ámbito, la categoría GPAI, la versión de las reglas y los avisos salen del motor
+con el que se reclasificó. Si el Asistente fija un nivel, el sistema queda dentro del ámbito aunque el
+motor dijera otra cosa, y la cabecera muestra la divergencia.
 
 ## Validaciones
 

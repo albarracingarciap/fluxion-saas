@@ -607,24 +607,31 @@ def register_classification_routes(
             "aiact_review_pending": False,
             "prohibited_practice": nivel == "prohibited",
         }
-        engine_result = (event.get("classification_factors") or {}).get("engine_result") or {}
+        factors = event.get("classification_factors") or {}
+        # `engine_reference`: eventos del agente anteriores a B13e.
+        engine_result = factors.get("engine_result") or factors.get("engine_reference") or {}
         if engine_result:
             gpai = engine_result.get("gpai") or {}
+            # Si el agente fija un nivel, el sistema queda dentro del ámbito
+            # aunque el motor dijera otra cosa; la ficha muestra la divergencia.
+            ambito = engine_result.get("scope") or "in_scope"
+            if event.get("method") == "ai_agent" and event["risk_level"] in VALID_LEVELS:
+                ambito = "in_scope"
             update.update({
                 "aiact_result":           engine_result,
-                "aiact_scope":            engine_result.get("scope") or "in_scope",
-                "aiact_scope_reason":     engine_result.get("scopeReason"),
+                "aiact_scope":            ambito,
+                "aiact_scope_reason":     engine_result.get("scopeReason") if ambito != "in_scope" else None,
                 "aiact_rules_version":    engine_result.get("rulesVersion"),
                 "is_gpai":                bool(gpai.get("modelProvider")),
                 "gpai_systemic_risk":     gpai.get("systemicRisk"),
                 "gpai_third_party_based": bool(gpai.get("thirdPartyBased")),
             })
-            inputs = (event.get("classification_factors") or {}).get("inputs")
+            inputs = factors.get("inputs")
             if inputs is not None:
                 update["aiact_inputs"] = inputs
         # Campos editados en la ventana de revisión: pasan a la ficha, para que
         # la próxima clasificación parta de ellos (B13a).
-        form = (event.get("classification_factors") or {}).get("form") or {}
+        form = factors.get("form") or {}
         for campo, columna in FORM_COLUMNS.items():
             if campo in form:
                 update[columna] = form[campo]
@@ -894,7 +901,11 @@ def register_classification_routes(
                 k: v for k, v in ai_result.items()
                 if k not in ("classification_note",)
             },
-            "engine_reference": ref.result,
+            # Resultado del motor único con el que se reclasificó: al conciliar
+            # fija el ámbito, la categoría GPAI, la versión de las reglas y los
+            # avisos; el agente solo decide el nivel y las obligaciones (B13e).
+            "engine_result": ref.result,
+            "inputs": ref.inputs,
         }
 
         sb.schema("fluxion").table("classification_events").insert({

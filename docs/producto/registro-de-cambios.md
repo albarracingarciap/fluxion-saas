@@ -61,6 +61,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B13d · GPAI fuera de los niveles de riesgo y catálogo de obligaciones | Integrado en `main` | `fase2/b13d-gpai-catalogo` | 2026-10-26 | **Sí** · `20261026090000_ai_act_gpai_catalogo.sql` |
 | Glosario: GPAI, nivel de riesgo y obligaciones tras B13d | Integrado en `main` | `docs/glosario-b13d` | 2026-10-26 | No |
 | Corrección: etiquetas de obligaciones retiradas en el diff de la clasificación con IA (fuera del plan) | Integrado en `main` | `fix/b13d-etiquetas-diff` | 2026-10-26 | No |
+| B13e · Cierres de B13: conciliación con IA, alta sin clasificación y catálogo | Integrado en `main` | `fase2/b13e-cierres` | 2026-10-26 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1528,4 +1529,38 @@ con su código en lugar de su nombre.
 
 **Cambio:** el prompt sigue recibiendo solo las vigentes; el cálculo de diferencias usa el catálogo completo.
 **Verificación:** `check-python.sh` correcto. Despliega el servicio de agentes junto con B13d.
+
+---
+
+## B13e · Cierres de B13: conciliación con IA, alta sin clasificación y catálogo
+
+**Fecha:** 2026-10-26 · **Rama:** `fase2/b13e-cierres` · **Migración:** no
+
+**Problema** (TODO 259, 260, 261 y 274):
+- Conciliar una clasificación con IA no actualizaba el ámbito, la categoría GPAI ni los avisos del motor.
+- Si el registro de la clasificación inicial fallaba en el alta, el sistema quedaba sin obligaciones y nadie se
+  enteraba.
+- El catálogo no permitía retirar ni recuperar una obligación y ofrecía «Universal» (sin ámbito) para el AI Act,
+  que no se sugiere nunca.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Clasificación con IA | El evento guarda el resultado del motor y los supuestos (`engine_result`, `inputs`). Al conciliar, el nivel y las obligaciones son los del Asistente; el ámbito, la categoría GPAI, la versión de las reglas y los avisos, los del motor. Si el Asistente fija un nivel, el sistema queda dentro del ámbito |
+| Ficha | Aviso cuando la clasificación vigente difiere de la que propone el motor (Asistente o revisión manual) |
+| Alta | Comprueba la respuesta del servicio de clasificación. Si falla, avisa y abre la ficha, donde **✏ Revisar clasificación** propone todas las obligaciones |
+| Catálogo de obligaciones | **Retirar** y **Recuperar** (solo la administración de la plataforma, `platform_role = platform_admin`: el catálogo es global). Las obligaciones del AI Act exigen ámbito: sin «Universal» en el formulario y comprobación en el servidor |
+
+**Verificación.** `npm test` 86/86, `tsc --noEmit` sin errores, `next lint` sin avisos, `check-server-actions.sh` y
+`check-python.sh` correctos. No se ha probado en el navegador ni contra el servicio de agentes desplegado.
+
+**Despliegue.** Web y servicio de agentes a la vez (cambia lo que guarda y lee el evento de la clasificación con
+IA). Los eventos pendientes de antes se siguen conciliando (`engine_reference`).
+
+**Documentación.** Funcionales de la ficha, el alta y el catálogo de obligaciones; técnico del servicio de
+agentes. TODO 259, 260, 261 y 274 resueltos.
+
+**Pendiente.** El resto de `/datos/*` sigue sin control de rol (hallazgo de seguridad §7.2 de `_inventario.md`,
+fuera de este bloque).
 

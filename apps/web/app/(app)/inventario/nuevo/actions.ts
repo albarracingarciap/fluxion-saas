@@ -285,24 +285,27 @@ export async function saveAISystem(formData: Record<string, any>) {
     },
   ]);
 
-  // Llamar al backend para crear el classification_event inicial y las system_obligations
+  // Llamar al backend para crear el classification_event inicial y las system_obligations.
+  // Si falla, el alta no se deshace: se avisa y la ficha permite recuperarlo con
+  // «✏ Revisar clasificación», que propone todas las obligaciones (B13e).
+  let clasificacionInicial: 'registrada' | 'no_disponible' = 'no_disponible';
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       // El servicio registra el evento inicial y las obligaciones sugeridas con
       // el resultado del motor único; ya no clasifica por su cuenta (B13a).
-      await callClassificationService({
+      const res = await callClassificationService({
         path: `/api/v1/systems/${data.id}/classify`,
         accessToken: session.access_token,
         body: { classification: enginePayload(classification) },
       });
+      if (res.ok) clasificacionInicial = 'registrada';
+      else console.error('Clasificación inicial no registrada:', res.status, res.data);
     }
   } catch (classifyError) {
-    // No bloquear el registro si la clasificación inicial falla — el usuario puede
-    // relanzarla manualmente desde la vista de detalle del sistema.
     console.error('Error en clasificación inicial (no bloqueante):', classifyError);
   }
 
   revalidatePath('/inventario');
-  return { success: true, id: data.id };
+  return { success: true, id: data.id, clasificacionInicial };
 }
