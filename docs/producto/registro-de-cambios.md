@@ -59,6 +59,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B13c · Alta en el inventario desde el cuestionario y bloque Supuestos AI Act | Integrado en `main` | `fase2/b13c-volcado-alta` | 2026-10-22 | **Sí** · `20261022110000_cuestionario_vinculo.sql` |
 | Glosario: cuestionario preliminar tras B13b y B13c | Integrado en `main` | `docs/glosario-b13c` | 2026-10-22 | No |
 | B13d · GPAI fuera de los niveles de riesgo y catálogo de obligaciones | Integrado en `main` | `fase2/b13d-gpai-catalogo` | 2026-10-26 | **Sí** · `20261026090000_ai_act_gpai_catalogo.sql` |
+| Glosario: GPAI, nivel de riesgo y obligaciones tras B13d | Integrado en `main` | `docs/glosario-b13d` | 2026-10-26 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1499,4 +1500,18 @@ resuelto y 179 en parte; 274 en parte; nuevo 276 (glosario).
 **Pendiente.** B13 queda cerrado. Glosario tras B13d (TODO 276). Abiertos de B13: 259 y 261 (conciliar una
 clasificación con IA no actualiza el ámbito ni los avisos), 260 (respuesta de `classify` en el alta), 274 (retirar
 obligaciones desde el catálogo).
+
+---
+
+## Glosario: GPAI, nivel de riesgo y obligaciones tras B13d
+
+**Fecha:** 2026-10-26 · **Rama:** `docs/glosario-b13d` · **Migración:** no
+
+A petición del responsable, `glosario.md` incorpora (TODO 276):
+- **Nivel de riesgo AI Act:** se retira el «Pendiente de implementar»; `gpai` en desuso (CHECK, solo en el historial,
+  «(nivel antiguo)») y migración de los sistemas que lo tenían.
+- **Categoría GPAI:** etiquetas de la ficha y del listado (forma abreviada «Basado en un modelo GPAI de terceros»,
+  filtro **Categoría GPAI**) y `aiact_result.gpai`.
+- **Obligación:** depende de la clasificación completa (nivel, categoría GPAI, Art. 50 por apartado, Art. 6.3,
+  Art. 27.1); subapartado nuevo **Obligación retirada** (`retired_at`).
 
