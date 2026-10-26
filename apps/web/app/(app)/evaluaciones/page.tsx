@@ -29,7 +29,6 @@ const RISK_LABELS: Record<string, string> = {
   high: 'Alto riesgo',
   limited: 'Riesgo limitado',
   minimal: 'Riesgo mínimo',
-  gpai: 'GPAI',
   pending: 'Pendiente',
 }
 

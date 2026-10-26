@@ -46,7 +46,7 @@ const METHOD_META: Record<string, { label: string; icon: React.ReactNode }> = {
 
 const RISK_COLORS: Record<string, string> = {
   high:     'text-re',
-  gpai:     'text-brand-cyan',
+  gpai:     'text-brand-cyan', // eventos anteriores a B13d
   limited:  'text-or',
   minimal:  'text-gr',
   prohibited: 'text-re',

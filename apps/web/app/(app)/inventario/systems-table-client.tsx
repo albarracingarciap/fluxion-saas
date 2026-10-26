@@ -13,6 +13,10 @@ export type AiSystemRow = {
   domain: string
   status: string
   aiact_risk_level: string
+  /** Ámbito del AI Act (B13a); null en sistemas sin clasificar con el motor. */
+  aiact_scope: string | null
+  /** Categoría GPAI: proveedor de modelo de IA de uso general (no es un nivel de riesgo). */
+  is_gpai: boolean | null
   iso_42001_score: number | null
   ai_owner: string | null
 }
@@ -42,8 +46,15 @@ const RISK_CONFIG: Record<string, { label: string; pill: string; dot: string }> 
   high:       { label: 'Alto Riesgo',     pill: 'bg-red-dim text-re border border-reb',   dot: 'bg-re' },
   limited:    { label: 'Riesgo Limitado', pill: 'bg-ordim text-or border border-orb',     dot: 'bg-or' },
   minimal:    { label: 'Riesgo Mínimo',   pill: 'bg-grdim text-gr border border-grb',     dot: 'bg-gr' },
-  gpai:       { label: 'GPAI',            pill: 'bg-cyan-dim text-brand-cyan border border-cyan-border', dot: 'bg-brand-cyan' },
   pending:    { label: 'Pendiente',       pill: 'bg-ltbg text-lttm border border-ltb',    dot: 'bg-lttm' },
+  out_of_scope:  { label: 'Fuera del ámbito',       pill: 'bg-ltbg text-ltt2 border border-ltb', dot: 'bg-ltt2' },
+  not_ai_system: { label: 'No es un sistema de IA', pill: 'bg-ltbg text-ltt2 border border-ltb', dot: 'bg-ltt2' },
+}
+
+/** Clave de clasificación: el ámbito manda sobre el nivel (fuera del ámbito no tiene nivel). */
+function clasificacion(sys: AiSystemRow): string {
+  if (sys.aiact_scope === 'out_of_scope' || sys.aiact_scope === 'not_ai_system') return sys.aiact_scope
+  return sys.aiact_risk_level
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
@@ -74,7 +85,7 @@ function isoBarColor(score: number | null) {
 
 function SystemRow({ sys }: { sys: AiSystemRow }) {
   const domain = DOMAIN_LABELS[sys.domain] ?? { label: sys.domain, emoji: '◎' }
-  const risk = RISK_CONFIG[sys.aiact_risk_level] ?? RISK_CONFIG.pending
+  const risk = RISK_CONFIG[clasificacion(sys)] ?? RISK_CONFIG.pending
   const status = STATUS_CONFIG[sys.status] ?? { label: sys.status, dot: 'bg-lttm' }
 
   return (
@@ -104,6 +115,12 @@ function SystemRow({ sys }: { sys: AiSystemRow }) {
           <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${risk.dot}`} />
           {risk.label}
         </span>
+        {sys.is_gpai && (
+          <span title="Proveedor de modelo de IA de uso general"
+            className="ml-1.5 inline-flex px-2 py-1 rounded-full font-plex text-[10.5px] font-medium bg-cyan-dim text-brand-cyan border border-cyan-border">
+            GPAI
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -173,8 +190,10 @@ const RISK_OPTIONS = [
   { value: 'high',       label: 'Alto Riesgo' },
   { value: 'limited',    label: 'Riesgo Limitado' },
   { value: 'minimal',    label: 'Riesgo Mínimo' },
-  { value: 'gpai',       label: 'GPAI' },
   { value: 'pending',    label: 'Pendiente' },
+  { value: 'out_of_scope',  label: 'Fuera del ámbito' },
+  { value: 'not_ai_system', label: 'No es un sistema de IA' },
+  { value: 'gpai',       label: 'Categoría GPAI' },
 ]
 
 const STATUS_OPTIONS = [
@@ -192,7 +211,8 @@ export function SystemsTable({ list }: { list: AiSystemRow[] }) {
 
   const filtered = list.filter(sys => {
     const matchesSearch = search === '' || sys.name.toLowerCase().includes(search.toLowerCase())
-    const matchesRisk = riskFilter === '' || sys.aiact_risk_level === riskFilter
+    const matchesRisk = riskFilter === ''
+      || (riskFilter === 'gpai' ? Boolean(sys.is_gpai) : clasificacion(sys) === riskFilter)
     const matchesStatus = statusFilter === '' || sys.status === statusFilter
     return matchesSearch && matchesRisk && matchesStatus
   })

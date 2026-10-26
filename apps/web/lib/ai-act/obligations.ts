@@ -2,9 +2,10 @@
  * Motor único de clasificación AI Act (B13a): obligaciones sugeridas (§4.9).
  *
  * Cruza el resultado con el catálogo `compliance.obligations` (alcance y roles).
- * Los códigos del catálogo que se dividen o se añaden en B13d (`AI-ACT-ART50-1`
- * a `-4`, `AI-ACT-ART6-4`) ya se tratan aquí; si el catálogo aún no los tiene,
- * simplemente no aparecen y se usa `AI-ACT-ART50`.
+ * Desde B13d el catálogo tiene el Art. 50 dividido (`AI-ACT-ART50-1` a `-4`) y
+ * el Art. 6.4 (`AI-ACT-ART6-4`); `AI-ACT-ART50` queda retirado y solo se usa si
+ * el catálogo no está dividido. La vista `compliance.v_system_obligations`
+ * replica estas reglas en SQL: un cambio aquí debe llevar su migración.
  *
  * Módulo puro.
  */

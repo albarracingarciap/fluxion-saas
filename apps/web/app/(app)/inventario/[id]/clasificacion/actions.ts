@@ -25,15 +25,14 @@ const FLOOR_ZONE: Record<string, string> = {
  * cualquier sistema. La pantalla de tres capas era una animación sobre un valor
  * fijo.
  *
- * El motor de verdad ya existía en `lib/ai-systems/scoring.ts` y lo usaba
- * `reviewSystemClassification`. Lo único que faltaba era que esta pantalla lo
- * llamara en lugar de al valor enlatado. No se escribe un clasificador nuevo:
- * dos implementaciones de la misma regla legal terminan divergiendo, y el día
- * que lo hagan el expediente dirá una cosa distinta según quién lo mire.
+ * Usa el motor único (`lib/ai-act`, B13a): dos implementaciones de la misma
+ * regla legal terminan divergiendo, y el día que lo hagan el expediente dirá
+ * una cosa distinta según quién lo mire.
  *
- * Las obligaciones tampoco se inventan: salen de
- * `compliance.v_system_obligations`, que cruza el rol de la organización en la
- * cadena de valor con el alcance de cada artículo.
+ * Las obligaciones tampoco se inventan: salen del catálogo
+ * `compliance.obligations` con las reglas RN-O del motor
+ * (`suggestObligations`). La vista `compliance.v_system_obligations` aplica la
+ * misma lógica en SQL (B13d).
  */
 export async function runClassificationEngine(systemId: string) {
   const supabase = createClient();

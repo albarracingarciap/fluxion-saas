@@ -597,8 +597,6 @@ function getAiActLabel(level: string | null) {
       return 'Riesgo limitado';
     case 'minimal':
       return 'Riesgo mínimo';
-    case 'gpai':
-      return 'GPAI';
     case 'pending':
       return 'Pendiente';
     default:

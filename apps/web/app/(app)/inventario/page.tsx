@@ -14,6 +14,8 @@ type AiSystem = {
   domain: string
   status: string
   aiact_risk_level: string
+  aiact_scope: string | null
+  is_gpai: boolean | null
   iso_42001_score: number | null
   ai_owner: string | null
   deployed_at: string | null
@@ -73,7 +75,7 @@ export default async function InventarioPage() {
       .from('ai_systems')
       .select(`
         id, name, version, domain, status,
-        aiact_risk_level, iso_42001_score,
+        aiact_risk_level, aiact_scope, is_gpai, iso_42001_score,
         ai_owner, deployed_at, created_at,
         output_type, is_ai_system
       `)

@@ -195,15 +195,14 @@ const CSS = `
   .cls-li{background:var(--ord);border-color:var(--orb)}
   .cls-mi{background:var(--grd);border-color:var(--grb)}
   .cls-pr{background:#130808;border-color:#5a1010}
-  .cls-gp{background:var(--bl-d);border-color:var(--bl-b)}
   .cls-tag{font-size:9.5px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
   .cls-unk .cls-tag{color:var(--dtm)} .cls-hi .cls-tag{color:var(--re)}
   .cls-li .cls-tag{color:var(--or)} .cls-mi .cls-tag{color:var(--gr)}
-  .cls-pr .cls-tag{color:#f87171} .cls-gp .cls-tag{color:var(--cy-l)}
+  .cls-pr .cls-tag{color:#f87171}
   .cls-val{font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin-bottom:6px}
   .cls-unk .cls-val{color:var(--dtm)} .cls-hi .cls-val{color:var(--re)}
   .cls-li .cls-val{color:var(--or)} .cls-mi .cls-val{color:var(--gr)}
-  .cls-pr .cls-val{color:#f87171} .cls-gp .cls-val{color:var(--cy-l)}
+  .cls-pr .cls-val{color:#f87171}
   .cls-basis{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--dtm);margin-bottom:6px}
   .cls-reason{font-size:12px;color:var(--dt2);line-height:1.6;margin-bottom:8px}
   .cls-obls{display:flex;flex-direction:column;gap:3px;border-top:1px solid #ffffff08;padding-top:8px;margin-top:8px}
@@ -503,7 +502,7 @@ function LivePreview({f,step,analysing,mode,preliminaryLabel}){
   const outObj = OUTPUTS.find(o=>o.v===(f.outputTypes?.[0]??f.outputType));
   const statusColors = {produccion:"b-gr",desarrollo:"b-bl",piloto:"b-or",deprecado:"b-gy",retirado:"b-re"};
 
-  const clsStyle = {prohibited:"cls-pr",gpai:"cls-gp",high:"cls-hi",limited:"cls-li",minimal:"cls-mi"}[cls?.level]||"cls-unk";
+  const clsStyle = {prohibited:"cls-pr",high:"cls-hi",limited:"cls-li",minimal:"cls-mi"}[cls?.level]||"cls-unk";
 
   const isoColor = iso.score>=70?"var(--gr)":iso.score>=40?"var(--or)":"var(--re)";
 
