@@ -60,6 +60,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario: cuestionario preliminar tras B13b y B13c | Integrado en `main` | `docs/glosario-b13c` | 2026-10-22 | No |
 | B13d · GPAI fuera de los niveles de riesgo y catálogo de obligaciones | Integrado en `main` | `fase2/b13d-gpai-catalogo` | 2026-10-26 | **Sí** · `20261026090000_ai_act_gpai_catalogo.sql` |
 | Glosario: GPAI, nivel de riesgo y obligaciones tras B13d | Integrado en `main` | `docs/glosario-b13d` | 2026-10-26 | No |
+| Corrección: etiquetas de obligaciones retiradas en el diff de la clasificación con IA (fuera del plan) | Integrado en `main` | `fix/b13d-etiquetas-diff` | 2026-10-26 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1514,4 +1515,17 @@ A petición del responsable, `glosario.md` incorpora (TODO 276):
   filtro **Categoría GPAI**) y `aiact_result.gpai`.
 - **Obligación:** depende de la clasificación completa (nivel, categoría GPAI, Art. 50 por apartado, Art. 6.3,
   Art. 27.1); subapartado nuevo **Obligación retirada** (`retired_at`).
+
+---
+
+## Corrección: etiquetas de obligaciones retiradas en el diff de la clasificación con IA (fuera del plan)
+
+**Fecha:** 2026-10-26 · **Rama:** `fix/b13d-etiquetas-diff` · **Migración:** no
+
+**Problema:** desde B13d, `reclassify/ai` leía el catálogo sin las obligaciones retiradas también para calcular las
+diferencias, así que una obligación retirada que el sistema aún tenía (`AI-ACT-ART50`) aparecía en la conciliación
+con su código en lugar de su nombre.
+
+**Cambio:** el prompt sigue recibiendo solo las vigentes; el cálculo de diferencias usa el catálogo completo.
+**Verificación:** `check-python.sh` correcto. Despliega el servicio de agentes junto con B13d.
 
