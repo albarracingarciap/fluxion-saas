@@ -4,7 +4,7 @@ titulo: Servicio de agentes
 tipo: tecnica
 modulo: clasificacion-ai-act
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - services/agents/fluxion_agents/main.py
   - services/agents/fluxion_agents/models.py
@@ -22,6 +22,7 @@ fuente:
   - apps/web/lib/ai-act/server.ts
   - apps/web/lib/preliminary-questionnaire/to-wizard.ts
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
   - packages/py-common/fluxion_common/telemetry.py
   - recursos/agent4_assistant_spec.md
 ---
@@ -124,15 +125,17 @@ sistémico, basado en un modelo de terceros); roles declarados y sugeridos; fund
 (`warnings`) con la regla que los origina; y los textos de cabecera (`display`).
 
 GPAI no es un nivel de riesgo (decisión D3): `is_gpai` indica que la organización es proveedora de un
-modelo GPAI.
-
-> **Pendiente de implementar.** Migración de los sistemas existentes con nivel `gpai` a `is_gpai` y
-> «Pendiente de clasificar», y división del Art. 50 en el catálogo (B13d). El motor ya trata los códigos
-> `AI-ACT-ART50-1` a `-4` y `AI-ACT-ART6-4` si el catálogo los tiene.
+modelo GPAI. Desde B13d, los sistemas que tenían el nivel `gpai` están migrados a `is_gpai` y «Pendiente de
+clasificar», y un CHECK impide el valor en `ai_systems.aiact_risk_level` (ver
+[Modelo de datos](modelo-datos.md)). `VALID_LEVELS` del servicio tampoco lo admite.
 
 **Obligaciones:** `suggestObligations` cruza el resultado con `compliance.obligations` (alcance y
-`applies_to_roles`). Una práctica prohibida solo lleva `AI-ACT-ART5`; fuera del ámbito no hay
-obligaciones. Las obligaciones se identifican siempre por el código del catálogo (`AI-ACT-ART9`…).
+`applies_to_roles`) según las reglas RN-O01 a RN-O07. Una práctica prohibida solo lleva `AI-ACT-ART5`;
+fuera del ámbito no hay obligaciones. El Art. 50 se sugiere por apartados (`AI-ACT-ART50-1` a `-4`, según
+el supuesto y el rol obligado), `AI-ACT-ART27` solo en los supuestos del Art. 27.1 y `AI-ACT-ART6-4` con la
+excepción del Art. 6.3 válida y rol `provider`. `loadAiActCatalog` no pasa al motor las obligaciones
+retiradas (`retired_at`, como `AI-ACT-ART50` desde B13d), pero conserva sus etiquetas. La vista
+`compliance.v_system_obligations` replica estas reglas en SQL. Las obligaciones se identifican siempre por el código del catálogo (`AI-ACT-ART9`…).
 `catalogCodeFromRef` traduce a código los textos de la cabecera («Art. 9 — …») y las claves antiguas
 (`art_9`; el `Art. 71` pasa a `AI-ACT-ART49`).
 
@@ -190,6 +193,10 @@ en `ai_systems`:
 **Prompt de usuario** (`build_classification_user_prompt`): atributos del sistema, clasificación
 actual, resultado del motor único como referencia (ámbito, nivel, obligaciones y fundamento), catálogo de
 obligaciones (código y etiqueta) y fragmentos del corpus.
+
+El catálogo del prompt excluye las obligaciones retiradas (`_catalog_labels(sb, include_retired=False)`), y
+las que proponga el agente fuera de ese catálogo se descartan. El cálculo de diferencias y la conciliación
+sí leen las retiradas, para conservar la etiqueta de las obligaciones ya registradas (`AI-ACT-ART50`).
 
 **Validación:**
 1. Se quitan las marcas de markdown y se interpreta el JSON. Si falla, devuelve 502.

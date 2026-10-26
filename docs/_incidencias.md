@@ -129,8 +129,8 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | I19 | Sistemas detectados: los hallazgos se ordenan por gravedad como texto (los críticos al final) | Error | Media | Análisis | 93 |
 | I20 | **✔ Resuelta en parte en B13a:** el sistema ya se clasifica (normalmente «Pendiente de clasificar»); siguen faltando la descripción y el enlace. Sistemas detectados: el alta crea el sistema sin descripción ni enlace y no lo clasifica | Carencia | Media | Análisis | 94 |
 | I21 | Inventario: **Próximas revisiones** mide antigüedad, no revisiones reales | Incongruencia | Baja | Análisis | 77 |
-| I22 | Las obligaciones de cada sistema no salen del catálogo; el cálculo por rol en la cadena de valor solo lo usa una pantalla sin uso | Incongruencia | Media | Código | 29, 179 |
-| I23 | El tratamiento de GPAI como nivel de riesgo no coincide con el AI Act, donde es una categoría de modelo | Decisión | Media | — | 8, 27 |
+| I22 | **✔ Resuelta en B13a y B13d:** las obligaciones sugeridas salen del catálogo con las reglas del motor (`suggestObligations`, B13a) y la vista `compliance.v_system_obligations` aplica las mismas reglas (B13d). Las obligaciones de cada sistema no salen del catálogo; el cálculo por rol en la cadena de valor solo lo usa una pantalla sin uso | Incongruencia | Media | Código | 29, 179 |
+| I23 | **✔ Resuelta en B13d** (requiere la migración `20261026090000`): GPAI es una categoría aparte (`is_gpai`); los sistemas con nivel `gpai` pasan a «Pendiente de clasificar» y un CHECK impide el valor. El tratamiento de GPAI como nivel de riesgo no coincide con el AI Act, donde es una categoría de modelo | Decisión | Media | — | 8, 27 |
 
 ## 4. Riesgo y tratamiento
 

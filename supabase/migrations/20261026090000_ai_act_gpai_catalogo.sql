@@ -181,7 +181,8 @@ WHERE
       -- RN-O04: Art. 55 solo con riesgo sistémico.
       WHEN o.scope = 'gpai' THEN
         s.proveedor_gpai AND (o.code <> 'AI-ACT-ART55' OR s.riesgo_sistemico = 'yes')
-      ELSE o.scope IS NULL
+      -- Sin alcance reconocido: el motor no la sugiere.
+      ELSE false
     END
   );
 

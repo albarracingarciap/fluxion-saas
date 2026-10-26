@@ -4,7 +4,7 @@ titulo: Clasificación AI Act
 tipo: negocio
 modulo: clasificacion-ai-act
 audiencia: comercial
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/lib/ai-act/index.ts
   - apps/web/lib/ai-act/rules.ts
@@ -26,6 +26,8 @@ fuente:
   - apps/web/lib/preliminary-questionnaire/to-wizard.ts
   - apps/web/components/questionnaire/supuestos-ai-act.tsx
   - apps/web/components/inventory/SystemWizard.jsx
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
+  - apps/web/app/(app)/inventario/systems-table-client.tsx
 ---
 
 # Clasificación AI Act
@@ -102,8 +104,21 @@ flowchart TD
    - en el resto de casos, «Riesgo mínimo».
 
    Si faltan datos para decidir, figura como «Pendiente de clasificar». Con la clasificación se generan
-   las obligaciones sugeridas, según el nivel de riesgo y el papel de la organización en la cadena de
-   valor.
+   las obligaciones sugeridas, según el nivel de riesgo, la categoría de modelo de uso general, los
+   supuestos concretos del sistema y el papel de la organización en la cadena de valor:
+   - **Transparencia (Art. 50), por apartados.** Cada supuesto genera su propia obligación y solo para
+     quien debe cumplirla: informar de que se interactúa con un sistema de IA (Art. 50.1) y marcar el
+     contenido sintético (Art. 50.2) corresponden al proveedor; informar del reconocimiento de emociones o
+     de la categorización biométrica (Art. 50.3) y revelar las ultrafalsificaciones y los textos generados
+     de interés público (Art. 50.4), al responsable del despliegue.
+   - **Evaluación de impacto en los derechos fundamentales (Art. 27).** Solo se sugiere al responsable del
+     despliegue de un sistema de alto riesgo del Anexo III en los supuestos del Art. 27.1: organismos
+     públicos o entidades privadas que prestan servicios públicos, y sistemas de evaluación de solvencia o
+     de seguros de vida y salud.
+   - **Excepción del Art. 6.3 (Art. 6.4).** Si el proveedor considera que un sistema del Anexo III no es de
+     alto riesgo, se le sugiere documentar esa evaluación y registrar el sistema en la base de datos de la
+     UE (Art. 49.2).
+   - **Práctica prohibida.** Solo se sugiere la obligación del Art. 5: el sistema no puede desplegarse.
 
    El motor trabaja con los **supuestos del AI Act** de cada sistema (exclusiones, prácticas
    prohibidas, anexos, excepciones y transparencia). Cuando un sistema no los tiene, hace una
@@ -158,8 +173,15 @@ retirada o rediseño obligatorio.
 clasifica por lo que hace. Si la organización es proveedora de un modelo de uso general, se le suman las
 obligaciones de proveedor de modelo (Art. 53, y Art. 55 si el modelo tiene riesgo sistémico).
 
-> **Pendiente de implementar.** Los sistemas que ya figuraban con el nivel «Modelo de IA de uso general»
-> se trasladarán a la categoría aparte y quedarán «Pendiente de clasificar».
+La categoría se ve junto al nivel de riesgo: en el inventario, con una etiqueta y un filtro propio, y en la
+ficha del sistema, como «Proveedor de modelo GPAI» (indicando si hay riesgo sistémico o si está sin
+determinar) o «Basado en un modelo GPAI de terceros», que es informativa y no genera obligaciones de
+proveedor de modelo. Los sistemas que figuraban con el antiguo nivel «Modelo de IA de uso general» se han
+trasladado a la categoría aparte y han quedado «Pendiente de clasificar», con el aviso «Pendiente de
+revisar con el motor nuevo».
+
+En el inventario, los sistemas fuera del ámbito del AI Act o que no son de IA se muestran como tales, no
+como pendientes de clasificar.
 
 **Sistemas clasificados antes del motor actual.** No se reclasifican de forma automática: muestran el
 aviso «Pendiente de revisar con el motor nuevo» hasta que una persona revisa su clasificación y concilia
@@ -172,7 +194,9 @@ el resultado.
 | AI Act | Art. 2 y Art. 3.1 | Ámbito de aplicación: exclusiones y definición de sistema de IA |
 | AI Act | Art. 5 | Detección de prácticas prohibidas |
 | AI Act | Art. 6, Anexo I y Anexo III | Determinación del alto riesgo, por ámbito de uso o como componente de seguridad de un producto regulado, y excepción del Art. 6.3 |
-| AI Act | Art. 50 | Obligaciones de transparencia (riesgo limitado) |
+| AI Act | Art. 50.1 a 50.4 | Obligaciones de transparencia (riesgo limitado), por apartado y por obligado |
+| AI Act | Art. 6.4 y Art. 49.2 | Documentación y registro de la excepción del Art. 6.3 |
+| AI Act | Art. 27.1 | Supuestos en los que se sugiere la evaluación de impacto en los derechos fundamentales |
 | AI Act | Art. 3.63 y Art. 51 a 55 | Modelos de IA de uso general y riesgo sistémico |
 | AI Act | Art. 3.3, 3.4 y 25 | Papel de proveedor o responsable del despliegue |
 

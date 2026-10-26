@@ -278,7 +278,7 @@ que el sistema *produce* sobre una persona suele ser más sensible que lo que co
 | La ficha pide | Fluxion | |
 |---|---|---|
 | Identificación del sistema y finalidad, comunicada al usuario | Los datos existen; **no que se hayan comunicado** | **C** |
-| Interacción con tecnología de IA (Art. 50) | `interacts_persons` y la obligación aparece en `v_system_obligations`; no el texto ni el canal | C parcial |
+| Interacción con tecnología de IA (Art. 50) | `interacts_persons` (o el supuesto del Art. 50.1 en los supuestos AI Act) y el motor sugiere la obligación `AI-ACT-ART50-1` al proveedor; no el texto ni el canal | C parcial |
 | Capacidades y limitaciones comunicadas | — | **C** |
 | Base de legitimación | `legal_bases`, `legal_bases_art9` | A |
 | Supervisión humana comunicada | `has_human_oversight`, `oversight_type` | A parcial |
@@ -387,7 +387,8 @@ Para que la lista no crezca por inercia:
   ya está en el sistema, no hay que copiarlo a mano).
 - **Qué se le comunicó al usuario y por qué canal** (apartado 12). Es un registro de
   cumplimiento con fecha, no un atributo del sistema. Encaja como evidencia vinculada a la
-  obligación del Art. 50 en `v_system_obligations`, no como campo del alta.
+  obligación del apartado del Art. 50 que corresponda (`AI-ACT-ART50-1` a `-4`), no como
+  campo del alta.
 - **Procesos de corrección y de actualización** (apartado 10). Son procedimientos de la
   organización, no de cada sistema. Ficha de organización, con posibilidad de excepción por
   sistema.
@@ -399,12 +400,15 @@ Para que la lista no crezca por inercia:
 
 Conviene tenerlo escrito, porque es lo que justifica la herramienta frente al Word:
 
-- **Clasificación AI Act completa**: Art. 5 (prácticas prohibidas), Anexo III, GPAI, riesgo
-  limitado del Art. 50, con el motor de clasificación y su justificación.
+- **Clasificación AI Act completa**: Art. 5 (prácticas prohibidas), Anexo III, riesgo
+  limitado del Art. 50 y la categoría GPAI aparte del nivel, con el motor único de
+  clasificación y su justificación.
 - **Rol en la cadena de valor** con los cinco roles del Reglamento, no excluyentes, y el
   aviso del Art. 25.
-- **Obligaciones derivadas por sistema** (`v_system_obligations`), 36 obligaciones con su
-  artículo.
+- **Obligaciones derivadas por sistema**, que el motor único (`lib/ai-act`) sugiere desde
+  el catálogo `compliance.obligations` según la clasificación y el rol: 40 obligaciones del
+  AI Act en uso, con su artículo (el Art. 50 dividido en sus cuatro apartados desde B13d).
+  La vista `compliance.v_system_obligations` replica esa lógica en SQL.
 - **Evaluación de riesgos FMEA** sobre catálogo de 418+ modos de fallo anclados a artículo,
   con riesgo inherente y residual calculados, no escritos a mano.
 - **Registro de riesgos de negocio** (probabilidad × impacto, exposición, respuesta).

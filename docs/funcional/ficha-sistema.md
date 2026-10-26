@@ -4,7 +4,7 @@ titulo: Ficha del sistema
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/app/(app)/inventario/[id]/page.tsx
   - apps/web/app/(app)/inventario/nuevo/actions.ts
@@ -32,6 +32,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/responsables-actions.ts
   - apps/web/lib/approvals/open.ts
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
 ---
 
 # Ficha del sistema
@@ -73,12 +74,24 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | Elemento | Contenido |
 |---|---|
 | Identidad | Nombre, versión, código interno y emoji del dominio |
-| Etiquetas | Nivel de riesgo AI Act, estado, origen, dominio, fecha de próxima auditoría |
+| Etiquetas | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai) (si la tiene), estado, origen, dominio, fecha de próxima auditoría |
 | **Compliance** | % de obligaciones resueltas sobre las no excluidas, y «N pendientes críticas» (pendientes más bloqueadas) |
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
 | Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Responsables**, **Acciones rápidas** y dependencias externas |
+
+**Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
+categoría aparte:
+
+| Etiqueta | Cuándo | Texto de ayuda | Origen |
+|---|---|---|---|
+| **Proveedor de modelo GPAI** | La organización es proveedora de un modelo GPAI. Se añade « · riesgo sistémico» si el riesgo sistémico es «sí», o « · riesgo sistémico sin determinar» si es «sin determinar» | «La organización desarrolla un modelo de IA de uso general y lo introduce en el mercado (Art. 3.63).» | `aiact_result.gpai.modelProvider` y `systemicRisk`; sin resultado del motor, `ai_systems.is_gpai` |
+| **Basado en un modelo GPAI de terceros** | No es proveedora, pero el sistema usa un modelo GPAI de un tercero | «El sistema usa un modelo de IA de uso general de un tercero. No genera obligaciones de proveedor de modelo.» | `aiact_result.gpai.thirdPartyBased` |
+
+Sin ninguno de los dos casos no se muestra etiqueta. Los sistemas que tenían GPAI como nivel de riesgo
+pasaron a la categoría con el nivel «Pendiente» y la insignia «Pendiente de revisar con el motor nuevo»
+(migración `20261026090000_ai_act_gpai_catalogo.sql`).
 
 **Responsables** (B23b, DP-01). Se guardan al elegirlos; los cambia el Administrador, el Responsable del SGAI
 o un Responsable del sistema:
@@ -193,7 +206,10 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 - **Eventos:** cronología del [historial del sistema](../glosario.md#historial-del-sistema), agrupada
   por fecha (Hoy, Ayer, Esta semana…).
 - **Filtros:** Todos, AI Act, Obligaciones, Edición, ISO 42001, FMEA y Evidencias.
-- **Contenido de cada evento:** título, fecha, actor y, en las clasificaciones, el cambio de nivel.
+- **Contenido de cada evento:** título, fecha, actor y, en las clasificaciones, el cambio de nivel. Los
+  eventos anteriores a B13d con el nivel `gpai` se señalan como de nivel antiguo: en la pestaña Historial,
+  «GPAI (nivel antiguo)» si el evento no guarda la etiqueta del nivel; en las tarjetas del **Historial de
+  clasificaciones**, la etiqueta guardada seguida de «(nivel antiguo)».
 
 > TODO: confirmar las etiquetas del historial. Varios eventos aparecen como «Evento» y quedan fuera de los
 > filtros: obligaciones aceptadas y promoción, descarte, restauración o recálculo de modos de fallo.

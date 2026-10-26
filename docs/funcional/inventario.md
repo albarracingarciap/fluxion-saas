@@ -4,7 +4,7 @@ titulo: Inventario
 tipo: funcional
 modulo: inventario
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/page.tsx
   - apps/web/app/(app)/inventario/systems-table-client.tsx
@@ -60,23 +60,20 @@ Orden: de más reciente a más antiguo. Sin paginación.
 |---|---|---|
 | **Sistema** | Nombre; debajo, versión y responsable | `ai_systems.name`, `version`, `ai_owner` |
 | **Dominio** | Finanzas y Banca, Seguros, Crédito y Scoring, Salud y Medicina, RRHH y Empleo, Educación, Seguridad Pública, Justicia y Legal, Migración, Infraestructura Crítica, Marketing, Operaciones, Atención al Cliente, Cumplimiento, Otro | `ai_systems.domain` |
-| **Clasificación AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · GPAI · Pendiente. Los sistemas fuera del ámbito del AI Act o que no son IA aparecen como «Pendiente» | `ai_systems.aiact_risk_level` ([nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act)) |
+| **Clasificación AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · Pendiente · Fuera del ámbito · No es un sistema de IA. El [ámbito del AI Act](../glosario.md#ámbito-del-ai-act) manda sobre el nivel: si el sistema está fuera del ámbito o no es un sistema de IA, se muestra eso y no el nivel. Si la organización es proveedora de un modelo GPAI (categoría GPAI), se añade la etiqueta **GPAI** (texto de ayuda: «Proveedor de modelo de IA de uso general») | `ai_systems.aiact_scope` y `aiact_risk_level` ([nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act)); la etiqueta, `ai_systems.is_gpai` ([categoría GPAI](../glosario.md#categoría-gpai)) |
 | **Estado** | Producción · Desarrollo · Piloto · Deprecado · Retirado | `ai_systems.status` |
 | **ISO 42001** | Porcentaje con barra, o «—» | `ai_systems.iso_42001_score` |
 
-> **Pendiente de implementar.** GPAI ya no es un nivel de riesgo: el motor único de clasificación (B13a)
-> no lo asigna. El valor y su filtro se mantienen para los sistemas existentes hasta su migración a la
-> [categoría GPAI](../glosario.md#categoría-gpai) (B13d).
-
-> TODO: confirmar cómo debe mostrar el listado los sistemas «Fuera del ámbito» y «No es un sistema de
-> IA», que hoy aparecen como «Pendiente» (`aiact_scope` no se lee en el listado).
+GPAI no es un nivel de riesgo: es una categoría aparte, que se suma al nivel. Los sistemas que tenían
+GPAI como nivel pasaron a la categoría GPAI con el nivel «Pendiente» y la marca «Pendiente de revisar con
+el motor nuevo» (B13d); se ven como «Pendiente» con la etiqueta **GPAI**.
 
 Filtros, que se aplican en el navegador y no se guardan en la URL:
 
 | Filtro | Valores |
 |---|---|
 | **Buscar sistema...** | Texto sobre el nombre |
-| **AI Act** | Los seis niveles de la columna Clasificación |
+| **AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · Pendiente · Fuera del ámbito · No es un sistema de IA (los valores de la columna Clasificación) · **Categoría GPAI**, que muestra los sistemas con la etiqueta GPAI, sea cual sea su nivel |
 | **Estado** | Los cinco estados |
 
 Con algún filtro activo se muestra el número de resultados.

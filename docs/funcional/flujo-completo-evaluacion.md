@@ -4,7 +4,7 @@ titulo: Flujo completo, del onboarding al sistema evaluado
 tipo: funcional
 modulo: transversal
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(auth)/actions.ts
   - apps/web/app/(auth)/onboarding/actions.ts
@@ -18,6 +18,8 @@ fuente:
   - apps/web/app/(app)/inventario/descubrimientos/actions.ts
   - apps/web/app/api/v1/systems/[systemId]/reconcile/route.ts
   - apps/web/lib/ai-act/server.ts
+  - apps/web/lib/ai-act/obligations.ts
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
   - apps/web/lib/preliminary-questionnaire/to-wizard.ts
@@ -470,8 +472,11 @@ flowchart TD
 > edición recogen los supuestos AI Act en el bloque «Supuestos AI Act», así que el motor puede clasificar
 > con las reglas y no solo por la vía de respaldo.
 >
-> **Pendiente de implementar.** Migración de los sistemas con nivel GPAI a la categoría GPAI y ajustes
-> del catálogo de obligaciones (B13d).
+> Desde B13d, GPAI ya no es un nivel de riesgo: los sistemas que lo tenían pasaron a la
+> [categoría GPAI](../glosario.md#categoría-gpai), con el nivel **Pendiente de clasificar** y la marca
+> «Pendiente de revisar con el motor nuevo». El catálogo de obligaciones sigue las reglas del motor: el
+> Art. 50 se sugiere por apartados (50.1 a 50.4, según el supuesto y el rol obligado), el Art. 27 solo en
+> los supuestos del Art. 27.1 y el Art. 6.4 cuando el proveedor se acoge a la excepción del Art. 6.3.
 
 > **⚠ GAP-10 · Clasificación sin aprobación.** La clasificación es la decisión que condiciona todo el
 > expediente, pero cualquier miembro la cambia y concilia sin aprobación. ✔ El rastro se resolvió en
@@ -985,7 +990,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-32 | 10 | La reevaluación no es posible: AISIA y disparadores (FMEA y plan resueltos en B07) | Corta | `E19` |
 | GAP-13 | 4 | ✔ Resuelto en B05 y B07: evaluación FMEA sin estado final | — | `R3` |
 | — | 5 | ✔ Resuelto en B01: sin un DPO no se editaba el plan ni se resolvían segundas revisiones | — | `_inventario.md` §5.2 |
-| GAP-09 | 3 | ✔ Resuelto en B13a: dos motores de clasificación; prohibidos sin obligaciones (falta la migración GPAI, B13d) | — | `I1`-`I4` |
+| GAP-09 | 3 | ✔ Resuelto en B13a y B13d: dos motores de clasificación; prohibidos sin obligaciones; GPAI como nivel | — | `I1`-`I4` |
 | GAP-14 | 5 | ✔ Resuelto en B01 y B06: aprobador al azar y sin aviso | — | — |
 | GAP-17 | 5 | ✔ Resuelto en B11c: cancelación, caducidad y avisos del circuito de aprobación | — | `O7`, `O8`, `S12` |
 | GAP-19 | 5 | Residual sin evidencia validada; evidencias del plan fuera de la biblioteca | Debilita | ✔ Resuelto en B12 |
