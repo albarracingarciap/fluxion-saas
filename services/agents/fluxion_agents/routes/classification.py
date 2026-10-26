@@ -756,7 +756,10 @@ def register_classification_routes(
 
         # Referencia del motor único y catálogo de obligaciones
         ref = request.reference
+        # El agente solo ve las obligaciones vigentes; el diff necesita también
+        # las etiquetas de las retiradas que el sistema aún tiene registradas.
         labels = _catalog_labels(sb, include_retired=False)
+        all_labels = _catalog_labels(sb)
         rules_result = {
             "risk_level":      ref.risk_level,
             "scope":           ref.scope,
@@ -867,7 +870,7 @@ def register_classification_routes(
             return {"data": {"has_changes": False}}
 
         existing_obligations = _get_active_obligations(sb, system_id)
-        diff_items = compute_diff(current_keys, validated_obligations, existing_obligations, labels)
+        diff_items = compute_diff(current_keys, validated_obligations, existing_obligations, all_labels)
 
         version = _get_next_version(sb, system_id)
         event_id = str(uuid4())
