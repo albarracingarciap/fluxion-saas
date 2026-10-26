@@ -27,6 +27,7 @@ fuente:
   - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
   - supabase/migrations/20261022110000_cuestionario_vinculo.sql
   - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
+  - apps/web/lib/auth/platform.ts
   - apps/web/lib/modules/registry.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
@@ -709,6 +710,11 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 
 - El Auditor nunca decide en los flujos de aprobación, ni por delegación: audita lo aprobado (DP-01).
 
+### Administración de la plataforma
+- **Definición:** equipo de Fluxion que mantiene el catálogo estándar de Fluxion. No es un rol de la organización: es el único que modifica los catálogos de **Datos** (crear, editar, borrar, y retirar o recuperar obligaciones), que hoy comparten todas las organizaciones.
+- **No usar:** «superadministrador», «administrador» a secas (es el rol de la organización).
+- **En el código:** `profiles.platform_role` = `platform_admin` (enum `fluxion.platform_role`); `lib/auth/platform.ts` (`requirePlatformAdmin`). El valor `partner` no tiene uso.
+
 ### Función de gobierno
 - **Definición:** función del modelo de gobierno de la IA que interviene en el circuito de aprobación sin ser un rol de permisos. La persona designada conserva su rol y además ocupa la función. Hay una persona por función.
 
@@ -743,11 +749,11 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** conjunto de datos de referencia con que trabaja Fluxion: modos de fallo, controles, tipos de evidencia, obligaciones, sus relaciones y el grafo causal. Lo mantiene el administrador de cada organización. Las organizaciones parten de una copia del catálogo estándar de Fluxion y reciben como oferta sus actualizaciones.
 - **No usar:** «Base de datos», «datos maestros», «Catálogo metodológico» (nombre anterior).
 - **En el código:** esquema `compliance`; vistas `/datos/*`.
-- > **Pendiente de implementar.** Hoy el catálogo es único y lo comparten todas las organizaciones (`_inventario.md` §14.1).
+- > **Pendiente de implementar.** Hoy el catálogo es único y lo comparten todas las organizaciones (`_inventario.md` §14.1). Mientras no exista la copia por organización, solo lo modifica la administración de la plataforma; el resto de miembros lo consulta.
 - > TODO: confirmar el nombre definitivo. El inventario usa «Catálogo metodológico» (§9, decisión 20) y «Catálogo de tablas básicas» (§13.2, §14.1).
 
 ### Catálogo estándar de Fluxion
-- **Definición:** versión de referencia del catálogo de tablas básicas que mantiene el equipo de Fluxion y de la que parte cada organización nueva.
+- **Definición:** versión de referencia del catálogo de tablas básicas que mantiene el equipo de Fluxion (la administración de la plataforma) y de la que parte cada organización nueva.
 - **No usar:** «semilla», «plantilla base».
 - **En el código:** `supabase/migrations/00000000000005_seed_compliance.sql` y migraciones posteriores que lo amplían.
 

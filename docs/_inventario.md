@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.4** | **2026-10-14** | **Revisado** por Pedro Albarracín | Modelo del catálogo de tablas básicas: catálogo estándar de Fluxion, copia por organización y actualizaciones ofrecidas al `org_admin`. Ver §14.1 |
+| **1.5** | **2026-10-26** | **Revisado** por Pedro Albarracín | Catálogos `/datos/*`: solo la administración de la plataforma (`platform_admin`) los modifica; §7.2 resuelto y decisión 39 corregida. Ver §2.6, §7 y §14.1 |
+| 1.4 | 2026-10-14 | Revisado por Pedro Albarracín | Modelo del catálogo de tablas básicas: catálogo estándar de Fluxion, copia por organización y actualizaciones ofrecidas al `org_admin`. Ver §14.1 |
 | 1.3 | 2026-10-13 | Revisado por Pedro Albarracín | Catálogo de tablas básicas mantenido por el `org_admin` de cada cliente; Flujos de aprobación pasa al Core (corrige v1.2); niveles de aprobación pendientes de definir. Ver §14 |
 | 1.2 | 2026-10-13 | Revisado por Pedro Albarracín | Respuestas a las preguntas abiertas de §11.5 y §8: 72-73, catálogo `/datos`, flujo de aprobación básico, seguridad aplazada, audiencias, servicios desplegados, modelos LLM. Ver §13 |
 | 1.1 | 2026-10-13 | Revisado por Pedro Albarracín | Aplicadas las decisiones de revisión (puntos 1-71): nombres de negocio, estructura objetivo de módulos, clasificación de elementos obsoletos e internos, huecos a implementar. Ver §9-§12 |
@@ -161,6 +162,7 @@ Columna Control:
 `/datos/catalogo-causal` (grafo). Control: MW.
 
 [!] **Grave:** las acciones de `/datos/*` escriben con service role y su `requireAdmin()` solo comprueba que haya sesión (TODO en `datos/modos-de-fallo/actions.ts:22`). Cualquier usuario de cualquier organización puede modificar los catálogos que comparten todas.
+→ **Resuelto (v1.5, 2026-10-26):** las escrituras de `/datos/*` exigen `profiles.platform_role` = `platform_admin` (`lib/auth/platform.ts`); la lectura exige sesión y las vistas ocultan los botones de edición a quien no tiene el rol.
 → ~~**Decisión (36):** `/datos` se clasifica como ruta sin uso de cliente.~~ **Corregida en v1.2 (§13.2):** `/datos` es el catálogo de tablas básicas y lo mantiene el administrador. Se documenta. Hay que implementar la restricción por rol.
 
 ### 2.7 Configuración
@@ -386,6 +388,7 @@ Diferencias con el contrato `docs/ingesta.md`:
 
   Se pueden invitar todos menos `org_admin`, que solo tiene quien crea la organización.
 - **Plataforma:** `platform_admin` y `partner`. [?] Están definidos pero ningún código los usa. Desconozco su propósito.
+  → **v1.5:** `platform_admin` es la administración de la plataforma (equipo de Fluxion): la única que modifica los catálogos `/datos/*`. `partner` sigue sin uso.
 - **Comités:** tipos `ai_committee`, `risk_committee` y `director_review`; roles dentro del comité `president`, `secretary`, `member` y `advisor`.
 - **Asignación a sistemas:** `profile_systems.is_lead`. Se usa para decidir a quién avisar de las señales.
 
@@ -403,7 +406,7 @@ La autorización real está escrita a mano en cada sitio:
 | SoA: enviar y aprobar | `ROLES_CAN_SUBMIT` y `ROLES_CAN_APPROVE` (`plantillas/soa-iso42001/actions.ts`) |
 | Descubrimientos | `RESOLVER_ROLES` |
 | **Editar plan de tratamiento y segunda revisión FMEA** | `['admin','editor','dpo','technical']`. [!] Tres de esos cuatro roles no existen, así que **en la práctica solo `dpo`** |
-| AISIA, clasificación, edición de sistema, evidencias, presupuestos, tarifas, tareas, catálogos `/datos` | Sin comprobación de rol en el código. [?] No he verificado si RLS lo cubre en todos los casos |
+| AISIA, clasificación, edición de sistema, evidencias, presupuestos, tarifas, tareas, catálogos `/datos` (v1.5: `/datos` ya comprueba `platform_admin` al escribir) | Sin comprobación de rol en el código. [?] No he verificado si RLS lo cubre en todos los casos |
 
 Otros problemas con los roles:
 - [!] **Etiqueta del sidebar:** `getRoleLabel` (`app/(app)/layout.tsx:13`) espera `admin`, `editor` y `viewer`, así que casi todos los roles se muestran como «Miembro».
@@ -416,7 +419,7 @@ Otros problemas con los roles:
 - [!] `mfa_required`, `allowed_email_domains` y `session_timeout_minutes` (en `/ajustes > Seguridad`) se guardan pero no se aplican.
 - → **Decisión (55):** la aplicación de esta política está planificada.
 - → **Decisión (56):** `is_active` debe usarse para bloquear el acceso de los miembros desactivados.
-- → **Decisión (39):** `platform_admin` y `partner` son código muerto.
+- → ~~**Decisión (39):** `platform_admin` y `partner` son código muerto.~~ **Corregida en v1.5:** `platform_admin` se usa para la administración de la plataforma (catálogos `/datos/*`); `partner` sigue siendo código muerto.
 
 ### 5.4 Scopes de clave API (`lib/auth/scopes.ts`)
 - Scopes: `signals:write`, `signals:read`, `inventory:write`, `inventory:read`, `connectors:sync`, `telemetry:write` y `hitl:write`.
@@ -491,7 +494,7 @@ No forman parte del inventario. Los valores no se reproducen aquí.
    - Una clave API `flx_…` completa en `services/telemetry/README.md:138`.
    - `account` y `key` de Backblaze B2 en `infra/backups/README.md:~186-187`.
    - Hay que rotarlas y sustituirlas por placeholders. Siguen en el historial de git.
-2. **Catálogos globales `/datos/*` sin control de rol** (§2.6).
+2. ~~**Catálogos globales `/datos/*` sin control de rol** (§2.6).~~ **✔ Resuelto en v1.5 (2026-10-26):** solo `platform_admin` escribe.
 3. **Vistas base sin `security_invoker`, con escritura concedida a `authenticated`** (§3.5).
 4. **`rag.search_chunks` es SECURITY DEFINER y acepta un `org_id` arbitrario** (§3.5).
 5. **Rutas fuera del middleware** (§2.8).
@@ -518,7 +521,7 @@ Estado tras la revisión v1.1 (histórico):
 2. ¿Para quién es la documentación: usuario final, administrador de organización, desarrollador u operación/infra?
 3. ¿`/datos` es un back-office interno de Fluxion o una función para clientes?
 4. ¿Qué incluye cada plan (`starter`, `pro`, `enterprise`) y cómo se pasa un módulo a `enabled`?
-5. ¿Qué hacen `platform_admin` y `partner`?
+5. ¿Qué hacen `platform_admin` y `partner`? → **v1.5:** `platform_admin`, administración de la plataforma (catálogos `/datos/*`); `partner`, sin uso.
 6. ¿Qué significan las zonas FMEA I a IV y los niveles de aprobación 1 a 3, y qué rol debe aprobar cada uno? ¿Manda `permissions.ts` o el código actual?
 7. ¿Qué servicios están desplegados de verdad: renderer, telemetry, connector-shadow-ai?
 8. ¿Qué modelos LLM se usan en producción y qué proveedores de email (SMTP y Resend)?
@@ -592,7 +595,7 @@ Salen del Core: AISIA, Riesgos de negocio y Cuestionario preliminar (pasan a «E
 `/inventario/[id]/clasificacion`, `/inventario/[id]/fmea/[evaluationId]/plan/summary`, `/inventario/[id]/anexo-iv`, los prefijos `/governance` y `/settings` del middleware. (`/datos/*` salió de esta lista en v1.2: se documenta, §13.2.)
 
 ### 11.2 Código muerto: no se documenta (37-43)
-`lib/auth/permissions.ts`, `hasModule`/`requireModule` (lib/modules/entitlements.ts), los roles `platform_admin` y `partner`, `profiles.copilot_enabled`, `ComingSoonNotice`, `notifications_email` y `getAppAuthState().membership`.
+`lib/auth/permissions.ts`, `hasModule`/`requireModule` (lib/modules/entitlements.ts), el rol `partner` (`platform_admin` se usa desde v1.5), `profiles.copilot_enabled`, `ComingSoonNotice`, `notifications_email` y `getAppAuthState().membership`.
 
 > **Resuelto en v1.2:** `/datos` se documenta y la mantiene el administrador. El gating por módulo se implementará (§13.2 y §13.3).
 >
@@ -704,6 +707,7 @@ Los hallazgos de §7 quedan **fuera de consideración** hasta la Fase 2.
   2. **Copia por organización:** cada organización nueva parte de una copia del catálogo estándar vigente, y su `org_admin` la adapta sin afectar a otros clientes.
   3. **Actualizaciones:** cuando Fluxion actualiza el catálogo estándar (por ejemplo, nuevos modos de fallo por una guía de la AESIA), las organizaciones existentes **no las reciben automáticamente**. Se les **ofrecen** y el `org_admin` decide si las acepta, para no pisar sus cambios.
 - Mientras no se implemente, la documentación (ADM-07) describe el estado objetivo y avisa de que hoy los cambios son globales.
+- → **v1.5 (2026-10-26):** mientras el catálogo sea único, lo mantiene la administración de la plataforma (`platform_admin`, equipo de Fluxion), que es quien mantiene el catálogo estándar (punto 1). El `org_admin` lo consulta; mantendrá su copia cuando exista (punto 2).
 
 ### 14.2 Flujos de aprobación: Core, en todos los planes
 - **Corrige la v1.2:** no hay versión light ni completa. Flujos de aprobación es **una sola funcionalidad, siempre disponible en todos los planes**.
