@@ -4,7 +4,7 @@ titulo: Obligaciones
 tipo: negocio
 modulo: obligaciones
 audiencia: comercial
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
   - apps/web/app/(app)/inventario/[id]/page.tsx
@@ -15,6 +15,10 @@ fuente:
   - supabase/migrations/20260904090000_obligaciones_ai_act.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - docs/producto/obligaciones-ai-act.csv
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
+  - apps/web/lib/ai-act/obligations.ts
+  - apps/web/lib/ai-act/server.ts
+  - apps/web/app/(app)/datos/obligaciones/page.tsx
 ---
 
 # Obligaciones
@@ -70,8 +74,10 @@ stateDiagram-v2
   Pendiente --> Excluida
 ```
 
-1. **Sugerencia.** Al clasificar el sistema, Fluxion crea las obligaciones que corresponden a su nivel
-   de riesgo, en estado «Sugerida».
+1. **Sugerencia.** Al clasificar el sistema, Fluxion crea, en estado «Sugerida», las obligaciones del
+   catálogo que corresponden a su nivel de riesgo, a su categoría de modelo de uso general, a sus
+   supuestos concretos (por ejemplo, cada apartado del Art. 50) y al papel de la organización en la
+   cadena de valor. Ver [Clasificación AI Act](clasificacion-ai-act.md#flujo-de-trabajo).
 2. **Aceptación o exclusión.** La organización acepta las que aplican, que pasan a «Pendiente», y
    excluye las que no.
 3. **Trabajo.** Cada obligación se asigna a un responsable, con prioridad (baja, media, alta o crítica)
@@ -91,16 +97,15 @@ Fluxion mantiene un catálogo de obligaciones dentro del
 
 | Marco | Contenido |
 |---|---|
-| AI Act | 36 obligaciones, cada una con su artículo (por ejemplo, Art. 9 gestión de riesgos, Art. 11 documentación técnica, Art. 14 supervisión humana, Art. 27 FRIA, Art. 72 vigilancia poscomercialización, Art. 73 notificación de incidentes graves). Cada una indica a qué roles de la cadena de valor afecta y si aplica a todos los sistemas, a los de alto riesgo, a los de uso general o solo cuando hay obligaciones de transparencia |
+| AI Act | 40 obligaciones en uso, cada una con su artículo (por ejemplo, Art. 9 gestión de riesgos, Art. 11 documentación técnica, Art. 14 supervisión humana, Art. 27 FRIA, Art. 72 vigilancia poscomercialización, Art. 73 notificación de incidentes graves). La transparencia del Art. 50 se divide en sus cuatro apartados (50.1 a 50.4), cada uno con su obligado, y hay una obligación para documentar y registrar la excepción del Art. 6.3 (Art. 6.4). Cada una indica a qué roles de la cadena de valor afecta y si aplica a todo sistema dentro del ámbito, a los de alto riesgo, a los proveedores de modelos de uso general o solo cuando hay obligaciones de transparencia |
 | ISO/IEC 42001 | 10 obligaciones del sistema de gestión: objetivos, evaluación de impacto, recursos, competencia, evaluación de riesgos, desempeño, auditoría interna, revisión por la dirección y no conformidades |
 
 Cada obligación del catálogo tiene asociados los tipos de evidencia que la cubren, con su nivel de
 exigencia.
 
-> TODO: confirmar cómo se relacionan el catálogo y las obligaciones de cada sistema. Hoy las
-> obligaciones de un sistema salen del conjunto que produce la clasificación. El catálogo también puede
-> calcular las obligaciones aplicables cruzando el nivel de riesgo con el rol en la cadena de valor,
-> pero la aplicación todavía no usa ese cálculo.
+Las obligaciones sugeridas a cada sistema salen de este catálogo. Una obligación que deja de usarse no se
+borra: queda **retirada**, ya no se sugiere y se conserva en los sistemas que la tenían registrada. Es el
+caso de la antigua obligación única del Art. 50, sustituida por sus cuatro apartados.
 
 ## Relación normativa
 

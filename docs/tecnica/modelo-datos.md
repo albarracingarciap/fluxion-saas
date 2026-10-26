@@ -4,7 +4,7 @@ titulo: Modelo de datos
 tipo: tecnica
 modulo: transversal
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - supabase/migrations/00000000000000_extensions.sql
   - supabase/migrations/00000000000001_schema.sql
@@ -42,6 +42,8 @@ fuente:
   - supabase/migrations/20261022090000_ai_act_motor_unico.sql
   - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
   - supabase/migrations/20261022110000_cuestionario_vinculo.sql
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
+  - apps/web/lib/ai-act/obligations.ts
 ---
 
 # Modelo de datos
@@ -128,11 +130,11 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level`, columnas del motor único de clasificación (B13a, ver abajo), `value_chain_roles`, `owner_profile_id`, `human_oversight_owner_id`, `human_oversight_backup_id` (B23b), `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000`, `20261022090000` |
+| `fluxion.ai_systems` | [Sistema de IA](../glosario.md#sistema-de-ia) | `internal_id` único por organización, `aiact_risk_level` (sin `gpai`: CHECK `chk_ai_systems_aiact_risk_level_sin_gpai`, B13d), columnas del motor único de clasificación (B13a, ver abajo), `value_chain_roles`, `owner_profile_id`, `human_oversight_owner_id`, `human_oversight_backup_id` (B23b), `status`, `domain`, más de 100 columnas descriptivas | `00000000000001`, `20260911090000`, `20261022090000`, `20261026090000` |
 | `fluxion.ai_system_history` | [Historial del sistema](../glosario.md#historial-del-sistema) | `event_type`, `payload`, `actor_user_id` → `auth.users` | `00000000000001` |
 | `fluxion.classification_events` | [Clasificación AI Act](../glosario.md#clasificación-ai-act) | `version`, `method`, `risk_level` (admite nulo y `pending`; `gpai` solo para el histórico), `obligations_set` (códigos del catálogo), `status`. Solo un `pending_reconciliation` por sistema | `00000000000001`, `20261022090000` |
 | `fluxion.classification_diffs` | [Reclasificación](../glosario.md#reclasificación) | `diff_type` ∈ `added`, `removed`, `unchanged`; `resolution` | `00000000000001` |
-| `compliance.obligations` | [Obligación](../glosario.md#obligación) (catálogo) | `code` único, `framework`, `article`, `scope`, `applies_to_roles` | `00000000000005`, `20260904090000`, `20260911090000` |
+| `compliance.obligations` | [Obligación](../glosario.md#obligación) (catálogo) | `code` único, `framework`, `article`, `scope` (`all`, `high_risk`, `transparency`, `gpai` o nulo), `applies_to_roles`, `retired_at` (B13d: obligación retirada, no se sugiere y se conserva para las ya registradas) | `00000000000005`, `20260904090000`, `20260911090000`, `20261026090000` |
 | `fluxion.system_obligations` | [Obligación](../glosario.md#obligación) (por sistema) | `obligation_code`, `status`, `priority`, `owner_user_id` → `auth.users` | `00000000000001` |
 | `fluxion.discovered_assets` | [Sistema detectado pendiente de alta](../glosario.md#sistema-detectado-pendiente-de-alta) | `source_module`, `external_id` (único por organización y fuente), `status`, `linked_system_id` | `20260818140000` |
 | `fluxion.shadow_ai_findings` | [Hallazgo de IA no declarada](../glosario.md#hallazgo-de-ia-no-declarada) | `finding_type`, `category`, `file_path`, `severity`, `resolved_at` | `20260827090000` |
@@ -155,8 +157,51 @@ Desde B13a, `obligation_code` y `obligation_key` guardan el código del catálog
 | `gpai_third_party_based` | boolean, por defecto `false` | Sistema basado en un modelo GPAI de terceros (informativo) |
 | `aiact_review_pending` | boolean, por defecto `false` | Clasificado antes del motor único: «Pendiente de revisar con el motor nuevo» hasta que se concilia una reclasificación |
 
-> **Pendiente de implementar.** `aiact_risk_level` todavía admite `gpai`. Los sistemas con ese nivel se
-> migran a `is_gpai` y «Pendiente de clasificar» en B13d.
+**GPAI fuera del nivel de riesgo** (migración `20261026090000`, B13d):
+- los sistemas que tenían `aiact_risk_level = 'gpai'` pasan a `is_gpai = true`, `aiact_risk_level =
+  'pending'` y `aiact_review_pending = true`;
+- el CHECK `chk_ai_systems_aiact_risk_level_sin_gpai` (`aiact_risk_level IS DISTINCT FROM 'gpai'`) impide
+  volver a usar el valor;
+- el valor `gpai` sigue en el enum `fluxion.aiact_risk_level`, en desuso (quitarlo obliga a recrear las
+  vistas que dependen de la columna), y en `classification_events.risk_level` para el histórico.
+
+**Catálogo de obligaciones del AI Act** (migración `20261026090000`):
+- `AI-ACT-ART50` se divide en `AI-ACT-ART50-1` y `-2` (rol `provider`) y `AI-ACT-ART50-3` y `-4` (rol
+  `deployer`), todas con `scope = 'transparency'` y los tipos de evidencia del Art. 50
+  (`obligation_evidence_types`) copiados; `AI-ACT-ART50` queda con `retired_at` y el título «… (dividida
+  en 50.1 a 50.4)»;
+- obligación nueva `AI-ACT-ART6-4` (documentar la excepción del Art. 6.3 y registrar el sistema, Art.
+  49.2), `scope = 'high_risk'` y rol `provider`;
+- nueva descripción de `AI-ACT-ART27`: solo en los supuestos del Art. 27.1.
+
+`loadAiActCatalog` (`lib/ai-act/server.ts`) no pasa al motor las obligaciones retiradas, pero conserva su
+etiqueta para mostrar las ya registradas.
+
+**Vista `compliance.v_system_obligations`** (reescrita en `20261026090000`, `security_invoker`). Una fila
+por sistema y obligación aplicable, con `ai_system_id`, `organization_id`, `code`, `framework`, `article`,
+`title`, `scope`, `applies_to_roles`, `motivo` y `condicional`. Aplica las reglas RN-O01 a RN-O07 de la
+[especificación del cuestionario](../producto/cuestionario-preliminar-reglas.md) a partir de
+`aiact_result`, con la misma lógica que `suggestObligations` (`lib/ai-act/obligations.ts`); un cambio en
+una debe llevar el cambio en la otra:
+- excluye las obligaciones retiradas; las de marcos distintos del AI Act (ISO/IEC 42001) se incluyen para
+  todos los sistemas;
+- las del AI Act, solo con `aiact_scope = 'in_scope'` y si la obligación no tiene roles o comparte alguno
+  con `value_chain_roles` (el Art. 5, aunque no haya rol);
+- práctica prohibida: solo `AI-ACT-ART5` (RN-O05);
+- `transparency`: el apartado del Art. 50 que figura en `aiact_result.transparency` con el rol obligado
+  (RN-O03); `all`: siempre (RN-O01); `high_risk`: nivel `high`, salvo Anexo I Sección B (RN-O02 y RN-H04);
+  `gpai`: proveedor de modelo GPAI, y `AI-ACT-ART55` solo con riesgo sistémico `yes` (RN-O04);
+- `AI-ACT-ART27`: nivel `high`, rol `deployer`, algún punto del Anexo III distinto del 2, y organismo
+  público (`aiact_inputs.publicBody`) o puntos 5.b o 5.c (RN-O06); `AI-ACT-ART6-4`: `aiact_result.art63 =
+  'valid'` y rol `provider` (RN-O07).
+
+Para los sistemas sin `aiact_result` (sin reclasificar desde B13a), la transparencia se aproxima por nivel
+(`limited` o `high`) y el Art. 27 por nivel y rol, y esas filas llevan `condicional = true`; el Art. 6.4 no
+se incluye. Ningún código de la aplicación usa hoy la vista: las obligaciones sugeridas las calcula el
+motor.
+
+Una obligación del AI Act sin ámbito (`scope` nulo, «Universal» en el catálogo) no se sugiere ni en el
+motor ni en la vista. El catálogo estándar no tiene ninguna.
 
 **Datos que transforma la migración `20261022090000`:**
 - traduce las claves antiguas de obligación (`art_9`, `art_53_doc`, `art_53_copyright`,

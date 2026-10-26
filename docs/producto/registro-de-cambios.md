@@ -58,6 +58,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B13b · Cuestionario preliminar con clasificación preliminar | Integrado en `main` | `fase2/b13b-cuestionario` | 2026-10-22 | **Sí** · `20261022100000_cuestionario_clasificacion.sql` |
 | B13c · Alta en el inventario desde el cuestionario y bloque Supuestos AI Act | Integrado en `main` | `fase2/b13c-volcado-alta` | 2026-10-22 | **Sí** · `20261022110000_cuestionario_vinculo.sql` |
 | Glosario: cuestionario preliminar tras B13b y B13c | Integrado en `main` | `docs/glosario-b13c` | 2026-10-22 | No |
+| B13d · GPAI fuera de los niveles de riesgo y catálogo de obligaciones | Integrado en `main` | `fase2/b13d-gpai-catalogo` | 2026-10-26 | **Sí** · `20261026090000_ai_act_gpai_catalogo.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -90,6 +91,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | `supabase/migrations/20261022090000_ai_act_motor_unico.sql` | B13a | Columnas del motor en `ai_systems` (supuestos, ámbito, resultado, versión de reglas, GPAI, revisión pendiente); eventos con nivel `pending` o nulo; traduce las claves de obligación a los códigos del catálogo (archiva duplicadas); marca los sistemas existentes «Pendiente de revisar con el motor nuevo» | **Antes** de desplegar B13a, y **desplegar a la vez la web y el servicio de agentes** (cambia el contrato entre ambos). Revisa el aviso `B13a: N sistemas pendientes…; M obligaciones con código del catálogo` |
 | `supabase/migrations/20261022100000_cuestionario_clasificacion.sql` | B13b | Columna `preliminary_questionnaires.classification` (clasificación preliminar guardada al completar) | Antes de desplegar B13b |
 | `supabase/migrations/20261022110000_cuestionario_vinculo.sql` | B13c | Índice único sobre `preliminary_questionnaires.ai_system_id` (un cuestionario de origen por sistema) y trigger `trg_preliminary_questionnaire_locked` (un cuestionario vinculado no cambia sus respuestas ni su estado) | **Antes** de desplegar B13c. Si algún sistema tuviera ya dos cuestionarios vinculados, el índice fallará: desvincula los sobrantes antes |
+| `supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql` | B13d | Sistemas con nivel `gpai` → categoría GPAI (`is_gpai`), «Pendiente de clasificar» y pendientes de revisar; CHECK que impide el valor; columna `compliance.obligations.retired_at`; Art. 50 dividido en 50.1 a 50.4 (la fila antigua queda retirada), Art. 6.4 nuevo y descripción del Art. 27; vista `compliance.v_system_obligations` reescrita con RN-O01 a RN-O07 | **Antes** de desplegar B13d, y **desplegar a la vez la web y el servicio de agentes** (el prompt de la clasificación con IA deja de ofrecer las obligaciones retiradas). Revisa el aviso `B13d: N sistemas con nivel GPAI…` |
 
 ---
 
@@ -1457,3 +1459,44 @@ A petición del responsable, `glosario.md` incorpora (TODO 268 y 269):
 - **Cuestionario preliminar:** propósito (clasificación preliminar y alta en el inventario), subapartado
   **Cuestionario de origen** (vínculo, solo lectura, desvinculación al borrar el sistema) y «En el código» con
   `classification`, el índice, el trigger, `to-aiact.ts` y `to-wizard.ts`. Se retira el TODO del vínculo sin uso.
+
+---
+
+## B13d · GPAI fuera de los niveles de riesgo y catálogo de obligaciones
+
+**Fecha:** 2026-10-26 · **Rama:** `fase2/b13d-gpai-catalogo` ·
+**Migración:** **sí**, `supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql`
+
+**Problema** (GAP-09; D3 y DP-10): GPAI seguía siendo un valor del nivel de riesgo AI Act en la base de datos y en
+varias pantallas, aunque desde B13a es una categoría aparte. El catálogo tenía un solo Art. 50, sin distinguir el
+supuesto ni a quién obliga, y no tenía la obligación de documentar la excepción del Art. 6.3. La vista
+`v_system_obligations` seguía calculando las obligaciones por nivel. El listado del inventario mostraba «Pendiente»
+en los sistemas fuera del ámbito (TODO 263).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Nivel y categoría GPAI | Los sistemas con nivel `gpai` pasan a la categoría GPAI, con el nivel «Pendiente de clasificar» y la marca «Pendiente de revisar con el motor nuevo». Un CHECK impide volver a guardar `gpai` como nivel; el valor queda en el enum (en desuso) y en el historial |
+| Catálogo de obligaciones | Art. 50 dividido en 50.1 y 50.2 (proveedor) y 50.3 y 50.4 (responsable del despliegue), con los tipos de evidencia del Art. 50; la fila antigua queda **retirada** (`retired_at`): no se sugiere, pero conserva su etiqueta en las obligaciones ya registradas. Obligación nueva del Art. 6.4 (documentar la excepción del Art. 6.3 y registrar, Art. 49.2). Descripción del Art. 27 según el Art. 27.1 |
+| Vista `compliance.v_system_obligations` | Reescrita con RN-O01 a RN-O07 a partir del resultado del motor, con la misma lógica que `suggestObligations`. Sin resultado del motor, aproxima la transparencia y la FRIA por nivel y las marca como condicionales |
+| Pantallas | Sin «GPAI» como nivel (panel, evaluaciones, informes, FMEA, alta). Inventario: «Fuera del ámbito» y «No es un sistema de IA» (TODO 263), etiqueta GPAI y filtro «Categoría GPAI». Ficha: categoría GPAI junto al nivel (proveedor de modelo, con riesgo sistémico o sin determinar, o basado en un modelo de terceros). Historial: los eventos antiguos con `gpai` se marcan como «(nivel antiguo)». Catálogo de obligaciones: alcances del motor y marca «Retirada» |
+| Servicio de agentes | El prompt de la clasificación con IA no ofrece las obligaciones retiradas |
+
+**Verificación.** Migración probada en el Postgres local (reconstruido desde cero con las 72 migraciones): dos veces
+seguidas (idempotente), con un sistema antiguo de nivel `gpai` y con el CHECK. La vista se ha cruzado con
+`suggestObligations` en 20 casos de la especificación (prohibida con y sin rol, alto riesgo por Anexo I y III, FRIA
+pública y privada, Art. 6.3 válido e inválido, Art. 50.1 a 50.4, GPAI con y sin riesgo sistémico, fuera del ámbito,
+no IA y mínimo): coinciden en todos. `npm test` 86/86, `tsc --noEmit` sin errores, `next lint` sin avisos nuevos,
+`check-server-actions.sh` y `check-python.sh` correctos. No se ha probado en el navegador.
+
+**Documentación.** Funcionales del inventario, la ficha, el catálogo de obligaciones y el flujo completo; negocio de
+clasificación AI Act, obligaciones e inventario; modelo de datos y servicio de agentes; especificación del
+cuestionario v0.4 (estado de RN-O y RN-G); documentos de producto `flujo-completo.md` y
+`ficha-tecnica-vs-formulario.md` (TODO 264); `_incidencias.md` (I22, I23). TODO 263, 264, 273 y 275 resueltos; 27
+resuelto y 179 en parte; 274 en parte; nuevo 276 (glosario).
+
+**Pendiente.** B13 queda cerrado. Glosario tras B13d (TODO 276). Abiertos de B13: 259 y 261 (conciliar una
+clasificación con IA no actualiza el ámbito ni los avisos), 260 (respuesta de `classify` en el alta), 274 (retirar
+obligaciones desde el catálogo).
+

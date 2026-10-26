@@ -176,7 +176,12 @@ export type SystemDetailData = {
   /** Motor único (B13a). */
   aiact_scope?: 'in_scope' | 'out_of_scope' | 'not_ai_system' | 'pending' | null;
   aiact_scope_reason?: string | null;
-  aiact_result?: { method?: string; warnings?: Array<{ rule: string; text: string }>; rulesVersion?: string } | null;
+  aiact_result?: {
+    method?: string;
+    warnings?: Array<{ rule: string; text: string }>;
+    rulesVersion?: string;
+    gpai?: { modelProvider: boolean; systemicRisk: 'yes' | 'no' | 'unknown' | null; thirdPartyBased: boolean };
+  } | null;
   aiact_review_pending?: boolean | null;
   /** Cuestionario preliminar del que se registró (B13c). */
   origin_questionnaire?: { id: string; title: string } | null;
@@ -331,7 +336,8 @@ const RISK_CONFIG: Record<string, { label: string; pill: string; text: string }>
   high: { label: 'Alto Riesgo', pill: 'bg-red-dim border-reb', text: 'text-re' },
   limited: { label: 'Riesgo Limitado', pill: 'bg-ordim border-orb', text: 'text-or' },
   minimal: { label: 'Riesgo Mínimo', pill: 'bg-grdim border-grb', text: 'text-gr' },
-  gpai: { label: 'GPAI', pill: 'bg-cyan-dim border-cyan-border', text: 'text-brand-cyan' },
+  // Solo para eventos antiguos del historial: GPAI dejó de ser un nivel en B13d.
+  gpai: { label: 'GPAI (nivel antiguo)', pill: 'bg-cyan-dim border-cyan-border', text: 'text-brand-cyan' },
   pending: { label: 'Pendiente', pill: 'bg-ltcard2 border-ltb', text: 'text-lttm' },
 };
 
@@ -1756,6 +1762,18 @@ export function SystemDetailClient({
       ? { ...RISK_CONFIG.pending, label: 'No es un sistema de IA' }
       : RISK_CONFIG[liveRiskLevel] ?? RISK_CONFIG[system.aiact_risk_level] ?? RISK_CONFIG.pending;
   const avisosMotor = system.aiact_result?.warnings ?? [];
+  // Categoría GPAI (D3): aparte del nivel de riesgo.
+  const gpaiMotor = system.aiact_result?.gpai;
+  const gpaiMeta = (gpaiMotor?.modelProvider ?? system.is_gpai)
+    ? {
+        label: 'Proveedor de modelo GPAI'
+          + (gpaiMotor?.systemicRisk === 'yes' ? ' · riesgo sistémico'
+            : gpaiMotor?.systemicRisk === 'unknown' ? ' · riesgo sistémico sin determinar' : ''),
+        title: 'La organización desarrolla un modelo de IA de uso general y lo introduce en el mercado (Art. 3.63).',
+      }
+    : gpaiMotor?.thirdPartyBased
+      ? { label: 'Basado en un modelo GPAI de terceros', title: 'El sistema usa un modelo de IA de uso general de un tercero. No genera obligaciones de proveedor de modelo.' }
+      : null;
   const statusMeta = STATUS_CONFIG[system.status] ?? STATUS_CONFIG.deprecado;
 
   const obligations = useMemo(() => {
@@ -2602,6 +2620,11 @@ export function SystemDetailClient({
                   <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${riskMeta.text.replace('text-', 'bg-')}`} />
                   {riskMeta.label}
                 </span>
+                {gpaiMeta && (
+                  <span title={gpaiMeta.title} className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-cyan-dim text-brand-cyan border border-cyan-border">
+                    {gpaiMeta.label}
+                  </span>
+                )}
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${statusMeta.pill} ${statusMeta.text}`}>
                   {statusMeta.label}
                 </span>

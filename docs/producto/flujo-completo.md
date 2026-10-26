@@ -118,9 +118,13 @@ del despliegue, importador, distribuidor, representante autorizado — **no son 
 
 ### 1.2 · Clasificar según el AI Act — `/inventario/[id]/clasificacion`
 
-El motor `classifyAIAct` calcula nivel de riesgo (prohibido / alto / limitado / mínimo /
-GPAI), la base de la clasificación y los avisos. Se ejecuta ya en el alta y se puede
-recalcular aquí.
+El motor único de clasificación (`lib/ai-act`, desde B13a) calcula el ámbito del AI Act
+(dentro, fuera del ámbito o no es un sistema de IA), el nivel de riesgo (prohibido / alto /
+limitado / mínimo / pendiente), la categoría GPAI aparte del nivel (proveedor de modelo,
+riesgo sistémico, basado en un modelo de terceros), la base de la clasificación y los
+avisos. Se ejecuta ya en el alta y se puede recalcular aquí. GPAI no es un nivel de riesgo
+(D3): desde B13d los sistemas que lo tenían están en la categoría GPAI y pendientes de
+clasificar.
 
 **No bloquea nada**, pero condiciona todo lo que viene: el nivel de riesgo determina las
 obligaciones, y el motor de recomendación del dashboard sólo persigue los sistemas de
@@ -128,8 +132,13 @@ obligaciones, y el motor de recomendación del dashboard sólo persigue los sist
 
 ### 1.3 · Revisar las obligaciones derivadas — ficha del sistema, pestaña «Obligaciones AI Act»
 
-`v_system_obligations` cruza el nivel de riesgo con el rol en la cadena de valor y produce
-las obligaciones aplicables con su artículo. Es la pestaña que se abre por defecto en la
+El mismo motor (`suggestObligations`) cruza el resultado de la clasificación (nivel,
+supuestos del Art. 50, categoría GPAI, excepción del Art. 6.3) con el catálogo
+`compliance.obligations` y el rol en la cadena de valor, y produce las obligaciones
+sugeridas con su artículo, según las reglas RN-O01 a RN-O07 de
+[`cuestionario-preliminar-reglas.md`](cuestionario-preliminar-reglas.md). La vista
+`compliance.v_system_obligations` replica esa lógica en SQL (B13d), pero la aplicación no
+la usa. Es la pestaña que se abre por defecto en la
 ficha del sistema, y la lista de trabajo real de cumplimiento.
 
 La ficha del sistema tiene siete pestañas: **Obligaciones AI Act · Ficha técnica · ISO

@@ -101,13 +101,21 @@ FORM_COLUMNS = {
 }
 
 
-def _catalog_labels(sb: Client) -> dict[str, str]:
-    """Etiqueta «Art. N — título» de cada código AI Act del catálogo."""
+def _catalog_labels(sb: Client, include_retired: bool = True) -> dict[str, str]:
+    """Etiqueta «Art. N — título» de cada código AI Act del catálogo.
+
+    Las retiradas (B13d: el Art. 50 sin dividir) conservan su etiqueta para las
+    obligaciones ya registradas, pero no se ofrecen al agente.
+    """
     res = sb.schema("compliance").table("obligations") \
-        .select("code, article, title") \
+        .select("code, article, title, retired_at") \
         .eq("framework", "AI_ACT") \
         .execute()
-    return {o["code"]: f"{o['article']} — {o['title']}" for o in (res.data or [])}
+    return {
+        o["code"]: f"{o['article']} — {o['title']}"
+        for o in (res.data or [])
+        if include_retired or not o.get("retired_at")
+    }
 
 
 def _event_payload(c: EngineClassification, factors: Optional[dict] = None) -> dict:
@@ -748,7 +756,7 @@ def register_classification_routes(
 
         # Referencia del motor único y catálogo de obligaciones
         ref = request.reference
-        labels = _catalog_labels(sb)
+        labels = _catalog_labels(sb, include_retired=False)
         rules_result = {
             "risk_level":      ref.risk_level,
             "scope":           ref.scope,

@@ -15,12 +15,13 @@ const FRAMEWORKS = [
   { value: 'MDR',       label: 'MDR/IVDR' },
 ];
 
+// Alcances que entiende el motor de clasificación (§4.9 de la especificación).
 const SCOPES = [
-  { value: '',           label: 'Universal' },
-  { value: 'high_risk',  label: 'Alto riesgo' },
-  { value: 'gpai',       label: 'GPAI' },
-  { value: 'general',    label: 'General' },
-  { value: 'prohibited', label: 'Prohibido' },
+  { value: '',             label: 'Universal' },
+  { value: 'all',          label: 'Todo sistema en el ámbito' },
+  { value: 'high_risk',    label: 'Alto riesgo' },
+  { value: 'transparency', label: 'Transparencia (Art. 50)' },
+  { value: 'gpai',         label: 'Proveedor de modelo GPAI' },
 ];
 
 function frameworkBadge(fw: string) {
@@ -38,10 +39,10 @@ function frameworkBadge(fw: string) {
 function scopeBadge(scope: string | null) {
   if (!scope) return 'bg-ltcard2 border-ltb text-lttm';
   const map: Record<string, string> = {
-    high_risk:  'bg-red-dim border-reb text-re',
-    gpai:       'bg-ordim border-orb text-or',
-    general:    'bg-grdim border-grb text-gr',
-    prohibited: 'bg-red-dim border-reb text-re',
+    all:          'bg-grdim border-grb text-gr',
+    high_risk:    'bg-red-dim border-reb text-re',
+    transparency: 'bg-cyan-dim border-cyan-border text-brand-cyan',
+    gpai:         'bg-ordim border-orb text-or',
   };
   return map[scope] ?? 'bg-ltcard2 border-ltb text-ltt2';
 }
@@ -216,6 +217,12 @@ export default function ObligacionesPage() {
                     <td className="px-5 py-3.5 font-plex text-[13px] text-ltt2">{item.article}</td>
                     <td className="px-5 py-3.5">
                       <div className="font-medium line-clamp-2">{item.title}</div>
+                      {item.retired_at && (
+                        <span title="No se sugiere a ningún sistema; se conserva para las obligaciones ya registradas."
+                          className="inline-flex mt-1 px-1.5 py-px rounded-[4px] text-[10.5px] font-plex border bg-ltcard2 border-ltb text-lttm">
+                          Retirada
+                        </span>
+                      )}
                       {item.description && (
                         <div className="text-[11.5px] text-lttm mt-0.5 line-clamp-1">{item.description}</div>
                       )}

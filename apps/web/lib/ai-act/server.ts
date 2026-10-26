@@ -31,11 +31,13 @@ export type AiActCatalog = {
 export async function loadAiActCatalog(): Promise<AiActCatalog> {
   const { data } = await createComplianceClient()
     .from('obligations')
-    .select('code, article, title, scope, applies_to_roles')
+    .select('code, article, title, scope, applies_to_roles, retired_at')
     .eq('framework', 'AI_ACT')
-  const rows = (data ?? []) as Array<{ code: string; article: string; title: string; scope: string | null; applies_to_roles: string[] | null }>
+  const rows = (data ?? []) as Array<{ code: string; article: string; title: string; scope: string | null; applies_to_roles: string[] | null; retired_at: string | null }>
   return {
-    obligations: rows.map((r) => ({ code: r.code, scope: r.scope, applies_to_roles: r.applies_to_roles ?? [] })),
+    // Las retiradas (B13d: el Art. 50 sin dividir) no se sugieren, pero
+    // conservan su etiqueta para las obligaciones ya registradas.
+    obligations: rows.filter((r) => !r.retired_at).map((r) => ({ code: r.code, scope: r.scope, applies_to_roles: r.applies_to_roles ?? [] })),
     labels: Object.fromEntries(rows.map((r) => [r.code, `${r.article} — ${r.title}`])),
   }
 }

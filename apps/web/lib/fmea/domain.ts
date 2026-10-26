@@ -111,7 +111,6 @@ export function getAiActZoneFloor(aiActLevel: string | null | undefined): FmeaZo
       return 'zona_iii';
     case 'minimal':
     case 'pending':
-    case 'gpai':
     default:
       return 'zona_iv';
   }

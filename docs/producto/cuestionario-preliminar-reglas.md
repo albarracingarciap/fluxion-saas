@@ -4,7 +4,7 @@ titulo: Cuestionario preliminar, reglas de clasificación AI Act y volcado al al
 tipo: especificacion
 modulo: evaluacion-de-impacto
 audiencia: producto, tecnica
-version: 0.3
+version: 0.4
 fuente:
   - apps/web/lib/preliminary-questionnaire/schema.ts
   - apps/web/lib/preliminary-questionnaire/to-aiact.ts
@@ -18,6 +18,9 @@ fuente:
   - apps/web/lib/ai-systems/scoring.ts
   - apps/web/app/(app)/inventario/nuevo/actions.ts
   - apps/web/app/(app)/inventario/nuevo/page.tsx
+  - apps/web/lib/ai-act/obligations.ts
+  - apps/web/lib/ai-act/server.ts
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
   - apps/web/app/(app)/inventario/[id]/editar/page.tsx
   - apps/web/app/(app)/inventario/[id]/page.tsx
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
@@ -56,7 +59,7 @@ Tomadas por el responsable del proyecto el 2026-10-19:
 
 ## 1. Situación actual
 
-Estado tras los bloques B13a, B13b y B13c (2026-10-22):
+Estado tras los bloques B13a, B13b y B13c (2026-10-22) y B13d (2026-10-26):
 
 - **Motor único (B13a).** Las reglas de §4 están implementadas en `lib/ai-act` y las usan el alta, la
   edición, la reclasificación y el alta desde sistemas detectados. El servicio de agentes ya no clasifica
@@ -73,6 +76,13 @@ Estado tras los bloques B13a, B13b y B13c (2026-10-22):
   (`preliminary_questionnaires.ai_system_id`) y es de solo lectura, también en la base de datos
   (migración `20261022110000_cuestionario_vinculo.sql`). En el asistente, GPAI deja de ser una opción de
   «¿Es este un sistema de inteligencia artificial?» y pasa a ser un indicador aparte (D3).
+- **GPAI y catálogo (B13d).** GPAI deja de ser un nivel de riesgo también en los datos: los sistemas con
+  nivel `gpai` pasan a la categoría GPAI (`is_gpai`), con nivel **Pendiente de clasificar** y la marca
+  «Pendiente de revisar con el motor nuevo», y un CHECK impide el valor (§4.7). El catálogo de
+  obligaciones aplica los cambios de DP-10 (§4.9) y la vista `compliance.v_system_obligations` replica en
+  SQL las reglas RN-O01 a RN-O07 del motor (migración `20261026090000_ai_act_gpai_catalogo.sql`). Las
+  pantallas (inventario, ficha, informes, evaluaciones, dashboard) ya no muestran GPAI como nivel; el
+  inventario y la ficha muestran la categoría GPAI aparte.
 - **Cuestionarios anteriores.** Los completados antes de B13b no tienen clasificación guardada y, mientras
   no se respondan las preguntas nuevas, se clasifican como **Pendiente de clasificar**.
 
@@ -305,8 +315,14 @@ GPAI deja de ser un nivel. El resultado lleva una **categoría GPAI** independie
 - Los sistemas existentes con nivel `gpai` se migran: `is_gpai = true` y nivel **Pendiente de clasificar**
   para que se reclasifiquen.
 
-**Decidido (DP-10, 2026-10-20).** GPAI es una categoría aparte, no un nivel de riesgo (D3). Falta actualizar
-la entrada «Nivel de riesgo AI Act» de `glosario.md`.
+**Decidido (DP-10, 2026-10-20).** GPAI es una categoría aparte, no un nivel de riesgo (D3).
+
+**Implementado.** RN-G01 a RN-G07 en el motor (B13a); las columnas `gpai_systemic_risk` y
+`gpai_third_party_based`, en B13a. La migración de los sistemas con nivel `gpai` (`is_gpai = true`, nivel
+`pending` y `aiact_review_pending = true`) y el CHECK `chk_ai_systems_aiact_risk_level_sin_gpai`, que impide
+el valor, en B13d (`20261026090000_ai_act_gpai_catalogo.sql`). El valor sigue en el enum, en desuso, y en
+`classification_events.risk_level` para el histórico. El inventario y la ficha muestran la categoría GPAI
+junto al nivel (B13d).
 
 ### 4.8 Rol en la cadena de valor (AI Act, Art. 3.3 a 3.7 y Art. 25)
 
@@ -330,20 +346,36 @@ sistema y **avisa** de las incoherencias, pero nunca cambia los declarados.
 Las obligaciones salen del catálogo (`compliance.obligations`), cruzando su alcance (`scope`) y sus roles
 (`applies_to_roles`) con el resultado:
 
-| Regla | Alcance del catálogo | Se sugiere si… |
-|---|---|---|
-| **RN-O01** | `all` | El sistema está dentro del ámbito y la organización tiene un rol al que aplica (por ejemplo, Art. 4 alfabetización) |
-| **RN-O02** | `high_risk` | Nivel **Alto riesgo** (Anexo I Sección A o Anexo III) y el rol coincide |
-| **RN-O03** | `transparency` | Hay un supuesto del Art. 50 **cuyo obligado coincide con el rol** (§4.6). Sustituye la aproximación actual por nivel |
-| **RN-O04** | `gpai` | Categoría **Proveedor de modelo GPAI** (Art. 55 solo con riesgo sistémico) |
-| **RN-O05** | Prohibición | Nivel **Práctica prohibida**: se sugiere el Art. 5 y ninguna otra; el resultado indica la retirada o el rediseño |
-| **RN-O06** | Art. 27 (FRIA) | Responsable del despliegue de alto riesgo del Anexo III (salvo el punto 2) que es organismo de derecho público o entidad privada que presta servicios públicos, o que despliega sistemas de los puntos 5.b o 5.c (Art. 27.1). Requiere la pregunta de Q-10 |
-| **RN-O07** | Art. 6.4 y 49.2 | Excepción del Art. 6.3 válida y rol Proveedor |
+| Regla | Alcance del catálogo | Se sugiere si… | Estado |
+|---|---|---|---|
+| **RN-O01** | `all` | El sistema está dentro del ámbito y la organización tiene un rol al que aplica (por ejemplo, Art. 4 alfabetización) | Implementado (motor, B13a; vista, B13d) |
+| **RN-O02** | `high_risk` | Nivel **Alto riesgo** (Anexo I Sección A o Anexo III) y el rol coincide | Implementado (motor, B13a; vista, B13d) |
+| **RN-O03** | `transparency` | Hay un supuesto del Art. 50 **cuyo obligado coincide con el rol** (§4.6). Sustituye la aproximación actual por nivel | Implementado (motor, B13a; catálogo dividido y vista, B13d) |
+| **RN-O04** | `gpai` | Categoría **Proveedor de modelo GPAI** (Art. 55 solo con riesgo sistémico) | Implementado (motor, B13a; vista, B13d) |
+| **RN-O05** | Prohibición | Nivel **Práctica prohibida**: se sugiere el Art. 5 y ninguna otra; el resultado indica la retirada o el rediseño | Implementado (motor, B13a; vista, B13d) |
+| **RN-O06** | Art. 27 (FRIA) | Responsable del despliegue de alto riesgo del Anexo III (salvo el punto 2) que es organismo de derecho público o entidad privada que presta servicios públicos, o que despliega sistemas de los puntos 5.b o 5.c (Art. 27.1). Requiere la pregunta de Q-10 | Implementado (motor, B13a; descripción del catálogo y vista, B13d) |
+| **RN-O07** | Art. 6.4 y 49.2 | Excepción del Art. 6.3 válida y rol Proveedor | Implementado (motor, B13a; obligación `AI-ACT-ART6-4` y vista, B13d) |
 
 **Decidido (DP-10, 2026-10-20).** Cambios del catálogo de obligaciones, a aplicar en B13:
 - el Art. 50 se divide en 50.1 a 50.4 (RN-O03);
 - el Art. 27 solo se sugiere en los supuestos del Art. 27.1 (RN-O06);
 - obligación nueva para documentar la excepción del Art. 6.3 (Art. 6.4 y 49.2, RN-O07).
+
+**Implementado en B13d** (`20261026090000_ai_act_gpai_catalogo.sql`):
+- el Art. 50 se divide en `AI-ACT-ART50-1` y `-2` (obligado: proveedor) y `AI-ACT-ART50-3` y `-4`
+  (obligado: responsable del despliegue), con los tipos de evidencia del Art. 50. `AI-ACT-ART50` queda
+  **retirada** (columna nueva `compliance.obligations.retired_at`): no se sugiere, pero se conserva en los
+  sistemas que la tenían registrada;
+- el Art. 27 cambia de descripción; la regla RN-O06 la aplican el motor y la vista;
+- obligación nueva `AI-ACT-ART6-4`, solo para el rol Proveedor;
+- `compliance.v_system_obligations` aplica RN-O01 a RN-O07 a partir de `aiact_result`, con la misma lógica
+  que `suggestObligations`. Para los sistemas sin resultado del motor aproxima la transparencia y la FRIA
+  por nivel y las marca como condicionales. La aplicación no la usa: las obligaciones sugeridas las calcula
+  el motor.
+
+> **ℹ Nota de implementación (B13d).** La vista incluye además las obligaciones de ISO/IEC 42001 para
+> todos los sistemas, que el motor no trata porque solo carga el catálogo del AI Act. Una obligación del AI
+> Act sin alcance (`scope` nulo) no se sugiere en ninguno de los dos.
 
 ## 5. Reglas del cuestionario: completitud y coherencia
 
@@ -535,7 +567,7 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 | Categoría GPAI | `ai_systems.is_gpai` (redefinida) y columnas nuevas | Proveedor de modelo, riesgo sistémico, basado en modelo de terceros |
 | Vínculo | `preliminary_questionnaires.ai_system_id` (ya existe) | Índice único (RN-W12) |
 | Historial | `ai_system_history` | Evento de RN-W09 |
-| Nivel de riesgo | `ai_systems.aiact_risk_level` | Sin el valor `gpai` (§4.7). Para «Fuera del ámbito» y «No es un sistema de IA» hace falta un valor nuevo o un campo de ámbito |
+| Nivel de riesgo | `ai_systems.aiact_risk_level` | Sin el valor `gpai` (§4.7; CHECK desde B13d). Para «Fuera del ámbito» y «No es un sistema de IA» hace falta un valor nuevo o un campo de ámbito |
 
 **Decidido (DP-10, 2026-10-20).** «Fuera del ámbito» y «No es un sistema de IA» se guardan en un **campo de
 ámbito aparte**, no como valores nuevos de `aiact_risk_level`.
@@ -543,7 +575,8 @@ el paso 6 salvo responsable y equipo, y todo el paso 7.
 **Implementado.** La clasificación preliminar se guarda en `preliminary_questionnaires.classification`
 (B13b): `{result, obligations, computed_at}`. Los supuestos AI Act, la categoría GPAI y el campo de ámbito
 del sistema se añadieron en B13a. El vínculo (índice único y bloqueo por trigger) y el historial del
-volcado, en B13c (`20261022110000_cuestionario_vinculo.sql`).
+volcado, en B13c (`20261022110000_cuestionario_vinculo.sql`). La migración de los sistemas con nivel `gpai` y el CHECK que
+impide el valor, en B13d (`20261026090000_ai_act_gpai_catalogo.sql`).
 
 ## 8. Cambios en el cuestionario
 

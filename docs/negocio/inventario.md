@@ -4,9 +4,10 @@ titulo: Inventario de sistemas de IA
 tipo: negocio
 modulo: inventario
 audiencia: comercial
-version: 0.2
+version: 0.3
 fuente:
   - apps/web/app/(app)/inventario/page.tsx
+  - apps/web/app/(app)/inventario/systems-table-client.tsx
   - apps/web/app/(app)/inventario/nuevo/page.tsx
   - apps/web/app/(app)/inventario/nuevo/actions.ts
   - apps/web/app/(app)/inventario/[id]/page.tsx
@@ -37,7 +38,10 @@ sabe que existe. En muchas organizaciones la IA está repartida entre áreas, pr
 piloto, y nadie tiene la lista completa. El inventario de Fluxion:
 
 - **Una sola lista** de todos los sistemas, con su estado (desarrollo, piloto, producción, deprecado o
-  retirado) y su ámbito de negocio.
+  retirado), su ámbito de negocio y su clasificación AI Act: el nivel de riesgo, o si el sistema está
+  fuera del ámbito del Reglamento o no es un sistema de IA, y una etiqueta para los sistemas cuya
+  organización es proveedora de un modelo de IA de uso general. La lista se puede filtrar por cada uno de
+  esos valores.
 - **Datos estructurados** que alimentan la [clasificación AI Act](../glosario.md#clasificación-ai-act):
   propósito, tipo de resultados, personas afectadas, colectivos vulnerables, datos tratados, tecnología
   y supervisión.
