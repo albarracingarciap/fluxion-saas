@@ -26,6 +26,7 @@ fuente:
   - apps/web/lib/preliminary-questionnaire/to-wizard.ts
   - supabase/migrations/20261022100000_cuestionario_clasificacion.sql
   - supabase/migrations/20261022110000_cuestionario_vinculo.sql
+  - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
   - apps/web/lib/modules/registry.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/fmea-evaluation-client.tsx
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
@@ -168,7 +169,7 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 ### Nivel de riesgo AI Act
 - **Definición:** categoría de riesgo de un sistema de IA según el AI Act.
 - **No usar:** «nivel de riesgo» a secas (se confunde con la zona de riesgo del FMEA), «riesgo regulatorio».
-- **En el código:** enum `fluxion.aiact_risk_level`.
+- **En el código:** enum `fluxion.aiact_risk_level`. El valor `gpai` está en desuso: el CHECK `chk_ai_systems_aiact_risk_level_sin_gpai` impide guardarlo y solo se conserva en el historial (`classification_events.risk_level`), donde se muestra como «(nivel antiguo)».
 
 | Término | Valor | Normativa |
 |---|---|---|
@@ -179,12 +180,13 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Pendiente de clasificar | `pending` | — |
 
 - **Modelo de IA de uso general (GPAI)** no es un nivel de riesgo: es una categoría aparte (ver «Categoría GPAI»). Un sistema basado en un modelo GPAI se clasifica por lo que hace (decisión DP-10 y D3, 2026-10-20).
-- > **Pendiente de implementar.** El campo todavía admite el valor `gpai`. Desde B13a el motor de clasificación ya no lo asigna; B13d migra los sistemas que lo tienen a `is_gpai` y a «Pendiente de clasificar».
+- Los sistemas que tenían el nivel GPAI pasaron a la categoría GPAI, con el nivel «Pendiente de clasificar» y la marca «Pendiente de revisar con el motor nuevo» (B13d).
 
 ### Categoría GPAI
 - **Definición:** relación de un sistema u organización con los modelos de IA de uso general, independiente del nivel de riesgo. Valores: **Proveedor de modelo GPAI** (la organización desarrolla un modelo GPAI y lo introduce en el mercado), **con riesgo sistémico** (sí, no o sin determinar) y **Sistema basado en un modelo GPAI de terceros** (usa el modelo de otro, por ejemplo por API; es informativo y no genera obligaciones de proveedor de modelo).
+- **En la interfaz:** la ficha del sistema muestra la categoría junto al nivel («Proveedor de modelo GPAI», con « · riesgo sistémico» o « · riesgo sistémico sin determinar», o «Basado en un modelo GPAI de terceros», forma abreviada del término); el listado del inventario marca a los proveedores de modelo con la etiqueta «GPAI» y los filtra con **Categoría GPAI**.
 - **No usar:** «nivel GPAI», «riesgo GPAI».
-- **En el código:** `ai_systems.is_gpai` (proveedor de modelo GPAI), `gpai_systemic_risk` (`yes`, `no`, `unknown`) y `gpai_third_party_based`.
+- **En el código:** `ai_systems.is_gpai` (proveedor de modelo GPAI), `gpai_systemic_risk` (`yes`, `no`, `unknown`) y `gpai_third_party_based`; en el resultado del motor, `aiact_result.gpai` (`modelProvider`, `systemicRisk`, `thirdPartyBased`).
 - **Normativa:** AI Act, Art. 3.63, 51, 53 y 55.
 
 ### Ámbito del AI Act
@@ -194,9 +196,10 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Normativa:** AI Act, Art. 2 y Art. 3.1.
 
 ### Obligación
-- **Definición:** requisito normativo concreto que aplica a un sistema de IA según su nivel de riesgo AI Act y el rol de la organización en la cadena de valor. Fluxion lo sugiere y la organización lo acepta, lo resuelve o lo excluye.
+- **Definición:** requisito normativo concreto que aplica a un sistema de IA según su clasificación AI Act y el rol de la organización en la cadena de valor: el nivel de riesgo, la categoría GPAI, los supuestos del Art. 50 (cada apartado obliga al proveedor o al responsable del despliegue), la excepción del Art. 6.3 y los supuestos del Art. 27.1. Fluxion lo sugiere y la organización lo acepta, lo resuelve o lo excluye.
+- **Obligación retirada:** obligación del catálogo que ya no se sugiere a ningún sistema, pero se conserva en los sistemas que la tenían (por ejemplo, el Art. 50 sin dividir, sustituido por los Art. 50.1 a 50.4). El catálogo la marca como «Retirada».
 - **No usar:** «requisito» (reservado para el catálogo `compliance.requirements`, sin uso), «deber».
-- **En el código:** catálogo `compliance.obligations` (códigos `AI-ACT-ART…`); por sistema, `fluxion.system_obligations` con `status` ∈ `suggested`, `pending`, `in_progress`, `resolved`, `blocked`, `excluded`.
+- **En el código:** catálogo `compliance.obligations` (códigos `AI-ACT-ART…`, `retired_at` para las retiradas); por sistema, `fluxion.system_obligations` con `status` ∈ `suggested`, `pending`, `in_progress`, `resolved`, `blocked`, `excluded`.
 - **Normativa:** cada obligación referencia su artículo (`compliance.obligations.article`).
 
 ---
