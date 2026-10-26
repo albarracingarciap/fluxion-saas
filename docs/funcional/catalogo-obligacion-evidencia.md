@@ -4,8 +4,10 @@ titulo: Obligación y evidencia
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/mappings/obligacion-evidencia/page.tsx
   - apps/web/app/(app)/datos/mappings/obligacion-evidencia/actions.ts
   - supabase/migrations/00000000000001_schema.sql
@@ -29,10 +31,11 @@ Indicar, para cada obligación, qué tipos de evidencia son obligatorios, recome
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -74,8 +77,8 @@ nueva.».
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Correspondencia** / **Editar** › **Guardar** | Todos | Crea la relación o cambia su nivel y notas | — |
-| **Eliminar** | Todos | Pide confirmación («¿Eliminar la correspondencia "{obligación} → {tipo}"?») y la borra | — |
+| **Añadir Correspondencia** / **Editar** › **Guardar** | Administración de la plataforma | Crea la relación o cambia su nivel y notas | — |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Eliminar la correspondencia "{obligación} → {tipo}"?») y la borra | — |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 Una pareja repetida devuelve el error técnico de la base de datos.

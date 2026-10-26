@@ -4,8 +4,10 @@ titulo: Catálogo de tablas básicas
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/page.tsx
   - apps/web/components/layout/sidebar.tsx
 ---
@@ -31,15 +33,18 @@ Dar acceso a cada tabla del catálogo y a sus relaciones. La vista se titula **B
 |---|---|---|
 | Todos los roles | Sí | Navegar |
 
-> **Pendiente de implementar.**
-> - Catálogo por organización, a partir de una copia del
->   [catálogo estándar de Fluxion](../glosario.md#catálogo-estándar-de-fluxion), y oferta de
->   actualizaciones. Hoy hay un único catálogo, común a todas las organizaciones.
-> - Restringir el mantenimiento al Administrador. Hoy las vistas de mantenimiento no comprueban el rol.
+Hoy hay un único catálogo, común a todas las organizaciones: el
+[catálogo estándar de Fluxion](../glosario.md#catálogo-estándar-de-fluxion). Lo modifica solo la
+administración de la plataforma (`profiles.platform_role` = `platform_admin`, equipo de Fluxion); el resto
+de roles lo consultan. Cada acción de escritura lo comprueba en el servidor (`lib/auth/platform.ts`) y las
+vistas ocultan los botones de alta, edición y borrado (`canEditCatalogs`).
+
+> **Pendiente de implementar.** Catálogo por organización, a partir de una copia del catálogo estándar,
+> mantenido por el Administrador de cada organización, y oferta de actualizaciones (`_inventario.md` §14.1).
 
 > TODO: confirmar varios textos de la página y del menú.
-> - **Solo lectura:** la página dice «Solo lectura para tenants comunes, edición como administrador.»,
->   pero no se aplica.
+> - **Solo lectura:** la página dice «Solo lectura para tenants comunes, edición como administrador.»;
+>   la edición es de la administración de la plataforma, no del Administrador de la organización.
 > - **Menú:** la entrada **Modos de fallo** figura como «Próximamente», aunque la vista funciona y se
 >   llega desde esta página.
 > - **Nombre:** el catálogo se titula «Base de Datos Interna», no «Catálogo de tablas básicas».

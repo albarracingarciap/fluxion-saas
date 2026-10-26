@@ -2,35 +2,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { db: { schema: 'compliance' } }
 );
-
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error('No autorizado');
-  return session.user;
-}
-
-/**
- * El catálogo es global (lo comparten todas las organizaciones): retirar o
- * recuperar una obligación cambia lo que se sugiere a todos los sistemas, así
- * que solo lo hace la administración de la plataforma (B13e).
- */
-async function isPlatformAdmin(userId: string) {
-  const { data } = await createFluxionClient()
-    .from('profiles')
-    .select('platform_role')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return data?.platform_role === 'platform_admin';
-}
 
 /** Una obligación del AI Act sin ámbito no la sugiere el motor: se exige uno. */
 function validarAmbito(payload: Record<string, unknown>) {
@@ -42,7 +20,7 @@ function validarAmbito(payload: Record<string, unknown>) {
 
 export async function getObligations(page = 1, pageSize = 50, framework?: string) {
   try {
-    const user = await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     let query = adminClient
       .from('obligations')
@@ -53,7 +31,7 @@ export async function getObligations(page = 1, pageSize = 50, framework?: string
     if (framework) query = query.eq('framework', framework);
     const { data, error, count } = await query;
     if (error) return { error: error.message };
-    return { data, count, success: true, canRetire: await isPlatformAdmin(user.id) };
+    return { data, count, success: true };
   } catch (e: unknown) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
@@ -61,7 +39,7 @@ export async function getObligations(page = 1, pageSize = 50, framework?: string
 
 export async function createObligation(payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const invalido = validarAmbito(payload);
     if (invalido) return { error: invalido };
     const { data, error } = await adminClient
@@ -78,7 +56,7 @@ export async function createObligation(payload: Record<string, unknown>) {
 
 export async function updateObligation(id: string, payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const invalido = validarAmbito(payload);
     if (invalido) return { error: invalido };
     const { data, error } = await adminClient
@@ -97,10 +75,7 @@ export async function updateObligation(id: string, payload: Record<string, unkno
 /** Retira (`retired = true`) o recupera una obligación del catálogo. */
 export async function setObligationRetired(id: string, retired: boolean) {
   try {
-    const user = await requireAdmin();
-    if (!(await isPlatformAdmin(user.id))) {
-      return { error: 'Solo la administración de la plataforma puede retirar o recuperar obligaciones del catálogo.' };
-    }
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('obligations')
       .update({ retired_at: retired ? new Date().toISOString() : null })
@@ -115,7 +90,7 @@ export async function setObligationRetired(id: string, retired: boolean) {
 
 export async function deleteObligation(id: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('obligations')
       .delete()

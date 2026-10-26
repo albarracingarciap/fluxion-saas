@@ -4,8 +4,10 @@ titulo: Catálogo de medidas
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/medidas/page.tsx
   - apps/web/app/(app)/datos/medidas/actions.ts
   - apps/web/lib/fmea/data.ts
@@ -33,10 +35,11 @@ implementación y sus referencias normativas.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -80,8 +83,8 @@ Sin resultados: «No se encontraron medidas de control».
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Medida** / **Editar** › **Guardar** | Todos | Crea o actualiza la medida | Los cambios de título y descripción se ven en los controles de las organizaciones que la usan |
-| **Eliminar** | Todos | Pide confirmación («¿Eliminar la medida {código}?») y la borra | Elimina sus relaciones con modos de fallo. Si alguna organización la usa como control, el borrado falla |
+| **Añadir Medida** / **Editar** › **Guardar** | Administración de la plataforma | Crea o actualiza la medida | Los cambios de título y descripción se ven en los controles de las organizaciones que la usan |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Eliminar la medida {código}?») y la borra | Elimina sus relaciones con modos de fallo. Si alguna organización la usa como control, el borrado falla |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 No hay mensaje de confirmación. Los errores se muestran en una ventana del navegador: «Error al guardar:

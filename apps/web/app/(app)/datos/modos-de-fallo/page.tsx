@@ -5,9 +5,13 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, Database, Plus, Loader2, Trash2, Edit2, ShieldAlert } from 'lucide-react';
 import { getFailureModes, deleteFailureMode, getRiskDimensions, createFailureMode, updateFailureMode } from './actions';
+import { canEditCatalogs } from '../actions';
 
 export default function ModosDeFalloPage() {
   const [mounted, setMounted] = useState(false);
+  // Solo la administración de la plataforma modifica los catálogos (lib/auth/platform.ts).
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => { canEditCatalogs().then(setCanEdit); }, []);
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
@@ -162,6 +166,7 @@ export default function ModosDeFalloPage() {
               Administra el inventario de vectores de riesgo, metodologías R.I.D.E. y dimensiones. Todos los tenants del sistema consumen en modo lectura de este catálogo maestro.
             </p>
           </div>
+          {canEdit && (
           <button
             onClick={openNewModal}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-cyan to-brand-blue text-white rounded-[9px] font-sora text-[13px] font-medium shadow-[0_2px_14px_rgba(0,173,239,0.28)] hover:-translate-y-px transition-all"
@@ -169,6 +174,7 @@ export default function ModosDeFalloPage() {
             <Plus className="w-4 h-4" />
             Añadir Nuevo
           </button>
+          )}
         </div>
       </section>
 
@@ -233,6 +239,7 @@ export default function ModosDeFalloPage() {
                     <td className="px-5 py-3.5 text-center">{item.e_value}</td>
                     <td className="px-5 py-3.5 text-center font-bold text-ltt2">{item.s_default}</td>
                     <td className="px-5 py-3.5">
+                      {canEdit && (
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openEditModal(item)} className="p-1.5 text-lttm hover:text-brand-cyan hover:bg-cyan-dim rounded-md transition-colors" title="Editar">
                           <Edit2 size={15} />
@@ -241,6 +248,7 @@ export default function ModosDeFalloPage() {
                           <Trash2 size={15} />
                         </button>
                       </div>
+                      )}
                     </td>
                   </tr>
                 ))}

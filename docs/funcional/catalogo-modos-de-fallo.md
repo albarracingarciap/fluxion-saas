@@ -4,8 +4,10 @@ titulo: Catálogo de modos de fallo
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/modos-de-fallo/page.tsx
   - apps/web/app/(app)/datos/modos-de-fallo/actions.ts
   - apps/web/lib/failure-modes/activation-engine.ts
@@ -34,10 +36,11 @@ sistema las que le aplican.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -82,8 +85,8 @@ S = round(2 + (R+I+D+E)·7/12).
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Nuevo** / **Editar** › **Guardar** | Todos | Crea o actualiza el modo | Ver abajo |
-| **Eliminar** | Todos | Pide confirmación («¿Estás seguro de que deseas eliminar el modo de fallo {código}?») y lo borra | Ver abajo |
+| **Añadir Nuevo** / **Editar** › **Guardar** | Administración de la plataforma | Crea o actualiza el modo | Ver abajo |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Estás seguro de que deseas eliminar el modo de fallo {código}?») y lo borra | Ver abajo |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 **Efectos en los datos existentes:**

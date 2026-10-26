@@ -4,8 +4,10 @@ titulo: Catálogo de obligaciones
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.2
+version: 0.3
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/obligaciones/page.tsx
   - apps/web/app/(app)/datos/obligaciones/actions.ts
   - supabase/migrations/00000000000001_schema.sql
@@ -35,10 +37,11 @@ como base para mapear qué evidencias son requeridas por cada artículo o cláus
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -100,9 +103,9 @@ excepción del Art. 6.3 y registrar el sistema).
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Obligación** / **Editar** › **Guardar** | Todos | Crea o actualiza la obligación | Cambia la cobertura de la obligación por modos de fallo y las obligaciones que se sugieren en las clasificaciones siguientes; no cambia las ya registradas en los sistemas |
+| **Añadir Obligación** / **Editar** › **Guardar** | Administración de la plataforma | Crea o actualiza la obligación | Cambia la cobertura de la obligación por modos de fallo y las obligaciones que se sugieren en las clasificaciones siguientes; no cambia las ya registradas en los sistemas |
 | **Retirar** / **Recuperar** | Administración de la plataforma (`profiles.platform_role` = `platform_admin`); el resto no ve el botón | Pide confirmación («¿Retirar la obligación {código}? Dejará de sugerirse a los sistemas; las ya registradas se conservan.» o «¿Recuperar la obligación {código}? Volverá a sugerirse en las próximas clasificaciones.») y fija o borra `retired_at` | Cambia las obligaciones que se sugieren en las clasificaciones siguientes; no cambia las ya registradas |
-| **Eliminar** | Todos | Pide confirmación («¿Eliminar la obligación {código}?») y la borra | Elimina también sus relaciones con tipos de evidencia, sin avisar |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Eliminar la obligación {código}?») y la borra | Elimina también sus relaciones con tipos de evidencia, sin avisar |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 No hay mensaje de confirmación. Los errores se muestran en una ventana del navegador: «Error al guardar:

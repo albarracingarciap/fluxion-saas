@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { requirePlatformAdmin, requireSession } from '@/lib/auth/platform';
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,16 +10,9 @@ const adminClient = createClient(
   { db: { schema: 'compliance' } }
 );
 
-async function requireAdmin() {
-  const supabase = createServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error('No autorizado');
-  return session.user;
-}
-
 export async function getEvidenceTypes(page = 1, pageSize = 50) {
   try {
-    await requireAdmin();
+    await requireSession();
     const start = (page - 1) * pageSize;
     const { data, error, count } = await adminClient
       .from('evidence_types')
@@ -35,7 +28,7 @@ export async function getEvidenceTypes(page = 1, pageSize = 50) {
 
 export async function createEvidenceType(payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('evidence_types')
       .insert([payload])
@@ -50,7 +43,7 @@ export async function createEvidenceType(payload: Record<string, unknown>) {
 
 export async function updateEvidenceType(id: string, payload: Record<string, unknown>) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { data, error } = await adminClient
       .from('evidence_types')
       .update(payload)
@@ -66,7 +59,7 @@ export async function updateEvidenceType(id: string, payload: Record<string, unk
 
 export async function deleteEvidenceType(id: string) {
   try {
-    await requireAdmin();
+    await requirePlatformAdmin();
     const { error } = await adminClient
       .from('evidence_types')
       .delete()

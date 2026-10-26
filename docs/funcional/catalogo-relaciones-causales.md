@@ -4,8 +4,10 @@ titulo: Relaciones causales
 tipo: funcional
 modulo: catalogo-tablas-basicas
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/app/(app)/datos/actions.ts
+  - apps/web/lib/auth/platform.ts
   - apps/web/app/(app)/datos/relaciones-causales/page.tsx
   - apps/web/app/(app)/datos/relaciones-causales/actions.ts
   - apps/web/lib/causal-graph/chains.ts
@@ -34,10 +36,11 @@ dependen las cadenas causales y los avisos de propagación de Fluxion.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
-| Todos los roles | Sí | Crear, editar y eliminar |
+| Administración de la plataforma (`profiles.platform_role` = `platform_admin`) | Sí | Crear, editar y eliminar |
+| Resto de roles | Sí | Solo consulta: no ven los botones de alta, edición ni borrado, y el servidor rechaza esas acciones |
 
-> **Pendiente de implementar.** Restringir el mantenimiento al Administrador y tener un catálogo por
-> organización. Ver [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
+> **Pendiente de implementar.** Catálogo por organización mantenido por el Administrador. Ver
+> [Catálogo de tablas básicas](catalogo.md#acceso-y-permisos).
 
 ## Campos
 
@@ -93,8 +96,8 @@ Un nodo está activo en un sistema si tiene vinculado algún modo de fallo activ
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Añadir Nueva** / **Editar** › **Guardar** | Todos | Crea o actualiza la relación | Cambia las cadenas y avisos de todos los sistemas |
-| **Eliminar** | Todos | Pide confirmación («¿Estás seguro de que deseas eliminar la relación {id}?») y la borra | Ídem |
+| **Añadir Nueva** / **Editar** › **Guardar** | Administración de la plataforma | Crea o actualiza la relación | Cambia las cadenas y avisos de todos los sistemas |
+| **Eliminar** | Administración de la plataforma | Pide confirmación («¿Estás seguro de que deseas eliminar la relación {id}?») y la borra | Ídem |
 | **Volver a Datos** | Todos | Vuelve al [Catálogo de tablas básicas](catalogo.md) | — |
 
 No hay mensaje de confirmación. Los errores se muestran en una ventana del navegador con el texto técnico
