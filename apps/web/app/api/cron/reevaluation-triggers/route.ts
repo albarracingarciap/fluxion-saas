@@ -3,6 +3,7 @@ import { requireCronSecret } from '@/lib/cron/auth'
 
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { detectPeriodicReevaluations, syncReevaluations } from '@/lib/evaluation-status/reevaluation-server'
+import { ensureAnnualReportTasks } from '@/lib/governance/biometric-server'
 
 /**
  * GET /api/cron/reevaluation-triggers
@@ -12,8 +13,11 @@ import { detectPeriodicReevaluations, syncReevaluations } from '@/lib/evaluation
  *      clasificación con reglas anteriores a las vigentes;
  *   2. cierra los disparadores cuyo alcance ya está aprobado y completa la
  *      tarea «Reevaluar sistema» si no queda ninguno.
+ *   3. crea la tarea del informe anual del Art. 26.10 del año en curso en los
+ *      sistemas marcados como biometría remota en diferido (B21c).
  * Los de incidente grave y cambio de supuestos se abren al momento, desde la
- * aplicación. Es idempotente: un disparador abierto no se duplica.
+ * aplicación. Es idempotente: un disparador abierto no se duplica y la tarea
+ * anual se crea una vez por año.
  *
  * Ver infra/schedules/.
  */
@@ -43,6 +47,8 @@ export async function GET(request: NextRequest) {
   let resolved = 0
   for (const orgId of orgs) resolved += await syncReevaluations(orgId)
 
-  console.log(`[cron/reevaluation-triggers] ${registered} disparadores nuevos · ${resolved} resueltos · ${orgs.length} organizaciones`)
-  return NextResponse.json({ checkedAt: now.toISOString(), triggersRegistered: registered, triggersResolved: resolved, organizations: orgs.length })
+  const annualReports = await ensureAnnualReportTasks()
+
+  console.log(`[cron/reevaluation-triggers] ${registered} disparadores nuevos · ${resolved} resueltos · ${orgs.length} organizaciones · ${annualReports} informes anuales`)
+  return NextResponse.json({ checkedAt: now.toISOString(), triggersRegistered: registered, triggersResolved: resolved, organizations: orgs.length, annualReportTasks: annualReports })
 }

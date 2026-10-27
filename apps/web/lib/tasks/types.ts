@@ -2,7 +2,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'in_review' | 'don
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type TaskSourceType =
   | 'manual' | 'treatment_action' | 'gap' | 'evaluation'
-  | 'fmea_item' | 'gap_group' | 'signal' | 'incident' | 'authority_request' | 'reevaluation'
+  | 'fmea_item' | 'gap_group' | 'signal' | 'incident' | 'authority_request' | 'reevaluation' | 'annual_report'
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo:        'Pendiente',
@@ -31,13 +31,14 @@ export const TASK_SOURCE_LABELS: Record<TaskSourceType, string> = {
   incident:         'Incidente de IA',
   authority_request: 'Requerimiento de la autoridad',
   reevaluation:     'Reevaluación del sistema',
+  annual_report:    'Informe anual (Art. 26.10)',
 }
 
 /** Orden de presentación. Usar esta lista en filtros y métricas en vez de
  *  literales sueltos: así un origen nuevo aparece en todas partes a la vez. */
 export const TASK_SOURCE_ORDER: TaskSourceType[] = [
   'manual', 'treatment_action', 'gap', 'gap_group',
-  'evaluation', 'fmea_item', 'signal', 'incident', 'authority_request', 'reevaluation',
+  'evaluation', 'fmea_item', 'signal', 'incident', 'authority_request', 'reevaluation', 'annual_report',
 ]
 
 /**

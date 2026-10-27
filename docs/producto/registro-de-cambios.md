@@ -2543,3 +2543,31 @@ navegador.
 
 **Documentación.** `funcional/expediente-documental.md`, `funcional/flujo-completo-evaluacion.md`, `_pendientes.md`
 (298: glosario).
+
+## B21c · Informe anual por identificación biométrica remota en diferido
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b21c-biometria-diferido` ·
+**Migración:** **sí**, `supabase/migrations/20261028150000_biometria_remota_diferido.sql`
+
+**Problema** (informe del flujo de trabajo, 3.5): el responsable del despliegue de un sistema de identificación
+biométrica remota en diferido presenta un informe anual a las autoridades (AI Act, Art. 26.10). Nada distinguía el
+uso en diferido ni recordaba el informe.
+
+**Decisión del responsable (2026-10-28):** campo nuevo en la ficha; solo con él marcado se crea la tarea anual.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `ai_systems.post_remote_biometric_id`; origen de tarea `annual_report` |
+| Reglas (`lib/governance/biometric.ts`, nuevo, puro) | Supuesto del Art. 26.10 (alto riesgo, Anexo III 1.a, responsable del despliegue); título y fecha de la tarea anual |
+| Ficha | Tarjeta **Biometría remota en diferido** con la casilla y las tareas de informe; historial y auditoría |
+| Tareas | Tarea «Informe anual Art. 26.10 · {año} · {sistema}», una por año, con fecha límite el 31 de diciembre (pendiente de definir); al marcar la casilla y, cada año, desde el cron `reevaluation-triggers` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 192/192 (dos tests nuevos),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador. B21 cerrado.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Usa el cron ya instalado.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
+`tecnica/modelo-datos.md`, `_pendientes.md` (299: fecha del informe; 300: condición de la obligación; 301: glosario).
