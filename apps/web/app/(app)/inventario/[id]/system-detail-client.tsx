@@ -51,6 +51,8 @@ import { ReconciliationPanel } from '@/components/classification/ReconciliationP
 import { ClassificationHistorySection } from '@/components/classification/ClassificationHistorySection';
 import type { ClassificationEventEntry } from '@/components/classification/ClassificationHistorySection';
 import type { RiskLevel } from '@/types/classification';
+import { StageCard, type StageOrganization } from './stage-card';
+import type { SystemStage } from '@/lib/evaluation-status/stages';
 import { ResponsablesCard } from './responsables-card';
 
 export type SystemHistoryEntry = {
@@ -1416,6 +1418,8 @@ function buildSyntheticHistory(system: SystemDetailData): SystemHistoryEntry[] {
 
 export function SystemDetailClient({
   system,
+  stage,
+  stageOrganization,
   history,
   classificationEvents,
   evidences,
@@ -1432,6 +1436,9 @@ export function SystemDetailClient({
   soaScopeSystemTags,
 }: {
   system: SystemDetailData;
+  /** Etapa de evaluación (DP-02, B18a). */
+  stage: SystemStage | null;
+  stageOrganization: StageOrganization;
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -4100,6 +4107,8 @@ export function SystemDetailClient({
                 </div>
               </div>
             </div>
+
+            {stage && <StageCard stage={stage} organization={stageOrganization} />}
 
             <ResponsablesCard systemId={system.id} />
 

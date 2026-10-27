@@ -1,3 +1,5 @@
+import { loadSystemStages } from '@/lib/evaluation-status/load'
+import { nextStepCard } from '@/lib/evaluation-status/stages'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
 type EvaluationSystemRow = {
@@ -134,77 +136,11 @@ function getAction(params: {
   }
 }
 
-function getNextEvaluationStep(rows: PipelineRow[]) {
-  const zoneI = rows.find((row) => row.sActual9Count > 0)
-  if (zoneI) {
-    return {
-      title: 'Escalado activo en Zona I',
-      description: `${zoneI.systemName} mantiene al menos un modo con S_actual = 9 y requiere seguimiento prioritario de dirección.`,
-      href: zoneI.actionHref,
-      cta: 'Revisar escalado',
-    }
-  }
-
-  const overdue = rows.find((row) => row.planDeadlineOverdue)
-  if (overdue) {
-    return {
-      title: 'Plan de tratamiento vencido',
-      description: `${overdue.systemName} tiene un plan con fecha límite superada. Revisa el estado de las acciones y actualiza el plazo si es necesario.`,
-      href: overdue.actionHref,
-      cta: 'Abrir plan',
-    }
-  }
-
-  const secondReview = rows.find((row) => row.secondReviewPendingCount > 0)
-  if (secondReview) {
-    return {
-      title: 'Resolver segundas revisiones',
-      description: `${secondReview.systemName} tiene ${secondReview.secondReviewPendingCount} ítems pendientes de segunda validación antes de cerrar la evaluación.`,
-      href: secondReview.actionHref,
-      cta: 'Abrir evaluación',
-    }
-  }
-
-  const planDraft = rows.find((row) => row.planStatus === 'draft')
-  if (planDraft) {
-    return {
-      title: 'Completar plan de tratamiento',
-      description: `${planDraft.systemName} ya tiene un plan en borrador y necesita decisiones de tratamiento antes de enviarlo a aprobación.`,
-      href: planDraft.actionHref,
-      cta: 'Abrir plan',
-    }
-  }
-
-  const fmeaDraft = rows.find((row) => row.fmeaState === 'draft')
-  if (fmeaDraft) {
-    return {
-      title: 'Continuar evaluación FMEA',
-      description: `${fmeaDraft.systemName} sigue en borrador y todavía no ha resuelto todos los modos priorizados.`,
-      href: fmeaDraft.actionHref,
-      cta: 'Continuar FMEA',
-    }
-  }
-
-  const pendingStart = rows.find((row) => row.prioritizedCount > 0 && !row.fmeaState)
-  if (pendingStart) {
-    return {
-      title: 'Iniciar evaluación en sistema priorizado',
-      description: `${pendingStart.systemName} ya tiene cola priorizada, pero todavía no ha arrancado FMEA.`,
-      href: pendingStart.actionHref,
-      cta: 'Iniciar evaluación',
-    }
-  }
-
-  return {
-    title: 'Pipeline estable',
-    description: 'No hay bloqueos graves en la cola actual. Puedes usar esta vista para seguimiento transversal y coordinación.',
-    href: '/inventario',
-    cta: 'Ver inventario',
-  }
-}
-
 export async function buildEvaluationsDashboardData(organizationId: string) {
   const fluxion = createFluxionClient()
+  // Etapa de evaluación de cada sistema (DP-02, B18a).
+  const stages = await loadSystemStages(fluxion, organizationId)
+  const stageBySystem = new Map(stages.map((row) => [row.id, row.stage]))
   const today = new Date().toISOString().split('T')[0]!
 
   const [
@@ -320,11 +256,14 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
       ).length
       const sActual9Count = latestItems.filter((row) => row.s_actual === 9).length
 
-      const currentStage = getStageLabel({
+      // Etapa de DP-02 y, detrás, el punto del ciclo de la evaluación.
+      const etapa = stageBySystem.get(system.id)
+      const ciclo = getStageLabel({
         prioritizedCount: prioritized.length,
         fmeaState: latestEvaluation?.state ?? null,
         planStatus: latestPlan?.status ?? null,
       })
+      const currentStage = etapa ? `${etapa.label} · ${ciclo}` : ciclo
 
       const action = getAction({
         systemId: system.id,
@@ -438,6 +377,7 @@ export async function buildEvaluationsDashboardData(organizationId: string) {
     kpis,
     pipeline,
     immediateAttention: pipeline.filter((row) => row.needsAttention).slice(0, 5),
-    nextStep: getNextEvaluationStep(pipeline),
+    // Siguiente paso a partir de las etapas de DP-02 (B18a), el mismo que el Dashboard.
+    nextStep: nextStepCard(stages),
   }
 }

@@ -79,7 +79,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Responsables**, **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Etapa de evaluación**, **Responsables**, **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -92,6 +92,12 @@ categoría aparte:
 Sin ninguno de los dos casos no se muestra etiqueta. Los sistemas que tenían GPAI como nivel de riesgo
 pasaron a la categoría con el nivel «Pendiente» y la insignia «Pendiente de revisar con el motor nuevo»
 (migración `20261026090000_ai_act_gpai_catalogo.sql`).
+
+**Etapa de evaluación** (B18a, DP-02). La etapa alcanzada (Sin clasificar, Clasificado, Evaluado, Tratado,
+o Retirada o rediseño en una práctica prohibida), **Siguiente:** con lo primero que falta y la lista de
+requisitos por etapa y de vigencia, cada uno con su enlace. Al pie, el requisito de la organización: si la
+Declaración de Aplicabilidad está aprobada y si el sistema está en su alcance (sin etiquetas de alcance,
+entran todos). Las reglas están en [etapa de evaluación](flujo-completo-evaluacion.md#qué-significa-sistema-totalmente-evaluado).
 
 **Responsables** (B23b, DP-01). Se guardan al elegirlos; los cambia el Administrador, el Responsable del SGAI
 o un Responsable del sistema:

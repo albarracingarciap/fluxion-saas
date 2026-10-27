@@ -5,6 +5,7 @@ import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { composeDocument } from '@/lib/documents/compose';
 import { loadLinkedEvidenceFacts, loadProposalFacts } from '@/lib/obligations/proposal-facts';
 import { loadEvidenceCatalogTypes } from '@/lib/evidences/catalog-type-server';
+import { loadSystemStages } from '@/lib/evaluation-status/load';
 import { obligationProposal, type ObligationProposal } from '@/lib/obligations/proposals';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
@@ -635,7 +636,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   // ── SoA Scope — determinar si este sistema está en el alcance de la SoA org ──
   const { data: soaMetadata } = await adminFluxion
     .from('organization_soa_metadata')
-    .select('scope_system_tags')
+    .select('scope_system_tags, lifecycle_status')
     .eq('organization_id', membership.organization_id)
     .maybeSingle();
 
@@ -677,9 +678,19 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     });
   }
 
+  // Etapa de evaluación (DP-02, B18a). En la Declaración, sin etiquetas de
+  // alcance entran todos los sistemas (`buildSoAData`).
+  const [stageRow] = await loadSystemStages(fluxion, membership.organization_id, [params.id]);
+  const stageOrganization = {
+    soaApproved: soaMetadata?.lifecycle_status === 'approved',
+    inScope: soaScopeSystemTags.length === 0 || isInSoaScope,
+  };
+
   return (
     <SystemDetailClient
       system={{ ...system, origin_questionnaire: cuestionarioOrigen ?? null }}
+      stage={stageRow?.stage ?? null}
+      stageOrganization={stageOrganization}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

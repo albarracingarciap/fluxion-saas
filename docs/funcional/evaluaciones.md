@@ -56,7 +56,7 @@ los planes vencidos y las segundas revisiones pendientes.
 | Campo | Contenido |
 |---|---|
 | Sistema | Nombre, código, nivel de riesgo AI Act y estado |
-| Etapa | Plan en borrador · Plan en aprobación · FMEA en borrador · FMEA en revisión · Plan en ejecución · Evaluación vigente · Pendiente de iniciar · Sin cola priorizada |
+| Etapa | La [etapa de evaluación](flujo-completo-evaluacion.md#qué-significa-sistema-totalmente-evaluado) (B18a) y, detrás, el punto del ciclo: Plan en borrador · Plan en aprobación · FMEA en borrador · FMEA en revisión · Plan en ejecución · Evaluación vigente · Pendiente de iniciar · Sin cola priorizada. Por ejemplo, «Evaluado · Plan en ejecución» |
 | Cola | Número de modos prioritarios y en observación |
 | Etiquetas | Vencido · zona · zona objetivo del plan · número de tareas |
 | **FMEA** | Versión y estado, o «Sin iniciar» |
@@ -80,14 +80,11 @@ Los cinco primeros sistemas que necesitan atención:
 
 ### Siguiente paso recomendado
 
-Primera regla que se cumple:
-1. **Escalado activo en Zona I**.
-2. **Plan de tratamiento vencido**.
-3. **Resolver segundas revisiones**.
-4. **Completar plan de tratamiento**.
-5. **Continuar evaluación FMEA**.
-6. **Iniciar evaluación en sistema priorizado**.
-7. Si no se cumple ninguna: **Pipeline estable**.
+Desde B18a sale del mismo cálculo que el del [Dashboard](dashboard.md) y la tarjeta de etapa de la
+[Ficha del sistema](ficha-sistema.md) (`lib/evaluation-status/`): **Falta: …** con el primer punto que le
+falta al sistema más rezagado para su siguiente [etapa de evaluación](flujo-completo-evaluacion.md#qué-significa-sistema-totalmente-evaluado) o para seguir vigente. Va primero una práctica
+prohibida; a igual etapa, el de mayor riesgo. No cuentan los sistemas retirados. Si no falta nada: **Todos
+los sistemas tratados y vigentes**.
 
 > TODO: confirmar varios indicadores.
 > - Los modos de severidad 9 se cuentan también en ítems pendientes. El guardado automático de la

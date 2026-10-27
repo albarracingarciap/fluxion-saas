@@ -86,6 +86,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17e1 · Tipo del catálogo en las evidencias y obligación resuelta por evidencias | Integrado en `main` | `fase3/b17e1-tipos-evidencia` | 2026-10-27 | **Sí** · `20261027190000_evidencias_tipo_catalogo.sql` |
 | B17e2 · Controles de la Declaración propuestos desde el plan | Integrado en `main` | `fase3/b17e2-correspondencia-anexo-a` | 2026-10-27 | **Sí** · `20261027200000_soa_correspondencia_anexo_a.sql` |
 | B17e3 · Gaps de controles de la Declaración sin implantar | Integrado en `main` | `fase3/b17e3-brechas-soa` | 2026-10-27 | No |
+| B18a · Etapas de evaluación (DP-02) | Integrado en `main` | `fase3/b18a-etapas` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2203,3 +2204,32 @@ correctos. No se ha probado en el navegador.
 
 **Documentación.** `funcional/brechas.md`, `funcional/declaracion-aplicabilidad.md`, `_pendientes.md` (288: el tipo
 nuevo en el glosario).
+
+## B18a · Etapas de evaluación (DP-02)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b18a-etapas` · **Migración:** no
+
+**Problema** (GAP-03, F-12): DP-02 definía qué es un sistema «totalmente evaluado» por etapas, pero la aplicación no
+lo calculaba. El Dashboard y Evaluaciones tenían cada uno su cascada de «siguiente paso», con reglas distintas y sin
+cubrir el recorrido completo.
+
+**Decisiones del responsable (2026-10-27):** práctica prohibida, etapa final «Retirada o rediseño»; fuera del ámbito
+o no es un sistema de IA, se queda en Clasificado; documentos del Art. 53 del proveedor GPAI, pendientes de definir.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Etapas (`lib/evaluation-status/stages.ts`, nuevo, puro) | Requisitos de Clasificado, Evaluado y Tratado y de la vigencia según el nivel y el rol (documentos exigibles con la regla de DP-11; supervisión humana en alto riesgo); etapa alcanzada, lo primero que falta y siguiente paso de la organización |
+| Datos (`lib/evaluation-status/load.ts`, nuevo) | Hechos de todos los sistemas de la organización con consultas por lotes |
+| Ficha | Tarjeta **Etapa de evaluación** en el panel derecho, con **Siguiente:**, los requisitos enlazados y el requisito de la organización (Declaración aprobada y sistema en su alcance) |
+| Dashboard y Evaluaciones | El **Siguiente paso recomendado** sale de las etapas en los dos («Falta: …» del sistema más rezagado), y la columna **Etapa** de Evaluaciones muestra la etapa seguida del punto del ciclo. Se retiran las dos cascadas |
+
+**Verificación.** `npm test` 161/161 (nueve tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web.
+
+**Documentación.** `funcional/flujo-completo-evaluacion.md` (DP-02 implementada, casos especiales y cómo se calcula),
+`funcional/ficha-sistema.md`, `funcional/dashboard.md`, `funcional/evaluaciones.md`, `producto/plan-resolucion-gaps.md`
+(división de B18 y decisiones), `_pendientes.md` (289: término «Etapa de evaluación»).

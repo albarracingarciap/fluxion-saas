@@ -915,6 +915,17 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   - Gobernanza con referencias a miembros.
 - **Depende de:** B17 (para que la lista refleje estados conectados), B23 (responsable de supervisión humana), B13 (autoridad pública).
 - **Talla:** M+M.
+- **Ampliación** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 2026-10-27): plan de despliegue para
+  alto riesgo según el rol, con aviso al pasar a producción sin completarlo (decisión 2), y consecuencia de una
+  práctica prohibida. Se divide en B18a (etapas de DP-02: tarjeta en la ficha, siguiente paso del Dashboard y etapa
+  de Evaluaciones), B18b (plan de despliegue y paso a producción) y B18c (onboarding de tres pasos y gobernanza con
+  miembros).
+- **Decisiones (2026-10-27):** práctica prohibida, etapa final «Retirada o rediseño» y **bloqueo** de los estados
+  Producción y Piloto; fuera del ámbito o no es un sistema de IA, se queda en Clasificado; documentos del Art. 53
+  del proveedor GPAI, pendientes de definir; el marcado CE se acredita con la declaración UE de conformidad del
+  proveedor (Art. 47) adjunta y válida, sin campo propio; el plan de despliegue va en la tarjeta de etapa de la
+  ficha, solo en alto riesgo con la organización como responsable del despliegue.
+- **Estado (2026-10-27):** B18a integrado.
 
 ### B19 · Hitos como evidencia
 

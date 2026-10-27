@@ -69,7 +69,7 @@ Cuando la organización no tiene ningún sistema en `ai_systems`:
 | **Top 5 modos de fallo más críticos** | Modos con mayor puntuación y número de sistemas afectados | Ídem |
 | **Cadenas causales activas** | Cadenas de 3 a 5 eslabones del [grafo causal](../glosario.md#grafo-causal) activas en algún sistema | Solo si hay alguna |
 | **Últimos sistemas registrados** | Los cinco más recientes | — |
-| **Siguiente paso recomendado** | Una recomendación con su botón | Primera regla que se cumple: activar modos de fallo de un sistema de alto riesgo; continuar un FMEA en borrador; completar un plan en borrador; revisar evidencias pendientes; atender el sistema más rezagado |
+| **Siguiente paso recomendado** | Una recomendación con su botón | Desde B18a, el primer punto que le falta al sistema más rezagado para su siguiente [etapa de evaluación](flujo-completo-evaluacion.md#qué-significa-sistema-totalmente-evaluado) o para seguir vigente («Falta: …»). Va primero una práctica prohibida; a igual etapa, el de mayor riesgo; no cuentan los sistemas retirados. Sin sistemas, **Registrar primer sistema**; si no falta nada, **Todos los sistemas tratados y vigentes**. Es el mismo cálculo que en [Evaluaciones](evaluaciones.md) |
 
 ## Acciones
 
