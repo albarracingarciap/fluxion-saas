@@ -21,6 +21,7 @@ fuente:
   - apps/web/lib/governance/functions.ts
   - apps/web/lib/governance/oversight.ts
   - supabase/migrations/20261028090000_supervision_humana_documentada.sql
+  - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -653,6 +654,18 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «SLA», «deadline».
 - **En el código:** `incident_notification_days`; `ai_incidents.became_aware_at`, `notification_deadline`.
 - **Normativa:** AI Act, Art. 73.2, 73.3 y 73.4.
+
+### Uso suspendido
+- **Definición:** marca de un sistema de IA cuyo uso ha suspendido la organización, como responsable del despliegue, porque usarlo conforme a las instrucciones puede dar lugar a un riesgo. No es un estado: el sistema conserva el suyo (Producción, Piloto…). Tiene fecha, motivo y, si lo hay, el [incidente](#incidente) que la motiva. Exige [avisos a terceros](#aviso-a-terceros) al proveedor o distribuidor y a la autoridad de vigilancia del mercado. Se levanta con **Reanudar uso**, indicando por qué, y la suspensión queda en el historial del sistema. Solo puede haber una activa por sistema.
+- **No usar:** «sistema suspendido» como estado, «bloqueo», «parada».
+- **En el código:** `fluxion.system_use_suspensions` (activa mientras `resumed_at` es nulo).
+- **Normativa:** AI Act, Art. 26.5.
+
+### Aviso a terceros
+- **Definición:** constancia de que la organización ha informado de una suspensión del uso o de un incidente al proveedor, al importador, al distribuidor o a la autoridad de vigilancia del mercado, con fecha y, si los hay, canal, referencia y evidencia. Fluxion no envía el aviso: registra que se hizo.
+- **No usar:** «notificación» para los avisos al proveedor, al importador o al distribuidor (la notificación es a la autoridad, Art. 73), «comunicación».
+- **En el código:** `fluxion.external_notices` (`recipient` ∈ `provider`, `importer`, `distributor`, `authority`; `suspension_id` o `incident_id`).
+- **Normativa:** AI Act, Art. 26.5.
 
 ### Señal de riesgo
 - **Definición:** observación que un módulo o una integración envía a Fluxion sobre un sistema de IA (por ejemplo, un modelo promocionado o un presupuesto superado). Según su gravedad, queda en el historial, genera un aviso o crea una tarea.
