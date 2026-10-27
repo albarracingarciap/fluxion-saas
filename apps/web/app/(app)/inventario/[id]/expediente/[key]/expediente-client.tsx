@@ -15,6 +15,7 @@ import {
 } from './actions'
 import type { DocumentAction } from '@/lib/documents/lifecycle-rules'
 import type { TemplateOption } from '@/lib/documents/templates'
+import { ExpedienteTabs } from './expediente-tabs'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   'derived:system':  { label: 'Ficha del sistema',  icon: <Database size={11} /> },
@@ -258,22 +259,16 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
         </p>
       </div>
 
-      {templates.length > 1 && (
-        <div className="flex gap-1.5 flex-wrap border-b border-ltb pb-3">
-          {templates.map((t) => (
-            <Link
-              key={t.key}
-              href={`/inventario/${aiSystemId}/expediente/${t.key}`}
-              className={`px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border transition-colors ${
-                t.key === templateKey
-                  ? 'border-brand-cyan text-brand-cyan bg-ltcard'
-                  : 'border-ltb text-lttm hover:text-ltt'
-              }`}
-            >
-              {t.title.split('·')[0]!.trim()}
-              {t.hasDocument && t.key !== templateKey && <span className="ml-1.5 text-gr">•</span>}
-            </Link>
-          ))}
+      <ExpedienteTabs templates={templates} templateKey={templateKey} aiSystemId={aiSystemId} />
+
+      {actual && actual.mode !== 'redactar' && (
+        <div className="flex items-start gap-2 rounded-[10px] border border-orb bg-ordim px-4 py-3 font-sora text-[12.5px] text-ltt2">
+          <Info size={14} className="text-or shrink-0 mt-0.5" />
+          <span>
+            Según su clasificación y su rol en la cadena de valor, este documento
+            {actual.mode === 'proveedor' ? ' ya no se redacta para este sistema: lo aporta el proveedor' : ' ya no aplica a este sistema'}.
+            {' '}{actual.reason} Se conserva lo redactado.
+          </span>
         </div>
       )}
 

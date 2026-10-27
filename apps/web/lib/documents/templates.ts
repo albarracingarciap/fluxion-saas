@@ -47,4 +47,7 @@ export type TemplateOption = {
   description: string | null
   framework: string
   hasDocument: boolean
+  /** Aplicabilidad al sistema (DP-11): redactar, documentación del proveedor o no aplica. */
+  mode: 'redactar' | 'proveedor' | 'no_aplica'
+  reason: string
 }

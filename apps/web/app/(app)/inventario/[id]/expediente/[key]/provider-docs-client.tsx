@@ -1,0 +1,194 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, FileText, Info, Loader2, Paperclip, Link2, ExternalLink } from 'lucide-react'
+
+import { PROVIDER_DOC_TYPES } from '@/lib/documents/applicability'
+import type { TemplateOption } from '@/lib/documents/templates'
+import { uploadEvidenceFile } from '@/lib/evidences/storage'
+import { addProviderDocument, type ProviderDocRow } from './actions'
+import { ExpedienteTabs } from './expediente-tabs'
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Borrador',
+  pending_review: 'Pendiente de revisión',
+  valid: 'Válida',
+  expired: 'Caducada',
+  rejected: 'Rechazada',
+}
+
+const inputCls =
+  'w-full rounded-[8px] border border-ltb bg-ltbg px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-brand-cyan'
+
+/**
+ * Documentación del proveedor (DP-11): la organización no es proveedora de este
+ * sistema de alto riesgo, así que el documento no se redacta. Se adjuntan como
+ * evidencias del sistema las instrucciones de uso, la declaración UE de
+ * conformidad, el número de registro u otra documentación que entrega el
+ * proveedor. Cada una sigue la revisión habitual de las evidencias.
+ */
+export function ProviderDocsClient({
+  systemName, organizationId, templates, templateKey, aiSystemId, reason, documents, hasDraftedDocument,
+}: {
+  systemName: string
+  organizationId: string
+  templates: TemplateOption[]
+  templateKey: string
+  aiSystemId: string
+  reason: string
+  documents: ProviderDocRow[]
+  /** El sistema ya tenía el documento redactado (antes de cambiar su clasificación o su rol). */
+  hasDraftedDocument: boolean
+}) {
+  const router = useRouter()
+  const actual = templates.find((t) => t.key === templateKey)
+  const [docType, setDocType] = useState<string>(PROVIDER_DOC_TYPES[0].value)
+  const [title, setTitle] = useState('')
+  const [via, setVia] = useState<'file' | 'url'>('file')
+  const [url, setUrl] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+
+  function submit() {
+    setError(null)
+    start(async () => {
+      const res = await addProviderDocument({
+        aiSystemId, templateKey, docType, title,
+        externalUrl: via === 'url' ? url : null,
+        hasPendingFile: via === 'file' && Boolean(file),
+      })
+      if ('error' in res) { setError(res.error); return }
+      if (via === 'file' && file) {
+        const up = await uploadEvidenceFile(file, organizationId, res.id)
+        if (up.error) {
+          setError(`El documento se registró, pero el fichero no se pudo subir: ${up.error} Súbelo desde Evidencias.`)
+          router.refresh()
+          return
+        }
+      }
+      setTitle(''); setUrl(''); setFile(null)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="max-w-[1000px] w-full mx-auto flex flex-col gap-5 animate-fadein pb-16">
+      <Link
+        href={`/inventario/${aiSystemId}`}
+        className="font-sora text-[12.5px] text-lttm hover:text-ltt flex items-center gap-1.5 w-fit"
+      >
+        <ArrowLeft size={14} /> {systemName}
+      </Link>
+
+      <div>
+        <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm flex items-center gap-1.5">
+          <FileText size={12} /> Expediente regulatorio · Documentación del proveedor
+        </p>
+        <h1 className="font-fraunces text-[26px] text-ltt mt-1">{actual?.title ?? 'Documentación del proveedor'}</h1>
+      </div>
+
+      <ExpedienteTabs templates={templates} templateKey={templateKey} aiSystemId={aiSystemId} />
+
+      <div className="flex items-start gap-2 rounded-[10px] border border-cyan-border bg-cyan-dim px-4 py-3 font-sora text-[12.5px] text-ltt2">
+        <Info size={14} className="text-brand-cyan shrink-0 mt-0.5" />
+        <span>
+          {reason} Normalmente son las instrucciones de uso (AI Act, Art. 13), la declaración UE de conformidad
+          (Art. 47) y el número de registro en la base de datos de la UE (Art. 49). Se guardan como evidencias del
+          sistema y pasan por su revisión.
+          {hasDraftedDocument && (
+            <>
+              {' '}El sistema ya tenía este documento redactado:{' '}
+              <Link href={`/inventario/${aiSystemId}/expediente/${templateKey}?vista=documento`} className="text-brand-cyan hover:underline">
+                verlo
+              </Link>.
+            </>
+          )}
+        </span>
+      </div>
+
+      <div className="border border-ltb rounded-[12px] bg-ltcard">
+        <div className="px-5 py-3 border-b border-ltb font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">
+          Documentos aportados · {documents.length}
+        </div>
+        {documents.length === 0 ? (
+          <p className="px-5 py-4 font-sora text-[12.5px] text-lttm">Todavía no se ha adjuntado ningún documento del proveedor.</p>
+        ) : (
+          <ul className="divide-y divide-ltb">
+            {documents.map((d) => (
+              <li key={d.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-sora text-[13px] text-ltt truncate">{d.title}</p>
+                  <p className="font-sora text-[11.5px] text-lttm">
+                    {PROVIDER_DOC_TYPES.find((t) => t.value === d.docType)?.label ?? 'Documento del proveedor'}
+                    {' · '}{STATUS_LABEL[d.status] ?? d.status}
+                    {!d.hasFile && !d.externalUrl && ' · sin fichero'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {d.externalUrl && (
+                    <a href={d.externalUrl} target="_blank" rel="noreferrer" className="font-sora text-[12px] text-brand-cyan flex items-center gap-1">
+                      <ExternalLink size={12} /> Abrir
+                    </a>
+                  )}
+                  <Link href={`/evidencias/${d.id}`} className="font-sora text-[12px] text-brand-cyan">
+                    Ver evidencia →
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="border border-ltb rounded-[12px] bg-ltcard p-5 flex flex-col gap-4">
+        <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">Añadir documento del proveedor</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="font-sora text-[12px] text-ltt2">Tipo</span>
+            <select className={inputCls} value={docType} onChange={(e) => setDocType(e.target.value)}>
+              {PROVIDER_DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-sora text-[12px] text-ltt2">Título</span>
+            <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Instrucciones de uso v2.1 del proveedor" />
+          </label>
+        </div>
+        <div className="flex gap-1.5">
+          {([['file', 'Fichero', <Paperclip key="f" size={12} />], ['url', 'Enlace', <Link2 key="u" size={12} />]] as const).map(([v, label, icon]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setVia(v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border font-sora text-[12px] ${
+                via === v ? 'bg-cyan-dim border-cyan-border text-brand-cyan' : 'bg-ltcard border-ltb text-lttm'
+              }`}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
+        {via === 'file' ? (
+          <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="font-sora text-[12.5px] text-ltt2" />
+        ) : (
+          <input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+        )}
+        {error && <p className="font-sora text-[12px] text-re">{error}</p>}
+        <div>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={pending || !title.trim() || (via === 'file' ? !file : !url.trim())}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-brand-cyan text-white font-sora text-[12.5px] disabled:opacity-50"
+          >
+            {pending && <Loader2 size={14} className="animate-spin" />}
+            Añadir como evidencia
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

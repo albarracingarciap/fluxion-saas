@@ -15,6 +15,13 @@ import {
 } from '@/lib/documents/lifecycle-rules'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import {
+  PROVIDER_DOC_TYPES,
+  applicabilityFacts,
+  documentApplicability,
+  providerDocTags,
+  type Applicability,
+} from '@/lib/documents/applicability'
+import {
   cancelLiveApprovalRequest,
   hasApprovalPolicy,
   openApprovalRequest,
@@ -56,10 +63,30 @@ function dbError(error: { message: string; code?: string }, fallback: string): s
   return fallback
 }
 
-/** Las plantillas del catálogo y si el sistema ya tiene expediente de cada una. */
+/** Columnas de `ai_systems` que decide la aplicabilidad (DP-11). */
+const APPLICABILITY_COLUMNS =
+  'value_chain_roles, aiact_result, aiact_risk_level, aiact_inputs, is_gpai, manages_critical_infra, processes_personal_data'
+
+/** Aplicabilidad de una plantilla al sistema (DP-11). Sin sistema visible, no aplica. */
+export async function templateApplicability(aiSystemId: string, templateKey: string): Promise<Applicability> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return { mode: 'no_aplica', reason: 'No autenticado.' }
+  const { data: system } = await fluxion.from('ai_systems').select(APPLICABILITY_COLUMNS).eq('id', aiSystemId).maybeSingle()
+  if (!system) return { mode: 'no_aplica', reason: 'Sistema no encontrado.' }
+  return documentApplicability(templateKey, applicabilityFacts(system as Record<string, unknown>))
+}
+
+/**
+ * Las plantillas del catálogo que aplican al sistema (DP-11) y si ya tiene
+ * expediente de cada una. Una que no aplica se sigue mostrando si el sistema ya
+ * tiene documento: lo redactado no desaparece porque cambie la clasificación.
+ */
 export async function listTemplatesForSystem(aiSystemId: string): Promise<TemplateOption[]> {
   const { profile, fluxion } = await ctx()
   if (!profile) return []
+
+  const { data: system } = await fluxion.from('ai_systems').select(APPLICABILITY_COLUMNS).eq('id', aiSystemId).maybeSingle()
+  const facts = system ? applicabilityFacts(system as Record<string, unknown>) : null
 
   const { data: templates } = await fluxion
     .from('document_templates')
@@ -89,13 +116,21 @@ export async function listTemplatesForSystem(aiSystemId: string): Promise<Templa
       vistos.add(k)
       return true
     })
-    .map((t) => ({
-      key: String(t.key),
-      title: String(t.title),
-      description: (t.description as string | null) ?? null,
-      framework: String(t.framework),
-      hasDocument: existentes.has(String(t.key)),
-    }))
+    .map((t) => {
+      const a = facts
+        ? documentApplicability(String(t.key), facts)
+        : { mode: 'no_aplica' as const, reason: 'Sistema no encontrado.' }
+      return {
+        key: String(t.key),
+        title: String(t.title),
+        description: (t.description as string | null) ?? null,
+        framework: String(t.framework),
+        hasDocument: existentes.has(String(t.key)),
+        mode: a.mode,
+        reason: a.reason,
+      }
+    })
+    .filter((t) => t.mode !== 'no_aplica' || t.hasDocument)
 }
 
 export async function getOrCreateDocument(
@@ -126,6 +161,10 @@ export async function getOrCreateDocument(
   let documentId = existing?.id as string | undefined
 
   if (!documentId) {
+    // Solo se crea si la plantilla se redacta para este sistema (DP-11).
+    const aplicabilidad = await templateApplicability(aiSystemId, templateKey)
+    if (aplicabilidad.mode !== 'redactar') return { error: aplicabilidad.reason }
+
     // Siempre la versión activa más alta del catálogo, o la adaptación de la
     // organización si la hubiera.
     const { data: template } = await fluxion
@@ -543,3 +582,114 @@ export async function listGeneratedDocuments(aiSystemId: string): Promise<Genera
     approvalRequestId: d.approval_request_id,
   }))
 }
+
+// ── Documentación del proveedor (DP-11) ─────────────────────────────────────
+//
+// Si la organización no es proveedora de un sistema de alto riesgo, el Anexo IV
+// y el registro UE no se redactan: se adjunta como evidencia del sistema lo que
+// entrega el proveedor. Las evidencias llevan etiquetas propias para saber de qué
+// plantilla son, y siguen su ciclo de revisión habitual.
+
+export type ProviderDocRow = {
+  id: string
+  title: string
+  docType: string | null
+  status: string
+  externalUrl: string | null
+  hasFile: boolean
+  createdAt: string
+}
+
+export async function listProviderDocuments(aiSystemId: string, templateKey: string): Promise<ProviderDocRow[]> {
+  const { profile, fluxion } = await ctx()
+  if (!profile || !isTemplateKey(templateKey)) return []
+  const slug = templateMeta(templateKey).slug
+
+  const { data } = await fluxion
+    .from('system_evidences')
+    .select('id, title, status, external_url, storage_path, tags, created_at')
+    .eq('ai_system_id', aiSystemId)
+    .contains('tags', [`doc-proveedor-${slug}`])
+    .order('created_at', { ascending: false })
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map((e) => {
+    const tags = (e.tags as string[] | null) ?? []
+    const tipo = tags.find((t) => t.startsWith('doc-proveedor-tipo-'))
+    return {
+      id: String(e.id),
+      title: String(e.title),
+      docType: tipo ? tipo.slice('doc-proveedor-tipo-'.length) : null,
+      status: String(e.status),
+      externalUrl: (e.external_url as string | null) ?? null,
+      hasFile: Boolean(e.storage_path),
+      createdAt: String(e.created_at),
+    }
+  })
+}
+
+export async function addProviderDocument(input: {
+  aiSystemId: string
+  templateKey: string
+  docType: string
+  title: string
+  externalUrl?: string | null
+  /** El fichero se sube después de crear la evidencia (`uploadEvidenceFile`). */
+  hasPendingFile?: boolean
+}): Promise<{ id: string } | { error: string }> {
+  const { error, profile, fluxion } = await ctx()
+  if (error || !profile) return { error: error ?? 'No autenticado' }
+  if (!isTemplateKey(input.templateKey)) return { error: 'Plantilla desconocida.' }
+
+  const aplicabilidad = await templateApplicability(input.aiSystemId, input.templateKey)
+  if (aplicabilidad.mode !== 'proveedor') {
+    return { error: 'Este documento no se adjunta como documentación del proveedor para este sistema.' }
+  }
+
+  const tipo = PROVIDER_DOC_TYPES.find((t) => t.value === input.docType)
+  if (!tipo) return { error: 'Elige el tipo de documento.' }
+  if (!input.title?.trim()) return { error: 'Indica el título del documento.' }
+
+  const url = input.externalUrl?.trim() || ''
+  if (url) {
+    try { new URL(url) } catch { return { error: 'La URL no es válida.' } }
+  }
+  if (!url && !input.hasPendingFile) return { error: 'Adjunta un fichero o indica la URL del documento.' }
+
+  const { data: system } = await fluxion
+    .from('ai_systems').select('id, organization_id').eq('id', input.aiSystemId).maybeSingle()
+  if (!system) return { error: 'Sistema no encontrado.' }
+
+  const meta = templateMeta(input.templateKey)
+  const { data, error: insErr } = await fluxion
+    .from('system_evidences')
+    .insert({
+      organization_id: system.organization_id,
+      ai_system_id: system.id,
+      scope: 'system',
+      title: input.title.trim(),
+      description: `${tipo.label} · ${meta.label} (documentación del proveedor)`,
+      evidence_type: tipo.evidenceType,
+      external_url: url || null,
+      // Toda evidencia nace en borrador y se valida con la revisión (B10).
+      status: 'draft',
+      owner_user_id: profile.user_id,
+      tags: providerDocTags(meta.slug, tipo.value),
+    })
+    .select('id')
+    .single()
+  if (insErr || !data) return { error: dbError(insErr ?? { message: '' }, 'No se pudo registrar el documento.') }
+
+  await insertAiSystemHistoryEvents(fluxion, [{
+    ai_system_id: system.id,
+    organization_id: system.organization_id,
+    event_type: 'provider_document_added',
+    event_title: 'Documentación del proveedor añadida',
+    event_summary: `${tipo.label} para ${meta.label}: «${input.title.trim()}».`,
+    actor_user_id: profile.user_id,
+    payload: { evidence_id: data.id, template_key: input.templateKey, doc_type: tipo.value },
+  }])
+
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
+  return { id: String(data.id) }
+}
+

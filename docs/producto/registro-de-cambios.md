@@ -72,6 +72,8 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B15a · Plantilla AISIA en el expediente (inactiva) | Integrado en `main` | `fase3/b15a-plantilla-aisia` | 2026-10-27 | **Sí** · `20261027120000_expediente_plantilla_aisia.sql` |
 | B15b · AISIA migrada al expediente y asistente retirado | Integrado en `main` | `fase3/b15b-migrar-aisia` | 2026-10-27 | **Sí** · `20261027130000_aisia_al_expediente.sql` |
 | B15c · Retirada de las tablas de la AISIA; inventario v1.6 y glosario | Integrado en `main` | `fase3/b15c-retirar-tablas-aisia` | 2026-10-27 | **Sí** · `20261027140000_aisia_retirar_tablas.sql` |
+| Decisión DP-11 (aplicabilidad del expediente) | Integrado en `main` | `docs/dp11-aplicabilidad` | 2026-10-27 | No |
+| B16a · Aplicabilidad del expediente y documentación del proveedor | Integrado en `main` | `fase3/b16a-aplicabilidad` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1855,4 +1857,32 @@ con datos válidos borra las tablas, conserva la etiqueta y el enlace de una sol
 
 **Despliegue.** Aplicar la migración y desplegar la web a la vez: la web anterior aún lee `aisia_assessments` en la
 Declaración. Solo web.
+
+---
+
+## B16a · Aplicabilidad del expediente y documentación del proveedor (DP-11)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b16a-aplicabilidad` · **Migración:** no
+
+**Decisión del responsable (DP-11):** algunos documentos, como el Anexo IV y el registro UE, solo se redactan si la
+organización es proveedora de un sistema de alto riesgo; si no es proveedora, se adjunta como evidencia la
+documentación que entrega el proveedor. Se generaliza a todas las plantillas.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Regla (`lib/documents/applicability.ts`, nuevo) | `documentApplicability`: modo `redactar`, `proveedor` o `no_aplica` por plantilla, con su motivo, a partir de los roles declarados, el nivel y la vía del motor, la excepción del Art. 6.3, GPAI, organismo público y datos personales. Incluye ya la regla del registro UE (secciones A, B y C; infraestructura crítica, registro nacional) para B16b. Módulo puro con tests |
+| Expediente | Pestañas solo de lo que aplica (más lo que ya tiene documento), con «· del proveedor» o «· no aplica»; vista «Este documento no aplica a este sistema» sin crear el documento; aviso en un documento que ha dejado de aplicar; `getOrCreateDocument` solo crea lo que se redacta |
+| Documentación del proveedor | Vista nueva para adjuntar como evidencias del sistema (fichero o enlace) las instrucciones de uso, la declaración UE de conformidad, el número de registro u otra documentación del proveedor, con etiquetas `documentacion-proveedor` y `doc-proveedor-<plantilla>`; evento «Documentación del proveedor añadida» |
+
+**Impacto:** un sistema que no es de alto riesgo deja de ver la pestaña del Anexo IV, y uno de alto riesgo sin rol de
+proveedor ve la documentación del proveedor en su lugar. Un sistema sin roles declarados no se considera proveedor:
+conviene revisar «Tu papel frente a este sistema» en los sistemas de alto riesgo. Lo ya redactado se conserva.
+
+**Verificación.** `npm test` 119/119 (siete tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Documentación.** `funcional/expediente-documental.md`, `negocio/documentacion-del-sistema.md`. TODO 284 (glosario)
+y 285 (rol visible en la ficha) abiertos.
 
