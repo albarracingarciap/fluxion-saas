@@ -11,11 +11,12 @@ import {
 import type { ComposedDocument, ComposedSection } from '@/lib/documents/compose'
 import {
   saveDocumentSection, changeDocumentStatus, reopenDocument, generateDocumentRender,
-  type RenderRow, type GeneratedDocRow,
+  type RenderRow, type GeneratedDocRow, type DocumentNotificationRow,
 } from './actions'
 import type { DocumentAction } from '@/lib/documents/lifecycle-rules'
 import type { TemplateOption } from '@/lib/documents/templates'
 import { ExpedienteTabs } from './expediente-tabs'
+import { NotificationPanel } from './notification-panel'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   'derived:system':  { label: 'Ficha del sistema',  icon: <Database size={11} /> },
@@ -183,7 +184,7 @@ const FRAMEWORK_LABEL: Record<string, string> = {
   ai_act: 'AI Act', gdpr: 'RGPD', iso42001: 'ISO 42001',
 }
 
-export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados, inApprovalCircuit }: {
+export function ExpedienteClient({ doc, renders, templates, templateKey, aiSystemId, generados, inApprovalCircuit, notifications }: {
   doc: ComposedDocument
   renders: RenderRow[]
   generados: GeneratedDocRow[]
@@ -192,6 +193,8 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
   aiSystemId: string
   /** Tiene una solicitud pendiente en Aprobaciones (B11f: la única vía). */
   inApprovalCircuit: boolean
+  /** Notificaciones del documento aprobado (FRIA, ficha para el registro UE; B17b). */
+  notifications: DocumentNotificationRow[]
 }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -355,6 +358,14 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
           </p>
         )}
       </div>
+
+      <NotificationPanel
+        templateKey={templateKey}
+        documentId={doc.document.id}
+        aiSystemId={aiSystemId}
+        status={doc.document.status}
+        notifications={notifications}
+      />
 
       {/* Lo que falta — el producto real de esta pantalla */}
       {doc.gaps.length > 0 ? (

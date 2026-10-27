@@ -103,8 +103,10 @@ Leyenda: **Cumplido** · **Parcial** · **No cubierto** · **Planificado** (ya p
 **Estado (2026-10-27).** B17a integrado: el Art. 26 por apartados en el catálogo, el motor y la vista (RN-O08) y la
 fecha de exigibilidad en el catálogo, vacía hasta la revisión jurídica. El Art. 73 sigue siendo del proveedor: la
 obligación del responsable del despliegue ante un incidente grave (informar al proveedor y después al importador o
-distribuidor y a la autoridad) está en el apartado 26.5. Pendientes de B17: B17b (notificación de la FRIA y vínculo
-con la DPIA) y B17c (el B17 original).
+distribuidor y a la autoridad) está en el apartado 26.5. B17b integrado: notificación de la FRIA (Art. 27.3) y
+presentación de la ficha para el registro UE registradas en el expediente, FRIA v2 con el 27.3 no obligatorio antes de
+aprobar, y la FRIA traza los riesgos de derechos fundamentales del análisis y la DPIA. Pendiente de B17: B17c (el B17
+original).
 
 ## 4. Decisiones
 

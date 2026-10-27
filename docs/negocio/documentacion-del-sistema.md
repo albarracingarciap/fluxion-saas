@@ -92,6 +92,10 @@ flowchart LR
    documentación técnica no se redacta: se adjunta como evidencia la que entrega el proveedor (instrucciones
    de uso, declaración UE de conformidad, número de registro). Si la organización es la proveedora, se
    redacta en Fluxion.
+   La FRIA aprobada se notifica a la autoridad de vigilancia del mercado y la ficha para el registro UE se presenta en
+   la base de datos de la UE. Fluxion no los envía, pero deja constancia de cuándo, a quién y con qué referencia, y
+   avisa mientras no conste. La FRIA cita los riesgos para los derechos fundamentales del análisis de riesgos y la
+   DPIA del sistema, a la que complementa.
 2. **Composición.** Cada apartado indica si es obligatorio, una guía de qué debe contener y de dónde
    sale su contenido: de la ficha del sistema, del análisis de modos de fallo, del historial o de la
    redacción de la organización. Los datos deducidos se actualizan solos cuando cambia el sistema.

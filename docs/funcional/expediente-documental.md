@@ -27,6 +27,9 @@ fuente:
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - supabase/migrations/20261027150000_expediente_registro_ue.sql
   - apps/web/lib/documents/applicability.ts
+  - apps/web/lib/documents/derive-fria.ts
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/notification-panel.tsx
+  - supabase/migrations/20261027170000_expediente_notificaciones_fria.sql
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-tabs.tsx
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
 ---
@@ -98,6 +101,36 @@ Sin roles declarados, la organización no se considera proveedora.
 - **No aplica:** la vista dice «Este documento no aplica a este sistema» con el motivo, y no crea el documento.
 - **Documento que ha dejado de aplicar** (cambió la clasificación o el rol): se muestra con un aviso y se
   conserva lo redactado.
+
+### Notificación del documento aprobado (B17b)
+
+La FRIA aprobada se notifica a la autoridad de vigilancia del mercado (AI Act, Art. 27.3) y la ficha para el registro
+UE se presenta en la base de datos de la UE (Art. 49). Fluxion no envía nada: el panel **Notificación a la autoridad de
+vigilancia del mercado** (FRIA) o **Presentación en la base de datos de la UE** (ficha para el registro UE) deja
+constancia.
+
+| Campo | Tipo | Obligatorio | Descripción | Origen |
+|---|---|---|---|---|
+| **Autoridad notificada** / **Registro** | texto | Sí | Por defecto, «Autoridad de vigilancia del mercado» o «Base de datos de la UE (Art. 71)» | `document_notifications.authority` |
+| **Fecha** | fecha | Sí | No posterior a hoy | `notified_at` |
+| **Referencia o acuse** | texto | No | Número de registro, acuse o referencia | `reference` |
+| **Notas** | texto | No | — | `notes` |
+
+- **Registrar notificación** solo aparece con el documento aprobado; se registra por versión y no se edita ni se borra.
+  Historial del sistema: evento con el título del panel.
+- Con el documento aprobado y sin notificación, el panel lo avisa: «La FRIA está aprobada pero no consta su
+  notificación a la autoridad de vigilancia del mercado (Art. 27.3).» o «La ficha está aprobada pero no consta su
+  presentación en la base de datos de la UE (Art. 49).».
+- Antes de aprobar: «Se registra cuando el documento esté aprobado.».
+
+**FRIA v2** (`20261027170000`): el apartado 27.3 deja de ser obligatorio para enviar a aprobación (la notificación se
+registra después). Dos apartados se trazan con el resto de Fluxion (`lib/documents/derive-fria.ts`), también en las
+FRIA ya creadas con la v1:
+- **27.1.d · Riesgos específicos de perjuicio:** versión y zona del análisis de riesgos vigente, los modos de fallo de
+  las dimensiones ética y legal con severidad actual 7 o más, y las instrucciones de uso del proveedor adjuntas como
+  documentación del proveedor (Art. 13).
+- **27.4 · Relación con la DPIA:** la DPIA del expediente del sistema (versión, estado y fecha de aprobación) y lo que
+  indica la ficha (Art. 27.4).
 
 ### Documentación del proveedor (DP-11, B16a)
 
@@ -215,6 +248,9 @@ Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobació
 | Crear un documento que no se redacta para el sistema | El motivo de la aplicabilidad (DP-11) |
 | Documentación del proveedor sin fichero ni enlace | «Adjunta un fichero o indica la URL del documento.» |
 | Documentación del proveedor en una plantilla que se redacta | «Este documento no se adjunta como documentación del proveedor para este sistema.» |
+| Notificación sin autoridad o sin fecha | «Indica a qué autoridad o registro se notificó.» / «Indica la fecha de la notificación.» |
+| Fecha de notificación futura | «La fecha de la notificación no puede ser posterior a hoy.» |
+| Notificación de un documento no aprobado | «Solo se registra la notificación de un documento aprobado.» |
 | Fallo al subir el fichero del proveedor | «El documento se registró, pero el fichero no se pudo subir: … Súbelo desde Evidencias.» |
 | Almacenamiento no configurado | «El almacenamiento de documentos no está configurado.» |
 | Renderizador no configurado o con error | «El servicio de renderizado no está configurado (RENDERER_URL / RENDERER_SECRET).» / «el renderizador respondió {status}: …» |

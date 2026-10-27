@@ -7,7 +7,7 @@ import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { composeDocument, type ComposedDocument } from '@/lib/documents/compose'
 import type { TemplateOption } from '@/lib/documents/templates'
 import { generateRender } from '@/lib/documents/render'
-import { DOCUMENT_STATUS_LABELS, isTemplateKey, templateMeta } from '@/lib/documents/templates'
+import { DOCUMENT_NOTIFICATION, DOCUMENT_STATUS_LABELS, isTemplateKey, templateMeta } from '@/lib/documents/templates'
 import {
   DOCUMENT_TRANSITIONS,
   documentAuthors,
@@ -693,3 +693,102 @@ export async function addProviderDocument(input: {
   return { id: String(data.id) }
 }
 
+
+// ── Notificación del documento aprobado (B17b) ──────────────────────────────
+//
+// La FRIA aprobada se notifica a la autoridad de vigilancia del mercado (Art.
+// 27.3) y la ficha para el registro UE se presenta en la base de datos de la UE
+// (Art. 49). Fluxion no lo envía: deja constancia de cuándo, a quién y con qué
+// referencia. Solo de la versión aprobada; no se edita ni se borra.
+
+export type DocumentNotificationRow = {
+  id: string
+  authority: string
+  notifiedAt: string
+  reference: string | null
+  notes: string | null
+  createdByName: string | null
+  createdAt: string
+}
+
+export async function listDocumentNotifications(documentId: string): Promise<DocumentNotificationRow[]> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return []
+  const { data } = await fluxion
+    .from('document_notifications')
+    .select('id, authority, notified_at, reference, notes, created_at, created_by')
+    .eq('document_id', documentId)
+    .order('notified_at', { ascending: false })
+  const rows = (data ?? []) as Array<Record<string, unknown>>
+  const autores = Array.from(new Set(rows.map((r) => r.created_by).filter(Boolean))) as string[]
+  const { data: perfiles } = autores.length
+    ? await fluxion.from('profiles').select('id, full_name').in('id', autores)
+    : { data: [] }
+  const nombre = new Map(((perfiles ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [p.id, p.full_name]))
+  return rows.map((r) => ({
+    id: String(r.id),
+    authority: String(r.authority),
+    notifiedAt: String(r.notified_at),
+    reference: (r.reference as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    createdByName: r.created_by ? nombre.get(String(r.created_by)) ?? null : null,
+    createdAt: String(r.created_at),
+  }))
+}
+
+export async function addDocumentNotification(input: {
+  documentId: string
+  aiSystemId: string
+  templateKey: string
+  authority: string
+  notifiedAt: string
+  reference?: string | null
+  notes?: string | null
+}): Promise<{ success: true } | { error: string }> {
+  const { error, profile, fluxion } = await ctx()
+  if (error || !profile) return { error: error ?? 'No autenticado' }
+  if (!isTemplateKey(input.templateKey) || !DOCUMENT_NOTIFICATION[input.templateKey]) {
+    return { error: 'Este documento no se notifica a ninguna autoridad.' }
+  }
+  if (!input.authority?.trim()) return { error: 'Indica a qué autoridad o registro se notificó.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.notifiedAt ?? '')) return { error: 'Indica la fecha de la notificación.' }
+  if (input.notifiedAt > new Date().toISOString().slice(0, 10)) {
+    return { error: 'La fecha de la notificación no puede ser posterior a hoy.' }
+  }
+
+  const { data: doc } = await fluxion
+    .from('documents')
+    .select('id, organization_id, ai_system_id, status, version, template_key')
+    .eq('id', input.documentId)
+    .maybeSingle()
+  if (!doc) return { error: 'Documento no encontrado.' }
+  if (doc.status !== 'approved') return { error: 'Solo se registra la notificación de un documento aprobado.' }
+
+  const { error: insErr } = await fluxion.from('document_notifications').insert({
+    organization_id: doc.organization_id,
+    document_id: doc.id,
+    authority: input.authority.trim(),
+    notified_at: input.notifiedAt,
+    reference: input.reference?.trim() || null,
+    notes: input.notes?.trim() || null,
+    created_by: profile.id,
+  })
+  if (insErr) return { error: dbError(insErr, 'No se pudo registrar la notificación.') }
+
+  const meta = DOCUMENT_NOTIFICATION[input.templateKey]!
+  if (doc.ai_system_id) {
+    await insertAiSystemHistoryEvents(fluxion, [{
+      ai_system_id: doc.ai_system_id,
+      organization_id: doc.organization_id,
+      event_type: 'document_notified',
+      event_title: meta.title,
+      event_summary: `${templateMeta(doc.template_key).label} · versión ${doc.version ?? 1}: ${input.authority.trim()}, ${input.notifiedAt}`
+        + (input.reference?.trim() ? ` (referencia ${input.reference.trim()})` : '') + '.',
+      actor_user_id: profile.user_id,
+      payload: { document_id: doc.id, template_key: doc.template_key, notified_at: input.notifiedAt, reference: input.reference?.trim() || null },
+    }])
+  }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
+  return { success: true }
+}

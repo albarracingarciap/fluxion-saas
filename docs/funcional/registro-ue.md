@@ -89,6 +89,10 @@ Los datos de la organización se toman de `organizations` (Organización › Dat
 
 Las del [Expediente documental](expediente-documental.md#acciones).
 
+**Presentación en la base de datos de la UE** (B17b): con la ficha aprobada, el panel del mismo nombre registra
+cuándo se presentó, en qué registro y con qué referencia; mientras no conste, lo avisa. Ver
+[Notificación del documento aprobado](expediente-documental.md#notificación-del-documento-aprobado-b17b).
+
 **Instantáneas anteriores.** Las fichas guardadas con la pantalla anterior (`system_report_snapshots` con
 `report_type = 'eu_registry_prep'`) se siguen viendo en `/inventario/[id]/eu-registry/snapshots/[snapshotId]`,
 enlazadas desde sus evidencias.
