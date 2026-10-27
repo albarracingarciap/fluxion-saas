@@ -589,20 +589,15 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** vista `/inventario/[id]/expediente/[key]`.
 
 ### Informes del sistema
-- **Definición:** informes que Fluxion compone automáticamente con los datos de un sistema de IA:
-  - Dossier técnico.
-  - Ficha para el registro UE.
-  - Informe de brechas del sistema.
-
-  Se pueden guardar como instantánea y como evidencia.
+- **Definición:** informes que Fluxion componía con los datos de un sistema de IA: el dossier técnico, la ficha para el registro UE y el informe de brechas del sistema. Desde B16 (DP-06) se consolidan: el dossier técnico se retira (su contenido está en la ficha del sistema y en el Anexo IV), la [ficha para el registro UE](#ficha-para-el-registro-ue) es un documento del [expediente documental](#expediente-documental) y el informe de brechas es el análisis de brechas filtrado por el sistema, con su [instantánea](#instantánea). Las instantáneas guardadas antes se conservan.
 - **No usar:** «reportes».
-- **En el código:** `lib/ai-systems/{technical-dossier,eu-registry,gap-report}.ts`.
+- **En el código:** análisis de brechas por sistema: `/gaps?system_id=…`, `lib/gaps/by-system.ts`; instantáneas antiguas: `lib/ai-systems/{technical-dossier,eu-registry,gap-report}.ts` (solo tipos).
 
 ### Ficha para el registro UE
-- **Definición:** informe con los datos que la organización debe presentar en la base de datos de la UE para sistemas de alto riesgo. La presentación es manual: Fluxion prepara la información.
-- **No usar:** «registro UE» a secas (es la base de datos oficial, no el informe).
-- **En el código:** vista `/inventario/[id]/eu-registry`.
-- **Normativa:** AI Act, Art. 49 y Art. 71.
+- **Definición:** documento del [expediente documental](#expediente-documental) con los datos del Anexo VIII del AI Act que la organización presenta en la base de datos de la UE. Tiene tres secciones y cada sistema muestra la que le corresponde (DP-11): A, proveedor de un sistema de alto riesgo; B, proveedor que aplica la excepción del Art. 6.3; C, responsable del despliegue que es autoridad pública. Si la organización no es proveedora de un sistema de alto riesgo, aporta en su lugar el número de registro del proveedor como documentación del proveedor. Los sistemas solo de infraestructura crítica se registran a nivel nacional. La presentación es manual: Fluxion prepara la información.
+- **No usar:** «registro UE» a secas (es la base de datos oficial, no el documento).
+- **En el código:** `fluxion.documents` con `template_key = 'eu_registry'`; `lib/documents/derive-eu-registry.ts`; aplicabilidad en `lib/documents/applicability.ts`. La vista anterior `/inventario/[id]/eu-registry` redirige al expediente.
+- **Normativa:** AI Act, Art. 49, Art. 71 y Anexo VIII.
 
 ### Acta
 - **Definición:** documento que deja constancia de una decisión de aprobación. Se genera en todo cierre con decisión (aprobada o rechazada), con los pasos de la política, los votos, los dictámenes y los pasos omitidos; las cancelaciones y caducidades no la llevan. Forma parte del módulo Actas y paquetes de auditoría.

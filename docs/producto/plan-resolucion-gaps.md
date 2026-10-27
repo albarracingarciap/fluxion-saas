@@ -836,6 +836,9 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
 - **Estado (2026-10-27).** B15 en tres partes: B15a (plantilla `aisia` inactiva, políticas, Declaración y **Analizar
   AISIA**) y B15b (AISIA existentes migradas, plantilla activa, asistente retirado) integrados; B15c (tablas `aisia_*` retiradas tras validar
   la migración) integrado. B15 cerrado.
+- **Estado (2026-10-27).** B16 cerrado: B16a (aplicabilidad del expediente por rol y nivel, DP-11, y documentación del
+  proveedor), B16b (ficha para el registro UE con el Anexo VIII) y B16c (brechas por sistema con instantánea; dossier
+  técnico e informe de brechas del sistema retirados) integrados.
 
 ## Fase 3 · Conexión y simplificación
 

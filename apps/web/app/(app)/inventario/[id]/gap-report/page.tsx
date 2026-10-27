@@ -1,64 +1,10 @@
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
-import { buildGapReportData } from '@/lib/ai-systems/gap-report';
-import { createComplianceClient } from '@/lib/supabase/compliance';
-import { createFluxionClient } from '@/lib/supabase/fluxion';
-import { createClient } from '@/lib/supabase/server';
-
-import { GapReportPrintButton } from './gap-report-print-button';
-import { GapReportView } from './gap-report-view';
-import { SaveGapReportButton } from './save-gap-report-button';
-
-type GapReportPageProps = {
-  params: { id: string };
-};
-
-export default async function GapReportPage({ params }: GapReportPageProps) {
-  const supabase = createClient();
-  const fluxion = createFluxionClient();
-  const compliance = createComplianceClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect('/login');
-
-  const { data: membership, error: membershipError } = await fluxion
-    .from('profiles')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!membership && membershipError?.code === 'PGRST116') redirect('/onboarding');
-  if (membershipError || !membership) notFound();
-
-  const report = await buildGapReportData({
-    fluxion,
-    compliance,
-    organizationId: membership.organization_id,
-    aiSystemId: params.id,
-  });
-
-  if (!report) notFound();
-
-  return (
-    <GapReportView
-      aiSystemId={params.id}
-      report={report}
-      actions={
-        <div className="flex items-start gap-3">
-          <SaveGapReportButton
-            aiSystemId={params.id}
-            systemName={report.system.name}
-            riskLevel={report.system.aiact_risk_level}
-            totalGapSignals={report.totalGapSignals}
-            pendingObligationsCount={report.pendingObligations?.length ?? 0}
-            isoGapsCount={report.isoGaps?.length ?? 0}
-          />
-          <GapReportPrintButton />
-        </div>
-      }
-    />
-  );
+/**
+ * El informe de gaps del sistema es ahora el análisis de gaps filtrado por
+ * sistema, con su instantánea (B16c, DP-06). Las instantáneas guardadas antes
+ * siguen en `snapshots/`.
+ */
+export default function GapReportLegacyRedirect({ params }: { params: { id: string } }) {
+  redirect(`/gaps?system_id=${params.id}`);
 }

@@ -76,6 +76,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B16a · Aplicabilidad del expediente y documentación del proveedor | Integrado en `main` | `fase3/b16a-aplicabilidad` | 2026-10-27 | No |
 | Rol en la cadena de valor en la ficha y Art. 25 en el alta (TODO 285) | Integrado en `main` | `fase3/b16-rol-en-ficha` | 2026-10-27 | No |
 | B16b · Ficha para el registro UE en el expediente (Anexo VIII) | Integrado en `main` | `fase3/b16b-registro-ue` | 2026-10-27 | **Sí** · `20261027150000_expediente_registro_ue.sql` |
+| B16c · Brechas por sistema; dossier técnico e informe de brechas retirados; glosario | Integrado en `main` | `fase3/b16c-informes` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1939,4 +1940,33 @@ correctos. No se ha probado en el navegador.
 **Documentación.** `funcional/registro-ue.md` reescrito, `funcional/expediente-documental.md`,
 `funcional/ficha-sistema.md`, `negocio/informes-del-sistema.md`, `tecnica/modelo-datos.md`, `_mapa.md`. TODO 286
 (glosario) abierto.
+
+---
+
+## B16c · Brechas por sistema; dossier técnico e informe de brechas retirados; glosario
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b16c-informes` · **Migración:** no
+
+**Problema** (F-10, `E9`, DP-06): el informe de brechas del sistema y el dossier técnico componían datos parecidos a
+los del análisis de brechas y la ficha con reglas distintas (los recuentos no coincidían).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Análisis de brechas por sistema | Con el filtro de un sistema, **Guardar instantánea del sistema**: el mismo análisis reducido a ese sistema con sus resúmenes recalculados (`lib/gaps/by-system.ts`, módulo puro con tests), que queda como instantánea del sistema y como evidencia del sistema en revisión, con su evento de historial |
+| Informe de brechas del sistema | `/inventario/[id]/gap-report` redirige a `/gaps?system_id=…`; se retiran su guardado y su acción |
+| Dossier técnico | `/inventario/[id]/technical-dossier` redirige a la ficha; se retiran su guardado y su acción |
+| Ficha › Acciones rápidas | **AISIA** (en lugar de Dossier técnico) y **Gaps del sistema** (en lugar de Gap report) |
+| Limpieza | Fuera los generadores de los tres informes anteriores (`build*Data`) y el modal común de guardado; quedan sus tipos para mostrar las instantáneas guardadas, que se siguen abriendo desde sus evidencias |
+| Glosario (TODO 286, a petición del responsable) | «Ficha para el registro UE» (documento del expediente, secciones A, B y C, DP-11) e «Informes del sistema» (consolidados en B16) |
+
+**Verificación.** `npm test` 127/127 (dos tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web.
+
+**Documentación.** `negocio/informes-del-sistema.md` reescrito; `funcional/dossier-tecnico.md` e
+`funcional/informe-brechas-sistema.md` como vistas retiradas; `funcional/brechas.md`, `funcional/ficha-sistema.md`,
+`_mapa.md`, `glosario.md`. TODO 287 (inventario) abierto.
 

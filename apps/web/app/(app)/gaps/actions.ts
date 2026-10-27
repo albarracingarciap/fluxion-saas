@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { cancelLiveApprovalRequest, openApprovalRequest } from '@/lib/approvals/open'
+import { headers } from 'next/headers'
+
+import { cancelLiveApprovalRequest, openApprovalRequest, openEvidenceReview } from '@/lib/approvals/open'
+import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
+import { filterGapsDataBySystem } from '@/lib/gaps/by-system'
 import { getAppAuthState } from '@/lib/auth/app-state'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { buildGapsData, type GapLayer, type GapDispositionType } from '@/lib/gaps/data'
@@ -26,7 +30,12 @@ type GapGroupAssignmentInput = {
   dueDate: string | null
 }
 
-export async function saveGapAnalysisSnapshot() {
+/**
+ * Instantánea del análisis de gaps. Con `systemId` es la del sistema (B16c): el
+ * mismo análisis filtrado, que además queda como evidencia del sistema y pasa
+ * por su revisión, como el antiguo informe de gaps del sistema.
+ */
+export async function saveGapAnalysisSnapshot(input?: { systemId?: string | null }) {
   const { user, membership, organization, onboardingCompleted } = await getAppAuthState()
 
   if (!user) {
@@ -37,15 +46,27 @@ export async function saveGapAnalysisSnapshot() {
     redirect('/onboarding')
   }
 
-  const data = await buildGapsData(membership.organization_id)
+  const systemId = input?.systemId ?? null
+  const fluxion = createFluxionClient()
+  let system: { id: string; name: string } | null = null
+  if (systemId) {
+    const { data: row } = await fluxion
+      .from('ai_systems').select('id, name')
+      .eq('id', systemId).eq('organization_id', membership.organization_id).maybeSingle()
+    if (!row) return { error: 'Sistema no encontrado.' }
+    system = { id: row.id as string, name: row.name as string }
+  }
+
+  const completo = await buildGapsData(membership.organization_id)
+  const data = system ? filterGapsDataBySystem(completo, system.id) : completo
   const now = new Date().toISOString()
-  const title = `Análisis de gaps · ${organization?.name ?? 'Organización'} · ${now.slice(0, 10)}`
+  const title = `Análisis de gaps · ${system?.name ?? organization?.name ?? 'Organización'} · ${now.slice(0, 10)}`
 
   const adminFluxion = createAdminFluxionClient()
   const { data: snapshot, error } = await adminFluxion
     .from('system_report_snapshots')
     .insert({
-      ai_system_id: null,
+      ai_system_id: system?.id ?? null,
       organization_id: membership.organization_id,
       report_type: 'gap_analysis',
       title,
@@ -58,6 +79,55 @@ export async function saveGapAnalysisSnapshot() {
   if (error || !snapshot) {
     console.error('saveGapAnalysisSnapshot error:', error)
     return { error: error?.message ?? 'No se pudo guardar el snapshot del análisis de gaps.' }
+  }
+
+  if (system) {
+    const origin = headers().get('origin')
+    if (!origin) return { error: 'No se pudo resolver el origen de la aplicación para enlazar la evidencia.' }
+
+    const { data: evidence, error: evidenceError } = await fluxion
+      .from('system_evidences')
+      .insert({
+        ai_system_id: system.id,
+        organization_id: membership.organization_id,
+        title,
+        description: `Instantánea del análisis de gaps del sistema — ${data.summary.total} gaps activos `
+          + `(${data.summary.critico} críticos, ${data.summary.alto} altos, ${data.summary.medio} medios) · `
+          + `${data.summary.excluded_count} excluidos`,
+        evidence_type: 'report',
+        status: 'pending_review',
+        external_url: `${origin}/gaps/snapshots/${snapshot.id}`,
+        version: now.slice(0, 10),
+        owner_user_id: user.id,
+        issued_at: now.slice(0, 10),
+        tags: ['auto-generated', 'analisis-gaps'],
+      })
+      .select('id')
+      .single()
+
+    if (evidenceError || !evidence) {
+      console.error('saveGapAnalysisSnapshot evidence error:', evidenceError)
+      return { error: evidenceError?.message ?? 'No se pudo registrar la evidencia de la instantánea.' }
+    }
+
+    // Se decide en Flujos de aprobación (B11g).
+    await openEvidenceReview({
+      organizationId: membership.organization_id,
+      evidenceId: evidence.id,
+      ownerUserId: user.id,
+    })
+
+    await insertAiSystemHistoryEvents(fluxion, [{
+      ai_system_id: system.id,
+      organization_id: membership.organization_id,
+      event_type: 'evidence_added',
+      event_title: 'Análisis de gaps guardado como evidencia',
+      event_summary: 'Se guardó una instantánea del análisis de gaps del sistema y se registró como evidencia.',
+      actor_user_id: user.id,
+      payload: { snapshot_id: snapshot.id, evidence_id: evidence.id },
+    }])
+
+    revalidatePath(`/inventario/${system.id}`)
   }
 
   revalidatePath('/gaps')

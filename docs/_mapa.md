@@ -39,7 +39,7 @@
 | `brechas` | Análisis de brechas | Core |
 | `biblioteca-evidencias` | Biblioteca de evidencias | Core |
 | `declaracion-aplicabilidad` | Declaración de Aplicabilidad ISO 42001 | Core |
-| `informes-del-sistema` | Informes del sistema (dossier técnico, registro UE, informe de brechas) | Core |
+| `informes-del-sistema` | Informes del sistema: consolidados en B16 (ficha y expediente; análisis de brechas por sistema) | Core |
 | `incidentes` | Incidentes (Art. 73) | Core |
 | `flujos-de-aprobacion` | Flujos de aprobación | Core (todos los planes) |
 | `tareas` | Tareas | Core |
@@ -77,7 +77,7 @@ Evaluación de calidad, Integración ITSM, Linaje y AI Gateway no existen todav�
 | NEG-BRECHAS | `docs/negocio/brechas.md` | negocio | comercial | brechas | `lib/gaps/*`, `(app)/gaps/page.tsx` | borrador |
 | NEG-EVIDENCIAS | `docs/negocio/biblioteca-evidencias.md` | negocio | comercial | biblioteca-evidencias | `lib/evidences/*`, `(app)/evidencias/page.tsx` | borrador |
 | NEG-SOA | `docs/negocio/declaracion-aplicabilidad.md` | negocio | comercial | declaracion-aplicabilidad | `(app)/plantillas/soa-iso42001/*`, `lib/templates/iso42001-catalog.ts` | borrador |
-| NEG-INFORMES | `docs/negocio/informes-del-sistema.md` | negocio | comercial | informes-del-sistema | `lib/ai-systems/{technical-dossier,eu-registry,gap-report}.ts` | borrador |
+| NEG-INFORMES | `docs/negocio/informes-del-sistema.md` | negocio | comercial | informes-del-sistema | `(app)/gaps/*`, `lib/gaps/by-system.ts`, `lib/documents/applicability.ts` | borrador |
 | NEG-INCIDENTES | `docs/negocio/incidentes.md` | negocio | comercial | incidentes | `(app)/incidentes/**`, `mig/20260818170000_incidents_core.sql` | borrador |
 | NEG-APROBACIONES | `docs/negocio/flujos-de-aprobacion.md` | negocio | comercial | flujos-de-aprobacion | `lib/approvals/*`, `docs/modulos/c3-aprobaciones.md`, `mig/20260831090000_approvals_core.sql` | borrador |
 | NEG-TAREAS | `docs/negocio/tareas.md` | negocio | comercial | tareas | `lib/tasks/*`, `components/tasks/*` | borrador |
