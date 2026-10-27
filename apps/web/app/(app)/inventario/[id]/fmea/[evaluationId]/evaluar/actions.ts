@@ -13,12 +13,20 @@ import {
 } from '@/lib/failure-modes/activation-engine';
 import {
   calculateFmeaZone,
-  calculateSuggestedSActual,
   requiresJustification,
   requiresSecondReview,
   type FmeaEditableItem,
   type FmeaZone,
 } from '@/lib/fmea/domain';
+import {
+  draftMakesManual,
+  isNoopFamilyUpdate,
+  referenceSeverity,
+  resolveFamilyEstimates,
+  summarizeFamilies,
+  type FamilyEstimate,
+  type FamilyItem,
+} from '@/lib/fmea/families';
 import {
   generateTreatmentPlanCode,
   getAiActFloorForSystem,
@@ -306,6 +314,22 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
 
     const skippedAt = new Date().toISOString();
 
+    // Los modos que heredaban de una familia y se han retocado en la lista pasan
+    // a ajuste manual: si no, la siguiente estimación de familia pisaría el
+    // retoque (B14). Queda en su historial como excepción.
+    const { data: storedRows } = await fluxion
+      .from('fmea_items')
+      .select('id, status, o_value, d_real_value, s_actual, narrative_justification, estimate_source, estimate_families')
+      .eq('evaluation_id', input.evaluationId);
+    const stored = new Map(
+      ((storedRows ?? []) as Array<{
+        id: string; status: string; o_value: number | null; d_real_value: number | null
+        s_actual: number | null; narrative_justification: string | null
+        estimate_source: string | null; estimate_families: string[] | null
+      }>).map((row) => [row.id, row])
+    );
+    const exceptionHistory: Array<Record<string, unknown>> = [];
+
     for (const item of input.items) {
       // Los ítems pendientes se guardan tal como están: sin rellenar O y D con 3
       // ni calcular una severidad que nadie ha confirmado (R5). Esa severidad
@@ -339,15 +363,48 @@ export async function saveFmeaDraft(input: SaveFmeaDraftInput) {
               skipped_at: null,
             };
 
+      const previous = stored.get(item.itemId);
+      const becomesManual = !!previous && draftMakesManual(previous, {
+        status: updatePayload.status,
+        o_value: updatePayload.o_value,
+        d_real_value: updatePayload.d_real_value,
+        s_actual: updatePayload.s_actual,
+        narrative_justification: updatePayload.narrative_justification,
+      });
+
       const { error: itemUpdateError } = await fluxion
         .from('fmea_items')
-        .update(updatePayload)
+        .update(becomesManual ? { ...updatePayload, estimate_source: 'manual', estimate_families: null } : updatePayload)
         .eq('id', item.itemId)
         .eq('evaluation_id', input.evaluationId);
 
       if (itemUpdateError) {
         return { error: `Error al guardar ítem: ${itemUpdateError.message}` };
       }
+
+      if (becomesManual && previous) {
+        exceptionHistory.push({
+          item_id: item.itemId,
+          evaluation_id: input.evaluationId,
+          organization_id: membership.organization_id,
+          actor_user_id: user.id,
+          actor_name: membership.full_name ?? null,
+          event_type: 'family_exception',
+          prev_o: previous.o_value,
+          new_o: updatePayload.o_value,
+          prev_d: previous.d_real_value,
+          new_d: updatePayload.d_real_value,
+          prev_s_actual: previous.s_actual,
+          new_s_actual: updatePayload.s_actual,
+          prev_status: previous.status,
+          new_status: updatePayload.status,
+          notes: previous.estimate_families?.join(' · ') ?? null,
+        });
+      }
+    }
+
+    if (exceptionHistory.length > 0) {
+      await fluxion.from('fmea_item_history').insert(exceptionHistory);
     }
   }
 
@@ -1071,11 +1128,11 @@ export async function resolveFmeaSecondReview(input: ResolveFmeaSecondReviewInpu
 //
 // Un sistema activa 286 modos y prioriza 119. Evaluar 119 ítems a mano son unas
 // seis horas por sistema. Los 119 caen en 10 familias causales: fijar O y D por
-// familia y ajustar después las excepciones convierte 119 decisiones en 10.
+// familia y ajustar después las excepciones convierte 119 decisiones en 10 (B14).
 //
-// La regla que deriva la S vive en `domain.ts` y se reutiliza aquí. No se
-// reimplementa en SQL: dos verdades sobre lo mismo terminan divergiendo, y el
-// día que lo hagan el expediente diría una cosa distinta según quién lo mire.
+// La regla que deriva la S vive en `domain.ts` y la de las familias en
+// `families.ts`; aquí solo se lee y se escribe. No se reimplementa en SQL: dos
+// verdades sobre lo mismo terminan divergiendo.
 
 export type FamilyModeRow = {
   itemId:  string
@@ -1084,6 +1141,8 @@ export type FamilyModeRow = {
   status:  string
   /** 'manual' = ajustado a mano; la estimación de familia no lo toca. */
   fuente:  string | null
+  /** Severidad de referencia: la actual si está confirmado; si no, la por defecto. */
+  severity: number
 }
 
 export type FamilyEstimateRow = {
@@ -1094,6 +1153,9 @@ export type FamilyEstimateRow = {
   detalle:       FamilyModeRow[]
   /** Ítems de la familia ya ajustados a mano: la estimación no los toca. */
   manuales:      number
+  /** Modos con severidad 8 o más: la familia se estima primero. */
+  criticos:      number
+  maxSeverity:   number
   oValue:        number | null
   dValue:        number | null
   justification: string | null
@@ -1108,77 +1170,84 @@ export async function getFamilyEstimates(input: {
   if ('error' in context) return { error: context.error ?? 'No autorizado.' }
   const { fluxion } = context
 
-  const { data: pertenencias, error: pErr } = await fluxion
-    .from('v_fmea_item_families')
-    .select('item_id, failure_mode_id, family_label, estimate_source, status, failure_mode_code, failure_mode_name')
-    .eq('evaluation_id', input.evaluationId)
+  const [{ data: pertenencias, error: pErr }, { data: estimaciones }, { data: items }] = await Promise.all([
+    fluxion
+      .from('v_fmea_item_families')
+      .select('item_id, failure_mode_id, family_label, estimate_source, status, failure_mode_code, failure_mode_name')
+      .eq('evaluation_id', input.evaluationId),
+    fluxion
+      .from('fmea_family_estimates')
+      .select('family_label, o_value, d_value, justification, updated_at')
+      .eq('evaluation_id', input.evaluationId),
+    fluxion
+      .from('fmea_items')
+      .select('id, s_default_frozen, s_actual')
+      .eq('evaluation_id', input.evaluationId),
+  ])
 
   if (pErr) return { error: 'No se pudieron leer las familias: ' + pErr.message }
-
-  const { data: estimaciones } = await fluxion
-    .from('fmea_family_estimates')
-    .select('family_label, o_value, d_value, justification, updated_at')
-    .eq('evaluation_id', input.evaluationId)
 
   type Pertenencia = {
     item_id: string; failure_mode_id: string; family_label: string
     estimate_source: string | null; status: string
     failure_mode_code: string; failure_mode_name: string
   }
-
-  const porFamilia = new Map<string, { modos: number; manuales: number; detalle: FamilyModeRow[] }>()
-  for (const p of (pertenencias ?? []) as Pertenencia[]) {
-    const acc = porFamilia.get(p.family_label) ?? { modos: 0, manuales: 0, detalle: [] }
-    acc.modos += 1
-    if (p.estimate_source === 'manual') acc.manuales += 1
-    acc.detalle.push({
-      itemId: p.item_id,
-      code:   p.failure_mode_code,
-      name:   p.failure_mode_name,
-      status: p.status,
-      fuente: p.estimate_source,
-    })
-    porFamilia.set(p.family_label, acc)
+  type Estimacion = {
+    family_label: string; o_value: number; d_value: number
+    justification: string; updated_at: string
   }
 
-  const familias: FamilyEstimateRow[] = Array.from(porFamilia.entries())
-    .map(([familyLabel, acc]) => {
-      const est = (estimaciones ?? []).find(
-        (e: { family_label: string }) => e.family_label === familyLabel
-      )
+  const severidades = new Map(
+    ((items ?? []) as Array<{ id: string; s_default_frozen: number; s_actual: number | null }>)
+      .map((i) => [i.id, i])
+  )
+  const filas = ((pertenencias ?? []) as Pertenencia[]).flatMap((p) => {
+    const item = severidades.get(p.item_id)
+    return item ? [{ ...p, s_default_frozen: item.s_default_frozen, s_actual: item.s_actual }] : []
+  })
+  const porLabel = new Map(((estimaciones ?? []) as Estimacion[]).map((e) => [e.family_label, e]))
+
+  const familias: FamilyEstimateRow[] = summarizeFamilies(filas, new Set(porLabel.keys()))
+    .map((resumen) => {
+      const est = porLabel.get(resumen.familyLabel)
+      const detalle = filas
+        .filter((f) => f.family_label === resumen.familyLabel)
+        .map((f) => ({
+          itemId:   f.item_id,
+          code:     f.failure_mode_code,
+          name:     f.failure_mode_name,
+          status:   f.status,
+          fuente:   f.estimate_source,
+          severity: referenceSeverity(f),
+        }))
+        .sort((x, y) => y.severity - x.severity || x.code.localeCompare(y.code, 'es'))
       return {
-        familyLabel,
-        modos:         acc.modos,
-        detalle:       acc.detalle.sort((x, y) => x.code.localeCompare(y.code)),
-        manuales:      acc.manuales,
+        familyLabel:   resumen.familyLabel,
+        modos:         resumen.modos,
+        detalle,
+        manuales:      resumen.manuales,
+        criticos:      resumen.criticos,
+        maxSeverity:   resumen.maxSeverity,
         oValue:        est?.o_value ?? null,
         dValue:        est?.d_value ?? null,
         justification: est?.justification ?? null,
         updatedAt:     est?.updated_at ?? null,
       }
     })
-    // Las que más modos agrupan primero: es donde está el ahorro.
-    .sort((a, b) => b.modos - a.modos)
 
   return { familias }
 }
 
+type Actor = { userId: string; organizationId: string; name: string | null }
+
 /**
- * Recalcula los ítems que heredan de una familia.
- *
- * Se recalcula TODO el conjunto en cada cambio, no se aplica incrementalmente.
- * Con solapamiento —un modo puede estar en varias familias— el resultado
- * incremental dependería del orden en que se guardaron las estimaciones, y dos
- * personas haciendo lo mismo en distinto orden obtendrían expedientes
- * distintos.
- *
- * Ante varias familias manda el valor más severo en cada eje: en gestión de
- * riesgos, ante dos estimaciones se toma la peor. Más O y más D suben la
- * severidad, así que «más severo» es el mayor.
+ * Recalcula los ítems que heredan de una familia (`resolveFamilyEstimates`) y
+ * deja constancia en el historial de cada modo que cambia de valores.
  */
 async function recalcularFamilias(
   fluxion: ReturnType<typeof createFluxionClient>,
   evaluationId: string,
+  actor: Actor,
 ): Promise<{ actualizados: number; error?: string }> {
   const [{ data: estimaciones }, { data: pertenencias }, { data: items }] = await Promise.all([
     fluxion.from('fmea_family_estimates')
@@ -1188,80 +1257,57 @@ async function recalcularFamilias(
       .select('item_id, family_label')
       .eq('evaluation_id', evaluationId),
     fluxion.from('fmea_items')
-      .select('id, s_default_frozen, estimate_source, status')
+      .select('id, s_default_frozen, estimate_source, status, o_value, d_real_value, s_actual')
       .eq('evaluation_id', evaluationId),
   ])
 
-  type Estimacion = {
-    family_label: string; o_value: number; d_value: number; justification: string
-  }
-  const porFamilia = new Map<string, Estimacion>(
-    ((estimaciones ?? []) as Estimacion[]).map((e) => [e.family_label, e])
-  )
+  const cambios = resolveFamilyEstimates({
+    items:       (items ?? []) as FamilyItem[],
+    memberships: (pertenencias ?? []) as Array<{ item_id: string; family_label: string }>,
+    estimates:   (estimaciones ?? []) as FamilyEstimate[],
+  })
 
-  // item -> familias con estimación que lo cubren
-  const cubiertoPor = new Map<string, string[]>()
-  for (const p of (pertenencias ?? []) as Array<{ item_id: string; family_label: string }>) {
-    if (!porFamilia.has(p.family_label)) continue
-    cubiertoPor.set(p.item_id, [...(cubiertoPor.get(p.item_id) ?? []), p.family_label])
-  }
-
-  let actualizados = 0
-
-  for (const item of (items ?? []) as Array<{
-    id: string; s_default_frozen: number; estimate_source: string | null; status: string
-  }>) {
-    // Un ajuste manual no se pisa nunca.
-    if (item.estimate_source === 'manual') continue
-
-    const familias = cubiertoPor.get(item.id) ?? []
-
-    if (familias.length === 0) {
-      // Se retiró la estimación que lo cubría: vuelve a pendiente en lugar de
-      // quedarse con un valor huérfano que nadie sabría de dónde salió.
-      if (item.estimate_source === 'family') {
-        await fluxion.from('fmea_items').update({
-          o_value: null, d_real_value: null, s_actual: null,
-          narrative_justification: null,
-          status: 'pending', estimate_source: null, estimate_families: null,
-          requires_second_review: false,
-        }).eq('id', item.id)
-        actualizados += 1
-      }
-      continue
-    }
-
-    const oValue = Math.max(...familias.map((f) => porFamilia.get(f)!.o_value))
-    const dValue = Math.max(...familias.map((f) => porFamilia.get(f)!.d_value))
-
-    const sActual = calculateSuggestedSActual({
-      oValue, dRealValue: dValue, sDefault: item.s_default_frozen,
-    })
-
-    // La justificación de la familia se copia al ítem: sin esto, el expediente
-    // generado mostraría 48 apartados sin justificar aunque la decisión sí
-    // estuviera razonada.
-    const textos = familias.map(
-      (f) => `Estimación por familia «${f}»: ${porFamilia.get(f)!.justification}`
-    )
-
-    await fluxion.from('fmea_items').update({
-      o_value: oValue,
-      d_real_value: dValue,
-      s_actual: sActual,
-      narrative_justification: textos.join('\n\n'),
-      status: 'evaluated',
-      estimate_source: 'family',
-      estimate_families: familias,
-      requires_second_review: requiresSecondReview({
-        sDefault: item.s_default_frozen, sActual, manualMode: false,
-      }),
-    }).eq('id', item.id)
-
-    actualizados += 1
+  // En tandas: una evaluación de 119 modos son 119 actualizaciones.
+  const TANDA = 20
+  for (let i = 0; i < cambios.length; i += TANDA) {
+    const resultados = await Promise.all(cambios.slice(i, i + TANDA).map((c) =>
+      fluxion.from('fmea_items').update(c.patch).eq('id', c.itemId).eq('evaluation_id', evaluationId)
+    ))
+    const fallo = resultados.find((r) => r.error)
+    if (fallo?.error) return { actualizados: i, error: 'No se pudieron actualizar los modos: ' + fallo.error.message }
   }
 
-  return { actualizados }
+  const historial = cambios.filter((c) => !isNoopFamilyUpdate(c)).map((c) => ({
+    item_id:         c.itemId,
+    evaluation_id:   evaluationId,
+    organization_id: actor.organizationId,
+    actor_user_id:   actor.userId,
+    actor_name:      actor.name,
+    event_type:      c.kind === 'estimated' ? 'family_estimated' : 'family_withdrawn',
+    prev_o:          c.prev.o,
+    new_o:           c.patch.o_value,
+    prev_d:          c.prev.d,
+    new_d:           c.patch.d_real_value,
+    prev_s_actual:   c.prev.s,
+    new_s_actual:    c.patch.s_actual,
+    prev_status:     c.prev.status,
+    new_status:      c.patch.status,
+    notes:           c.patch.estimate_families?.join(' · ') ?? null,
+  }))
+  if (historial.length > 0) await fluxion.from('fmea_item_history').insert(historial)
+
+  return { actualizados: cambios.length }
+}
+
+function actorOf(context: {
+  user: { id: string }
+  membership: { organization_id: string; full_name?: string | null }
+}): Actor {
+  return {
+    userId: context.user.id,
+    organizationId: context.membership.organization_id,
+    name: context.membership.full_name ?? null,
+  }
 }
 
 export async function saveFamilyEstimate(input: {
@@ -1306,7 +1352,7 @@ export async function saveFamilyEstimate(input: {
 
   if (upErr) return { error: 'No se pudo guardar la estimación: ' + upErr.message }
 
-  const resultado = await recalcularFamilias(fluxion, input.evaluationId)
+  const resultado = await recalcularFamilias(fluxion, input.evaluationId, actorOf(context))
   if (resultado.error) return { error: resultado.error }
 
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`)
@@ -1333,9 +1379,62 @@ export async function deleteFamilyEstimate(input: {
 
   if (delErr) return { error: 'No se pudo retirar la estimación: ' + delErr.message }
 
-  const resultado = await recalcularFamilias(fluxion, input.evaluationId)
+  const resultado = await recalcularFamilias(fluxion, input.evaluationId, actorOf(context))
   if (resultado.error) return { error: resultado.error }
 
   revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`)
   return { actualizados: resultado.actualizados }
+}
+
+/**
+ * Devuelve a la estimación de su familia unos modos ajustados a mano: dejan de
+ * ser excepción y toman otra vez los valores de la familia. Solo para modos que
+ * están en una familia estimada; si no, se quedarían sin valor de origen.
+ */
+export async function restoreFamilyEstimateForItems(input: {
+  aiSystemId:   string
+  evaluationId: string
+  itemIds:      string[]
+}): Promise<{ actualizados: number } | { error: string }> {
+  const context = await requireEditableEvaluation({
+    aiSystemId: input.aiSystemId,
+    evaluationId: input.evaluationId,
+  })
+  if ('error' in context) return { error: context.error ?? 'No autorizado.' }
+  const { fluxion } = context
+  if (input.itemIds.length === 0) return { actualizados: 0 }
+
+  const [{ data: pertenencias }, { data: estimaciones }] = await Promise.all([
+    fluxion.from('v_fmea_item_families')
+      .select('item_id, family_label')
+      .eq('evaluation_id', input.evaluationId)
+      .in('item_id', input.itemIds),
+    fluxion.from('fmea_family_estimates')
+      .select('family_label')
+      .eq('evaluation_id', input.evaluationId),
+  ])
+  const estimadas = new Set((estimaciones ?? []).map((e: { family_label: string }) => e.family_label))
+  const cubiertos = Array.from(new Set(
+    ((pertenencias ?? []) as Array<{ item_id: string; family_label: string }>)
+      .filter((p) => estimadas.has(p.family_label))
+      .map((p) => p.item_id)
+  ))
+  if (cubiertos.length === 0) {
+    return { error: 'Ninguno de estos modos está en una familia estimada: no hay estimación a la que volver.' }
+  }
+
+  const { error: upErr } = await fluxion
+    .from('fmea_items')
+    .update({ estimate_source: null, second_review_status: 'not_required',
+      second_reviewed_by: null, second_reviewed_at: null, second_review_notes: null })
+    .eq('evaluation_id', input.evaluationId)
+    .eq('estimate_source', 'manual')
+    .in('id', cubiertos)
+  if (upErr) return { error: 'No se pudieron devolver los modos a su familia: ' + upErr.message }
+
+  const resultado = await recalcularFamilias(fluxion, input.evaluationId, actorOf(context))
+  if (resultado.error) return { error: resultado.error }
+
+  revalidatePath(`/inventario/${input.aiSystemId}/fmea/${input.evaluationId}/evaluar`)
+  return { actualizados: cubiertos.length }
 }

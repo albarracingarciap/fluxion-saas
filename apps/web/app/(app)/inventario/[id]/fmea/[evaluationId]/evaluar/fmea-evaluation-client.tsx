@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Clock,
   ExternalLink,
+  Layers,
   FileText,
   Loader2,
   Save,
@@ -35,10 +36,17 @@ import {
   getZoneLabel,
   requiresJustification,
 } from '@/lib/fmea/domain';
+import {
+  CRITICAL_SEVERITY,
+  compareByCriticality,
+  evaluationOverview,
+  isCritical,
+  severityBand,
+} from '@/lib/fmea/families';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
-import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
-import { FamiliasPanel } from './familias-panel';
+import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, restoreFamilyEstimateForItems, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
+import { FamiliasPanel, type FamiliaResumen } from './familias-panel';
 import { EvaluationVersionBar } from '../../evaluation-version-bar';
 
 const DIMENSION_META: Record<string, { label: string; badge: string }> = {
@@ -97,7 +105,10 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-type FilterValue = 'all' | 'pending' | 'evaluated' | 'skipped' | 'high_severity' | string;
+type FilterValue = 'all' | 'pending' | 'evaluated' | 'skipped' | 'high_severity' | 'manual' | 'no_family' | string;
+
+/** Orden de la lista (B14): por criticidad por defecto; por dimensión como alternativa. */
+type ListOrder = 'criticidad' | 'dimension';
 
 type EditableItemState = FmeaEvaluationItemRecord & {
   manualSActual: number | null;
@@ -273,6 +284,9 @@ const HISTORY_EVENT_META: Record<FmeaItemHistoryEntry['event_type'], { label: st
   skipped:                 { label: 'Pospuesto',           dot: 'bg-[#7c5cff]' },
   second_review_approved:  { label: '2ª revisión aprobada', dot: 'bg-gr' },
   second_review_rejected:  { label: '2ª revisión rechazada', dot: 'bg-re' },
+  family_estimated:        { label: 'Estimado por familia', dot: 'bg-brand-cyan' },
+  family_withdrawn:        { label: 'Estimación de familia retirada', dot: 'bg-lttm' },
+  family_exception:        { label: 'Ajuste manual sobre la familia', dot: 'bg-or' },
 };
 
 function formatHistoryDate(iso: string): string {
@@ -643,7 +657,9 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   // Familias causales, elevadas desde el panel. La lista viene agrupada por
   // dimension y la estimacion va por familia: sin poder filtrar por familia no
   // hay forma de cruzar las dos vistas.
-  const [familias, setFamilias] = useState<Array<{ label: string; itemIds: string[] }>>([]);
+  const [familias, setFamilias] = useState<FamiliaResumen[]>([]);
+  const [listOrder, setListOrder] = useState<ListOrder>('criticidad');
+  const [isRestoringFamily, startRestoringFamily] = useTransition();
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(() => {
     const requestedItemId = searchParams.get('item');
@@ -707,7 +723,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       setItems((current) =>
         current.map((item) =>
           ids.includes(item.id)
-            ? { ...item, status: 'skipped', o_value: null, d_real_value: null, s_actual: null, manualSActual: null }
+            ? { ...item, status: 'skipped', estimate_source: 'manual', estimate_families: null, o_value: null, d_real_value: null, s_actual: null, manualSActual: null }
             : item
         )
       );
@@ -727,11 +743,25 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       setItems((current) =>
         current.map((item) =>
           ids.includes(item.id)
-            ? { ...item, status: 'pending', o_value: null, d_real_value: null, s_actual: null, manualSActual: null, requires_second_review: false, second_review_status: 'not_required' }
+            ? { ...item, status: 'pending', estimate_source: null, estimate_families: null, o_value: null, d_real_value: null, s_actual: null, manualSActual: null, requires_second_review: false, second_review_status: 'not_required' }
             : item
         )
       );
       setSelectedIds(new Set());
+    });
+  }
+
+  function handleRestoreFamily(ids: string[]) {
+    startRestoringFamily(async () => {
+      const result = await restoreFamilyEstimateForItems({
+        aiSystemId: data.system.id,
+        evaluationId: data.evaluation.id,
+        itemIds: ids,
+      });
+      if ('error' in result) { setGlobalError(result.error); return; }
+      // Recarga completa por la misma razón que el panel de familias: el estado
+      // local se siembra una sola vez desde las props.
+      window.location.reload();
     });
   }
 
@@ -841,6 +871,16 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   const totalBlockingCount = unresolvedCount + secondReviewCount;
   const requiresExecutiveEscalation = highestSeverityCount > 0;
   const aiActFloorZone = calculateFmeaZone([], data.system.aiact_risk_level);
+  const itemsConFamilia = useMemo(
+    () => new Set(familias.flatMap((f) => f.itemIds)),
+    [familias]
+  );
+  const itemsEnFamiliaEstimada = useMemo(
+    () => new Set(familias.filter((f) => f.estimada).flatMap((f) => f.itemIds)),
+    [familias]
+  );
+  const overview = useMemo(() => evaluationOverview(items, itemsConFamilia), [items, itemsConFamilia]);
+  const familiasEstimadas = familias.filter((f) => f.estimada).length;
 
   useEffect(() => {
     if (isReadOnly || !hasPendingLocalChanges || isSavingItem || isSavingDraft || isSubmittingReview) {
@@ -888,7 +928,20 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
           return;
         }
 
-        setSavedItems(items);
+        // Lo mismo que hace el servidor: un modo de familia retocado pasa a ajuste manual.
+        const savedSignatures = new Map(savedItems.map((row) => [row.id, getComparableItemSignature(row)]));
+        const markManual = (row: EditableItemState): EditableItemState =>
+          ({ ...row, estimate_source: 'manual', estimate_families: null });
+        const retouched = new Set(
+          items
+            .filter((row) => row.estimate_source === 'family' && savedSignatures.get(row.id) !== getComparableItemSignature(row))
+            .map((row) => row.id)
+        );
+        // Funcional: lo tecleado mientras se guardaba no se pierde.
+        if (retouched.size > 0) {
+          setItems((current) => current.map((row) => (retouched.has(row.id) ? markManual(row) : row)));
+        }
+        setSavedItems(items.map((row) => (retouched.has(row.id) ? markManual(row) : row)));
       });
     }, 2500);
 
@@ -908,19 +961,22 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     isSavingItem,
     isSubmittingReview,
     items,
+    savedItems,
     startSavingDraft,
   ]);
 
   const visibleItems = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
       if (activeFilter === 'all') return true;
       if (activeFilter === 'pending') return item.status === 'pending';
       if (activeFilter === 'evaluated') return item.status === 'evaluated';
       if (activeFilter === 'skipped') return item.status === 'skipped';
       if (activeFilter === 'second_review') return item.requires_second_review;
-      if (activeFilter === 'high_severity') return item.s_default_frozen >= 8;
+      if (activeFilter === 'high_severity') return isCritical(item);
+      if (activeFilter === 'manual') return item.estimate_source === 'manual' && itemsConFamilia.has(item.id);
+      if (activeFilter === 'no_family') return familias.length > 0 && !itemsConFamilia.has(item.id);
       if (activeFilter.startsWith('fam:')) {
         const familia = familias.find((f) => `fam:${f.label}` === activeFilter);
         return familia ? familia.itemIds.includes(item.id) : false;
@@ -931,13 +987,16 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       const haystack = `${item.failure_mode_code} ${item.failure_mode_name}`.toLowerCase();
       return haystack.includes(normalizedSearch);
     });
-  }, [activeFilter, items, searchTerm]);
+
+    // Por criticidad: lo más severo primero (B14). Por dimensión: el orden de carga.
+    return listOrder === 'criticidad' ? filtered.sort(compareByCriticality) : filtered;
+  }, [activeFilter, familias, items, itemsConFamilia, listOrder, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter, searchTerm]);
+  }, [activeFilter, listOrder, searchTerm]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -967,16 +1026,19 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     const groups = new Map<string, { label: string; items: EditableItemState[] }>();
 
     for (const item of paginatedItems) {
-      const meta = DIMENSION_META[item.dimension_id] ?? {
-        label: item.dimension_name,
-        badge: 'bg-ltcard2 border-ltb text-lttm',
-      };
+      // Por criticidad se agrupa por tramo de severidad; por dimensión, por dimensión.
+      const { id: groupId, label } = listOrder === 'criticidad'
+        ? severityBand(item)
+        : {
+            id: item.dimension_id,
+            label: DIMENSION_META[item.dimension_id]?.label ?? item.dimension_name,
+          };
 
-      const existing = groups.get(item.dimension_id);
+      const existing = groups.get(groupId);
       if (existing) {
         existing.items.push(item);
       } else {
-        groups.set(item.dimension_id, { label: meta.label, items: [item] });
+        groups.set(groupId, { label, items: [item] });
       }
     }
 
@@ -985,7 +1047,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       label: value.label,
       items: value.items,
     }));
-  }, [paginatedItems]);
+  }, [listOrder, paginatedItems]);
 
   useEffect(() => {
     if (!expandedItemId) return;
@@ -1037,6 +1099,8 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 s_actual: effectiveSActual,
                 manualSActual: effectiveSActual,
                 status: 'evaluated',
+                estimate_source: 'manual',
+                estimate_families: null,
                 requires_second_review: result?.requiresSecondReview ?? row.requires_second_review,
                 second_review_status:
                   result?.requiresSecondReview ?? row.requires_second_review ? 'pending' : 'not_required',
@@ -1138,6 +1202,8 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
       patchItem(item.id, (current) => ({
         ...current,
         status: 'skipped',
+        estimate_source: 'manual',
+        estimate_families: null,
         o_value: null,
         d_real_value: null,
         s_actual: null,
@@ -1461,6 +1527,35 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         )}
       </div>
 
+      {/* Al entrar: cuántos modos hay, cuántos importan y por dónde empezar (B14). */}
+      <div className="mb-5 rounded-[12px] border border-cyan-border bg-cyan-dim px-5 py-4">
+        <div className="font-sora text-[14px] text-ltt">
+          <span className="font-semibold">{overview.total} modos priorizados</span>
+          {' · '}
+          <span className={overview.criticos > 0 ? 'font-semibold text-re' : 'font-semibold'}>
+            {overview.criticos} con severidad {CRITICAL_SEVERITY} o más
+          </span>
+          {overview.criticosPendientes > 0 && (
+            <span className="text-ltt2"> ({overview.criticosPendientes} pendientes)</span>
+          )}
+        </div>
+        {familias.length > 0 ? (
+          <div className="font-sora text-[12.5px] text-ltt2 mt-1">
+            Empieza por las familias: {familiasEstimadas} de {familias.length} estimadas, que cubren{' '}
+            {overview.porFamilia} modos. Después revisa en la lista los que se salgan
+            {overview.manuales > 0 && <> ({overview.manuales} ajustes manuales)</>}
+            {overview.sinFamilia > 0 && (
+              <>. {overview.sinFamilia} {overview.sinFamilia === 1 ? 'modo no está' : 'modos no están'} en ninguna familia y se evalúan uno a uno</>
+            )}
+            .
+          </div>
+        ) : (
+          <div className="font-sora text-[12.5px] text-ltt2 mt-1">
+            La lista está ordenada por criticidad: empieza por los de severidad más alta.
+          </div>
+        )}
+      </div>
+
       {/* Antes de la lista: quien llega a evaluar 119 modos deberia ver primero
           que puede hacerlo por familias, no descubrirlo al final. */}
       <div className="mb-5">
@@ -1512,7 +1607,13 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 { key: 'evaluated', label: 'Evaluados' },
                 { key: 'skipped', label: 'Pospuestos' },
                 { key: 'second_review', label: '2ª revisión' },
-                { key: 'high_severity', label: 'S ≥ 8' },
+                { key: 'high_severity', label: `S ≥ ${CRITICAL_SEVERITY}` },
+                ...(familias.length > 0
+                  ? [
+                      { key: 'manual', label: 'Ajustes manuales' },
+                      ...(overview.sinFamilia > 0 ? [{ key: 'no_family', label: 'Sin familia' }] : []),
+                    ]
+                  : []),
                 ...Object.entries(DIMENSION_META).map(([key, meta]) => ({ key, label: meta.label })),
               ].map((filter) => (
                 <button
@@ -1571,6 +1672,26 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                   placeholder="Código o nombre..."
                   className="w-full rounded-[8px] border border-ltb bg-ltcard px-3 py-2 font-sora text-[13px] text-ltt outline-none focus:border-cyan-border focus:ring-2 focus:ring-cyan-200"
                 />
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Ordenar por</span>
+                {([
+                  { key: 'criticidad', label: 'Criticidad' },
+                  { key: 'dimension', label: 'Dimensión' },
+                ] as const).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setListOrder(option.key)}
+                    className={`inline-flex items-center px-3 py-1 rounded-[7px] border font-sora text-[12px] transition-colors ${
+                      listOrder === option.key
+                        ? 'bg-cyan-dim border-cyan-border text-brand-cyan'
+                        : 'bg-ltcard text-lttm border-ltb hover:text-ltt hover:border-cyan-border'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1670,6 +1791,11 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                       <div className="p-3 bg-ltcard space-y-3">
                         {group.items.map((item) => {
                           const isExpanded = expandedItemId === item.id;
+                          const itemMeta = DIMENSION_META[item.dimension_id] ?? {
+                            label: item.dimension_name,
+                            badge: 'bg-ltcard2 border-ltb text-lttm',
+                          };
+                          const esExcepcion = item.estimate_source === 'manual' && itemsEnFamiliaEstimada.has(item.id);
                           const statusMeta = ITEM_STATUS_META[item.status];
                           const secondReviewMeta = SECOND_REVIEW_STATUS_META[item.second_review_status];
                           const suggestedSActual = calculateSuggestedSActual({
@@ -1738,7 +1864,23 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-[6px] border font-plex text-[10px] ${statusMeta.pill}`}>
                                     {statusMeta.label}
                                   </span>
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-[6px] border font-plex text-[10px] ${meta.badge}`}>{meta.label}</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-[6px] border font-plex text-[10px] ${itemMeta.badge}`}>{itemMeta.label}</span>
+                                  {item.estimate_source === 'family' && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] border border-cyan-border bg-cyan-dim font-plex text-[10px] text-brand-cyan"
+                                      title={`Estimado por familia: ${(item.estimate_families ?? []).join(' · ')}`}
+                                    >
+                                      <Layers className="w-3 h-3" /> Por familia
+                                    </span>
+                                  )}
+                                  {esExcepcion && (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-[6px] border border-orb bg-ordim font-plex text-[10px] text-or"
+                                      title="Ajustado a mano: la estimación de su familia no lo modifica"
+                                    >
+                                      Ajuste manual
+                                    </span>
+                                  )}
                                   <span className="inline-flex flex-col items-center px-2.5 py-1 rounded-[7px] border border-ltb bg-ltcard font-plex text-[10px] text-lttm min-w-[52px]">
                                     <span className="uppercase tracking-[0.7px]">def</span>
                                     <span className="text-ltt">{item.s_default_frozen}</span>
@@ -1777,6 +1919,31 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                                   <p className="font-sora text-[12.5px] text-ltt2 leading-relaxed mb-4">
                                     {item.failure_mode_description}
                                   </p>
+
+                                  {item.estimate_source === 'family' && (
+                                    <div className="mb-4 rounded-[10px] border border-cyan-border bg-cyan-dim px-3 py-2.5 font-sora text-[12px] text-ltt2">
+                                      Valores de la estimación por familia ({(item.estimate_families ?? []).join(' · ')}).
+                                      Si los cambias, el modo pasa a ajuste manual y la familia ya no lo modifica.
+                                    </div>
+                                  )}
+                                  {esExcepcion && (
+                                    <div className="mb-4 rounded-[10px] border border-orb bg-ordim px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                                      <span className="font-sora text-[12px] text-ltt2">
+                                        Ajuste manual: la estimación de su familia no lo modifica.
+                                      </span>
+                                      {!isReadOnly && (
+                                        <button
+                                          type="button"
+                                          disabled={isRestoringFamily || hasPendingLocalChanges}
+                                          title={hasPendingLocalChanges ? 'Guarda antes los cambios pendientes' : undefined}
+                                          onClick={() => handleRestoreFamily([item.id])}
+                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[7px] border border-cyan-border bg-ltcard font-sora text-[12px] text-brand-cyan disabled:opacity-50"
+                                        >
+                                          <Layers className="w-3.5 h-3.5" /> Volver a la estimación de familia
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
 
                                   <div className="mb-4">
                                     <div className="font-plex text-[10px] uppercase tracking-[0.9px] text-lttm mb-2">Criterios R·I·D·E (catálogo)</div>

@@ -520,8 +520,10 @@ flowchart LR
    [fase 6](#82-riesgos-de-negocio)).
 3. **Evaluar** (**Eval. riesgos**). Para cada modo, [ocurrencia](../glosario.md#ocurrencia-o) y
    [detectabilidad real](../glosario.md#detectabilidad-real-d_real); Fluxion sugiere la
-   [severidad actual](../glosario.md#severidad-actual-s_actual). Se puede trabajar modo a modo, por
-   [estimación por familia](../glosario.md#estimación-por-familia), posponer o **Delegar como tarea**.
+   [severidad actual](../glosario.md#severidad-actual-s_actual). Al entrar, la evaluación indica cuántos
+   modos hay y cuántos tienen severidad 8 o más, y ordena por criticidad. Se trabaja por
+   [estimación por familia](../glosario.md#estimación-por-familia) por defecto y modo a modo para las
+   excepciones, que quedan como ajuste manual; también se puede posponer o **Delegar como tarea** (B14).
 4. **Justificar y pasar la [segunda revisión](../glosario.md#segunda-revisión)** cuando la severidad se
    aparta de la de por defecto.
 5. **Enviar a revisión** (o **Enviar a alta dirección** si hay severidad 9). ⛔ Sin pendientes,

@@ -19,6 +19,8 @@ fuente:
   - apps/web/app/(app)/evaluaciones/page.tsx
   - supabase/migrations/00000000000005_seed_compliance.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
+  - apps/web/lib/fmea/families.ts
+  - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/familias-panel.tsx
   - docs/producto/circuito.md
   - docs/producto/dos-universos-de-riesgo.md
 ---
@@ -95,11 +97,20 @@ flowchart LR
      observabilidad, el testing y los controles que existen hoy.
 
    Con esos dos valores Fluxion sugiere la [severidad actual (S_actual)](../glosario.md#severidad-actual-s_actual),
-   de 2 a 9, que el evaluador puede ajustar. Hay tres formas de trabajar:
-   - **Modo a modo.**
-   - **[Estimación por familia](../glosario.md#estimación-por-familia):** una valoración común para todos
-     los modos de una familia causal, con una justificación de al menos 50 caracteres, detallando solo
-     las excepciones.
+   de 2 a 9, que el evaluador puede ajustar.
+
+   Al entrar, la evaluación indica cuántos modos hay que evaluar y cuántos tienen severidad 8 o más, y
+   ordena el trabajo por criticidad: primero lo más severo. Hay tres formas de trabajar:
+   - **[Estimación por familia](../glosario.md#estimación-por-familia)**, la forma por defecto: una
+     valoración común para todos los modos de una familia causal, con una justificación de al menos 50
+     caracteres. Las familias con modos más severos aparecen primero. Así, unas pocas estimaciones
+     pueden cubrir la mayoría de los modos de un sistema.
+   - **Modo a modo**, para las excepciones: un modo que se ajusta a mano queda marcado como ajuste
+     manual y la estimación de su familia ya no lo modifica; se puede devolver a la familia cuando se
+     quiera. Los modos que no están en ninguna familia se evalúan siempre así.
+
+   El historial de cada modo registra de dónde sale su valoración: de qué familia, o de un ajuste
+   manual.
    - **Posponer o delegar:** un modo se puede posponer, o delegar como [tarea](../glosario.md#tarea) a
      otra persona.
 4. **Justificación y [segunda revisión](../glosario.md#segunda-revisión).** Apartarse de forma notable

@@ -15,6 +15,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/actions.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/exportar/route.ts
   - apps/web/lib/fmea/domain.ts
+  - apps/web/lib/fmea/families.ts
   - apps/web/lib/fmea/data.ts
   - apps/web/lib/fmea/treatment-plan.ts
   - apps/web/lib/fmea/lifecycle-rules.ts
@@ -22,6 +23,7 @@ fuente:
   - apps/web/lib/fmea/versions.ts
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
+  - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
 ---
 
 # Evaluación FMEA
@@ -88,6 +90,18 @@ Una versión nueva no se crea al entrar: se abre con **Nueva versión** (ver [Ve
 - **Indicadores:** Evaluados, Pendientes, Pospuestos, 2ª revisión, S_actual = 9, Tareas delegadas y
   [Suelo AI Act](../glosario.md#suelo-ai-act).
 
+### Resumen al entrar
+
+Recuadro sobre la estimación por familia (B14):
+- «N modos priorizados · M con severidad 8 o más (P pendientes)».
+- Con familias: «Empieza por las familias: X de Y estimadas, que cubren Z modos. Después revisa en la lista
+  los que se salgan (K ajustes manuales). S modos no están en ninguna familia y se evalúan uno a uno.»
+- Sin familias: «La lista está ordenada por criticidad: empieza por los de severidad más alta.»
+
+La **severidad de referencia** de un modo es la severidad actual si está confirmado y la severidad por
+defecto si no (`referenceSeverity` en `lib/fmea/families.ts`). Es la que usan el recuento, el orden por
+criticidad y el filtro **S ≥ 8**.
+
 ### Mapa de calor O × D_real
 
 Plegable. Rejilla de 5 × 5 con el número de modos evaluados en cada combinación, coloreada según la
@@ -96,7 +110,13 @@ severidad máxima: bajo, moderado, medio, alto, crítico.
 ### Estimación por familia
 
 Panel «Estimación por familia · N de M». Permite valorar a la vez todos los modos de una
-[familia](../glosario.md#estimación-por-familia).
+[familia](../glosario.md#estimación-por-familia). Es la forma de evaluar por defecto (B14).
+
+- **Orden:** primero las familias con algún modo de severidad 8 o más; después, por severidad máxima y por
+  número de modos.
+- **Cada familia** muestra el número de modos, cuántos tienen severidad 8 o más, la severidad máxima
+  («S máx.»), los ajustados a mano y, si está estimada, su O y su D. La lista de sus modos indica la
+  severidad de referencia de cada uno.
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
@@ -109,23 +129,45 @@ Panel «Estimación por familia · N de M». Permite valorar a la vez todos los 
 - **Retirar la estimación:** los modos vuelven a pendiente.
 
 Confirmar o posponer un modo uno a uno lo marca como ajuste manual: aplicar o retirar una estimación por
-familia ya no lo modifica. **Restablecer a pendiente** quita esa marca.
+familia ya no lo modifica. También lo marca cambiar en la lista los valores, la justificación o el estado
+de un modo que heredaba de una familia, aunque solo lo guarde el guardado automático. **Restablecer a
+pendiente** quita esa marca, y **Volver a la estimación de familia** la quita y le aplica otra vez los
+valores de su familia.
+
+**Historial del modo.** Cada cambio de valores por la estimación por familia queda en el historial del
+ítem (`fmea_item_history`), con las familias en la nota:
+
+| Evento | Etiqueta | Cuándo |
+|---|---|---|
+| `family_estimated` | Estimado por familia | Se aplica o cambia la estimación de su familia, o el modo vuelve a ella |
+| `family_withdrawn` | Estimación de familia retirada | Se retira la estimación que lo cubría: vuelve a pendiente |
+| `family_exception` | Ajuste manual sobre la familia | Se retoca en la lista un modo que heredaba de una familia |
+
+Volver a aplicar los mismos valores no añade entradas.
 
 ### Lista de modos
 
 **Filtros:**
-- **Estado:** Todos, Pendientes, Evaluados, Pospuestos, 2ª revisión, S ≥ 8 (por severidad por defecto).
+- **Estado:** Todos, Pendientes, Evaluados, Pospuestos, 2ª revisión, S ≥ 8 (por severidad de
+  referencia).
+- **Con familias:** Ajustes manuales (modos de alguna familia ajustados a mano) y Sin familia (si los hay).
 - **[Dimensión](../glosario.md#dimensión-de-riesgo).**
-- **Familia causal.**
+- **Familia causal**, en el orden del panel.
 - **Búsqueda:** por código o nombre.
 
-Paginación de 20, agrupada por dimensión.
+**Ordenar por:**
+- **Criticidad** (por defecto): severidad de referencia de mayor a menor; a igualdad, los pendientes
+  primero. Se agrupa por tramos: Severidad 8 o más, Severidad 7, Severidad 5 y 6, Severidad 4 o menos.
+- **Dimensión:** orden de las dimensiones y código, agrupado por dimensión.
+
+Paginación de 20.
 
 | Columna | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|
 | Código y nombre | — | `compliance.failure_modes.code`, `name` |
 | Estado | Pendiente · Confirmado · Pospuesto | `fmea_items.status` |
 | Dimensión | — | `failure_modes.dimension_id` |
+| Origen | **Por familia** (con las familias en la ayuda) o **Ajuste manual** (modo de una familia estimada ajustado a mano) | `fmea_items.estimate_source`, `estimate_families` |
 | **def** | [Severidad por defecto](../glosario.md#severidad-por-defecto-s_default) | `fmea_items.s_default_frozen` |
 | **act** | [Severidad actual](../glosario.md#severidad-actual-s_actual) confirmada, o la sugerida | `s_actual` |
 | Tarea | Estado de la tarea delegada | `tasks.status` |
@@ -189,7 +231,8 @@ Solo la puede resolver un usuario distinto del evaluador.
 | **Guardar borrador** y guardado automático (2,5 s tras cada cambio) | Ídem | `saveFmeaDraft` | Guarda todos los ítems. Historial «Borrador FMEA guardado» |
 | **Delegar como tarea** | Ídem | Crea una [tarea](../glosario.md#tarea) con título, responsable, prioridad (Media por defecto) y fecha | Notifica al asignado |
 | **Aprobar 2ª revisión** / **Solicitar revisión de nuevo** | Responsable del SGAI no evaluador | `resolveFmeaSecondReview` | El rechazo exige una nota de al menos 50 caracteres. Historial «Segunda revisión aprobada» o «rechazada» |
-| **Aplicar a N modos** / **Retirar estimación** | Roles con permiso | Estimación por familia | Recarga la página |
+| **Aplicar a N modos** / **Retirar estimación** | Roles con permiso | Estimación por familia | Historial del modo. Recarga la página |
+| **Volver a la estimación de familia** | Ídem | `restoreFamilyEstimateForItems`, en el editor de un modo con ajuste manual de una familia estimada. Deshabilitado con cambios sin guardar | El modo toma los valores de su familia. Historial «Estimado por familia». Recarga la página |
 | **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
 | **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
 | **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) (desde la versión 2) | — |
@@ -260,6 +303,7 @@ su plan, si seguía abierto, también, y sus acciones abiertas se cancelan con s
 | Segunda revisión por el evaluador | «La segunda revisión debe realizarla un usuario distinto del evaluador principal.» |
 | Segunda revisión sin permiso | «No tienes permisos para realizar la segunda revisión.» |
 | Estimación por familia con cambios sin guardar | «Tienes cambios sin guardar en la lista de modos. Guárdalos antes de aplicar una estimación de familia.» |
+| Volver a la familia sin familia estimada | «Ninguno de estos modos está en una familia estimada: no hay estimación a la que volver.» |
 | Tarea ya delegada | «Ya existe una tarea delegada para este modo de fallo.» |
 
 El botón de envío se deshabilita mientras quedan pendientes, pospuestos o segundas revisiones, y lo

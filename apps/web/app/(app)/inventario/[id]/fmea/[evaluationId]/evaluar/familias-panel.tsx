@@ -3,12 +3,17 @@
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import { Layers, ChevronDown, ChevronRight, Check, X, AlertTriangle, Lock } from 'lucide-react'
 
+import { CRITICAL_SEVERITY } from '@/lib/fmea/families'
+
 import {
   getFamilyEstimates, saveFamilyEstimate, deleteFamilyEstimate,
   type FamilyEstimateRow,
 } from './actions'
 
 const ESCALA = [1, 2, 3, 4, 5]
+
+/** Lo que la lista de modos necesita de cada familia: qué modos cubre y si está estimada. */
+export type FamiliaResumen = { label: string; itemIds: string[]; estimada: boolean }
 
 // Mismo vocabulario que usa la evaluación individual: más O y más D suben la
 // severidad, así que 5 es siempre lo peor.
@@ -112,6 +117,10 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, hayCambiosSinGuarda
           <p className="font-sora text-[13.5px] font-semibold text-ltt">{fila.familyLabel}</p>
           <p className="font-sora text-[11.5px] text-lttm mt-0.5">
             {fila.modos} modos
+            {fila.criticos > 0 && (
+              <span className="text-re font-medium"> · {fila.criticos} con severidad {CRITICAL_SEVERITY} o más</span>
+            )}
+            {` · S máx. ${fila.maxSeverity}`}
             {fila.manuales > 0 && ` · ${fila.manuales} ajustados a mano`}
           </p>
         </div>
@@ -148,6 +157,12 @@ function Familia({ fila, aiSystemId, evaluationId, readOnly, hayCambiosSinGuarda
               {fila.detalle.map((m) => (
                 <div key={m.itemId} className="flex items-start gap-2 font-sora text-[12px]">
                   <span className="font-plex text-[11px] text-lttm shrink-0 w-[64px]">{m.code}</span>
+                  <span
+                    className={`font-plex text-[11px] shrink-0 w-[28px] ${m.severity >= CRITICAL_SEVERITY ? 'text-re font-semibold' : 'text-lttm'}`}
+                    title="Severidad de referencia: la actual si está confirmado; si no, la por defecto"
+                  >
+                    S{m.severity}
+                  </span>
                   <span className="text-ltt2 flex-1">{m.name}</span>
                   {m.fuente === 'manual' && (
                     <span className="flex items-center gap-1 text-or shrink-0" title="Ajustado a mano: la estimación de familia no lo toca">
@@ -237,7 +252,7 @@ export function FamiliasPanel({
   /** Eleva que items cubre cada familia, para que la lista de abajo pueda
    *  filtrarse por ellas. El panel ya tiene el dato: pedirlo dos veces seria
    *  gastar una consulta por gusto. */
-  onFamilias?:           (f: Array<{ label: string; itemIds: string[] }>) => void
+  onFamilias?:           (f: FamiliaResumen[]) => void
 }) {
   const [filas, setFilas] = useState<FamilyEstimateRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -249,6 +264,7 @@ export function FamiliasPanel({
       onFamilias?.(r.familias.map((f) => ({
         label: f.familyLabel,
         itemIds: f.detalle.map((d) => d.itemId),
+        estimada: f.oValue !== null,
       })))
     })
     // onFamilias fuera de las dependencias a proposito: si el padre lo redefine
@@ -288,7 +304,9 @@ export function FamiliasPanel({
           <Layers size={12} /> Estimación por familia · {estimadas} de {filas.length}
         </p>
         <p className="font-sora text-[12.5px] text-lttm mt-1 max-w-3xl">
-          Los modos de una familia comparten causa y control, así que se pueden estimar
+          Es la forma de evaluar por defecto. Las familias están ordenadas por criticidad:
+          primero las que tienen modos de severidad {CRITICAL_SEVERITY} o más. Los modos de una
+          familia comparten causa y control, así que se pueden estimar
           juntos y ajustar después los que se salgan. Es práctica estándar de FMEA: lo
           que exige el artículo 9 es que la estimación esté documentada y justificada, no
           que se haga de una en una.
