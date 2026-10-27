@@ -22,6 +22,7 @@ import {
   draftMakesManual,
   isNoopFamilyUpdate,
   partialSubmission,
+  secondRoundDateError,
   referenceSeverity,
   resolveFamilyEstimates,
   summarizeFamilies,
@@ -67,6 +68,8 @@ type SaveFmeaDraftInput = {
   }>;
   /** Envío del plan parcial (DP-08): los modos no críticos sin evaluar quedan para la segunda ronda. */
   partial?: boolean;
+  /** Fecha límite de la segunda ronda (`AAAA-MM-DD`), obligatoria con `partial` (TODO 282). */
+  secondRoundDueDate?: string | null;
 };
 
 type ResolveFmeaSecondReviewInput = {
@@ -486,6 +489,8 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
           : `El plan parcial todavía no puede enviarse: quedan ${partial.requiredOpen} modo${partial.requiredOpen === 1 ? '' : 's'} de severidad 8 o más o de sus familias por evaluar.`,
       };
     }
+    const fechaInvalida = secondRoundDateError(input.secondRoundDueDate, new Date().toISOString().slice(0, 10));
+    if (fechaInvalida) return { error: fechaInvalida };
     deferredCount = partial.deferred;
   } else if (unresolvedCount > 0) {
     const parts: string[] = [];
@@ -704,6 +709,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       state: 'in_review',
       evaluator_id: context.evaluation.evaluator_id ?? user.id,
       deferred_items_count: deferredCount,
+      second_round_due_date: deferredCount > 0 ? input.secondRoundDueDate : null,
     })
     .eq('id', input.evaluationId);
 
@@ -778,7 +784,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       organization_id: membership.organization_id,
       event_type: 'fmea_submitted_for_review',
       event_title: 'Evaluación FMEA enviada a revisión',
-      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${deferredCount > 0 ? ` Plan parcial: ${deferredCount} modo${deferredCount === 1 ? '' : 's'} quedan para la segunda ronda.` : ''}${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
+      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${deferredCount > 0 ? ` Plan parcial: ${deferredCount} modo${deferredCount === 1 ? '' : 's'} quedan para la segunda ronda, con fecha límite ${input.secondRoundDueDate}.` : ''}${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
@@ -787,6 +793,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         treatment_actions_count: candidateItems.length,
         residual_downgrades: residualDowngrades,
         deferred_items_count: deferredCount,
+        second_round_due_date: deferredCount > 0 ? input.secondRoundDueDate : null,
       },
     },
     ...(createdTreatmentPlan && treatmentPlanId

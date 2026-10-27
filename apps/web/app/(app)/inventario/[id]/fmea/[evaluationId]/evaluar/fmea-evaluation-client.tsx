@@ -42,10 +42,12 @@ import {
   evaluationOverview,
   isCritical,
   partialSubmission,
+  secondRoundDateError,
   severityBand,
   withDeferredAtDefault,
 } from '@/lib/fmea/families';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
+import { getDefaultDeadlineForZone } from '@/lib/fmea/treatment-plan-rules';
 
 import { bulkResetFmeaItemsAction, bulkSkipFmeaItemsAction, delegateFmeaItemAsTaskAction, resolveFmeaSecondReview, restoreFamilyEstimateForItems, saveFmeaDraft, saveFmeaItem, submitFmeaForReview } from './actions';
 import { FamiliasPanel, type FamiliaResumen } from './familias-panel';
@@ -893,6 +895,8 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     [familias, items]
   );
   const canSubmitPartial = !isReadOnly && unresolvedCount > 0 && partial.eligible && secondReviewCount === 0;
+  // Fecha de la segunda ronda (TODO 282). Si no se toca, el plazo del plan para la zona del envío.
+  const [secondRoundDate, setSecondRoundDate] = useState<string | null>(null);
   // Zona del envío parcial: los modos de la segunda ronda cuentan con su severidad por defecto.
   const partialZone = useMemo(
     () =>
@@ -1306,12 +1310,19 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     });
   }
 
+  const effectiveSecondRoundDate = secondRoundDate ?? getDefaultDeadlineForZone(partialZone);
+
   function handleSubmitPartial() {
     setGlobalError(null);
+    const fechaInvalida = secondRoundDateError(effectiveSecondRoundDate, new Date().toISOString().slice(0, 10));
+    if (fechaInvalida) {
+      setGlobalError(fechaInvalida);
+      return;
+    }
     if (
       !window.confirm(
         `Se enviará un plan parcial: están evaluados los modos de severidad ${CRITICAL_SEVERITY} o más y los de sus familias.\n\n`
-          + `${partial.deferred} ${partial.deferred === 1 ? 'modo queda' : 'modos quedan'} para la segunda ronda, que se evalúa en la versión siguiente. `
+          + `${partial.deferred} ${partial.deferred === 1 ? 'modo queda' : 'modos quedan'} para la segunda ronda, que se evalúa en la versión siguiente antes del ${new Date(effectiveSecondRoundDate).toLocaleDateString('es-ES')}. `
           + `La zona se calcula contando esos modos con su severidad por defecto (${getZoneLabel(partialZone)}). ¿Continuar?`
       )
     ) {
@@ -1324,6 +1335,7 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         evaluationId: data.evaluation.id,
         cachedZone: partialZone,
         partial: true,
+        secondRoundDueDate: effectiveSecondRoundDate,
       });
 
       if (result?.error) {
@@ -1634,6 +1646,17 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 {CRITICAL_SEVERITY} o más y los de sus familias están evaluados. Puedes enviarlo ya y dejar{' '}
                 {partial.deferred} {partial.deferred === 1 ? 'modo' : 'modos'} para la segunda ronda
                 {secondReviewCount > 0 && ', cuando se resuelvan las segundas revisiones'}.
+                <label className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="font-plex text-[10px] uppercase tracking-[1px] text-lttm">Segunda ronda antes del</span>
+                  <input
+                    type="date"
+                    value={effectiveSecondRoundDate}
+                    min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+                    onChange={(event) => setSecondRoundDate(event.target.value || null)}
+                    className="rounded-[7px] border border-ltb bg-ltcard px-2 py-1 font-sora text-[12.5px] text-ltt outline-none focus:border-cyan-border"
+                  />
+                  <span className="text-lttm">Por defecto, el plazo del plan para la zona del envío.</span>
+                </label>
               </>
             ) : (
               <>

@@ -355,3 +355,15 @@ export function partialSubmission(
 export function withDeferredAtDefault<T extends SeverityItem>(items: readonly T[]): T[] {
   return items.map((i) => (i.status === 'evaluated' ? i : { ...i, status: 'evaluated', s_actual: i.s_default_frozen }))
 }
+
+/**
+ * Fecha de la segunda ronda de un plan parcial (TODO 282): obligatoria y
+ * posterior a hoy. Fechas `AAAA-MM-DD`; devuelve el error o null.
+ */
+export function secondRoundDateError(date: string | null | undefined, today: string): string | null {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {
+    return 'Indica la fecha límite de la segunda ronda del plan parcial.'
+  }
+  if (date <= today) return 'La fecha de la segunda ronda tiene que ser posterior a hoy.'
+  return null
+}

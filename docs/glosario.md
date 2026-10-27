@@ -367,9 +367,9 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `partialSubmission` y `withDeferredAtDefault` en `lib/fmea/families.ts`; `fmea_evaluations.deferred_items_count` (0 = envío completo).
 
 ### Segunda ronda
-- **Definición:** evaluación de los modos de fallo que quedaron sin evaluar en un plan parcial. Se hace en la versión siguiente del análisis, que copia los modos evaluados y deja pendientes los diferidos.
+- **Definición:** evaluación de los modos de fallo que quedaron sin evaluar en un plan parcial. Se hace en la versión siguiente del análisis, que copia los modos evaluados y deja pendientes los diferidos. El plan parcial fija su fecha límite, y la próxima revisión de la evaluación aprobada no pasa de ella.
 - **No usar:** «segunda revisión» (es otra cosa: ver [segunda revisión](#segunda-revisión)).
-- **En el código:** `fmea_evaluations.deferred_items_count`; **Nueva versión** (`startFmeaReevaluationAction`).
+- **En el código:** `fmea_evaluations.deferred_items_count`, `second_round_due_date`; **Nueva versión** (`startFmeaReevaluationAction`).
 
 ### Riesgo de negocio
 - **Definición:** riesgo que afecta a la viabilidad o al retorno de un sistema de IA y que no se evalúa en el análisis de modos de fallo, porque no comparte su escala. Se valora con probabilidad e impacto de 1 a 5; su producto es la exposición.

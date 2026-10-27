@@ -20,6 +20,7 @@ fuente:
   - supabase/migrations/00000000000005_seed_compliance.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
   - supabase/migrations/20261027100000_fmea_plan_parcial.sql
+  - supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql
   - apps/web/lib/fmea/families.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/familias-panel.tsx
   - docs/producto/circuito.md
@@ -139,8 +140,9 @@ flowchart LR
    **Plan parcial.** Si se quiere tratar antes lo más grave, la evaluación se puede enviar en cuanto están
    evaluados los modos de severidad 8 o más y todos los de sus familias. Los demás quedan para una
    **segunda ronda**, que se evalúa en la versión siguiente. Para no infravalorar el riesgo, la zona del
-   envío cuenta los modos de la segunda ronda con su severidad por defecto. El aprobador ve que el plan es
-   parcial y cuántos modos quedan.
+   envío cuenta los modos de la segunda ronda con su severidad por defecto. El plan parcial fija la fecha
+   límite de la segunda ronda, y la próxima revisión de la evaluación aprobada no pasa de esa fecha. El
+   aprobador ve que el plan es parcial, cuántos modos quedan y para cuándo.
 7. **Aprobación.** Al aprobarse el plan, la evaluación queda aprobada y pasa a ser la **vigente** del
    sistema, con su fecha de próxima revisión según la zona: mensual, trimestral, semestral o anual.
 8. **Versiones.** Desde la evaluación vigente, el Analista de riesgos o el Responsable del sistema abren
