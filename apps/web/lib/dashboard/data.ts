@@ -1,3 +1,5 @@
+import { loadSystemStages } from '@/lib/evaluation-status/load';
+import { nextStepCard } from '@/lib/evaluation-status/stages';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 
@@ -129,91 +131,6 @@ function classifyPillar(title: string) {
     return 'transparencia';
   }
   return 'gobernanza';
-}
-
-function getNextStep(
-  systems: DashboardSystemRow[],
-  failureModes: DashboardFailureModeRow[],
-  fmeaRows: DashboardFmeaRow[],
-  planRows: DashboardPlanRow[],
-  evidenceRows: DashboardEvidenceRow[],
-  systemCompliance: Map<string, number>
-) {
-  if (systems.length === 0) {
-    return {
-      title: 'Registrar primer sistema',
-      description: 'Da de alta el primer sistema para empezar a generar métricas y gobierno operativo.',
-      href: '/inventario/nuevo',
-      cta: 'Crear primer sistema',
-    };
-  }
-
-  const highSystems = systems.filter((system) => system.aiact_risk_level === 'high');
-  const systemIdsWithModes = new Set(failureModes.map((row) => row.ai_system_id));
-  const highWithoutModes = highSystems.find((system) => !systemIdsWithModes.has(system.id));
-  if (highWithoutModes) {
-    return {
-      title: 'Activar modos de fallo',
-      description: `Prioriza ${highWithoutModes.name}: ya está clasificado como alto riesgo y todavía no tiene modos activados.`,
-      href: `/inventario/${highWithoutModes.id}`,
-      cta: 'Abrir sistema crítico',
-    };
-  }
-
-  const activeFmea = [...fmeaRows]
-    .filter((row) => row.state === 'draft')
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))[0];
-  if (activeFmea) {
-    return {
-      title: 'Continuar evaluación FMEA',
-      description: 'Hay una evaluación FMEA en borrador pendiente de resolución.',
-      href: `/inventario/${activeFmea.system_id}/fmea`,
-      cta: 'Continuar evaluación',
-    };
-  }
-
-  const draftPlan = [...planRows]
-    .filter((row) => row.status === 'draft')
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))[0];
-  if (draftPlan) {
-    return {
-      title: 'Completar plan de tratamiento',
-      description: 'Existe un plan de tratamiento en borrador que requiere decisión y envío a aprobación.',
-      href: `/inventario/${draftPlan.system_id}/fmea`,
-      cta: 'Abrir plan',
-    };
-  }
-
-  const pendingEvidenceCount = evidenceRows.filter((row) =>
-    ['draft', 'pending_review'].includes(row.status)
-  ).length;
-  if (pendingEvidenceCount > 0) {
-    return {
-      title: 'Revisar evidencias pendientes',
-      description: `Hay ${pendingEvidenceCount} evidencias pendientes de revisión o validación.`,
-      href: '/inventario',
-      cta: 'Ver inventario',
-    };
-  }
-
-  const lowestComplianceSystem = [...systems]
-    .sort((left, right) => (systemCompliance.get(left.id) ?? 0) - (systemCompliance.get(right.id) ?? 0))[0];
-
-  if (lowestComplianceSystem) {
-    return {
-      title: 'Prioriza el sistema más rezagado',
-      description: `${lowestComplianceSystem.name} concentra el menor nivel de cumplimiento actual y debería ser el siguiente foco.`,
-      href: `/inventario/${lowestComplianceSystem.id}`,
-      cta: 'Abrir sistema',
-    };
-  }
-
-  return {
-    title: 'Explorar inventario',
-    description: 'El tablero está estable. Revisa el inventario para profundizar por sistema.',
-    href: '/inventario',
-    cta: 'Ver inventario',
-  };
 }
 
 export async function buildDashboardData(organizationId: string) {
@@ -472,7 +389,9 @@ export async function buildDashboardData(organizationId: string) {
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, 5);
 
-  const nextStep = getNextStep(systems, failureModes, fmeaRows, planRows, evidences, systemCompliance);
+  // Siguiente paso a partir de las etapas de DP-02 (B18a): sustituye la
+  // cascada propia del Dashboard.
+  const nextStep = nextStepCard(await loadSystemStages(fluxion, organizationId));
 
   const kpis = {
     complianceGlobal,

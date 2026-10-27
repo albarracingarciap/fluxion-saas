@@ -84,9 +84,9 @@ implementar** y **Pendiente de definir**.
 
 ### Qué significa «sistema totalmente evaluado»
 
-> **Decisión DP-02 (2026-10-19).** Definición aprobada por el responsable del proyecto. **Pendiente de
-> implementar**: hoy la aplicación no calcula ni muestra esta definición (bloque B18 del
-> [plan de resolución de gaps](../producto/plan-resolucion-gaps.md)).
+> **Decisión DP-02 (2026-10-19).** Definición aprobada por el responsable del proyecto. Implementada en B18a
+> (`lib/evaluation-status/`): la tarjeta **Etapa de evaluación** de la [ficha](ficha-sistema.md), el siguiente
+> paso del [Dashboard](dashboard.md) y la etapa de [Evaluaciones](evaluaciones.md) salen de ese cálculo.
 
 Un sistema está **totalmente evaluado** cuando, para su clasificación AI Act vigente y el rol de la
 organización, tiene aprobadas todas las evaluaciones y documentos que le son exigibles y respaldadas sus
@@ -125,12 +125,30 @@ La AISIA es exigible en todos los niveles porque ISO/IEC 42001 la pide para cual
 del [SGAI](../glosario.md#sgai-sistema-de-gestión-de-la-ia); para los sistemas de riesgo mínimo puede ser
 una versión ligera.
 
-> TODO: confirmar las etapas para los casos que la tabla no cubre:
-> - **Práctica prohibida:** no se evalúa; propuesta de etapa final «Retirada o rediseño».
-> - **Fuera del ámbito** o **No es un sistema de IA** (ver la
->   [especificación del cuestionario](../producto/cuestionario-preliminar-reglas.md)): propuesta de
->   quedarse en **Clasificado**.
-> - **Proveedor de modelo GPAI:** qué documentos del Art. 53 se exigen en **Evaluado**.
+**Casos que la tabla no cubre** (decisión del responsable, 2026-10-27):
+- **Práctica prohibida:** no se evalúa; etapa final **Retirada o rediseño**.
+- **Fuera del ámbito** o **No es un sistema de IA** (ver la
+  [especificación del cuestionario](../producto/cuestionario-preliminar-reglas.md)): se queda en
+  **Clasificado**; no se le exige nada más.
+- **Proveedor de modelo GPAI:**
+  > **Pendiente de definir.** Qué documentos del Art. 53 se exigen en **Evaluado**. Hasta entonces no
+  > cuentan.
+
+**Cómo se calcula** (B18a). Una etapa se alcanza cuando se cumplen todos sus requisitos y los de las
+anteriores:
+
+| Etapa | Requisitos que se comprueban |
+|---|---|
+| Clasificado | Nivel de riesgo determinado (o fuera del ámbito) sin reclasificación pendiente; ninguna obligación sugerida sin aceptar ni excluir |
+| Evaluado | Evaluación de riesgos y plan aprobados; AISIA aprobada; Anexo IV, ficha para el registro UE y FRIA aprobados cuando la aplicabilidad (DP-11) manda redactarlos; en alto riesgo, responsable de supervisión humana designado |
+| Tratado | Mitigaciones del plan cerradas; ningún modo de severidad 9 sin acción en el plan (también los diferidos); obligaciones resueltas o excluidas |
+| Vigente | Sin evidencias caducadas; sin revisión de la evaluación ni de acciones aceptadas vencida; plazo del plan al día |
+
+«Sin brechas críticas abiertas» no se comprueba aparte: las brechas críticas son obligaciones críticas sin
+resolver, modos de severidad 9 sin tratar o pendientes de cierre y evidencias caducadas o a punto de
+caducar, y todas tienen su requisito en la tabla. Las medidas de transparencia del Art. 50 cuentan como
+obligaciones (Tratado). Los disparadores de reevaluación de B21 aún no existen: hoy solo cuenta la
+reclasificación pendiente.
 
 > **ℹ Aclaración.** Hoy ninguna etapa se puede alcanzar de forma verificable a partir de **Evaluado**: la
 > AISIA no tiene versión ligera. La evaluación FMEA ya se aprueba (GAP-13, resuelto en B07) y el
