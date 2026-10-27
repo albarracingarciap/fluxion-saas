@@ -27,6 +27,7 @@ fuente:
   - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
   - apps/web/lib/evaluation-status/reevaluation.ts
   - supabase/migrations/20261028150000_biometria_remota_diferido.sql
+  - supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -741,6 +742,12 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «supervisión acreditada», «supervisión validada».
 - **En el código:** `fluxion.system_oversight_documentation` (`competence`, `authority_confirmed`, `authority_notes`; clave `ai_system_id` + `profile_id`); `ai_systems.oversight_measures`; `lib/governance/oversight.ts` (`oversightDocumentation`).
 - **Normativa:** AI Act, Art. 26.2 y Art. 14.4.
+
+### Plan de vigilancia poscomercialización
+- **Definición:** documento del expediente en el que el proveedor de un sistema de IA de alto riesgo establece cómo recopila, documenta y analiza de forma activa y sistemática los datos del funcionamiento del sistema durante toda su vida útil, también los que facilitan los responsables del despliegue, y qué hace con los resultados (gestión de riesgos, acciones correctoras, notificación de incidentes graves). Forma parte de la documentación técnica. Solo lo redacta la organización cuando es proveedora de un sistema de alto riesgo; el responsable del despliegue vigila el funcionamiento e informa al proveedor (Art. 26.5). Aprobado, la obligación del Art. 72 propone «Resuelta». No es el módulo [Supervisión post-comercialización](#supervisión-post-comercialización).
+- **No usar:** «plan de monitorización», «PMM».
+- **En el código:** plantilla del expediente `post_market_plan`.
+- **Normativa:** AI Act, Art. 72 y Anexo IV, punto 9.
 
 ### Supervisión post-comercialización
 - **Definición:** módulo que agrupa la vigilancia de los sistemas de IA en producción. Hoy contiene la Supervisión humana y, en el futuro, la deriva y la equidad.
