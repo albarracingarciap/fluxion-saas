@@ -38,6 +38,7 @@ const ACTION_CONFIG: Record<string, {
   'system.use_resumed':                 { label: 'Uso del sistema reanudado', icon: <Shield size={12} />, color: 'text-gr', group: 'Organización' },
   'system.notice_recorded':             { label: 'Aviso a terceros registrado', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
   'system.log_retention_updated':       { label: 'Registro de logs actualizado', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
+  'system.reevaluation_dismissed':      { label: 'Reevaluación descartada', icon: <Shield size={12} />, color: 'text-or', group: 'Organización' },
   'member.training_added':              { label: 'Formación registrada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
   'member.training_removed':            { label: 'Formación eliminada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
   'session.revoked':       { label: 'Sesión revocada',          icon: <LogOut    size={12} />, color: 'text-ye',         group: 'Seguridad' },

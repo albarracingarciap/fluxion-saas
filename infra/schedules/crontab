@@ -19,3 +19,6 @@
 # 07:20 diario: plazos de los requerimientos de la autoridad (B25e). Se cuentan
 # en dias; una pasada diaria basta.
 20 7 * * *  /opt/fluxion/app-cron.sh /api/cron/authority-request-deadlines
+# 06:45 diario: disparadores de reevaluacion (B21a): revision del FMEA vencida,
+# reglas de clasificacion actualizadas y cierre de los ya resueltos.
+45 6 * * *  /opt/fluxion/app-cron.sh /api/cron/reevaluation-triggers

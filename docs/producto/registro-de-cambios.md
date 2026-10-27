@@ -2481,3 +2481,42 @@ campana, canales de Slack y Teams y reintento de entregas.
 
 **Documentación.** `funcional/incidentes.md`, `tecnica/tareas-programadas.md`, `tecnica/eventos-y-avisos.md`,
 `infra/schedules/README.md`, `_pendientes.md` (295 resuelto).
+
+## B21a · Disparadores de reevaluación
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b21a-disparadores-reevaluacion` ·
+**Migración:** **sí**, `supabase/migrations/20261028140000_reevaluacion_disparadores.sql`
+
+**Problema** (GAP-32, decisión 63; informe del flujo de trabajo, 3.4): ni la fecha de próxima revisión, ni un
+incidente grave, ni un cambio de supuestos AI Act, ni la actualización de las reglas abrían una reevaluación.
+
+**Decisiones del responsable (2026-10-28):** una tarea «Reevaluar sistema» abierta por sistema; cada disparador pide
+reevaluar según su tipo y se cierra al aprobarse lo que pide; un disparador abierto quita «Vigente». B21 se parte
+en B21a (disparadores), B21b (FRIA y AISIA con revisión anual) y B21c (informe anual por biometría remota en
+diferido, con un campo nuevo en la ficha).
+
+**Se aprovecha lo existente:** la tabla `reevaluation_triggers` (sin uso hasta ahora), las tareas, la fecha de
+próxima revisión del FMEA, la versión de las reglas AI Act de cada sistema y la etapa de evaluación.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `reevaluation_triggers` ampliada (tipo, alcance, origen, tarea, fechas, estado) con RLS de lectura; función `reevaluation_register` (service role) que crea o reutiliza la tarea; origen de tarea `reevaluation` |
+| Reglas (`lib/evaluation-status/reevaluation.ts`, nuevo, puro) | Alcance por disparador y lo que falta por reevaluar |
+| Disparadores | Incidente grave al clasificarlo; cambio de supuestos al editar la ficha; cron diario `reevaluation-triggers` para la revisión del FMEA vencida y las reglas actualizadas, que además cierra los resueltos |
+| Ficha | Tarjeta **Reevaluación necesaria** con enlaces a lo que falta y **Descartar…** (Administrador, Responsable del SGAI); historial **Reevaluación** |
+| Etapa | Nuevo punto de vigencia «Sin reevaluaciones pendientes» |
+| Tareas y auditoría | Origen «Reevaluación del sistema» con enlace a la ficha; `system.reevaluation_dismissed` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas): no duplica disparadores, reutiliza
+la tarea abierta, controla el alcance y solo el service role registra. `npm test` 189/189 (cuatro tests nuevos),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. El cron no se ha ejecutado contra una base con
+datos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración, desplegar la web y añadir en el VPS la línea nueva del crontab
+(`reevaluation-triggers`, 06:45).
+
+**Documentación.** `funcional/flujo-completo-evaluacion.md`, `funcional/ficha-sistema.md`,
+`funcional/incidente-detalle.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
+`tecnica/modelo-datos.md`, `infra/schedules/README.md`, `_pendientes.md` (296: glosario; 297: inventario).

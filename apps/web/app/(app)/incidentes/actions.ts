@@ -8,6 +8,7 @@ import { enqueueChannelMessage } from '@/lib/channels/send'
 import { createNotification } from '@/lib/notifications/sender'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { NOTICE_RECIPIENTS, type NoticeRecipient } from '@/lib/ai-systems/notices'
+import { registerReevaluation } from '@/lib/evaluation-status/reevaluation-server'
 
 /**
  * Incidentes de IA.
@@ -239,6 +240,14 @@ export async function classifyIncident(id: string, input: {
   if (error || !profile) return { error: error ?? 'No autorizado' }
 
   const admin = createAdminFluxionClient()
+  const { data: previo } = await admin
+    .from('ai_incidents')
+    .select('reference, is_serious, ai_incident_systems(ai_system_id)')
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle()
+  if (!previo) return { error: 'Incidente no encontrado.' }
+
   const { error: updErr } = await admin
     .from('ai_incidents')
     .update({
@@ -253,6 +262,19 @@ export async function classifyIncident(id: string, input: {
     .eq('organization_id', profile.organization_id)
 
   if (updErr) return { error: 'Error al clasificar: ' + updErr.message }
+
+  // B21a: un incidente grave abre la reevaluación de sus sistemas.
+  if (input.is_serious && !previo.is_serious) {
+    for (const v of (previo.ai_incident_systems ?? []) as Array<{ ai_system_id: string }>) {
+      await registerReevaluation({
+        organizationId: profile.organization_id,
+        systemId:       v.ai_system_id,
+        key:            'incidente_grave',
+        sourceRef:      id,
+        detail:         `el incidente ${previo.reference} se ha clasificado como grave.`,
+      })
+    }
+  }
 
   revalidatePath('/incidentes')
   revalidatePath(`/incidentes/${id}`)

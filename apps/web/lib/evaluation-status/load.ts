@@ -6,6 +6,8 @@ import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createComplianceClient } from '@/lib/supabase/compliance'
 import { deploymentPlan, deploymentPlanApplies, type DeploymentObligation, type DeploymentPlan } from './deployment'
 import { loadOversightStatus } from '@/lib/governance/oversight-server'
+import { pendingReevaluations } from './reevaluation'
+import { loadOpenTriggers, loadReevaluationFacts } from './reevaluation-server'
 import { systemStage, type RequiredDocumentFact, type SystemStage } from './stages'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,6 +131,9 @@ export async function loadSystemStages(
     .filter((s) => deploymentPlanApplies(s.aiact_result?.level ?? s.aiact_risk_level ?? null, applicabilityFacts(s).valueChainRoles))
     .map((s) => s.id)
   const supervision = await loadOversightStatus(fluxion, organizationId, conPlan)
+  // Disparadores de reevaluación abiertos (B21a) y lo aprobado que los resuelve.
+  const disparadores = await loadOpenTriggers(fluxion, organizationId, systemIds)
+  const hechosReevaluacion = await loadReevaluationFacts(fluxion, organizationId, Array.from(disparadores.keys()))
   const friaNotificada = new Set(((notificacionesR.data ?? []) as Array<{ document_id: string }>).map((n) => n.document_id))
   const tipoId = new Map(((tiposR.data ?? []) as Array<{ id: string; code: string }>).map((t) => [t.code, t.id]))
 
@@ -181,6 +186,9 @@ export async function loadSystemStages(
         (evaluacion?.state === 'approved' && evaluacion.next_review_at && evaluacion.next_review_at.slice(0, 10) < hoy ? 1 : 0)
         + accionesPlan.filter((a) => a.status === 'accepted' && a.review_due_date !== null && a.review_due_date < hoy).length,
       planDeadlineOverdue: Boolean(plan && (plan.status === 'approved' || plan.status === 'in_progress') && plan.deadline && plan.deadline < hoy),
+      pendingReevaluations: hechosReevaluacion.has(s.id)
+        ? pendingReevaluations(disparadores.get(s.id) ?? [], hechosReevaluacion.get(s.id)!)
+        : 0,
     })
 
     // Documentación del proveedor válida: por su etiqueta o por su tipo del catálogo.

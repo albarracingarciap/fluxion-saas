@@ -36,6 +36,7 @@ export type AuditAction =
   | 'system.use_resumed'
   | 'system.notice_recorded'
   | 'system.log_retention_updated'
+  | 'system.reevaluation_dismissed'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

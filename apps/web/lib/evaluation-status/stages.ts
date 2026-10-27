@@ -63,6 +63,8 @@ export type SystemStageFacts = {
   overdueReviews: number
   /** Plazo del plan vencido sin cerrarlo. */
   planDeadlineOverdue: boolean
+  /** Disparadores de reevaluación abiertos que siguen pidiendo algo (B21a). */
+  pendingReevaluations?: number
 }
 
 export type StageItem = {
@@ -130,6 +132,8 @@ export function systemStage(f: SystemStageFacts): SystemStage {
     item('vigente', 'evidencias', 'Sin evidencias caducadas', f.expiredEvidences === 0, `${base}?tab=evidencias`),
     item('vigente', 'revisiones', 'Sin revisiones vencidas', f.overdueReviews === 0, `${base}/fmea`),
     item('vigente', 'plazo_plan', 'Plazo del plan de tratamiento al día', !f.planDeadlineOverdue, `${base}/fmea`),
+    // B21a: un disparador abierto (incidente grave, cambio de supuestos…) quita la vigencia.
+    item('vigente', 'reevaluacion', 'Sin reevaluaciones pendientes', (f.pendingReevaluations ?? 0) === 0, base),
   ]
   items.push(...vigencia)
 

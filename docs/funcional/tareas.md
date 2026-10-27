@@ -90,6 +90,7 @@ filtros».
 | Modo FMEA | Al delegar un modo de fallo en la [Evaluación FMEA](fmea-evaluacion.md) |
 | Señal de supervisión | Al recibir una [señal de riesgo](../glosario.md#señal-de-riesgo) crítica |
 | Incidente de IA | Acción correctiva en el [Detalle de incidente](incidente-detalle.md). Desde B25d, el enlace de origen del detalle de la tarea lleva al incidente |
+| Reevaluación del sistema | Tarea «Reevaluar sistema · {nombre}» de un [disparador de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación) (B21a); una abierta por sistema; se completa sola al cerrarse sus disparadores. El enlace de origen lleva a la ficha |
 | Requerimiento de la autoridad | Tarea «Responder al requerimiento…» o tarea añadida en el detalle del requerimiento ([Incidentes › Requerimientos](incidentes.md#pestaña-requerimientos), B25d). El enlace de origen lleva al requerimiento |
 | Plan de tratamiento | Acción del [plan de tratamiento](plan-de-tratamiento.md) |
 | Evaluación de riesgos | — |

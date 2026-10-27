@@ -20,6 +20,7 @@ cosas que vivían fuera del código y que un cambio de plataforma se llevó por 
 | `GET /api/cron/cost-budgets` | **Cada hora**, minuto 40 | Presupuestos de gasto en IA al cruzar cada umbral → señal y canales |
 | `GET /api/cron/hitl-discordance` | Diario, 06:30 UTC | Sistemas cuya discordancia humana sube sobre su línea base → señal y canales |
 | `GET /api/cron/authority-request-deadlines` | Diario, 07:20 UTC | Requerimientos de la autoridad con 5 días o menos de plazo y vencidos → campana y canales (B25e) |
+| `GET /api/cron/reevaluation-triggers` | Diario, 06:45 UTC | Disparadores de reevaluación: revisión del FMEA vencida y reglas de clasificación actualizadas; cierra los resueltos y su tarea (B21a) |
 
 ### Por qué el de presupuestos también es horario
 
