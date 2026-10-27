@@ -75,6 +75,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Decisión DP-11 (aplicabilidad del expediente) | Integrado en `main` | `docs/dp11-aplicabilidad` | 2026-10-27 | No |
 | B16a · Aplicabilidad del expediente y documentación del proveedor | Integrado en `main` | `fase3/b16a-aplicabilidad` | 2026-10-27 | No |
 | Rol en la cadena de valor en la ficha y Art. 25 en el alta (TODO 285) | Integrado en `main` | `fase3/b16-rol-en-ficha` | 2026-10-27 | No |
+| B16b · Ficha para el registro UE en el expediente (Anexo VIII) | Integrado en `main` | `fase3/b16b-registro-ue` | 2026-10-27 | **Sí** · `20261027150000_expediente_registro_ue.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1907,4 +1908,35 @@ navegador.
 
 **Documentación.** `funcional/ficha-sistema.md`, `producto/cuestionario-preliminar-reglas.md` (§ volcado). TODO 285
 resuelto.
+
+---
+
+## B16b · Ficha para el registro UE en el expediente (Anexo VIII)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b16b-registro-ue` ·
+**Migración:** **sí**, `supabase/migrations/20261027150000_expediente_registro_ue.sql`
+
+**Problema** (F-10, `E13`, DP-06): la ficha para el registro UE era un informe aparte, con una lista de
+comprobación propia que no seguía los campos del Anexo VIII, sin aprobación y para cualquier sistema.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Plantilla (migración) | `eu_registry` v1, «Ficha para el registro UE (Anexo VIII)», con las secciones A (proveedor de alto riesgo, Art. 49.1), B (excepción del Art. 6.3, Art. 49.2) y C (autoridad pública que despliega, Art. 49.3). Clave admitida y alcance por sistema |
+| Derivación (`lib/documents/derive-eu-registry.ts`, nuevo) | Datos de la organización (razón social, identificación fiscal, domicilio, país, web), identificación, finalidad, lógica, situación, certificación y Estados miembros del sistema; condiciones y motivos del Art. 6.3; en la sección C, la entrada del proveedor desde su documentación (`doc-proveedor-tipo-registro`). Módulo puro con tests |
+| Composición | `compose.ts` deja en el documento solo los apartados de la sección que toca al sistema (DP-11) |
+| Aplicabilidad | La regla de B16a ya cubría la ficha: se redacta en los tres casos, documentación del proveedor si es de alto riesgo sin ser proveedora, no aplica en el resto ni a la infraestructura crítica (registro nacional) |
+| Aprobación | Política por defecto «Expediente · Ficha para el registro UE» (Responsable del SGAI); las organizaciones existentes la reciben si nada cubría la plantilla |
+| Pantalla anterior | `/inventario/[id]/eu-registry` redirige al expediente; se retiran su guardado y su acción. Las instantáneas guardadas se siguen viendo. En la ficha, la tarjeta pasa a **Ficha registro UE** |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; política para las organizaciones
+existentes). `npm test` 125/125 (cinco tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/registro-ue.md` reescrito, `funcional/expediente-documental.md`,
+`funcional/ficha-sistema.md`, `negocio/informes-del-sistema.md`, `tecnica/modelo-datos.md`, `_mapa.md`. TODO 286
+(glosario) abierto.
 

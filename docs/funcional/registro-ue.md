@@ -2,121 +2,110 @@
 id: FUN-REGISTRO-UE
 titulo: Ficha para el registro UE
 tipo: funcional
-modulo: informes-del-sistema
+modulo: documentacion-del-sistema
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/lib/documents/derive-eu-registry.ts
+  - apps/web/lib/documents/applicability.ts
+  - apps/web/lib/documents/compose.ts
+  - apps/web/lib/documents/templates.ts
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/page.tsx
   - apps/web/app/(app)/inventario/[id]/eu-registry/page.tsx
-  - apps/web/app/(app)/inventario/[id]/eu-registry/eu-registry-view.tsx
-  - apps/web/app/(app)/inventario/[id]/eu-registry/actions.ts
-  - apps/web/app/(app)/inventario/[id]/eu-registry/save-eu-registry-button.tsx
   - apps/web/app/(app)/inventario/[id]/eu-registry/snapshots/[snapshotId]/page.tsx
-  - apps/web/lib/ai-systems/eu-registry.ts
   - apps/web/lib/evidences/data.ts
-  - apps/web/lib/approvals/open.ts
+  - supabase/migrations/20261027150000_expediente_registro_ue.sql
 ---
 
 # Ficha para el registro UE
 
-Uno de los [informes del sistema](../glosario.md#informes-del-sistema). Comprueba si el sistema tiene la
-información mínima para preparar su inscripción en la base de datos de la UE y qué falta.
+La [ficha para el registro UE](../glosario.md#ficha-para-el-registro-ue) es una plantilla del
+[Expediente documental](expediente-documental.md) (`eu_registry`, B16b, DP-06): reúne los datos del Anexo VIII
+del AI Act que hay que presentar en la base de datos de la UE. Tiene el ciclo, la aprobación, el PDF y la
+evidencia del expediente; este documento describe solo lo propio de la ficha. Fluxion no envía nada a la base de
+datos de la UE: la presentación es manual.
 
 ## Propósito
 
-Preparar la [ficha para el registro UE](../glosario.md#ficha-para-el-registro-ue) con una lista de
-comprobación y un porcentaje de preparación. La vista no envía nada a ningún registro externo: la
-presentación es manual.
+Preparar el registro del sistema en la base de datos de la UE con los datos que Fluxion ya tiene de la
+organización y del sistema, y redactar el resto.
 
 ## Acceso y permisos
 
-- **Ruta:** `/inventario/[id]/eu-registry`. Instantáneas: `/inventario/[id]/eu-registry/snapshots/[snapshotId]`.
-- **Navegación:** **Acciones rápidas** de la [Ficha del sistema](ficha-sistema.md), tarjeta **Registro EU**.
-- **Disponibilidad:** módulo Informes del sistema.
+- **Ruta:** `/inventario/[id]/expediente/eu_registry`. La ruta anterior (`/inventario/[id]/eu-registry`)
+  redirige aquí.
+- **Navegación:** **Acciones rápidas** de la [Ficha del sistema](ficha-sistema.md), tarjeta **Ficha registro
+  UE**; pestaña del expediente del sistema.
+- **Disponibilidad:** módulo Documentación del sistema.
+- **Permisos:** los del [Expediente documental](expediente-documental.md#acceso-y-permisos).
 
-| Rol | Ver | Acciones permitidas |
+**Cuándo se redacta** (DP-11, `documentApplicability`):
+
+| Caso | Modo | Sección del Anexo VIII |
 |---|---|---|
-| Todos los roles | Sí | Imprimir, guardar como evidencia |
+| La organización es proveedora y el sistema es de alto riesgo | Redactar | A (Art. 49.1) |
+| La organización es proveedora y aplica la excepción del Art. 6.3 (`aiact_result.art63 = valid`) | Redactar | B (Art. 49.2) |
+| La organización es responsable del despliegue, organismo público o que presta servicios públicos (`aiact_inputs.publicBody`), y el sistema es de alto riesgo del Anexo III con algún punto distinto del 2 | Redactar | C (Art. 49.3) |
+| Alto riesgo sin ser proveedora (y sin el caso anterior) | [Documentación del proveedor](expediente-documental.md#documentación-del-proveedor-dp-11-b16a): el número de registro del proveedor | — |
+| Proveedora de alto riesgo solo por infraestructura crítica (Anexo III, punto 2, o la marca de la ficha en la vía de respaldo) | No aplica: se registra a nivel nacional (Art. 49.5) | — |
+| Resto | No aplica | — |
 
-> **Pendiente de definir.** Qué roles pueden guardar informes como evidencia.
+El documento muestra solo los apartados de su sección. Si la ficha ya no aplica, muestra la sección A.
+
+**Aprobación.** Política por defecto «Expediente · Ficha para el registro UE»: el Responsable del SGAI, como el
+Anexo IV. Las organizaciones que ya existían la recibieron si ninguna política activa de documentos cubría la
+plantilla.
 
 ## Campos
 
-**Cabecera:** dominio, nivel de riesgo y versión. Indicadores **Readiness** (porcentaje de puntos de la
-lista cumplidos), **Checklist OK**, **Campos faltantes** y **Evidencias**.
+| Apartado | Origen | Obligatorio | Contenido derivado |
+|---|---|---|---|
+| **A.1 · Proveedor: nombre, dirección y datos de contacto** | Organización | Sí | Razón social (o nombre), identificación fiscal, domicilio, país y sitio web |
+| A.2 · Persona que registra en nombre del proveedor | Redacción | No | — |
+| A.3 · Representante autorizado | Redacción | No | — |
+| **A.4 · Nombre comercial y referencia del sistema** | Ficha | Sí | Nombre y versión, código, identificador interno |
+| **A.5 · Finalidad prevista, componentes y funciones** | Ficha | Sí | Finalidad prevista, descripción, tipos de salida, automatización completa |
+| **A.6 · Información que utiliza y lógica de funcionamiento** | Ficha | Sí | Descripción técnica, fuentes y categorías de datos, modelo base |
+| **A.7 · Situación del sistema** | Ficha (`status`) | Sí | Producción: introducido en el mercado o puesto en servicio; piloto y desarrollo: aún no; deprecado: ya no se introduce; retirado |
+| A.8 · Certificado del organismo notificado | Ficha (`cert_status`) y redacción | No | Estado de la certificación |
+| A.9 · Copia escaneada del certificado | Redacción | No | — |
+| **A.10 · Estados miembros** | Ficha (`geo_scope`) | Sí | Ámbito geográfico |
+| **A.11 · Copia de la declaración UE de conformidad** | Redacción | Sí | — |
+| A.12 · Instrucciones de uso en formato electrónico | Redacción | No (no se exigen en los puntos 1, 6 y 7 del Anexo III) | — |
+| A.13 · Dirección URL con información adicional | Redacción | No | — |
+| **B.1, B.4, B.5, B.8 y B.9** | Organización y ficha | Sí | Como A.1, A.4, A.5, A.7 y A.10 |
+| B.2 y B.3 | Redacción | No | — |
+| **B.6 · Condiciones del Art. 6.3 que se cumplen** | Supuestos AI Act (`aiact_inputs.art63.conditions`) | Sí | Las condiciones a) a d) marcadas |
+| **B.7 · Resumen de los motivos** | Supuestos AI Act (`aiact_inputs.art63.justification`) y redacción | Sí | La justificación registrada |
+| **C.1 · Responsable del despliegue** | Organización | Sí | Como A.1 |
+| C.2 · Persona que registra en su nombre | Redacción | No | — |
+| **C.3 · URL de la entrada del sistema en la base de datos de la UE** | Documentación del proveedor | Sí | Los enlaces de las evidencias del sistema con la etiqueta `doc-proveedor-tipo-registro` |
+| **C.4 · Resumen de la FRIA** | Redacción | Sí | — |
+| C.5 · Resumen de la DPIA | Redacción | No | — |
 
-**Estado de preparación:** «Lista para preparar registro» si se cumplen los nueve puntos; si no, «Aún no
-lista para registro» con el número de puntos pendientes.
-
-**Checklist de pre-registro** (cada punto, «OK» o «Pendiente» con su explicación):
-
-| Punto | Se cumple si el sistema tiene… |
-|---|---|
-| **Identificación del sistema** | Nombre, versión e identificador interno |
-| **Clasificación AI Act** | Clasificación distinta de pendiente y base de la clasificación |
-| **Propósito y descripción** | Descripción funcional, uso previsto y tipo de output |
-| **Documentación técnica** | Documentación técnica (Sí, Parcial o En proceso) y descripción técnica |
-| **Controles mínimos de riesgo** | Evaluación de riesgos, logging y supervisión humana |
-| **Gobierno de datos** | Documentación de los datos de entrenamiento |
-| **Responsables y revisión** | Responsable, equipo y frecuencia de revisión |
-| **Evidencias de soporte** | Al menos una evidencia, en cualquier estado |
-| **Proveedor y modelo** | Modelo base, modelo externo o proveedor externo |
-
-**Campos faltantes:** los puntos pendientes. Si no hay ninguno, la vista muestra «No se han detectado
-carencias críticas para este pre-registro.».
-
-**Ficha mínima del sistema:** ID interno, clasificación, output, responsable, proveedor o modelo,
-número de evidencias y uso previsto.
-
-**Secciones adicionales**, solo si hay datos:
-
-| Sección | Contenido |
-|---|---|
-| **Obligaciones AI Act** | Estado, prioridad y evidencias de cada obligación |
-| **Planes de tratamiento** | Estado, zonas, progreso de acciones y fecha límite |
-| **Evidencias de soporte** | Hasta 12, con enlace. Si hay más, **Ver las N evidencias adicionales →** abre la pestaña Evidencias de la ficha |
-
-> TODO: confirmar la cobertura del Anexo VIII del AI Act. La lista de comprobación aplica criterios
-> internos de preparación y no recoge la mayoría de los datos que pide el Anexo VIII:
-> - **Proveedor que registra:** sus datos, la persona que presenta y el representante autorizado.
-> - **Estado y certificación:** el estado en el mercado, el certificado del organismo notificado y la
->   declaración UE de conformidad.
-> - **Distribución:** los Estados miembros y las instrucciones de uso.
-> - **Otras secciones del anexo:** la sección B (Art. 6.3) y la sección C (responsables del despliegue).
-
-> TODO: confirmar varios datos de la ficha.
-> - **Estados de las obligaciones y de los planes:** muchos valores aparecen sin traducir.
-> - **Explicaciones de la lista:** las de «Propósito y descripción» y «Responsables y revisión» citan menos
->   datos de los que se comprueban.
-> - **Evidencias que cuentan:** se cuentan también las rechazadas y las caducadas.
+Los datos de la organización se toman de `organizations` (Organización › Datos legales).
 
 ## Acciones
 
-| Acción | Quién | Qué hace | Efectos |
-|---|---|---|---|
-| **Exportar / Imprimir** | Todos | Abre el diálogo de impresión del navegador | — |
-| **Guardar como evidencia** | Todos | Abre el modal de guardado, igual que en el [Dossier técnico](dossier-tecnico.md#guardar-como-evidencia). Caducidad por defecto: 180 días | Instantánea `eu_registry_prep`. Evidencia de tipo informe (`report`), pendiente de revisión, con su solicitud de aprobación abierta en [Aprobaciones](aprobaciones.md) (sin política activa para las evidencias, queda en borrador). Etiquetas `auto-generated`, `registro-eu`, `ready` o `no-ready`, el nivel de riesgo y las del usuario. Historial «Ficha de registro EU guardada como evidencia». Mensaje «Ficha de registro guardada como evidencia (pendiente de revisión).» |
+Las del [Expediente documental](expediente-documental.md#acciones).
 
-> TODO: confirmar el enlace desde la evidencia. La biblioteca no reconoce el tipo de instantánea
-> `eu_registry_prep` y ofrece **Ver sistema** en lugar de abrir la ficha guardada.
-
-> **Pendiente de implementar.** Envío o exportación al registro de la UE.
+**Instantáneas anteriores.** Las fichas guardadas con la pantalla anterior (`system_report_snapshots` con
+`report_type = 'eu_registry_prep'`) se siguen viendo en `/inventario/[id]/eu-registry/snapshots/[snapshotId]`,
+enlazadas desde sus evidencias.
 
 ## Validaciones
 
-| Situación | Mensaje |
-|---|---|
-| No se puede componer la ficha | «No se pudo construir la ficha de registro EU.» |
-| Error al guardar la instantánea | «No se pudo guardar el snapshot de registro EU.» |
-| Error al crear la evidencia | «No se pudo registrar la evidencia de la ficha EU.» |
+Las del [Expediente documental](expediente-documental.md#validaciones).
 
 ## Estados
 
-La ficha está «Lista para preparar registro» o «Aún no lista para registro», según la lista de
-comprobación. La evidencia generada sigue el ciclo de la [Biblioteca de evidencias](evidencias.md#estados).
+Los del [Expediente documental](expediente-documental.md#estados).
+
+> TODO: confirmar con la revisión jurídica la lectura del Anexo VIII y del Art. 49 (DP-11): los apartados de cada
+> sección, el caso de las autoridades públicas que despliegan y el registro nacional de la infraestructura crítica.
 
 ## Vistas relacionadas
 
-- [Ficha del sistema](ficha-sistema.md), [Dossier técnico](dossier-tecnico.md),
-  [Informe de brechas del sistema](informe-brechas-sistema.md).
-- [Clasificación AI Act](../negocio/clasificacion-ai-act.md).
-- Negocio: [Informes del sistema](../negocio/informes-del-sistema.md).
+- [Expediente documental](expediente-documental.md).
+- [Ficha del sistema](ficha-sistema.md): datos de origen, rol y clasificación.
+- [Clasificación AI Act](../negocio/clasificacion-ai-act.md): nivel, vía del Anexo III y excepción del Art. 6.3.

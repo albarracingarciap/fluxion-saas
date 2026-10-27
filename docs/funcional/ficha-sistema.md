@@ -109,7 +109,7 @@ o un Responsable del sistema:
 | Anexo IV | [Expediente documental](expediente-documental.md) |
 | Dossier técnico | [Dossier técnico](dossier-tecnico.md) |
 | Eval. riesgos | [Análisis de modos de fallo](../glosario.md#análisis-de-modos-de-fallo-fmea) del sistema |
-| Registro EU | [Ficha para el registro UE](registro-ue.md) |
+| Ficha registro UE | [Ficha para el registro UE](registro-ue.md), plantilla del expediente (B16b) |
 | Gap report | [Informe de brechas del sistema](informe-brechas-sistema.md) |
 
 > TODO: confirmar los botones **Exportar PDF** y **Abrir agente** de la cabecera, que no hacen nada.
