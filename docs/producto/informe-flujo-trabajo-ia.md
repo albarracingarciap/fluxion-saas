@@ -105,8 +105,9 @@ fecha de exigibilidad en el catálogo, vacía hasta la revisión jurídica. El A
 obligación del responsable del despliegue ante un incidente grave (informar al proveedor y después al importador o
 distribuidor y a la autoridad) está en el apartado 26.5. B17b integrado: notificación de la FRIA (Art. 27.3) y
 presentación de la ficha para el registro UE registradas en el expediente, FRIA v2 con el 27.3 no obligatorio antes de
-aprobar, y la FRIA traza los riesgos de derechos fundamentales del análisis y la DPIA. Pendiente de B17: B17c (el B17
-original).
+aprobar, y la FRIA traza los riesgos de derechos fundamentales del análisis y la DPIA. B17c integrado: propuestas de estado de las
+obligaciones (Art. 9, 11, 27, 49 y 6.4) a partir de las aprobaciones. Pendientes de B17: B17d (exclusión de brechas
+según F-14) y B17e (cobertura por tipos de evidencia y controles de la Declaración, con decisiones pendientes).
 
 ## 4. Decisiones
 

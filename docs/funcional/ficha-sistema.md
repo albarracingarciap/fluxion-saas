@@ -150,13 +150,25 @@ o un Responsable del sistema:
 |---|---|---|
 | Obligación | Título de la [obligación](../glosario.md#obligación) | `system_obligations.obligation_label` / `title` |
 | Referencia | Código del catálogo (`AI-ACT-ART9`…) | `obligation_key` / `obligation_code` |
-| Estado | Pendiente · En progreso · Resuelta · Bloqueada · Excluida | `status` |
+| Estado | Pendiente · En progreso · Resuelta · Bloqueada · Excluida. Debajo, «Propuesta: Resuelta» si lo hecho en otras fases la resuelve (B17c); la ayuda da el motivo | `status`; `obligationProposal` |
 | Evidencias | Sin evidencias · En curso · Documentada (alguna válida) · Resuelta · Bloqueada · Excluida | Evidencias vinculadas |
 
 En sistemas antiguos sin obligaciones registradas, la lista se deriva de la clasificación guardada en
 el sistema y se puede aceptar con **Aceptar sugerencias**. Al aceptar o excluir, el texto de la cabecera
-(«Art. 9 — …») se traduce al código del catálogo (`catalogCodeFromRef`), para que case con las
-obligaciones ya guardadas.
+(«Art. 9 — …», «Art. 26.1 — …») se traduce al código del catálogo (`catalogCodeFromRef`; cada apartado es su
+propio código desde B17a), para que case con las obligaciones ya guardadas.
+
+**Propuestas de estado (B17c).** Una obligación registrada y abierta propone «Resuelta» cuando lo hecho en otras
+fases la cumple (`lib/obligations/proposals.ts`). No cambia sola: **Aceptar propuesta** la resuelve, después de
+volver a comprobar la propuesta en el servidor, y añade a sus notas de resolución «Propuesta aceptada: {motivo}».
+
+| Obligación | Se propone resuelta cuando |
+|---|---|
+| Art. 9 · Sistema de gestión de riesgos | Hay una evaluación de riesgos aprobada (la vigente) |
+| Art. 11 · Documentación técnica | Hay un Anexo IV aprobado en el expediente |
+| Art. 27 · FRIA | Hay una FRIA aprobada y consta su notificación a la autoridad |
+| Art. 49 · Registro en la base de datos de la UE | Hay una ficha para el registro UE aprobada y consta su presentación |
+| Art. 6.4 · Documentar la excepción del Art. 6.3 | Lo mismo, si la ficha es de la sección B |
 
 **Resolver obligación** (modal):
 
@@ -293,6 +305,7 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **Aceptar** / **Aceptar sugerencias** | Todos | `acceptSystemObligations` | Crea las obligaciones en Pendiente. Historial «Obligaciones aceptadas» |
 | **Excluir** | Todos | `excludeSystemObligation`, con justificación obligatoria | Historial «Obligación excluida» |
 | **Resolver →** › **Guardar obligación** | Todos | `resolveSystemObligation` | Actualiza la obligación y sus evidencias vinculadas. Historial «Obligación resuelta» o «Obligación actualizada» |
+| **Aceptar propuesta** | Todos | `acceptObligationProposal` (B17c) | La obligación pasa a Resuelta con el motivo en sus notas de resolución. Historial «Obligación resuelta». Si la propuesta ya no está vigente: «La propuesta ya no está vigente: revisa la obligación y resuélvela a mano si procede.» |
 | **✏ Editar ficha** | Todos | Navega a [Edición de la ficha](ficha-sistema-edicion.md) | — |
 | **Iniciar evaluación AISIA** / **Continuar en el expediente →** / **Ver en el expediente →** | Todos | Navega a la [AISIA](aisia.md) del expediente, que se crea al abrirla por primera vez | — |
 | **+ Añadir evidencia** / **Nueva evidencia** | Todos | `createSystemEvidence` | Historial «Evidencia registrada» |

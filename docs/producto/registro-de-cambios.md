@@ -81,6 +81,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Informe del flujo de trabajo de sistemas de IA | Integrado en `main` | `docs/informe-flujo-trabajo` | 2026-10-27 | No |
 | B17a · Art. 26 por apartados y fecha de exigibilidad | Integrado en `main` | `fase3/b17a-art26` | 2026-10-27 | **Sí** · `20261027160000_ai_act_art26_apartados.sql` |
 | B17b · Notificación de la FRIA, presentación del registro UE y FRIA trazada | Integrado en `main` | `fase3/b17b-fria` | 2026-10-27 | **Sí** · `20261027170000_expediente_notificaciones_fria.sql` |
+| B17c · Propuestas de estado de las obligaciones | Integrado en `main` | `fase3/b17c-cumplimiento-conectado` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2051,4 +2052,34 @@ probado en el navegador.
 
 **Documentación.** `funcional/expediente-documental.md`, `funcional/registro-ue.md`, `negocio/documentacion-del-sistema.md`,
 `tecnica/modelo-datos.md`, `producto/informe-flujo-trabajo-ia.md`.
+
+---
+
+## B17c · Propuestas de estado de las obligaciones
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17c-cumplimiento-conectado` · **Migración:** no
+
+**Problema** (F-11, GAP-11): aprobar la evaluación de riesgos no resolvía la obligación del Art. 9, aprobar el Anexo
+IV no resolvía la del Art. 11, y lo mismo con la FRIA y el registro: todo se actualizaba a mano.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Reglas (`lib/obligations/proposals.ts`, nuevo) | Evaluación de riesgos aprobada → Art. 9; Anexo IV aprobado → Art. 11; FRIA aprobada y notificada → Art. 27; ficha para el registro UE aprobada y presentada → Art. 49, y Art. 6.4 si es de la sección B. Solo obligaciones abiertas. Módulo puro con tests |
+| Hechos (`lib/obligations/proposal-facts.ts`, nuevo) | Evaluación vigente, último documento aprobado de cada plantilla y si consta su notificación (B17b), sección del Anexo VIII (DP-11) |
+| Ficha › Obligaciones | «Propuesta: Resuelta» bajo el estado, con el motivo en la ayuda, y **Aceptar propuesta** junto a **Resolver →** |
+| Aceptar | `acceptObligationProposal` recalcula la propuesta en el servidor y resuelve la obligación con «Propuesta aceptada: {motivo}» en sus notas; evento «Obligación resuelta» |
+
+**Partición de B17.** Quedan B17d (exclusión de brechas según F-14) y B17e (obligación resuelta por evidencias de los
+tipos exigidos y controles de la Declaración propuestos desde el plan). B17e necesita decisiones: hoy las evidencias
+no se relacionan con los tipos del catálogo y los controles del plan no están mapeados a los controles del Anexo A.
+
+**Verificación.** `npm test` 138/138 (cuatro tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md` (GAP-11 en parte),
+`negocio/obligaciones.md`, `producto/informe-flujo-trabajo-ia.md`.
 

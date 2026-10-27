@@ -483,10 +483,11 @@ flowchart TD
 > B13a: la conciliación deja «Clasificación AI Act conciliada» en el historial y actualiza la cabecera
 > completa (`I10`).
 
-> **⚠ GAP-11 · Las obligaciones no se actualizan desde las demás fases.** Aprobar el plan de tratamiento
-> no resuelve la obligación de gestión de riesgos (AI Act, Art. 9), aprobar el Anexo IV no resuelve la de
-> documentación técnica (Art. 11) y validar una evidencia no cambia el estado de la obligación que
-> respalda. Todo se actualiza a mano.
+> **◐ GAP-11 · Las obligaciones no se actualizan desde las demás fases (en parte resuelto en B17c).** La
+> evaluación de riesgos aprobada propone resolver el Art. 9; el Anexo IV aprobado, el Art. 11; la FRIA aprobada y
+> notificada, el Art. 27; y la ficha para el registro UE aprobada y presentada, el Art. 49 (y el 6.4 en la sección
+> B). La persona acepta la propuesta. Falta que validar una evidencia de los tipos exigidos por el catálogo
+> resuelva la obligación que respalda: las evidencias aún no se relacionan con esos tipos.
 
 > **⚠ GAP-12 · Solo obligaciones AI Act por sistema.** El catálogo incluye 10 obligaciones de ISO/IEC
 > 42001 (objetivos, evaluación de impacto, competencia, auditoría interna, revisión por la dirección, no
