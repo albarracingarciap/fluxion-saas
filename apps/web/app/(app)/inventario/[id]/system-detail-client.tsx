@@ -1556,8 +1556,8 @@ export function SystemDetailClient({
   };
 
   const confirmExclusion = async () => {
-    if (!exclusionJustification.trim()) {
-      alert('Por favor, indica una justificación para la exclusión.');
+    if (exclusionJustification.trim().length < 10) {
+      alert('La justificación de la exclusión debe tener al menos 10 caracteres.');
       return;
     }
     setIsSubmittingExclusion(true);
@@ -1568,12 +1568,16 @@ export function SystemDetailClient({
       justification: exclusionJustification,
     });
     setIsSubmittingExclusion(false);
-    if (res.error) { alert(res.error); return; }
+    if ('error' in res) { alert(res.error); return; }
     setPendingObligations((prev) => new Set(prev).add(exclusionData!.code));
     setIsExcludingObligation(false);
     setExclusionData(null);
     setExclusionJustification('');
-    showToast('Obligación excluida y registrada en el historial de auditoría');
+    // La exclusión pasa por aprobación si una política lo pide (DP-07, B17d).
+    showToast(res.pending
+      ? 'Exclusión enviada a aprobación: la obligación sigue abierta hasta que se decida'
+      : 'Obligación excluida y registrada en el historial de auditoría');
+    router.refresh();
   };
   const [failureModeError, setFailureModeError] = useState<string | null>(null);
   const [isActivatingFailureModes, startFailureModeTransition] = useTransition();

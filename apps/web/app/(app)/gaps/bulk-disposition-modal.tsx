@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { X, ShieldCheck, MinusCircle, Loader2 } from 'lucide-react'
 import type { UnifiedGapRecord } from '@/lib/gaps/data'
-import { gapExclusionNeedsApproval } from '@/lib/gaps/exclusion-rules'
+import { canExcludeGapLayer, gapExclusionNeedsApproval } from '@/lib/gaps/exclusion-rules'
 import { bulkSetGapDispositionAction } from './actions'
 import { GapPortal } from './gap-portal'
 
@@ -13,7 +13,12 @@ type Props = {
   onSuccess: () => void
 }
 
-export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props) {
+export function BulkDispositionModal({ selectedGaps: seleccion, onClose, onSuccess }: Props) {
+  // F-14 (B17d): los riesgos y los controles se resuelven en el plan; solo se
+  // excluyen obligaciones y se posponen evidencias caducadas.
+  const selectedGaps = seleccion.filter((g) => canExcludeGapLayer(g.layer))
+  const omitidos = seleccion.length - selectedGaps.length
+  const hayCaducadas = selectedGaps.some((g) => g.layer === 'caducidad')
   const [disposition, setDisposition] = useState<'accepted' | 'not_applicable'>('accepted')
   const [rationale, setRationale] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
@@ -26,6 +31,10 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
   async function handleSubmit() {
     if (rationale.trim().length < 10) {
       setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+    if (hayCaducadas && !expiresAt) {
+      setError('Indica hasta qué fecha se posponen las evidencias caducadas.')
       return
     }
     setLoading(true)
@@ -160,10 +169,17 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
             </p>
           </div>
 
+          {omitidos > 0 && (
+            <p className="font-sora text-[11.5px] text-ltt2">
+              {omitidos} {omitidos === 1 ? 'gap de riesgo o de control no se incluye' : 'gaps de riesgo o de control no se incluyen'}:
+              se resuelven en el plan de tratamiento.
+            </p>
+          )}
+
+          {hayCaducadas && (
           <div>
             <label className="block font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1.5">
-              Caducidad de la exclusión{' '}
-              <span className="normal-case text-lttm">(opcional)</span>
+              Evidencias caducadas pospuestas hasta <span className="text-re">*</span>
             </label>
             <input
               type="date"
@@ -172,9 +188,10 @@ export function BulkDispositionModal({ selectedGaps, onClose, onSuccess }: Props
               className="w-full rounded-[8px] border border-ltb bg-ltbg px-3 py-2 font-sora text-[13px] text-ltt focus:outline-none focus:border-brand-cyan"
             />
             <p className="font-sora text-[11px] text-lttm mt-1">
-              Si se indica, los gaps volverán a la cola activa en esa fecha.
+              Vuelven a la cola activa en esa fecha. Las obligaciones excluidas no caducan: se recuperan reactivando el gap.
             </p>
           </div>
+          )}
 
           {selectedGaps.some((g) => gapExclusionNeedsApproval(g.layer)) && (
             <p className="font-sora text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2">

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { X, ShieldCheck, MinusCircle } from 'lucide-react'
 import type { UnifiedGapRecord } from '@/lib/gaps/data'
 import { setGapDispositionAction } from './actions'
-import { gapExclusionNeedsApproval } from '@/lib/gaps/exclusion-rules'
+import { GAP_LAYER_EXCLUSION, gapExclusionNeedsApproval } from '@/lib/gaps/exclusion-rules'
 import { LAYER_LABELS } from './gap-ui-constants'
 import { GapPortal } from './gap-portal'
 
@@ -21,9 +21,16 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // F-14 (B17d): una obligación se excluye sin caducidad; una evidencia caducada solo se pospone.
+  const modo = GAP_LAYER_EXCLUSION[gap.layer]
+
   async function handleSubmit() {
     if (rationale.trim().length < 10) {
       setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+    if (modo === 'posponer' && !expiresAt) {
+      setError('Indica hasta qué fecha se pospone.')
       return
     }
     setLoading(true)
@@ -35,7 +42,7 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
       gapTitle: gap.title,
       disposition,
       rationale: rationale.trim(),
-      expiresAt: expiresAt || null,
+      expiresAt: modo === 'obligacion' ? null : expiresAt || null,
     })
     setLoading(false)
     if ('error' in result) {
@@ -50,7 +57,9 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]">
       <div className="relative w-full max-w-[480px] bg-ltcard border border-ltb rounded-[16px] shadow-[0_20px_60px_rgba(0,74,173,0.18)]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ltb">
-          <h2 className="font-sora text-[15px] font-semibold text-ltt">Excluir gap</h2>
+          <h2 className="font-sora text-[15px] font-semibold text-ltt">
+            {modo === 'posponer' ? 'Posponer gap' : 'Excluir obligación'}
+          </h2>
           <button type="button" onClick={onClose} className="text-lttm hover:text-ltt transition-colors">
             <X size={18} />
           </button>
@@ -116,10 +125,16 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
             </p>
           </div>
 
+          {modo === 'obligacion' && (
+            <p className="font-sora text-[11.5px] text-ltt2">
+              La obligación pasa a Excluida en el sistema cuando la exclusión queda activa. Para recuperarla, reactiva el gap.
+            </p>
+          )}
+
+          {modo === 'posponer' && (
           <div>
             <label className="block font-plex text-[10px] uppercase tracking-[0.8px] text-lttm mb-1.5">
-              Caducidad de la exclusión{' '}
-              <span className="normal-case text-lttm">(opcional)</span>
+              Pospuesto hasta <span className="text-re">*</span>
             </label>
             <input
               type="date"
@@ -128,9 +143,10 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
               className="w-full rounded-[8px] border border-ltb bg-ltbg px-3 py-2 font-sora text-[13px] text-ltt focus:outline-none focus:border-brand-cyan"
             />
             <p className="font-sora text-[11px] text-lttm mt-1">
-              Si se indica, el gap volverá a la cola activa en esa fecha.
+              El gap vuelve a la cola activa en esa fecha.
             </p>
           </div>
+          )}
 
           {gapExclusionNeedsApproval(gap.layer) && (
             <p className="font-sora text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2">
@@ -161,7 +177,7 @@ export function GapDispositionModal({ gap, onClose, onSuccess }: Props) {
             disabled={loading || rationale.trim().length < 10}
             className="px-4 py-2 rounded-[8px] bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[13px] font-medium shadow-[0_2px_8px_rgba(0,173,239,0.3)] hover:-translate-y-px transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0"
           >
-            {loading ? 'Guardando…' : 'Excluir gap'}
+            {loading ? 'Guardando…' : modo === 'posponer' ? 'Posponer' : 'Excluir obligación'}
           </button>
         </div>
       </div>

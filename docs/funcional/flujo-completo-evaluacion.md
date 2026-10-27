@@ -883,7 +883,9 @@ flowchart TD
 
 > **✔ GAP-30 · Exclusión con aprobación, resuelta en B11d (DP-07).** Excluir un gap «Riesgo sin tratar» u
 > «Obligación sin cubrir» pasa por Aprobaciones (por defecto, el Responsable del SGAI) y el gap sigue en la cola
-> hasta que se aprueba. Sigue abierto `R13`: **Crear tareas** en bloque no crea ninguna.
+> hasta que se aprueba. Desde B17d (F-14) «Riesgo sin tratar» y «Control sin implantar» no se excluyen (se resuelven
+> en el plan), excluir una «Obligación sin cubrir» excluye la obligación y «Evidencia caducada» solo se pospone. Sigue
+> abierto `R13`: **Crear tareas** en bloque no crea ninguna.
 
 > **ℹ Aclaración.** Las brechas no incluyen la Declaración de Aplicabilidad: un control aplicable sin
 > implantar en la Declaración no aparece como brecha.

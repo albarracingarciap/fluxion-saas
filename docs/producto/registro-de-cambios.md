@@ -82,6 +82,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17a · Art. 26 por apartados y fecha de exigibilidad | Integrado en `main` | `fase3/b17a-art26` | 2026-10-27 | **Sí** · `20261027160000_ai_act_art26_apartados.sql` |
 | B17b · Notificación de la FRIA, presentación del registro UE y FRIA trazada | Integrado en `main` | `fase3/b17b-fria` | 2026-10-27 | **Sí** · `20261027170000_expediente_notificaciones_fria.sql` |
 | B17c · Propuestas de estado de las obligaciones | Integrado en `main` | `fase3/b17c-cumplimiento-conectado` | 2026-10-27 | No |
+| B17d · Exclusión de brechas según F-14 | Integrado en `main` | `fase3/b17d-exclusion-gaps` | 2026-10-27 | **Sí** · `20261027180000_gaps_exclusion_obligaciones.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2082,4 +2083,33 @@ correctos. No se ha probado en el navegador.
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md` (GAP-11 en parte),
 `negocio/obligaciones.md`, `producto/informe-flujo-trabajo-ia.md`.
+
+---
+
+## B17d · Exclusión de brechas según F-14
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17d-exclusion-gaps` ·
+**Migración:** **sí**, `supabase/migrations/20261027180000_gaps_exclusion_obligaciones.sql` (alineación de datos)
+
+**Problema** (F-14): había dos formas de aceptar un riesgo (en el plan, con 100 caracteres, fecha de revisión y
+aprobación; o excluyendo su brecha con 10 caracteres), excluir una «Obligación sin cubrir» no excluía la obligación y
+excluir una obligación desde la ficha no pasaba por la aprobación de DP-07.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Regla (`lib/gaps/exclusion-rules.ts`) | Riesgo sin tratar y Control sin implantar: se resuelven en el plan (sin botón; el servidor lo rechaza). Obligación sin cubrir: **Excluir obligación**, sin caducidad. Evidencia caducada: **Posponer**, con fecha obligatoria. Tests |
+| Exclusión (`lib/gaps/exclusion.ts`, `obligation-exclusion.ts`, nuevos) | La exclusión activa de una Obligación sin cubrir (al pedirla sin política o al aprobarse) marca la obligación como Excluida con su justificación; reactivar el gap la devuelve a Pendiente. Historial en el sistema |
+| Ficha | **Excluir** una obligación es excluir su brecha: pasa por Aprobaciones si la política lo pide y lo avisa |
+| Pantalla de brechas | Botones por capa; en bloque, **Excluir o posponer** cuenta solo lo que se puede apartar y el modal dice cuántas se omiten |
+| Datos (migración) | Las exclusiones activas anteriores de Obligación sin cubrir excluyen su obligación. Las de Riesgo sin tratar y Control sin implantar se conservan y se pueden reactivar |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 141/141 (tres tests nuevos),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración y desplegar la web. Solo web.
+
+**Documentación.** `funcional/brechas.md`, `funcional/brechas-excluidas.md`, `funcional/ficha-sistema.md`,
+`funcional/flujo-completo-evaluacion.md` (GAP-30), `producto/plan-resolucion-gaps.md` (decisiones de B17e).
 

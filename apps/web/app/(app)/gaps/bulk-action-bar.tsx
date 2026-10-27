@@ -4,6 +4,7 @@ import { X, UserCheck, ClipboardList, Download, ShieldOff } from 'lucide-react'
 import type { UnifiedGapRecord, GapAssignableMember, GapLayer } from '@/lib/gaps/data'
 import { downloadGapsCsv } from '@/lib/gaps/csv'
 import { LAYER_LABELS } from './gap-ui-constants'
+import { canExcludeGapLayer } from '@/lib/gaps/exclusion-rules'
 
 type Props = {
   selectedGaps: UnifiedGapRecord[]
@@ -30,6 +31,8 @@ export function BulkActionBar({ selectedGaps, onClear, onAssign, onCreateTasks, 
 
   const assignableCount = selectedGaps.filter((g) => ASSIGNABLE_LAYERS.includes(g.layer)).length
   const taskableCount = selectedGaps.filter((g) => g.layer !== 'fmea').length
+  // F-14: riesgos y controles se resuelven en el plan, no se excluyen.
+  const excludableCount = selectedGaps.filter((g) => canExcludeGapLayer(g.layer)).length
 
   function handleExport() {
     const date = new Date().toISOString().slice(0, 10)
@@ -85,13 +88,16 @@ export function BulkActionBar({ selectedGaps, onClear, onAssign, onCreateTasks, 
       <button
         type="button"
         onClick={onDispose}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb text-ltt2 font-sora text-[12px] hover:border-ltbl hover:text-ltt transition-colors"
-        title="Marcar los gaps seleccionados como aceptados o no aplicables"
+        disabled={excludableCount === 0}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb text-ltt2 font-sora text-[12px] hover:border-ltbl hover:text-ltt transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        title={excludableCount === 0
+          ? 'Los riesgos sin tratar y los controles sin implantar se resuelven en el plan de tratamiento'
+          : 'Excluir las obligaciones o posponer las evidencias caducadas seleccionadas'}
       >
         <ShieldOff size={12} />
-        Excluir
+        Excluir o posponer
         <span className="font-plex text-[9px] uppercase tracking-[0.4px] px-1 py-0.5 rounded bg-ltbg border border-ltb">
-          {selectedGaps.length}
+          {excludableCount}
         </span>
       </button>
 
