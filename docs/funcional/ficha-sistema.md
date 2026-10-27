@@ -56,6 +56,11 @@ fuente:
   - apps/web/lib/governance/biometric.ts
   - apps/web/lib/governance/biometric-server.ts
   - supabase/migrations/20261028150000_biometria_remota_diferido.sql
+  - apps/web/app/(app)/inventario/[id]/provider-classification-card.tsx
+  - apps/web/app/(app)/inventario/[id]/provider-classification-actions.ts
+  - apps/web/lib/ai-act/provider-classification.ts
+  - apps/web/lib/evaluation-status/deployment.ts
+  - supabase/migrations/20261028170000_cese_uso_clasificacion_proveedor.sql
 ---
 
 # Ficha del sistema
@@ -126,6 +131,7 @@ punto con su enlace.
 | Declaración UE de conformidad del proveedor verificada: marcado CE (Art. 47 y 48) | Documentación del proveedor de tipo declaración, o evidencia EVT-DOC-03, Válida. Acredita el marcado CE; no hay campo propio |
 | Supervisión humana documentada: competencia, formación y autoridad (Art. 26.2) | La supervisión documentada del sistema está completa (B24, ver **Supervisión documentada**) |
 | FRIA aprobada y notificada a la autoridad (Art. 27) | Solo si la FRIA aplica (DP-11): aprobada y con su notificación registrada |
+| Sistema registrado por el proveedor en la base de datos de la UE (Art. 49) | B27. Solo si la organización no es la proveedora y el sistema es del Anexo III fuera de la infraestructura crítica: documentación del proveedor de tipo registro, en estado Válida. Si la organización es autoridad pública, el punto añade «sin registro no se puede usar» (Art. 26.8) |
 | Datos de entrada (Art. 26.4), trabajadores informados (26.7), personas afectadas informadas (26.11) | Solo si el sistema tiene la obligación y no está excluida: resuelta |
 
 Pasar a Producción sin completarlo avisa, no bloquea (decisión 2); el aviso queda en el historial con el
@@ -152,8 +158,19 @@ clasificación actualizadas), la fecha, la descripción y lo que falta por reeva
 riesgos →**, **FRIA →**, **AISIA →**, **Clasificación AI Act →**). El Administrador y el Responsable del SGAI ven
 **Descartar…**, que pide el motivo. Ver [disparadores de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación).
 
+**Clasificación del proveedor** (B27). Debajo de **Etapa de evaluación**, solo cuando la organización no es la
+proveedora del sistema. Muestra nuestra clasificación y recoge la que declara el proveedor (**Sin indicar**, Práctica
+prohibida, Alto riesgo, No es de alto riesgo por la excepción del Art. 6.3, Riesgo limitado o Riesgo mínimo) y dónde
+la declara. Si no coincide con la nuestra, la tarjeta marca **Discrepancia** y pide el **Motivo de la discrepancia**
+(al menos 10 caracteres) y, opcionalmente, cuándo se comunicó al proveedor; si coincide, **Coincide**. «No es de
+alto riesgo por el Art. 6.3» discrepa de nuestro alto riesgo o práctica prohibida. La editan el Administrador, el
+Responsable del SGAI y el Responsable del sistema (`ai_systems.provider_declared_level`,
+`provider_classification_notes`, `provider_disagreement_reason`, `provider_disagreement_notified_at`). Queda en el
+historial (filtro **AI Act**) y en la auditoría.
+
 **Etapa de evaluación** (B18a, DP-02). La etapa alcanzada (Sin clasificar, Clasificado, Evaluado, Tratado,
-o Retirada o rediseño en una práctica prohibida), **Siguiente:** con lo primero que falta y la lista de
+o Retirada o rediseño en una práctica prohibida, que además tiene abierta la [tarea](tareas.md) «Cesar el uso» hasta
+que el sistema pasa a Retirado, B27), **Siguiente:** con lo primero que falta y la lista de
 requisitos por etapa y de vigencia, cada uno con su enlace. Al pie, el requisito de la organización: si la
 Declaración de Aplicabilidad está aprobada y si el sistema está en su alcance (sin etiquetas de alcance,
 entran todos). Las reglas están en [etapa de evaluación](flujo-completo-evaluacion.md#qué-significa-sistema-totalmente-evaluado).

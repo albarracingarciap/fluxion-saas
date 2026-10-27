@@ -10,6 +10,7 @@ import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
 import { deploymentWarning, prohibitedStatusError } from '@/lib/evaluation-status/deployment';
 import { loadSystemStages } from '@/lib/evaluation-status/load';
 import { registerReevaluation } from '@/lib/evaluation-status/reevaluation-server';
+import { syncCeaseUseTasks } from '@/lib/ai-act/cease-use-server';
 
 // Map free-text data volume strings from the wizard to their ENUM values
 const DATA_VOLUME_MAP: Record<string, string> = {
@@ -334,6 +335,9 @@ export async function updateAISystem(formData: Record<string, any>) {
       }]);
     }
   }
+
+  // B27: abre o completa la tarea «Cesar el uso» (práctica prohibida, estado Retirado).
+  await syncCeaseUseTasks(membership.organization_id, [systemId]);
 
   revalidatePath('/inventario');
   revalidatePath(`/inventario/${systemId}`);

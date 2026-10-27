@@ -64,3 +64,13 @@ test('una práctica prohibida no se pone en Producción ni en Piloto', () => {
   assert.equal(prohibitedStatusError('retirado', ['prohibited']), null)
   assert.equal(prohibitedStatusError('produccion', ['high']), null)
 })
+
+test('registro del proveedor en la base de datos de la UE cuando se exige (B27)', () => {
+  const sin = deploymentPlan(con({ providerRegistration: { registered: false, publicBody: false } }))!
+  assert.equal(sin.missing.some((i) => i.key === 'registro_proveedor'), true)
+  const publico = deploymentPlan(con({ providerRegistration: { registered: false, publicBody: true } }))!
+  assert.match(publico.items.find((i) => i.key === 'registro_proveedor')!.label, /no se puede usar \(Art\. 49 y 26\.8\)/)
+  const registrado = deploymentPlan(con({ providerRegistration: { registered: true, publicBody: false } }))!
+  assert.equal(registrado.missing.some((i) => i.key === 'registro_proveedor'), false)
+  assert.equal(deploymentPlan(con({ providerRegistration: null }))!.items.some((i) => i.key === 'registro_proveedor'), false)
+})

@@ -4,6 +4,7 @@ import { requireCronSecret } from '@/lib/cron/auth'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { detectPeriodicReevaluations, syncReevaluations } from '@/lib/evaluation-status/reevaluation-server'
 import { ensureAnnualReportTasks } from '@/lib/governance/biometric-server'
+import { syncCeaseUseTasks } from '@/lib/ai-act/cease-use-server'
 
 /**
  * GET /api/cron/reevaluation-triggers
@@ -14,7 +15,8 @@ import { ensureAnnualReportTasks } from '@/lib/governance/biometric-server'
  *   2. cierra los disparadores cuyo alcance ya está aprobado y completa la
  *      tarea «Reevaluar sistema» si no queda ninguno.
  *   3. crea la tarea del informe anual del Art. 26.10 del año en curso en los
- *      sistemas marcados como biometría remota en diferido (B21c).
+ *      sistemas marcados como biometría remota en diferido (B21c);
+ *   4. abre o completa la tarea «Cesar el uso» de las prácticas prohibidas (B27).
  * Los de incidente grave y cambio de supuestos se abren al momento, desde la
  * aplicación. Es idempotente: un disparador abierto no se duplica y la tarea
  * anual se crea una vez por año.
@@ -48,7 +50,8 @@ export async function GET(request: NextRequest) {
   for (const orgId of orgs) resolved += await syncReevaluations(orgId)
 
   const annualReports = await ensureAnnualReportTasks()
+  const ceaseUse = await syncCeaseUseTasks()
 
-  console.log(`[cron/reevaluation-triggers] ${registered} disparadores nuevos · ${resolved} resueltos · ${orgs.length} organizaciones · ${annualReports} informes anuales`)
-  return NextResponse.json({ checkedAt: now.toISOString(), triggersRegistered: registered, triggersResolved: resolved, organizations: orgs.length, annualReportTasks: annualReports })
+  console.log(`[cron/reevaluation-triggers] ${registered} disparadores nuevos · ${resolved} resueltos · ${orgs.length} organizaciones · ${annualReports} informes anuales · ${ceaseUse} tareas de cese`)
+  return NextResponse.json({ checkedAt: now.toISOString(), triggersRegistered: registered, triggersResolved: resolved, organizations: orgs.length, annualReportTasks: annualReports, ceaseUseTasks: ceaseUse })
 }

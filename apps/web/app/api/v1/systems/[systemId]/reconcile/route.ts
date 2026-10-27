@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { createClient } from '@/lib/supabase/server'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
+import { syncCeaseUseTasks } from '@/lib/ai-act/cease-use-server'
 
 const AGENT_URL = process.env.AGENT_SERVER_URL || 'http://localhost:8001'
 
@@ -75,6 +76,8 @@ export async function POST(
         payload: { version: version ?? null, risk_level: sistema.aiact_risk_level, event_id: body?.event_id ?? null },
         actor_user_id: user?.id ?? null,
       }])
+      // B27: la clasificación conciliada puede abrir o completar la tarea «Cesar el uso».
+      await syncCeaseUseTasks(sistema.organization_id, [params.systemId])
     }
   } catch (e) {
     console.error('[reconcile] historial (no bloqueante):', e)

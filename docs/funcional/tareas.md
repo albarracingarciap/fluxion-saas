@@ -18,6 +18,7 @@ fuente:
   - apps/web/lib/tasks/data.ts
   - apps/web/lib/tasks/types.ts
   - supabase/migrations/00000000000001_schema.sql
+  - apps/web/lib/ai-act/cease-use-server.ts
 ---
 
 # Tareas
@@ -92,6 +93,7 @@ filtros».
 | Incidente de IA | Acción correctiva en el [Detalle de incidente](incidente-detalle.md). Desde B25d, el enlace de origen del detalle de la tarea lleva al incidente |
 | Reevaluación del sistema | Tarea «Reevaluar sistema · {nombre}» de un [disparador de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación) (B21a); una abierta por sistema; se completa sola al cerrarse sus disparadores. El enlace de origen lleva a la ficha |
 | Informe anual (Art. 26.10) | Tarea anual del informe de uso de la identificación biométrica remota en diferido (B21c), una por sistema y año. El enlace de origen lleva a la ficha |
+| Cese del uso (Art. 5) | Tarea «Cesar el uso · {sistema}», prioridad crítica, de un sistema clasificado como práctica prohibida que no está Retirado (B27). Se completa sola al pasar a Retirado o si deja de ser prohibido. El enlace de origen lleva a la ficha |
 | Requerimiento de la autoridad | Tarea «Responder al requerimiento…» o tarea añadida en el detalle del requerimiento ([Incidentes › Requerimientos](incidentes.md#pestaña-requerimientos), B25d). El enlace de origen lleva al requerimiento |
 | Plan de tratamiento | Acción del [plan de tratamiento](plan-de-tratamiento.md) |
 | Evaluación de riesgos | — |

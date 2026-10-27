@@ -38,6 +38,7 @@ export type AuditAction =
   | 'system.log_retention_updated'
   | 'system.reevaluation_dismissed'
   | 'system.post_biometric_updated'
+  | 'system.provider_classification_updated'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones
