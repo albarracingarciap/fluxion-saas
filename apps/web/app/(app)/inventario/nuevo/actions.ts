@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import { syncCeaseUseTasks } from '@/lib/ai-act/cease-use-server';
 import { callClassificationService, classificationColumns, classifyWithCatalog, enginePayload, loadAiActCatalog } from '@/lib/ai-act/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -332,6 +333,9 @@ export async function saveAISystem(formData: Record<string, any>) {
       }]);
     }
   }
+
+  // B27: una práctica prohibida abre la tarea «Cesar el uso».
+  await syncCeaseUseTasks(membership.organization_id, [data.id]);
 
   revalidatePath('/inventario');
   return { success: true, id: data.id, clasificacionInicial, deploymentWarning: aviso };

@@ -52,7 +52,8 @@ export function StageCard({
           <AlertTriangle className="w-4 h-4 text-re shrink-0 mt-px" />
           <p className="font-sora text-[12px] text-re leading-relaxed">
             Práctica prohibida (AI Act, Art. 5): no se puede poner en el mercado, en servicio ni utilizar en la UE. No se
-            evalúa: hay que retirarlo o rediseñarlo y volver a clasificarlo.
+            evalúa: hay que retirarlo o rediseñarlo y volver a clasificarlo. La tarea «Cesar el uso» sigue abierta en
+            Tareas hasta que el sistema pase a Retirado (B27).
           </p>
         </div>
       ) : (

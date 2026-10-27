@@ -2602,3 +2602,37 @@ organización). `npm test` 194/194 (dos tests nuevos y dos actualizados en la co
 **Documentación.** `funcional/expediente-documental.md`, `funcional/ficha-sistema.md`,
 `funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`, `_pendientes.md` (302: glosario; 303: modelo de
 la Comisión).
+
+## B27 · Parciales del flujo de trabajo: cese del uso, clasificación del proveedor y registro UE
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b27-parciales-flujo` ·
+**Migración:** **sí**, `supabase/migrations/20261028170000_cese_uso_clasificacion_proveedor.sql`
+
+**Problema:** los tres puntos que el contraste del flujo de trabajo dejaba en parcial: 1.2 (no se creaba la tarea de
+cese de una práctica prohibida), 1.3 (no se podía registrar que discrepamos de la clasificación del proveedor) y 2.5
+(no se avisaba si no constaba el registro del proveedor en la base de datos de la UE).
+
+**Decisiones del responsable (2026-10-28):** tarea de cese automática que se completa al retirar el sistema o si deja
+de ser prohibido; se registra la clasificación del proveedor y, si no coincide, la discrepancia con su motivo; el
+registro del proveedor es un punto del plan de despliegue para todo responsable del despliegue de alto riesgo del
+Anexo III (salvo infraestructura crítica).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `ai_systems.provider_declared_level` y campos de la discrepancia; origen de tarea `cease_use` |
+| Reglas (`lib/ai-act/provider-classification.ts`, nuevo, puro) | Discrepancia con el proveedor (la excepción del Art. 6.3 discrepa de nuestro alto riesgo); cuándo hace falta la tarea de cese |
+| Cese del uso | `syncCeaseUseTasks` al dar de alta, editar y conciliar la clasificación, y en el cron diario `reevaluation-triggers`; nota en la etapa «Retirada o rediseño» |
+| Ficha | Tarjeta **Clasificación del proveedor** cuando la organización no es la proveedora |
+| Plan de despliegue | Punto «Sistema registrado por el proveedor en la base de datos de la UE» (Art. 49; con autoridad pública, Art. 26.8) |
+| Tareas y auditoría | Origen «Cese del uso (Art. 5)» con enlace a la ficha; `system.provider_classification_updated` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 197/197 (tres tests
+nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. El filtro del cron por
+`aiact_result->>level` no se ha probado contra PostgREST. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Usa el cron ya instalado.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
+`tecnica/modelo-datos.md`, `_pendientes.md` (304: glosario).

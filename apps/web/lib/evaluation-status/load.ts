@@ -200,6 +200,11 @@ export async function loadSystemStages(
       return fila.status === 'resolved' ? 'resolved' : 'open'
     }
     const friaAplica = documentApplicability('fria', facts).mode === 'redactar'
+    // B27: registro del proveedor, si la organización no es la proveedora y el
+    // sistema es del Anexo III fuera de la infraestructura crítica (registro nacional).
+    const puntosIII = facts.highRiskRoute?.annex === 'III' ? facts.highRiskRoute.points : []
+    const registroExigido = !facts.valueChainRoles.includes('provider') && puntosIII.some((p) => p !== '2')
+    const registroProveedor = evid.some((e) => e.status === 'valid' && (e.tags ?? []).includes('doc-proveedor-tipo-registro'))
     const friaDocs = (docsPorSistema.get(s.id) ?? []).filter((d) => d.template_key === 'fria')
     const deployment = deploymentPlan({
       systemId: s.id,
@@ -207,6 +212,7 @@ export async function loadSystemStages(
       valueChainRoles: facts.valueChainRoles,
       providerInstructions: docProveedor('doc-proveedor-tipo-instrucciones', TIPO_INSTRUCCIONES),
       providerDeclaration: docProveedor('doc-proveedor-tipo-declaracion', TIPO_DECLARACION),
+      providerRegistration: registroExigido ? { registered: registroProveedor, publicBody: facts.publicBody === true } : null,
       oversightDocumented: supervision.get(s.id)?.documented ?? false,
       fria: friaAplica ? { approved: friaDocs.length > 0, notified: friaDocs.some((d) => friaNotificada.has(d.id)) } : null,
       inputData: obligacion('AI-ACT-ART26-4'),

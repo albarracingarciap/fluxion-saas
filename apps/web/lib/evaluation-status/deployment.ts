@@ -14,6 +14,11 @@
  *   - una práctica prohibida no se puede poner en Producción ni en Piloto
  *     (`prohibitedStatusError`).
  *
+ * B27 (2026-10-28): el registro del proveedor en la base de datos de la UE se
+ * exige a todo responsable del despliegue de alto riesgo del Anexo III que no
+ * es el proveedor, salvo infraestructura crítica (registro nacional). Si la
+ * organización es autoridad pública, sin registro no debe usarlo (Art. 26.8).
+ *
  * Las obligaciones del Art. 26 cuentan si el sistema las tiene (aceptadas y no
  * excluidas); si no las tiene, no aplican. Módulo puro.
  */
@@ -28,6 +33,11 @@ export type DeploymentPlanFacts = {
   /** Documentación del proveedor válida, por tipo (B16a, B17e1). */
   providerInstructions: boolean
   providerDeclaration: boolean
+  /**
+   * Registro del proveedor en la base de datos de la UE adjunto y válido (B27);
+   * null si no se exige.
+   */
+  providerRegistration?: { registered: boolean; publicBody: boolean } | null
   /** Supervisión humana documentada: competencia, formación y autoridad (B24). */
   oversightDocumented: boolean
   /** null si la FRIA no aplica (DP-11). */
@@ -63,6 +73,16 @@ export function deploymentPlan(f: DeploymentPlanFacts): DeploymentPlan | null {
   ]
   if (f.fria) {
     items.push({ key: 'fria', label: 'FRIA aprobada y notificada a la autoridad (Art. 27)', done: f.fria.approved && f.fria.notified, href: `${base}/expediente/fria` })
+  }
+  if (f.providerRegistration) {
+    items.push({
+      key: 'registro_proveedor',
+      label: f.providerRegistration.publicBody
+        ? 'Sistema registrado por el proveedor en la base de datos de la UE: sin registro no se puede usar (Art. 49 y 26.8)'
+        : 'Sistema registrado por el proveedor en la base de datos de la UE (Art. 49)',
+      done: f.providerRegistration.registered,
+      href: proveedor,
+    })
   }
   const obligacion = (key: string, label: string, estado: DeploymentObligation) => {
     if (estado) items.push({ key, label, done: estado === 'resolved', href: obligaciones })
