@@ -82,6 +82,11 @@ Los artículos del AI Act se citan según su texto oficial en español. Las clá
 - **No usar:** «log», «auditoría del sistema».
 - **En el código:** `fluxion.ai_system_history`.
 
+### Etapa de evaluación
+- **Definición:** grado en que un sistema de IA tiene hecho lo que le es exigible según su clasificación AI Act y el rol de la organización (DP-02). Las etapas son sucesivas: **Sin clasificar**, **Clasificado** (clasificación confirmada y obligaciones aceptadas o excluidas), **Evaluado** (evaluación de riesgos y plan aprobados, AISIA y documentos exigibles aprobados y, en alto riesgo, supervisión humana designada) y **Tratado** (mitigaciones cerradas, sin modos de severidad 9 sin tratar y obligaciones resueltas). **Vigente** es una condición transversal: sin evidencias caducadas, revisiones vencidas ni plazos del plan vencidos. Una práctica prohibida no se evalúa: su etapa es **Retirada o rediseño**. Un sistema fuera del ámbito del AI Act, o que no es un sistema de IA, se queda en Clasificado. La [Declaración de Aplicabilidad](#declaración-de-aplicabilidad-iso-42001) aprobada es un requisito de la organización, no del sistema. Se ve en la ficha del sistema y decide el siguiente paso del Dashboard y de Evaluaciones.
+- **No usar:** «sistema totalmente evaluado» como sí o no, «estado de cumplimiento».
+- **En el código:** `lib/evaluation-status/stages.ts` (`systemStage`, `EvaluationStage`); se calcula, no se guarda.
+
 ### Descubrimiento de inventario
 - **Definición:** módulo que detecta sistemas de IA en fuentes externas y los propone para incorporarlos al inventario. Tiene dos fuentes: Conector MLflow y Detección de IA no declarada.
 - **No usar:** «conectores» (como nombre del módulo), «discovery».
