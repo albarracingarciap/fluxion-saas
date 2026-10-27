@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { obligationProposal } from '@/lib/obligations/proposals';
 import { excluirBrechas } from '@/lib/gaps/exclusion';
-import { loadProposalFacts } from '@/lib/obligations/proposal-facts';
+import { loadLinkedEvidenceFacts, loadProposalFacts } from '@/lib/obligations/proposal-facts';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
@@ -379,7 +379,8 @@ export async function acceptObligationProposal(input: { aiSystemId: string; obli
   if (!obligation) return { error: 'No se encontró la obligación.' };
 
   const facts = await loadProposalFacts(fluxion, input.aiSystemId);
-  const proposal = obligationProposal(obligation.obligation_code, obligation.status, facts);
+  const linked = await loadLinkedEvidenceFacts(fluxion, [obligation.id]);
+  const proposal = obligationProposal(obligation.obligation_code, obligation.status, facts, linked[obligation.id] ?? []);
   if (!proposal) return { error: 'La propuesta ya no está vigente: revisa la obligación y resuélvela a mano si procede.' };
 
   const notas = [obligation.resolution_notes?.trim(), `Propuesta aceptada: ${proposal.reason}`].filter(Boolean).join('\n');

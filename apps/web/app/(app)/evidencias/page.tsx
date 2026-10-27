@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { loadEvidenceCatalogTypes } from '@/lib/evidences/catalog-type-server'
 import { redirect } from 'next/navigation'
 import {
   AlertTriangle,
@@ -806,6 +807,7 @@ export default async function EvidencesPage({
               </div>
             ) : filteredLibrary.length > 0 ? (
               <EvidencesLibraryClient
+                catalogTypes={await loadEvidenceCatalogTypes()}
                 inApprovalCircuitIds={enCircuito}
                 evidences={filteredLibrary.slice(0, 24)}
                 organizationId={membership.organization_id}

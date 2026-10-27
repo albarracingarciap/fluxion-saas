@@ -213,7 +213,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | C3 | Modos de fallo: borrar uno elimina sus activaciones en todas las organizaciones, sin aviso; no hay auditoría de cambios | Carencia | Media | Análisis | 175 |
 | C4 | Medidas: la categoría `organizational` (17 medidas) no está contemplada | Error | Baja | Análisis | 176 |
 | C5 | Obligaciones: los ámbitos «General» y «Prohibido» no aplican a nada; `all` y `transparency` no se pueden elegir; los roles en la cadena de valor no tienen pantalla | Error | Media | Análisis | 179 |
-| C6 | Tipos de evidencia y Obligación ↔ Evidencia no se usan fuera de `/datos` | Incongruencia | Media | Análisis | 178, 180 |
+| C6 | **✔ Resuelta en B17e1.** Tipos de evidencia y Obligación ↔ Evidencia no se usan fuera de `/datos` | Incongruencia | Media | Análisis | 178, 180 |
 | C7 | Relaciones causales: se permiten relaciones de un nodo consigo mismo, duplicadas y ciclos; la confianza no se usa; errata «Ato (high)»; nodos y familias sin pantalla | Error | Baja | Análisis | 182 |
 | C8 | Grafo: la leyenda no incluye «Se correlaciona»; los colores de dominio no coinciden con los datos | Error | Baja | Código | 183 |
 | C9 | El menú marca Modos de fallo como «Próximamente»; la página dice «Solo lectura para tenants comunes» | Incongruencia | Baja | Código | 173 |

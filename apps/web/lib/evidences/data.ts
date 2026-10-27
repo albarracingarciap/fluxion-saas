@@ -16,6 +16,7 @@ type EvidenceRow = {
   title: string
   description: string | null
   evidence_type: string
+  evidence_type_id: string | null
   status: 'draft' | 'valid' | 'expired' | 'pending_review' | 'rejected'
   storage_path: string | null
   external_url: string | null
@@ -72,6 +73,8 @@ export type OrganizationEvidenceRecord = {
   title: string
   description: string | null
   evidence_type: string
+  /** Tipo del catálogo (B17e1). */
+  evidence_type_id: string | null
   status: EvidenceRow['status']
   storage_path: string | null
   external_url: string | null
@@ -263,7 +266,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
     fluxion
       .from('system_evidences')
       .select(
-        'id, ai_system_id, scope, title, description, evidence_type, status, storage_path, external_url, version, owner_user_id, reviewed_by, issued_at, expires_at, reviewed_at, validation_notes, created_at, updated_at, tags'
+        'id, ai_system_id, scope, title, description, evidence_type, evidence_type_id, status, storage_path, external_url, version, owner_user_id, reviewed_by, issued_at, expires_at, reviewed_at, validation_notes, created_at, updated_at, tags'
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
@@ -353,6 +356,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
           title: evidence.title,
           description: evidence.description,
           evidence_type: evidence.evidence_type,
+          evidence_type_id: (evidence.evidence_type_id as string | null) ?? null,
           status: evidence.status,
           storage_path: evidence.storage_path,
           external_url: evidence.external_url,
@@ -410,6 +414,7 @@ export async function buildEvidencesData(organizationId: string): Promise<Eviden
         title: evidence.title,
         description: evidence.description,
         evidence_type: evidence.evidence_type,
+        evidence_type_id: (evidence.evidence_type_id as string | null) ?? null,
         status: evidence.status,
         storage_path: evidence.storage_path,
         external_url: evidence.external_url,

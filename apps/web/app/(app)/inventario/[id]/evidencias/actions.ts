@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import { resolveEvidenceCatalogTypeId } from '@/lib/evidences/catalog-type-server';
 import { createFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
@@ -16,6 +17,8 @@ type CreateSystemEvidenceInput = {
   version?: string;
   issuedAt?: string;
   expiresAt?: string;
+  /** Tipo del catálogo elegido (B17e1); sin elegir, se deduce de `evidenceType`. */
+  evidenceTypeId?: string | null;
 };
 
 export async function createSystemEvidence(input: CreateSystemEvidenceInput) {
@@ -75,6 +78,7 @@ export async function createSystemEvidence(input: CreateSystemEvidenceInput) {
     owner_user_id: user.id,
     issued_at: input.issuedAt || null,
     expires_at: input.expiresAt || null,
+    evidence_type_id: await resolveEvidenceCatalogTypeId({ chosenId: input.evidenceTypeId, freeType: input.evidenceType }),
   };
 
   const { data, error } = await fluxion

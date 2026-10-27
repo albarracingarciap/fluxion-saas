@@ -39,3 +39,16 @@ test('sin propuesta para obligaciones cerradas o sin regla', () => {
   assert.equal(obligationProposal('AI-ACT-ART26-1', 'pending', hechos), null)
   assert.equal(obligationProposal(null, 'pending', hechos), null)
 })
+
+test('B17e1 · resuelta con evidencias válidas de todos los tipos obligatorios', () => {
+  const facts: ProposalFacts = { ...nada, mandatoryEvidenceTypes: { 'AI-ACT-ART14': [{ id: 't-acta', name: 'Acta de supervisión humana' }], 'AI-ACT-ART15': [{ id: 't-val', name: 'Informe de validación y pruebas' }, { id: 't-cib', name: 'Informe de ciberseguridad' }] } }
+  assert.match(obligationProposal('AI-ACT-ART14', 'pending', facts, [{ status: 'valid', typeId: 't-acta' }])!.reason, /Acta de supervisión humana/)
+  // En borrador o sin tipo del catálogo no cuenta.
+  assert.equal(obligationProposal('AI-ACT-ART14', 'pending', facts, [{ status: 'draft', typeId: 't-acta' }]), null)
+  assert.equal(obligationProposal('AI-ACT-ART14', 'pending', facts, [{ status: 'valid', typeId: null }]), null)
+  // Faltan tipos.
+  assert.equal(obligationProposal('AI-ACT-ART15', 'pending', facts, [{ status: 'valid', typeId: 't-val' }]), null)
+  assert.ok(obligationProposal('AI-ACT-ART15', 'pending', facts, [{ status: 'valid', typeId: 't-val' }, { status: 'valid', typeId: 't-cib' }]))
+  // Sin tipos obligatorios, sin propuesta.
+  assert.equal(obligationProposal('AI-ACT-ART26-1', 'pending', facts, [{ status: 'valid', typeId: 't-val' }]), null)
+})

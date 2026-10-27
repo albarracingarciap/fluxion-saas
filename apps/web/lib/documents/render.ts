@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { resolveEvidenceCatalogTypeId } from '@/lib/evidences/catalog-type-server'
 import { openEvidenceReview } from '@/lib/approvals/open'
 import { createHash, randomUUID } from 'node:crypto'
 
@@ -194,6 +195,8 @@ export async function generateRender(input: {
       issued_at: stamp,
       expires_at: expires.toISOString().slice(0, 10),
       tags: [meta.slug, 'generado'],
+      // Tipo del catálogo según la plantilla (B17e1).
+      evidence_type_id: await resolveEvidenceCatalogTypeId({ chosenId: undefined, freeType: 'regulatory_document', tags: [meta.slug] }),
     })
     .select('id')
     .single()

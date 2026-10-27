@@ -1,5 +1,6 @@
 'use server';
 
+import { resolveEvidenceCatalogTypeId } from '@/lib/evidences/catalog-type-server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -64,6 +65,8 @@ export type UpdateSystemEvidenceInput = {
   expiresAt?: string;
   storagePath?: string | null;
   tags?: string[];
+  /** Tipo del catálogo (B17e1). Sin indicar: se conserva, o se deduce si cambia la etiqueta libre. */
+  evidenceTypeId?: string | null;
 };
 
 /**
@@ -92,7 +95,7 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
 
   const { data: current } = await fluxion
     .from('system_evidences')
-    .select('title, description, evidence_type, status, external_url, version, issued_at, expires_at, storage_path')
+    .select('title, description, evidence_type, evidence_type_id, status, external_url, version, issued_at, expires_at, storage_path, tags')
     .eq('id', input.evidenceId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -108,6 +111,13 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
     issued_at: input.issuedAt || null,
     expires_at: input.expiresAt || null,
     storage_path: input.storagePath !== undefined ? input.storagePath : current.storage_path,
+    evidence_type_id: input.evidenceTypeId !== undefined || input.evidenceType.trim() !== current.evidence_type
+      ? await resolveEvidenceCatalogTypeId({
+          chosenId: input.evidenceTypeId,
+          freeType: input.evidenceType.trim(),
+          tags: (current.tags as string[] | null) ?? [],
+        })
+      : (current.evidence_type_id as string | null),
   };
 
   // Las fechas llegan como AAAA-MM-DD; la base de datos las devuelve con hora.
@@ -116,6 +126,8 @@ export async function updateSystemEvidence(input: UpdateSystemEvidenceInput) {
     next.title !== current.title
     || next.description !== (current.description ?? null)
     || next.evidence_type !== current.evidence_type
+    // El tipo del catálogo decide qué obligaciones cubre: cambiarlo se vuelve a revisar.
+    || next.evidence_type_id !== (current.evidence_type_id ?? null)
     || next.external_url !== (current.external_url ?? null)
     || next.version !== (current.version ?? null)
     || !mismoDia(next.issued_at, current.issued_at)
@@ -406,6 +418,8 @@ export type CreateOrganizationEvidenceInput = {
   tags?: string[];
   /** El fichero se sube después de crear la fila; esto avisa de que viene uno. */
   hasPendingFile?: boolean;
+  /** Tipo del catálogo elegido (B17e1); sin elegir, se deduce de `evidenceType`. */
+  evidenceTypeId?: string | null;
 };
 
 export async function createOrganizationEvidence(input: CreateOrganizationEvidenceInput) {
@@ -450,6 +464,7 @@ export async function createOrganizationEvidence(input: CreateOrganizationEviden
       expires_at: input.expiresAt || null,
       storage_path: input.storagePath ?? null,
       tags: (input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
+      evidence_type_id: await resolveEvidenceCatalogTypeId({ chosenId: input.evidenceTypeId, freeType: input.evidenceType }),
     })
     .select('id')
     .single();

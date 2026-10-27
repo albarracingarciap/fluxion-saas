@@ -3,7 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { computeCausalDegrees } from '@/lib/causal-graph/propagation';
 import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { composeDocument } from '@/lib/documents/compose';
-import { loadProposalFacts } from '@/lib/obligations/proposal-facts';
+import { loadLinkedEvidenceFacts, loadProposalFacts } from '@/lib/obligations/proposal-facts';
+import { loadEvidenceCatalogTypes } from '@/lib/evidences/catalog-type-server';
 import { obligationProposal, type ObligationProposal } from '@/lib/obligations/proposals';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
@@ -227,6 +228,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       title,
       description,
       evidence_type,
+      evidence_type_id,
       status,
       storage_path,
       external_url,
@@ -302,6 +304,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     title: row.title,
     description: row.description,
     evidence_type: row.evidence_type,
+    evidence_type_id: (row.evidence_type_id as string | null) ?? null,
     status: row.status,
     storage_path: row.storage_path,
     external_url: row.external_url,
@@ -393,9 +396,12 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
 
   // Propuestas de estado de las obligaciones (B17c).
   const proposalFacts = await loadProposalFacts(fluxion, params.id);
+  const linkedEvidenceFacts = await loadLinkedEvidenceFacts(fluxion, (obligationRows ?? []).map((row) => row.id as string));
   const obligationProposals: Record<string, ObligationProposal> = {};
   for (const row of obligationRows ?? []) {
-    const p = obligationProposal((row.obligation_code as string | null) ?? null, row.status as string, proposalFacts);
+    const p = obligationProposal(
+      (row.obligation_code as string | null) ?? null, row.status as string, proposalFacts, linkedEvidenceFacts[row.id as string] ?? [],
+    );
     if (p) obligationProposals[row.id as string] = p;
   }
 
@@ -680,6 +686,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       evidenceStatusMap={evidenceStatusMap}
       obligationRecords={obligationRecords}
       obligationProposals={obligationProposals}
+      evidenceCatalogTypes={await loadEvidenceCatalogTypes()}
       failureModes={failureModes}
       systemGraph={systemGraph}
       treatmentPlanData={treatmentPlanData}

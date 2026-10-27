@@ -1,5 +1,6 @@
 'use client';
 
+import { inferCatalogTypeCode, type EvidenceCatalogType } from '@/lib/evidences/catalog-type';
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -94,6 +95,8 @@ function getExpiryLabel(evidence: OrganizationEvidenceRecord): string {
 type EditForm = {
   title: string;
   evidenceType: string;
+  /** Tipo del catálogo (B17e1); '' = sin tipo. */
+  catalogTypeId: string;
   externalUrl: string;
   description: string;
   version: string;
@@ -161,6 +164,8 @@ function TagEditor({
 
 type Props = {
   evidences: OrganizationEvidenceRecord[];
+  /** Tipos del catálogo de evidencias (B17e1). */
+  catalogTypes?: EvidenceCatalogType[];
   organizationId: string;
   /** Evidencias con solicitud pendiente: aprobar y rechazar se deciden en Aprobaciones (B11g). */
   inApprovalCircuitIds?: string[];
@@ -173,12 +178,17 @@ function fileTooLarge(file: File): string | null {
     : null;
 }
 
-export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCircuitIds = [] }: Props) {
+export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCircuitIds = [], catalogTypes = [] }: Props) {
+  // Tipo del catálogo deducido de la etiqueta libre (B17e1).
+  const catalogIdFor = (freeType: string) => {
+    const code = inferCatalogTypeCode(freeType);
+    return code ? catalogTypes.find((t) => t.code === code)?.id ?? '' : '';
+  };
   const enCircuito = new Set(inApprovalCircuitIds);
   const router = useRouter();
   const [editingEvidence, setEditingEvidence] = useState<OrganizationEvidenceRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
-    title: '', evidenceType: 'technical_doc', externalUrl: '',
+    title: '', evidenceType: 'technical_doc', catalogTypeId: '', externalUrl: '',
     description: '', version: '', issuedAt: '', expiresAt: '',
     storagePath: null, tags: [],
   });
@@ -271,7 +281,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
 
   // Org-scope evidence creation
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
-  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] as string[] });
+  const [orgForm, setOrgForm] = useState({ title: '', evidenceType: 'policy', catalogTypeId: catalogIdFor('policy'), externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] as string[] });
   const [orgError, setOrgError] = useState<string | null>(null);
   const [isCreatingOrg, startOrgTransition] = useTransition();
 
@@ -280,6 +290,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
     setEditForm({
       title: evidence.title,
       evidenceType: evidence.evidence_type,
+      catalogTypeId: evidence.evidence_type_id ?? '',
       externalUrl: evidence.external_url ?? '',
       description: evidence.description ?? '',
       version: evidence.version ?? '',
@@ -312,6 +323,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
         title: editForm.title,
         description: editForm.description,
         evidenceType: editForm.evidenceType,
+        evidenceTypeId: editForm.catalogTypeId || null,
         externalUrl: editForm.externalUrl,
         version: editForm.version,
         issuedAt: editForm.issuedAt,
@@ -363,6 +375,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
         title: orgForm.title,
         description: orgForm.description,
         evidenceType: orgForm.evidenceType,
+        evidenceTypeId: orgForm.catalogTypeId || null,
         externalUrl: orgForm.externalUrl,
         version: orgForm.version,
         issuedAt: orgForm.issuedAt,
@@ -400,7 +413,7 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
       }
 
       setIsOrgModalOpen(false);
-      setOrgForm({ title: '', evidenceType: 'policy', externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] });
+      setOrgForm({ title: '', evidenceType: 'policy', catalogTypeId: catalogIdFor('policy'), externalUrl: '', description: '', version: '', issuedAt: '', expiresAt: '', tags: [] });
       setPendingOrgFile(null);
       setUploadOrgError(null);
       router.refresh();
@@ -960,13 +973,28 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo</label>
                   <select
                     value={editForm.evidenceType}
-                    onChange={(e) => setEditForm((f) => ({ ...f, evidenceType: e.target.value }))}
+                    onChange={(e) => { const v = e.target.value; setEditForm((f) => ({ ...f, evidenceType: v, catalogTypeId: catalogIdFor(v) || f.catalogTypeId })); }}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                   >
                     {EVIDENCE_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo del catálogo</label>
+                  <select
+                    value={editForm.catalogTypeId}
+                    onChange={(e) => setEditForm((f) => ({ ...f, catalogTypeId: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="">Sin tipo del catálogo</option>
+                    {catalogTypes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] font-sora text-lttm mt-1">Decide qué obligaciones cubre la evidencia.</p>
                 </div>
 
                 {/* El estado no se elige: lo cambia el ciclo de revisión (B10). */}
@@ -1370,13 +1398,28 @@ export function EvidencesLibraryClient({ evidences, organizationId, inApprovalCi
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo</label>
                   <select
                     value={orgForm.evidenceType}
-                    onChange={(e) => setOrgForm((f) => ({ ...f, evidenceType: e.target.value }))}
+                    onChange={(e) => { const v = e.target.value; setOrgForm((f) => ({ ...f, evidenceType: v, catalogTypeId: catalogIdFor(v) || f.catalogTypeId })); }}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                   >
                     {EVIDENCE_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo del catálogo</label>
+                  <select
+                    value={orgForm.catalogTypeId}
+                    onChange={(e) => setOrgForm((f) => ({ ...f, catalogTypeId: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="">Sin tipo del catálogo</option>
+                    {catalogTypes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] font-sora text-lttm mt-1">Decide qué obligaciones cubre la evidencia.</p>
                 </div>
 
                 <div className="md:col-span-2">
