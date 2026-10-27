@@ -26,6 +26,7 @@ fuente:
   - supabase/migrations/20261028120000_requerimientos_autoridad.sql
   - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
   - apps/web/lib/evaluation-status/reevaluation.ts
+  - supabase/migrations/20261028150000_biometria_remota_diferido.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -683,6 +684,12 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** hecho que obliga a revisar la evaluación de un sistema de IA. Hay seis: un **incidente grave** del sistema, un **cambio de supuestos AI Act** en su ficha, la **revisión de la evaluación de riesgos vencida**, la **actualización de las reglas de clasificación** y la **revisión anual de la FRIA** o **de la AISIA** (12 meses después de aprobarse). Cada uno pide reevaluar algo concreto: los dos primeros, la evaluación de riesgos y, si aplican y ya hay una aprobada, la FRIA y la AISIA; la revisión vencida, la evaluación de riesgos; las reglas actualizadas, la clasificación AI Act; la revisión anual, ese documento. Se cierra solo cuando se aprueba lo que pide después de producirse; el Administrador y el Responsable del SGAI pueden descartarlo con un motivo. Mientras esté abierto, el sistema no está **Vigente** ([etapa de evaluación](#etapa-de-evaluación)) y tiene una tarea **Reevaluar sistema**: una sola abierta por sistema, a la que se suman los disparadores nuevos, asignada al Responsable del sistema y que se completa al cerrarse todos.
 - **No usar:** «alerta de reevaluación», «trigger».
 - **En el código:** `fluxion.reevaluation_triggers` (`trigger_key` ∈ `incidente_grave`, `supuestos_aiact`, `revision_fmea`, `catalogo`, `revision_fria`, `revision_aisia`; `scope`; `state` ∈ `detectado`, `resuelto`, `descartado`); tarea con origen `reevaluation`; `lib/evaluation-status/reevaluation.ts`.
+
+### Identificación biométrica remota en diferido
+- **Definición:** uso de un sistema de IA de alto riesgo del Anexo III, punto 1.a, para identificar a personas a distancia a partir de datos biométricos ya captados, no en tiempo real. Se marca en la ficha del sistema cuando la organización es responsable del despliegue. Con la casilla marcada, cada año se crea la tarea del informe anual a las autoridades de vigilancia del mercado y de protección de datos, con fecha límite el 31 de diciembre del año al que se refiere. La obligación del Art. 26.10 se sugiere a todo sistema del punto 1.a como responsable del despliegue, esté o no marcada la casilla.
+- **No usar:** «biometría en diferido» a secas, «reconocimiento facial» como término general.
+- **En el código:** `ai_systems.post_remote_biometric_id`; tarea con origen `annual_report`; `lib/governance/biometric.ts`.
+- **Normativa:** AI Act, Art. 26.10.
 
 ### Uso suspendido
 - **Definición:** marca de un sistema de IA cuyo uso ha suspendido la organización, como responsable del despliegue, porque usarlo conforme a las instrucciones puede dar lugar a un riesgo. No es un estado: el sistema conserva el suyo (Producción, Piloto…). Tiene fecha, motivo y, si lo hay, el [incidente](#incidente) que la motiva. Exige [avisos a terceros](#aviso-a-terceros) al proveedor o distribuidor y a la autoridad de vigilancia del mercado. Se levanta con **Reanudar uso**, indicando por qué, y la suspensión queda en el historial del sistema. Solo puede haber una activa por sistema.
