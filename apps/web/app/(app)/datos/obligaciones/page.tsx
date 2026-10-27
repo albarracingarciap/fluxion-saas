@@ -52,7 +52,7 @@ function scopeLabel(scope: string | null) {
   return SCOPES.find(s => s.value === (scope ?? ''))?.label ?? scope ?? '—';
 }
 
-const emptyForm = { code: '', framework: 'AI_ACT', article: '', title: '', description: '', scope: 'all' };
+const emptyForm = { code: '', framework: 'AI_ACT', article: '', title: '', description: '', scope: 'all', applies_from: '' };
 
 /** Las obligaciones del AI Act necesitan ámbito: «Universal» no se sugiere nunca (B13e). */
 function scopesFor(framework: string) {
@@ -125,6 +125,7 @@ export default function ObligacionesPage() {
     setFormData({
       code: item.code, framework: item.framework, article: item.article,
       title: item.title, description: item.description ?? '', scope: item.scope ?? '',
+      applies_from: item.applies_from ?? '',
     });
     setIsModalOpen(true);
   };
@@ -132,7 +133,7 @@ export default function ObligacionesPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const payload = { ...formData, scope: formData.scope || null };
+    const payload = { ...formData, scope: formData.scope || null, applies_from: formData.applies_from || null };
     const res = editingItem
       ? await updateObligation(editingItem.id, payload)
       : await createObligation(payload);
@@ -246,6 +247,11 @@ export default function ObligacionesPage() {
                       )}
                       {item.description && (
                         <div className="text-[11.5px] text-lttm mt-0.5 line-clamp-1">{item.description}</div>
+                      )}
+                      {item.applies_from && (
+                        <div className="text-[11px] font-plex text-ltt2 mt-0.5">
+                          Exigible desde {new Date(item.applies_from).toLocaleDateString('es-ES')}
+                        </div>
                       )}
                     </td>
                     <td className="px-5 py-3.5">
@@ -364,6 +370,17 @@ export default function ObligacionesPage() {
                     onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Exigible desde</label>
+                  <input
+                    type="date" value={formData.applies_from}
+                    onChange={e => setFormData(p => ({ ...p, applies_from: e.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  />
+                  <p className="text-[11px] font-sora text-lttm mt-1">
+                    Fecha desde la que la obligación es exigible según el calendario de aplicación. Déjala vacía mientras no esté confirmada por la revisión jurídica.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Descripción</label>

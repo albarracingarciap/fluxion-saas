@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  catalogCodeFromRef,
   classifyAiAct,
   classifyByFallback,
   classifySystem,
@@ -181,4 +182,40 @@ test('respaldo sin supuestos: GPAI ya no es un nivel (D3)', () => {
   assert.equal(r.level, 'limited')
   assert.equal(r.gpai.modelProvider, true)
   assert.equal(classifySystem({ inputs: null, fields: { isAISystem: true, domain: 'rrhh', affectsPersons: true, outputType: 'decision' } }).level, 'high')
+})
+
+// RN-O08 (B17a): el Art. 26 por apartados.
+const ART26 = ['1', '2', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((n) => R(`AI-ACT-ART26-${n}`, 'high_risk', ['deployer']))
+const art26 = (i: AiActInputs, roles: ValueChainRole[], publicBody = false) =>
+  suggestObligations({ result: classifyAiAct(i, roles), roles, catalog: ART26, publicBody })
+    .map((c) => c.replace('AI-ACT-ART26-', '')).sort((a, b) => Number(a) - Number(b))
+
+test('RN-O08 · Art. 26 por apartados: los generales a todo responsable del despliegue de alto riesgo', () => {
+  assert.deepEqual(art26(inp({ annexIII: ['5b'] }), ['deployer']), ['1', '2', '4', '5', '6', '9', '11', '12'])
+  // Solo para el responsable del despliegue y solo en alto riesgo.
+  assert.deepEqual(art26(inp({ annexIII: ['5b'] }), ['provider']), [])
+  assert.deepEqual(art26(inp(), ['deployer']), [])
+})
+
+test('RN-O08 · 26.7 trabajadores (empleo), 26.8 autoridad pública, 26.10 biometría remota, 26.11 personas', () => {
+  assert.ok(art26(inp({ annexIII: ['4a'] }), ['deployer']).includes('7'))
+  assert.ok(!art26(inp({ annexIII: ['5b'] }), ['deployer']).includes('7'))
+  assert.ok(art26(inp({ annexIII: ['4a'] }), ['deployer'], true).includes('8'))
+  assert.ok(!art26(inp({ annexIII: ['4a'] }), ['deployer'], false).includes('8'))
+  assert.ok(art26(inp({ annexIII: ['1a'] }), ['deployer']).includes('10'))
+  assert.ok(!art26(inp({ annexIII: ['1b'] }), ['deployer']).includes('10'))
+  // Solo infraestructura crítica: ni registro de autoridad pública ni personas afectadas.
+  const infra = art26(inp({ annexIII: ['2'] }), ['deployer'], true)
+  assert.ok(!infra.includes('8') && !infra.includes('11'))
+})
+
+test('código del catálogo desde la etiqueta: cada apartado es su propia obligación (B17a)', () => {
+  assert.equal(catalogCodeFromRef('Art. 9 — Sistema de gestión de riesgos'), 'AI-ACT-ART9')
+  assert.equal(catalogCodeFromRef('Art. 26.1 — Uso conforme a las instrucciones'), 'AI-ACT-ART26-1')
+  assert.equal(catalogCodeFromRef('Art. 26.11 — Información a las personas afectadas'), 'AI-ACT-ART26-11')
+  assert.equal(catalogCodeFromRef('Art. 50.2 — Marcado del contenido sintético'), 'AI-ACT-ART50-2')
+  assert.equal(catalogCodeFromRef('Art. 6.4 — Documentar la excepción'), 'AI-ACT-ART6-4')
+  assert.equal(catalogCodeFromRef('Art. 71'), 'AI-ACT-ART49')
+  assert.equal(catalogCodeFromRef('AI-ACT-ART26-5'), 'AI-ACT-ART26-5')
+  assert.equal(catalogCodeFromRef('Otra cosa'), null)
 })

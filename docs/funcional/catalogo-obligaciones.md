@@ -54,7 +54,7 @@ como base para mapear qué evidencias son requeridas por cada artículo o cláus
 | **Código** | Por ejemplo, «AI-ACT-ART9». Único | `code` |
 | **Framework** | Marco normativo | `framework` |
 | **Artículo** | Por ejemplo, «Art. 9» | `article` |
-| **Título** | Con la descripción debajo. Las obligaciones retiradas llevan la marca **Retirada** (texto de ayuda: «No se sugiere a ningún sistema; se conserva para las obligaciones ya registradas.») | `title`, `description`, `retired_at` |
+| **Título** | Con la descripción debajo. Las obligaciones retiradas llevan la marca **Retirada** (texto de ayuda: «No se sugiere a ningún sistema; se conserva para las obligaciones ya registradas.»). Si tiene fecha de exigibilidad: «Exigible desde {fecha}» | `title`, `description`, `retired_at`, `applies_from` |
 | **Ámbito** | A qué sistemas aplica, con la etiqueta del formulario | `scope` |
 
 Sin resultados: «No se encontraron obligaciones».
@@ -68,6 +68,7 @@ Sin resultados: «No se encontraron obligaciones».
 | **Artículo / Cláusula** | texto | Sí | Por ejemplo, «Art. 9» |
 | **Ámbito** | selección | Sí en el AI Act | Universal (sin ámbito; no se ofrece en el AI Act, donde el valor por defecto es «Todo sistema en el ámbito») · Todo sistema en el ámbito (`all`) · Alto riesgo (`high_risk`) · Transparencia (Art. 50) (`transparency`) · Proveedor de modelo GPAI (`gpai`) |
 | **Título** | texto | Sí | Por ejemplo, «Sistema de gestión de riesgos» |
+| **Exigible desde** | fecha | No | Desde cuándo es exigible según el calendario de aplicación (B17a). Vacía mientras no la confirme la revisión jurídica | `applies_from` |
 | **Descripción** | texto largo | No | — |
 
 **Cuándo aplica una obligación del AI Act a un sistema.** Las obligaciones sugeridas de cada sistema
