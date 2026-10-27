@@ -169,6 +169,7 @@ volver a comprobar la propuesta en el servidor, y añade a sus notas de resoluci
 | Art. 27 · FRIA | Hay una FRIA aprobada y consta su notificación a la autoridad |
 | Art. 49 · Registro en la base de datos de la UE | Hay una ficha para el registro UE aprobada y consta su presentación |
 | Art. 6.4 · Documentar la excepción del Art. 6.3 | Lo mismo, si la ficha es de la sección B |
+| Cualquiera con tipos de evidencia obligatorios en el catálogo | Tiene vinculadas evidencias válidas de todos esos tipos (B17e1) |
 
 **Resolver obligación** (modal):
 
@@ -256,6 +257,7 @@ en el filtro **AI Act**.
 |---|---|---|---|---|
 | **Título** | texto | Sí | — | `system_evidences.title` |
 | **Tipo** | selector | — | Documentación técnica, DPIA, Política, Contrato, Test, Informe, Captura, Registro, Otro | `evidence_type` |
+| **Tipo del catálogo** | selector | No | Tipo de `compliance.evidence_types` (B17e1); decide qué obligaciones cubre la evidencia. Se preselecciona según el **Tipo** cuando la correspondencia es inequívoca (Documento técnico o Documentación técnica → Documentación técnica del sistema; DPIA → Análisis de impacto (DPIA/FRIA); Política → Política de IA; Registro formativo → Registro de formación; Resultado de pruebas o Test → Informe de validación y pruebas; Log de monitorización → Registro de monitorización; Evaluación de riesgos → Informe de evaluación de riesgos). «Sin tipo del catálogo» la deja sin cubrir obligaciones. Cambiarlo en una evidencia ya enviada la devuelve a borrador | `evidence_type_id` |
 | **Estado** | informativo | — | No se elige: se crea en borrador y cambia con el ciclo de revisión. Al editar, avisa de que cambiar el contenido la devuelve a borrador | `status` |
 | **URL externa** | URL | Sí | — | `external_url` |
 | **Descripción** | texto largo | No | — | `description` |

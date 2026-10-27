@@ -14,6 +14,7 @@ import {
   type DocumentAction,
 } from '@/lib/documents/lifecycle-rules'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
+import { resolveEvidenceCatalogTypeId } from '@/lib/evidences/catalog-type-server'
 import {
   PROVIDER_DOC_TYPES,
   applicabilityFacts,
@@ -674,6 +675,7 @@ export async function addProviderDocument(input: {
       status: 'draft',
       owner_user_id: profile.user_id,
       tags: providerDocTags(meta.slug, tipo.value),
+      evidence_type_id: await resolveEvidenceCatalogTypeId({ chosenId: undefined, freeType: tipo.evidenceType, tags: providerDocTags(meta.slug, tipo.value) }),
     })
     .select('id')
     .single()

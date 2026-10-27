@@ -42,6 +42,7 @@ import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
 import { acceptObligationProposal, acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
 import type { ObligationProposal } from '@/lib/obligations/proposals';
+import { inferCatalogTypeCode, type EvidenceCatalogType } from '@/lib/evidences/catalog-type';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { catalogCodeFromRef } from '@/lib/ai-act';
@@ -69,6 +70,8 @@ export type SystemEvidenceEntry = {
   title: string;
   description: string | null;
   evidence_type: string;
+  /** Tipo del catálogo (B17e1). */
+  evidence_type_id: string | null;
   status: string;
   storage_path: string | null;
   external_url: string | null;
@@ -1419,6 +1422,7 @@ export function SystemDetailClient({
   evidenceStatusMap,
   obligationRecords,
   obligationProposals,
+  evidenceCatalogTypes,
   failureModes,
   systemGraph,
   treatmentPlanData,
@@ -1435,6 +1439,8 @@ export function SystemDetailClient({
   obligationRecords: SystemObligationEntry[];
   /** Propuestas de estado por id de obligación (B17c). */
   obligationProposals: Record<string, ObligationProposal>;
+  /** Tipos del catálogo de evidencias (B17e1). */
+  evidenceCatalogTypes: EvidenceCatalogType[];
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
   treatmentPlanData: TreatmentPlanData | null;
@@ -1461,6 +1467,7 @@ export function SystemDetailClient({
     version: '',
     issuedAt: '',
     expiresAt: '',
+    catalogTypeId: '',
   });
   const [isSubmittingEvidence, startEvidenceTransition] = useTransition();
   // Edit / delete / failure-mode linking state
@@ -2129,9 +2136,15 @@ export function SystemDetailClient({
     });
   };
 
+  // Tipo del catálogo deducido de la etiqueta libre (B17e1).
+  const catalogIdFor = (freeType: string) => {
+    const code = inferCatalogTypeCode(freeType);
+    return code ? evidenceCatalogTypes.find((t) => t.code === code)?.id ?? '' : '';
+  };
+
   const openEvidenceModal = () => {
     setEditingEvidence(null);
-    setEvidenceForm({ title: '', evidenceType: 'technical_doc', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '' });
+    setEvidenceForm({ title: '', evidenceType: 'technical_doc', externalUrl: '', description: '', status: 'draft', version: '', issuedAt: '', expiresAt: '', catalogTypeId: catalogIdFor('technical_doc') });
     setActiveTab('Evidencias');
     setEvidenceModalSource('general');
     setEvidenceError(null);
@@ -2149,6 +2162,7 @@ export function SystemDetailClient({
       version: evidence.version ?? '',
       issuedAt: evidence.issued_at ?? '',
       expiresAt: evidence.expires_at ?? '',
+      catalogTypeId: evidence.evidence_type_id ?? '',
     });
     setEvidenceError(null);
     setIsEvidenceModalOpen(true);
@@ -2238,6 +2252,7 @@ export function SystemDetailClient({
       version: '',
       issuedAt: '',
       expiresAt: '',
+      catalogTypeId: catalogIdFor('technical_doc'),
     });
     setEvidenceError(null);
   };
@@ -2286,6 +2301,7 @@ export function SystemDetailClient({
           version: evidenceForm.version,
           issuedAt: evidenceForm.issuedAt,
           expiresAt: evidenceForm.expiresAt,
+          evidenceTypeId: evidenceForm.catalogTypeId || null,
         });
 
         if (result?.error) {
@@ -2302,6 +2318,7 @@ export function SystemDetailClient({
           version: evidenceForm.version,
           issuedAt: evidenceForm.issuedAt,
           expiresAt: evidenceForm.expiresAt,
+          evidenceTypeId: evidenceForm.catalogTypeId || null,
         });
 
         if (result?.error) {
@@ -4218,7 +4235,10 @@ export function SystemDetailClient({
                   <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo</label>
                   <select
                     value={evidenceForm.evidenceType}
-                    onChange={(event) => setEvidenceForm((current) => ({ ...current, evidenceType: event.target.value }))}
+                    onChange={(event) => {
+                      const evidenceType = event.target.value;
+                      setEvidenceForm((current) => ({ ...current, evidenceType, catalogTypeId: catalogIdFor(evidenceType) || current.catalogTypeId }));
+                    }}
                     className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
                   >
                     {EVIDENCE_TYPE_OPTIONS.map((option) => (
@@ -4227,6 +4247,21 @@ export function SystemDetailClient({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-plex uppercase text-ltt2 mb-1.5">Tipo del catálogo</label>
+                  <select
+                    value={evidenceForm.catalogTypeId}
+                    onChange={(event) => setEvidenceForm((current) => ({ ...current, catalogTypeId: event.target.value }))}
+                    className="w-full bg-ltbg border border-ltb rounded-lg px-3 py-2 text-[13px] font-sora outline-none focus:border-brand-cyan"
+                  >
+                    <option value="">Sin tipo del catálogo</option>
+                    {evidenceCatalogTypes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] font-sora text-lttm mt-1">Decide qué obligaciones cubre la evidencia.</p>
                 </div>
 
                 {/* El estado no se elige: lo cambia el ciclo de revisión (B10). */}

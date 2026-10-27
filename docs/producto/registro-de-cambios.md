@@ -83,6 +83,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17b · Notificación de la FRIA, presentación del registro UE y FRIA trazada | Integrado en `main` | `fase3/b17b-fria` | 2026-10-27 | **Sí** · `20261027170000_expediente_notificaciones_fria.sql` |
 | B17c · Propuestas de estado de las obligaciones | Integrado en `main` | `fase3/b17c-cumplimiento-conectado` | 2026-10-27 | No |
 | B17d · Exclusión de brechas según F-14 | Integrado en `main` | `fase3/b17d-exclusion-gaps` | 2026-10-27 | **Sí** · `20261027180000_gaps_exclusion_obligaciones.sql` |
+| B17e1 · Tipo del catálogo en las evidencias y obligación resuelta por evidencias | Integrado en `main` | `fase3/b17e1-tipos-evidencia` | 2026-10-27 | **Sí** · `20261027190000_evidencias_tipo_catalogo.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2112,4 +2113,35 @@ excluir una obligación desde la ficha no pasaba por la aprobación de DP-07.
 
 **Documentación.** `funcional/brechas.md`, `funcional/brechas-excluidas.md`, `funcional/ficha-sistema.md`,
 `funcional/flujo-completo-evaluacion.md` (GAP-30), `producto/plan-resolucion-gaps.md` (decisiones de B17e).
+
+---
+
+## B17e1 · Tipo del catálogo en las evidencias y obligación resuelta por evidencias
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17e1-tipos-evidencia` ·
+**Migración:** **sí**, `supabase/migrations/20261027190000_evidencias_tipo_catalogo.sql`
+
+**Problema** (F-11, C6): el catálogo dice qué tipos de evidencia exige cada obligación, pero las evidencias solo
+tenían una etiqueta libre que no casa con él: nunca se sabía si una obligación estaba cubierta.
+
+**Decisión del responsable (2026-10-27):** cada evidencia lleva el tipo del catálogo, elegido al subirla, y los tipos
+actuales se traducen cuando se puede.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `system_evidences.evidence_type_id` → `compliance.evidence_types`; las evidencias actuales se rellenan con la traducción inequívoca de su etiqueta libre, de su plantilla (documentos generados) o de su tipo de documentación del proveedor |
+| Asignación (`lib/evidences/catalog-type.ts` y `catalog-type-server.ts`, nuevos) | Elegido en el formulario o, si no, deducido. Los documentos generados del expediente y la documentación del proveedor lo reciben solos |
+| Formularios | **Tipo del catálogo** en la ficha y en la biblioteca (alta y edición), preseleccionado según el tipo libre. Cambiarlo en una evidencia ya enviada la devuelve a borrador |
+| Propuestas | Una obligación con tipos obligatorios en el catálogo propone «Resuelta» cuando tiene vinculadas evidencias **válidas** de todos ellos |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; traducción con evidencias de prueba).
+`npm test` 144/144 (tres tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha
+probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/evidencias.md`, `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md`
+(GAP-11), `tecnica/modelo-datos.md`, `_incidencias.md` (C6 resuelta).
 

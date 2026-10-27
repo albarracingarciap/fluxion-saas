@@ -10,6 +10,7 @@
  * | Anexo IV aprobado | Art. 11 resuelta |
  * | FRIA aprobada y notificada a la autoridad | Art. 27 resuelta |
  * | Ficha para el registro UE aprobada y presentada | Art. 49 resuelta; Art. 6.4 si la ficha es de la sección B |
+ * | Evidencias válidas vinculadas de todos los tipos obligatorios del catálogo | Obligación resuelta (B17e1) |
  *
  * Módulo puro.
  */
@@ -28,7 +29,12 @@ export type ProposalFacts = {
   approvedDocuments: Partial<Record<'annex_iv' | 'fria' | 'eu_registry', ApprovedDocumentFact>>
   /** Sección del Anexo VIII de la ficha para el registro UE (DP-11). */
   euRegistrySection: 'A' | 'B' | 'C' | null
+  /** Tipos de evidencia obligatorios del catálogo, por código de obligación (B17e1). */
+  mandatoryEvidenceTypes?: Record<string, Array<{ id: string; name: string }>>
 }
+
+/** Evidencia vinculada a la obligación: su estado y su tipo del catálogo. */
+export type LinkedEvidenceFact = { status: string; typeId: string | null }
 
 export type ObligationProposal = {
   status: 'resolved'
@@ -39,8 +45,32 @@ export type ObligationProposal = {
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-ES')
 const CERRADAS = new Set(['resolved', 'excluded'])
 
-export function obligationProposal(code: string | null, status: string, facts: ProposalFacts): ObligationProposal | null {
+export function obligationProposal(
+  code: string | null,
+  status: string,
+  facts: ProposalFacts,
+  linkedEvidences: readonly LinkedEvidenceFact[] = [],
+): ObligationProposal | null {
   if (!code || CERRADAS.has(status)) return null
+  return proposalFromApprovals(code, facts) ?? proposalFromEvidences(code, facts, linkedEvidences)
+}
+
+/**
+ * B17e1: la obligación tiene vinculadas evidencias válidas de todos los tipos
+ * obligatorios del catálogo. Sin tipos obligatorios no hay propuesta.
+ */
+function proposalFromEvidences(code: string, facts: ProposalFacts, linked: readonly LinkedEvidenceFact[]): ObligationProposal | null {
+  const exigidos = facts.mandatoryEvidenceTypes?.[code] ?? []
+  if (exigidos.length === 0) return null
+  const validos = new Set(linked.filter((e) => e.status === 'valid' && e.typeId).map((e) => e.typeId))
+  if (!exigidos.every((t) => validos.has(t.id))) return null
+  return {
+    status: 'resolved',
+    reason: `Evidencias válidas vinculadas de todos los tipos exigidos por el catálogo: ${exigidos.map((t) => t.name).join(', ')}.`,
+  }
+}
+
+function proposalFromApprovals(code: string, facts: ProposalFacts): ObligationProposal | null {
   const doc = facts.approvedDocuments
 
   switch (code) {

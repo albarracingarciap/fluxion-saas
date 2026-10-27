@@ -36,6 +36,7 @@ fuente:
   - supabase/migrations/20261027150000_expediente_registro_ue.sql
   - supabase/migrations/20261027160000_ai_act_art26_apartados.sql
   - supabase/migrations/20261027170000_expediente_notificaciones_fria.sql
+  - supabase/migrations/20261027190000_evidencias_tipo_catalogo.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -297,7 +298,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.system_evidences` | [Evidencia](../glosario.md#evidencia) | `scope` (sistema u organización), `status` ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)), `expires_at`, `storage_backend` ∈ `supabase`, `s3`, `checksum_sha256` | `00000000000001`, `20260819090000` |
+| `fluxion.system_evidences` | [Evidencia](../glosario.md#evidencia) | `evidence_type_id` (tipo de `compliance.evidence_types`, B17e1: decide qué obligaciones cubre), `scope` (sistema u organización), `status` ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)), `expires_at`, `storage_backend` ∈ `supabase`, `s3`, `checksum_sha256` | `00000000000001`, `20260819090000` |
 | `fluxion.system_evidence_versions` | — | Historial de cambios y revisiones: estado anterior a cada cambio, `change_type` (también `expired`), `storage_path` y `changed_by` (perfil). Solo escribe el trigger `trg_evidence_versions` (sin política de inserción) | `00000000000001`, `20261020110000` |
 | `fluxion.evidences` | Histórico (B12): adjuntos de acciones anteriores a la biblioteca única, copiados a `system_evidences` con el mismo id. Sin escrituras desde la aplicación (`INSERT`/`UPDATE` revocados a `authenticated`) | `type`, `verification_status`, `storage_backend` | `00000000000001`, `20260819170000`, `20261021120000` |
 | `compliance.evidence_types`, `obligation_evidence_types` | [Tipo de evidencia](../glosario.md#tipo-de-evidencia) | EVT-*; `requirement_level` por obligación | `00000000000005` |
