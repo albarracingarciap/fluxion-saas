@@ -2386,3 +2386,34 @@ navegador.
 **Despliegue.** Solo web, sin migración.
 
 **Documentación.** `funcional/incidente-detalle.md`, `funcional/incidentes.md`, `funcional/ficha-sistema.md`.
+
+## B25c · Registro de logs por sistema
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b25c-registro-logs` ·
+**Migración:** **sí**, `supabase/migrations/20261028110000_registro_logs_sistema.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 3.3): el responsable del despliegue
+conserva al menos seis meses los registros que el sistema genera automáticamente, si están bajo su control (AI Act,
+Art. 26.6). Solo había retenciones de la organización en Ajustes, sin nada por sistema.
+
+**Decisiones del responsable:** registro declarativo por sistema (decisión 5); menos de seis meses avisa, no
+bloquea (2026-10-28). El plazo de 12 meses para volver a verificar lo ha fijado el desarrollo (pendiente de definir).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `system_log_retention`, uno por sistema, con RLS |
+| Reglas (`lib/governance/logs.ts`, nuevo, puro) | Estado del registro: ubicación, conservación mínima (o a cargo del proveedor), evidencia válida y verificación de los últimos 12 meses |
+| Ficha | Tarjeta **Registro de logs** en alto riesgo con la organización como responsable del despliegue; historial «Registro de logs actualizado» |
+| Obligaciones | El Art. 26.6 propone «Resuelta» con el registro completo |
+| Auditoría | `system.log_retention_updated` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas) y políticas RLS comprobadas (el Lector no
+declara; el Responsable del sistema sí; meses mayores que cero). `npm test` 181/181 (cinco tests nuevos y dos casos
+en propuestas), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/ficha-sistema.md`, `tecnica/modelo-datos.md`, `_pendientes.md` (292: glosario; 293:
+plazo de verificación).

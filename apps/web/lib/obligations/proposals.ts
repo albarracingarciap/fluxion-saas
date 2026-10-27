@@ -12,6 +12,7 @@
  * | Ficha para el registro UE aprobada y presentada | Art. 49 resuelta; Art. 6.4 si la ficha es de la sección B |
  * | Evidencias válidas vinculadas de todos los tipos obligatorios del catálogo | Obligación resuelta (B17e1) |
  * | Supervisión humana documentada: competencia, formación, autoridad y medidas | Art. 26.2 resuelta (B24) |
+ * | Registro de logs completo: ubicación, conservación mínima, evidencia válida y verificación vigente | Art. 26.6 resuelta (B25c) |
  *
  * Módulo puro.
  */
@@ -32,6 +33,8 @@ export type ProposalFacts = {
   euRegistrySection: 'A' | 'B' | 'C' | null
   /** Supervisión humana documentada (B24). */
   oversightDocumented?: boolean
+  /** Registro de logs completo (B25c). */
+  logsComplete?: boolean
   /** Tipos de evidencia obligatorios del catálogo, por código de obligación (B17e1). */
   mandatoryEvidenceTypes?: Record<string, Array<{ id: string; name: string }>>
 }
@@ -94,6 +97,10 @@ function proposalFromApprovals(code: string, facts: ProposalFacts): ObligationPr
     case 'AI-ACT-ART26-2':
       return facts.oversightDocumented
         ? { status: 'resolved', reason: 'Supervisión humana documentada: responsable con competencia, formación válida y autoridad para intervenir y detener el sistema, y medidas de vigilancia descritas.' }
+        : null
+    case 'AI-ACT-ART26-6':
+      return facts.logsComplete
+        ? { status: 'resolved', reason: 'Registro de logs completo: dónde se guardan y quién los controla, conservación de al menos seis meses (si los controla la organización), evidencia válida y verificación vigente.' }
         : null
     case 'AI-ACT-ART49':
     case 'AI-ACT-ART6-4': {

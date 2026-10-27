@@ -56,4 +56,6 @@ test('B17e1 · resuelta con evidencias válidas de todos los tipos obligatorios'
 test('Art. 26.2 con la supervisión humana documentada (B24)', () => {
   assert.match(obligationProposal('AI-ACT-ART26-2', 'pending', { ...nada, oversightDocumented: true })!.reason, /Supervisión humana documentada/)
   assert.equal(obligationProposal('AI-ACT-ART26-2', 'pending', nada), null)
+  assert.match(obligationProposal('AI-ACT-ART26-6', 'pending', { ...nada, logsComplete: true })!.reason, /Registro de logs completo/)
+  assert.equal(obligationProposal('AI-ACT-ART26-6', 'pending', nada), null)
 })

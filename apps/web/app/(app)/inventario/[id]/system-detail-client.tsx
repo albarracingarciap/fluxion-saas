@@ -56,6 +56,7 @@ import type { SystemStage } from '@/lib/evaluation-status/stages';
 import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
 import { UseSuspensionCard } from './use-suspension-card';
+import { LogsCard } from './logs-card';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -773,6 +774,8 @@ function getHistoryEventVisual(eventType: string) {
   if (eventType === 'deployment_plan_incomplete') return { tone: 'bg-ordim text-or border-orb', label: 'Despliegue' };
   // Uso suspendido, avisos y reanudación (B25a).
   if (EVENTOS_USO.includes(eventType)) return { tone: 'bg-red-dim text-re border-reb', label: 'Uso' };
+  // Registro de logs (B25c, Art. 26.6).
+  if (eventType === 'log_retention_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Logs' };
   if (EVENTOS_AIACT.includes(eventType)) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
@@ -788,7 +791,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'all',         label: 'Todos',        match: () => true },
   { key: 'aiact',       label: 'AI Act',       match: (t) => EVENTOS_AIACT.includes(t) },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
-  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' },
+  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' || t === 'log_retention_updated' },
   { key: 'uso',         label: 'Uso',          match: (t) => EVENTOS_USO.includes(t) },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
@@ -4136,6 +4139,8 @@ export function SystemDetailClient({
             {stage && <StageCard stage={stage} organization={stageOrganization} deployment={deployment} />}
 
             <ResponsablesCard systemId={system.id} />
+
+            <LogsCard systemId={system.id} />
 
             <div>
               <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3">Acciones rápidas</div>
