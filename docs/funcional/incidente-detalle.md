@@ -13,6 +13,9 @@ fuente:
   - apps/web/app/api/cron/incident-deadlines/route.ts
   - supabase/migrations/20260818170000_incidents_core.sql
   - supabase/migrations/20260818190000_incidents_alerts_channels.sql
+  - apps/web/lib/ai-systems/notices.ts
+  - apps/web/components/notices/notice-form.tsx
+  - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
 ---
 
 # Detalle de incidente
@@ -57,7 +60,7 @@ automáticamente desde el momento en que se tuvo conocimiento.»
 | **Infracción generalizada** | casilla | No | Reduce el plazo a 2 días (Art. 73.3) | `is_widespread_infringement` |
 | **Conocimiento del incidente** | fecha y hora | Sí | Ancla del plazo. Al dar parte, la fecha del alta | `became_aware_at` |
 | **Nexo causal establecido** | fecha y hora | No | «Obliga a notificar de inmediato.» | `causal_link_established_at` |
-| **Nuestro rol** | selección | Sí | Proveedor (por defecto) · Responsable del despliegue (Art. 26.5) | `reporter_role` |
+| **Nuestro rol** | selección | Sí | Proveedor · Responsable del despliegue (Art. 26.5). Al dar parte se propone Responsable del despliegue si en ningún sistema afectado la organización es proveedora (B25b); si no, o sin sistemas, Proveedor | `reporter_role` |
 
 Debajo, un resumen: «Con esta clasificación: {plazo de la categoría | sin obligación de notificar}».
 
@@ -74,13 +77,37 @@ Solo hay plazo si el incidente es grave (AI Act, Art. 73).
 > - **Grave sin categoría:** se puede marcar como grave un incidente con «Ninguno de los anteriores». Se le
 >   aplican 15 días.
 
-**Notificación a la autoridad** (solo roles de gobierno y solo si el incidente es grave):
+**Avisos del responsable del despliegue · artículo 26.5** (B25b). Solo si el incidente es grave y **Nuestro
+rol** es Responsable del despliegue. Visible para todos; registran los avisos los roles de gobierno. Fluxion no
+envía los avisos: deja constancia ([aviso a terceros](../glosario.md#aviso-a-terceros)).
+
+| Paso | Se cumple cuando |
+|---|---|
+| Aviso al proveedor, inmediatamente | Consta un aviso al Proveedor |
+| Aviso al importador o distribuidor, si los hay | Consta un aviso al Importador o al Distribuidor. No es obligatorio para completar el circuito |
+| Notificación a la autoridad de vigilancia del mercado (Art. 73) | Consta la notificación inicial o completa de **Notificación a la autoridad** |
+
+Debajo, la lista de avisos (destinatario, nombre, fecha, canal, referencia y evidencia) y **Registrar aviso**,
+con destinatario Proveedor, Importador o Distribuidor; nombre, fecha (no futura), canal, referencia y evidencia
+(de los sistemas afectados o de la organización), opcionales salvo destinatario y fecha. Si la notificación a la
+autoridad consta antes que el aviso al proveedor, se avisa: «La notificación a la autoridad consta antes que el
+aviso al proveedor…». No se bloquea: si no se consigue contactar con el proveedor, se notifica igualmente a la
+autoridad (Art. 26.5, que remite al Art. 73).
+
+**Notificación a la autoridad** (solo roles de gobierno y solo si el incidente es grave). Como responsable del
+despliegue sin aviso al proveedor, muestra «Como responsable del despliegue, avisa antes al proveedor (Art.
+26.5), salvo que no consigas contactar con él.»:
 
 | Campo | Tipo | Descripción | Origen |
 |---|---|---|---|
 | **Fecha de envío** | fecha y hora | Por defecto, ahora | `notified_at` |
 | **Autoridad** | texto | Por ejemplo, «AESIA» | `authority` |
 | **Referencia o acuse** | texto | Número de expediente | `notification_reference` |
+
+**Uso de los sistemas afectados** (B25b). Para cada sistema afectado, su enlace a la ficha y «Uso suspendido
+desde el …» (« por este incidente» si la suspensión lo cita) o **Suspender el uso →**, que abre la
+[ficha](ficha-sistema.md) con el formulario de suspensión abierto y este incidente elegido
+(`/inventario/{id}?suspender={incidente}`). La suspensión la gestionan los roles de la ficha.
 
 **Acciones correctivas (N):** tareas vinculadas al incidente, con estado, título (enlace a
 [Tareas](tareas.md)) y fecha límite. Sin acciones: «Sin acciones registradas. Se crean como tareas y
@@ -108,6 +135,7 @@ aparecen en el tablero de Ejecución.».
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
+| **Registrar aviso** | Gobierno | `recordIncidentNotice`: crea un aviso en `external_notices` con `incident_id`. La autoridad no se admite aquí | «Aviso registrado.» |
 | **Guardar clasificación** | Gobierno | `classifyIncident` | Recalcula plazo y estado de notificación. «Clasificación guardada y plazo recalculado.» |
 | **Registrar notificación inicial** | Gobierno | `recordNotification` (`initial_sent`) | «Notificación inicial registrada.» El plazo sigue contando |
 | **Registrar notificación completa** | Gobierno | `recordNotification` (`complete_sent`) | «Notificación completa registrada. El reloj se detiene.» |

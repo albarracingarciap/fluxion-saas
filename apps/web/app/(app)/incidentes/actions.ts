@@ -7,6 +7,7 @@ import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fl
 import { enqueueChannelMessage } from '@/lib/channels/send'
 import { createNotification } from '@/lib/notifications/sender'
 import { hasAnyRole } from '@/lib/auth/roles'
+import { NOTICE_RECIPIENTS, type NoticeRecipient } from '@/lib/ai-systems/notices'
 
 /**
  * Incidentes de IA.
@@ -51,6 +52,18 @@ export type IncidentRow = {
   owner_name:             string | null
   created_at:             string
   systems:                Array<{ id: string; name: string }>
+  /** Avisos al proveedor, importador o distribuidor (B25b, Art. 26.5). */
+  notices:                IncidentNotice[]
+}
+
+export type IncidentNotice = {
+  id:             string
+  recipient:      NoticeRecipient
+  recipient_name: string | null
+  notified_at:    string
+  channel:        string | null
+  reference:      string | null
+  evidence_id:    string | null
 }
 
 async function ctx(requireGovernance = false) {
@@ -87,7 +100,8 @@ export async function getIncidents(): Promise<IncidentRow[]> {
       notification_deadline, notification_status, notified_at, authority, notification_reference,
       root_cause, impact_summary, affected_people_count, owner_id, created_at,
       owner:owner_id(full_name),
-      ai_incident_systems(ai_system_id, ai_systems(id, name))
+      ai_incident_systems(ai_system_id, ai_systems(id, name)),
+      external_notices(id, recipient, recipient_name, notified_at, channel, reference, evidence_id)
     `)
     .order('created_at', { ascending: false })
 
@@ -97,6 +111,8 @@ export async function getIncidents(): Promise<IncidentRow[]> {
     owner_name: r.owner?.full_name ?? null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     systems: (r.ai_incident_systems ?? []).map((s: any) => s.ai_systems).filter(Boolean),
+    notices: ((r.external_notices ?? []) as IncidentNotice[])
+      .sort((a, b) => a.notified_at.localeCompare(b.notified_at)),
   })) as IncidentRow[]
 }
 
@@ -127,10 +143,24 @@ export async function reportIncident(input: {
 
   const admin = createAdminFluxionClient()
 
+  // Nuestro rol (B25b): responsable del despliegue si en ningún sistema
+  // afectado la organización es proveedora. Se puede cambiar al clasificar.
+  let reporterRole: 'provider' | 'deployer' = 'provider'
+  if (input.system_ids.length > 0) {
+    const { data: sistemas } = await admin
+      .from('ai_systems')
+      .select('value_chain_roles')
+      .eq('organization_id', profile.organization_id)
+      .in('id', input.system_ids)
+    const roles = ((sistemas ?? []) as Array<{ value_chain_roles: string[] | null }>).flatMap((s) => s.value_chain_roles ?? [])
+    if (roles.length > 0 && !roles.includes('provider')) reporterRole = 'deployer'
+  }
+
   const { data: row, error: insErr } = await admin
     .from('ai_incidents')
     .insert({
       organization_id: profile.organization_id,
+      reporter_role:   reporterRole,
       title,
       description:     input.description?.trim() || null,
       occurred_at:     input.occurred_at || null,
@@ -256,6 +286,78 @@ export async function recordNotification(id: string, input: {
   revalidatePath('/incidentes')
   revalidatePath(`/incidentes/${id}`)
   return { success: true }
+}
+
+/**
+ * Aviso al proveedor, al importador o al distribuidor (B25b, Art. 26.5). La
+ * notificación a la autoridad sigue siendo la del incidente (Art. 73).
+ */
+export async function recordIncidentNotice(incidentId: string, input: {
+  recipient:     NoticeRecipient
+  recipientName: string
+  notifiedAt:    string
+  channel:       string
+  reference:     string
+  evidenceId:    string | null
+}): Promise<{ ok: true } | { error: string }> {
+  const { error, profile } = await ctx(true)
+  if (error || !profile) return { error: error ?? 'No autorizado' }
+  if (!NOTICE_RECIPIENTS.includes(input.recipient) || input.recipient === 'authority') {
+    return { error: 'La autoridad se registra en «Notificación a la autoridad».' }
+  }
+  if (!input.notifiedAt) return { error: 'Indica la fecha del aviso.' }
+
+  const fluxion = createFluxionClient()
+  const { error: insErr } = await fluxion.from('external_notices').insert({
+    organization_id: profile.organization_id,
+    incident_id:     incidentId,
+    recipient:       input.recipient,
+    recipient_name:  input.recipientName.trim() || null,
+    notified_at:     input.notifiedAt,
+    channel:         input.channel.trim() || null,
+    reference:       input.reference.trim() || null,
+    evidence_id:     input.evidenceId || null,
+    created_by:      profile.id,
+  })
+  if (insErr) return { error: 'No se pudo registrar el aviso: ' + insErr.message }
+
+  revalidatePath('/incidentes')
+  revalidatePath(`/incidentes/${incidentId}`)
+  return { ok: true }
+}
+
+/**
+ * Lo que el incidente necesita de sus sistemas (B25b): evidencias para los
+ * avisos y si el uso de cada sistema afectado está suspendido.
+ */
+export async function getIncidentOperation(incident: Pick<IncidentRow, 'systems'>): Promise<{
+  evidences: Array<{ id: string; title: string }>
+  suspensions: Record<string, { suspended_at: string; incident_id: string | null }>
+}> {
+  const { profile } = await ctx()
+  if (!profile) return { evidences: [], suspensions: {} }
+  const fluxion = createFluxionClient()
+  const ids = incident.systems.map((s) => s.id)
+
+  const [{ data: evidencias }, { data: suspensiones }] = await Promise.all([
+    fluxion.from('system_evidences')
+      .select('id, title')
+      .eq('organization_id', profile.organization_id)
+      .or(ids.length ? `ai_system_id.in.(${ids.join(',')}),scope.eq.organization` : 'scope.eq.organization')
+      .order('created_at', { ascending: false }),
+    ids.length
+      ? fluxion.from('system_use_suspensions')
+          .select('ai_system_id, suspended_at, incident_id')
+          .eq('organization_id', profile.organization_id)
+          .in('ai_system_id', ids)
+          .is('resumed_at', null)
+      : Promise.resolve({ data: [] }),
+  ])
+  const suspensions: Record<string, { suspended_at: string; incident_id: string | null }> = {}
+  for (const s of (suspensiones ?? []) as Array<{ ai_system_id: string; suspended_at: string; incident_id: string | null }>) {
+    suspensions[s.ai_system_id] = { suspended_at: s.suspended_at, incident_id: s.incident_id }
+  }
+  return { evidences: (evidencias ?? []) as Array<{ id: string; title: string }>, suspensions }
 }
 
 export async function updateIncident(id: string, input: {

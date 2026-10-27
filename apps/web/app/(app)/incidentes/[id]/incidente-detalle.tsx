@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ShieldAlert, Loader2, AlertCircle, CheckCircle2,
-  Scale, Send, ListChecks, Plus,
+  Scale, Send, ListChecks, Plus, Megaphone, Circle, PauseCircle, AlertTriangle,
 } from 'lucide-react';
 
 import {
-  classifyIncident, recordNotification, updateIncident, addCorrectiveAction,
+  classifyIncident, recordNotification, updateIncident, addCorrectiveAction, recordIncidentNotice,
   type IncidentRow, type IncidentCategory,
 } from '../actions';
 import { DeadlineClock } from '../deadline-clock';
+import { NoticeForm } from '@/components/notices/notice-form';
+import { NOTICE_RECIPIENT_LABEL, incidentNoticePlan } from '@/lib/ai-systems/notices';
 
 const inputCls =
   'w-full px-3 py-2 rounded-[8px] border border-ltb bg-ltcard font-sora text-[13px] ' +
@@ -57,11 +59,15 @@ function Section({ icon, title, children }: {
   )
 }
 
-export function IncidenteDetalle({ incident, members, actions, canGovern }: {
+export function IncidenteDetalle({ incident, members, actions, canGovern, evidences, suspensions }: {
   incident: IncidentRow
   members: Array<{ id: string; name: string }>
   actions: Array<{ id: string; title: string; status: string; due_date: string | null }>
   canGovern: boolean
+  /** Evidencias de los sistemas afectados y de la organización, para los avisos (B25b). */
+  evidences: Array<{ id: string; title: string }>
+  /** Suspensión activa del uso de cada sistema afectado (B25a). */
+  suspensions: Record<string, { suspended_at: string; incident_id: string | null }>
 }) {
   const router = useRouter()
   const [pending, start] = useTransition()
@@ -88,6 +94,16 @@ export function IncidenteDetalle({ incident, members, actions, canGovern }: {
 
   // Acción correctiva
   const [actionTitle, setActionTitle] = useState('')
+
+  // Avisos del responsable del despliegue (B25b, Art. 26.5)
+  const [noticeOpen, setNoticeOpen] = useState(false)
+  const avisos = incidentNoticePlan({
+    reporterRole: incident.reporter_role,
+    isSerious: incident.is_serious,
+    notices: incident.notices.map((n) => ({ recipient: n.recipient, notifiedAt: n.notified_at })),
+    authorityNotifiedAt: ['initial_sent', 'complete_sent'].includes(incident.notification_status) ? incident.notified_at : null,
+  })
+  const tituloEvidencia = new Map(evidences.map((e) => [e.id, e.title]))
 
   function run(fn: () => Promise<{ success?: true; error?: string }>, okText: string) {
     setMsg(null)
@@ -218,7 +234,9 @@ export function IncidenteDetalle({ incident, members, actions, canGovern }: {
               <option value="provider">Proveedor</option>
               <option value="deployer">Responsable del despliegue</option>
             </select>
-            <p className="font-sora text-[11px] text-lttm mt-1">Art. 26.5 para el segundo.</p>
+            <p className="font-sora text-[11px] text-lttm mt-1">
+              Art. 26.5 para el segundo. Al dar parte se propone según el rol en los sistemas afectados.
+            </p>
           </div>
         </div>
 
@@ -246,6 +264,78 @@ export function IncidenteDetalle({ incident, members, actions, canGovern }: {
         )}
       </Section>
 
+      {/* ── Avisos del responsable del despliegue (B25b) ── */}
+      {avisos && (
+        <Section icon={<Megaphone size={12} />} title="Avisos del responsable del despliegue · artículo 26.5">
+          <p className="font-sora text-[12.5px] text-lttm">
+            Como responsable del despliegue, informa inmediatamente primero al proveedor y después al importador o
+            distribuidor, si los hay, y a la autoridad. Si no consigues contactar con el proveedor, notifica a la
+            autoridad igualmente (Art. 73, por remisión del Art. 26.5).
+          </p>
+
+          <ol className="flex flex-col gap-1.5">
+            {avisos.steps.map((p) => (
+              <li key={p.key} className="flex items-start gap-2 font-sora text-[13px]">
+                {p.done
+                  ? <CheckCircle2 size={14} className="text-gr shrink-0 mt-0.5" />
+                  : <Circle size={14} className={`${p.optional ? 'text-lttm' : 'text-or'} shrink-0 mt-0.5`} />}
+                <span className={p.done ? 'text-lttm' : 'text-ltt'}>{p.label}</span>
+              </li>
+            ))}
+          </ol>
+
+          {avisos.authorityBeforeProvider && (
+            <p className="font-sora text-[12px] text-or flex items-start gap-1.5">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              La notificación a la autoridad consta antes que el aviso al proveedor. Si no se pudo contactar con él,
+              déjalo indicado en el aviso.
+            </p>
+          )}
+
+          {incident.notices.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {incident.notices.map((n) => (
+                <li key={n.id} className="font-sora text-[12.5px] text-lttm">
+                  <span className="text-ltt">{NOTICE_RECIPIENT_LABEL[n.recipient]}{n.recipient_name ? ` · ${n.recipient_name}` : ''}</span>
+                  {' · '}{new Date(n.notified_at).toLocaleDateString('es-ES')}
+                  {n.channel && <> · {n.channel}</>}
+                  {n.reference && <> · Ref. {n.reference}</>}
+                  {n.evidence_id && tituloEvidencia.get(n.evidence_id) && <> · {tituloEvidencia.get(n.evidence_id)}</>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canGovern && !noticeOpen && (
+            <div>
+              <button
+                onClick={() => setNoticeOpen(true)}
+                className="px-4 py-2 rounded-[8px] border border-ltb font-sora text-[13px] text-ltt"
+              >
+                Registrar aviso
+              </button>
+            </div>
+          )}
+          {canGovern && noticeOpen && (
+            <NoticeForm
+              recipients={['provider', 'importer', 'distributor']}
+              defaultRecipient={avisos.steps[0].done ? 'distributor' : 'provider'}
+              evidences={evidences}
+              onCancel={() => setNoticeOpen(false)}
+              onSubmit={async (v) => {
+                const res = await recordIncidentNotice(incident.id, v)
+                if ('ok' in res) {
+                  setNoticeOpen(false)
+                  setMsg({ ok: true, text: 'Aviso registrado.' })
+                  router.refresh()
+                }
+                return res
+              }}
+            />
+          )}
+        </Section>
+      )}
+
       {/* ── Notificación ── */}
       {incident.is_serious && canGovern && (
         <Section icon={<Send size={12} />} title="Notificación a la autoridad">
@@ -253,6 +343,12 @@ export function IncidenteDetalle({ incident, members, actions, canGovern }: {
             El artículo 73.5 admite una notificación inicial incompleta seguida de una
             completa. Registra aquí lo que se envíe: es la prueba de haber cumplido en plazo.
           </p>
+          {avisos && !avisos.steps[0].done && (
+            <p className="font-sora text-[12px] text-or flex items-start gap-1.5">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              Como responsable del despliegue, avisa antes al proveedor (Art. 26.5), salvo que no consigas contactar con él.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -299,6 +395,36 @@ export function IncidenteDetalle({ incident, members, actions, canGovern }: {
               Registrar notificación completa
             </button>
           </div>
+        </Section>
+      )}
+
+      {/* ── Uso de los sistemas afectados (B25b) ── */}
+      {incident.systems.length > 0 && (
+        <Section icon={<PauseCircle size={12} />} title="Uso de los sistemas afectados">
+          <p className="font-sora text-[12.5px] text-lttm">
+            Si el uso conforme a las instrucciones puede dar lugar a un riesgo, suspéndelo desde la ficha del sistema
+            (Art. 26.5). La suspensión pide sus propios avisos al proveedor o distribuidor y a la autoridad.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {incident.systems.map((s) => {
+              const susp = suspensions[s.id]
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-ltb last:border-0">
+                  <Link href={`/inventario/${s.id}`} className="font-sora text-[13px] text-ltt hover:underline">{s.name}</Link>
+                  {susp ? (
+                    <span className="font-sora text-[12px] text-re">
+                      Uso suspendido desde el {new Date(susp.suspended_at).toLocaleDateString('es-ES')}
+                      {susp.incident_id === incident.id && ' por este incidente'}
+                    </span>
+                  ) : (
+                    <Link href={`/inventario/${s.id}?suspender=${incident.id}`} className="font-sora text-[12px] text-brand-cyan hover:underline whitespace-nowrap">
+                      Suspender el uso →
+                    </Link>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         </Section>
       )}
 

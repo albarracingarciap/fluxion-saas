@@ -12,6 +12,7 @@ fuente:
   - apps/web/app/(app)/incidentes/actions.ts
   - apps/web/components/layout/sidebar.tsx
   - supabase/migrations/20260818170000_incidents_core.sql
+  - apps/web/lib/ai-systems/notices.ts
 ---
 
 # Incidentes
@@ -60,6 +61,7 @@ conocimiento del hecho, no cuando se establece la causa.».
 | «incidente grave» | Marca si es grave | `is_serious` |
 | Sistemas | Sistemas afectados, separados por « · » | `ai_incident_systems` |
 | Reloj del plazo | Ver abajo | `notification_deadline`, `notification_status` |
+| «Aviso al proveedor pendiente (Art. 26.5)» | Incidente grave, no cerrado, con **Nuestro rol** Responsable del despliegue y sin aviso al proveedor (B25b) | `reporter_role`, `external_notices` |
 
 **Reloj del plazo:**
 
@@ -78,7 +80,7 @@ Si no hay incidentes: «No hay incidentes registrados. Ojalá siga así.».
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Dar parte** | Todos | Abre el formulario **Dar parte de un incidente** | — |
-| **Registrar incidente** | Todos | `reportIncident`: crea el incidente con la fecha de conocimiento igual a ahora | Asigna la referencia. [Aviso en la app](../glosario.md#aviso-en-la-app) «Incidente registrado · {ref}» a los roles de gobierno. [Aviso a Slack/Teams](../glosario.md#aviso-a-slackteams) «… pendiente de clasificar» |
+| **Registrar incidente** | Todos | `reportIncident`: crea el incidente con la fecha de conocimiento igual a ahora y propone **Nuestro rol**: Responsable del despliegue si en ningún sistema afectado la organización es proveedora (`value_chain_roles`), si no Proveedor (B25b) | Asigna la referencia. [Aviso en la app](../glosario.md#aviso-en-la-app) «Incidente registrado · {ref}» a los roles de gobierno. [Aviso a Slack/Teams](../glosario.md#aviso-a-slackteams) «… pendiente de clasificar» |
 | Pulsar un incidente | Todos | Abre su detalle | — |
 
 **Formulario Dar parte de un incidente:**

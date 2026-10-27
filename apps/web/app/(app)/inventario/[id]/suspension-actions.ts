@@ -67,7 +67,6 @@ export type SystemSuspension = {
   past: SuspensionView[];
   incidents: Array<{ id: string; reference: string; title: string }>;
   evidences: Array<{ id: string; title: string }>;
-  recipients: Array<{ value: NoticeRecipient; label: string }>;
 };
 
 type SuspensionRow = {
@@ -152,7 +151,6 @@ export async function getSystemSuspension(systemId: string): Promise<SystemSuspe
       .map((v) => incidente.get(v.incident_id))
       .filter((i): i is { id: string; reference: string; title: string } => Boolean(i)),
     evidences: evid,
-    recipients: NOTICE_RECIPIENTS.map((r) => ({ value: r, label: NOTICE_RECIPIENT_LABEL[r] })),
   };
 }
 

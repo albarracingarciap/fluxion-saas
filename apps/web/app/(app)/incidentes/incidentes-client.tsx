@@ -7,6 +7,7 @@ import { ShieldAlert, Plus, X, Loader2, AlertCircle, ChevronRight } from 'lucide
 
 import { reportIncident, type IncidentRow } from './actions';
 import { DeadlineClock } from './deadline-clock';
+import { incidentNoticePlan } from '@/lib/ai-systems/notices';
 
 const inputCls =
   'w-full px-3 py-2 rounded-[8px] border border-ltb bg-ltcard font-sora text-[13px] ' +
@@ -143,6 +144,18 @@ function ReportForm({ systems, onDone, onCancel }: {
 
 // ── Listado ───────────────────────────────────────────────────────────────────
 
+
+/** Incidente grave como responsable del despliegue sin aviso al proveedor (B25b). */
+function avisoProveedorPendiente(incident: IncidentRow): boolean {
+  const plan = incidentNoticePlan({
+    reporterRole: incident.reporter_role,
+    isSerious: incident.is_serious,
+    notices: incident.notices.map((n) => ({ recipient: n.recipient, notifiedAt: n.notified_at })),
+    authorityNotifiedAt: incident.notified_at,
+  })
+  return Boolean(plan && !plan.steps[0].done && incident.status !== 'closed')
+}
+
 export function IncidentesClient({ incidents, systems }: {
   incidents: IncidentRow[]
   systems: Array<{ id: string; name: string }>
@@ -241,6 +254,9 @@ export function IncidentesClient({ incidents, systems }: {
               )}
 
               <DeadlineClock incident={incident} />
+              {avisoProveedorPendiente(incident) && (
+                <span className="font-sora text-[12px] text-or">Aviso al proveedor pendiente (Art. 26.5)</span>
+              )}
             </div>
 
             <ChevronRight size={16} className="text-lttm shrink-0 mt-1" />
