@@ -212,8 +212,9 @@ la del año nuevo: «Informe anual Art. 26.10 · {año} · {sistema}», priorida
 sistema y con fecha límite el 31 de diciembre. Debajo, las tareas de informe con su estado. Queda en el historial
 («Biometría», filtro **Edición**) y en la auditoría.
 
-> **Pendiente de definir.** El AI Act no fija la fecha del informe anual; el desarrollo ha puesto el 31 de
-> diciembre del año al que se refiere.
+El AI Act no fija la fecha del informe anual: es el 31 de diciembre del año al que se refiere (decisión del
+responsable, 2026-10-28). La obligación del Art. 26.10 se sigue sugiriendo a todo sistema del punto 1.a como
+responsable del despliegue, con o sin la casilla (decisión del 2026-10-28).
 
 **Requerimientos de la autoridad** (B25d). Solo si algún requerimiento afecta al sistema: referencia y qué se pide
 (enlace a su detalle), autoridad, estado y plazo. Se gestionan en [Incidentes › Requerimientos](incidentes.md#pestaña-requerimientos).
