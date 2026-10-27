@@ -388,15 +388,7 @@ export async function analyzeSoAFromAisia() {
 
   const inScopeIds = inScopeSystems.map((s) => s.id as string)
 
-  // 3. Fetch approved AISIA assessments with their sections
-  const { data: assessments } = await fluxion
-    .from('aisia_assessments')
-    .select('id, ai_system_id, aisia_sections(section_code, data)')
-    .eq('organization_id', membership.organization_id)
-    .eq('status', 'approved')
-    .in('ai_system_id', inScopeIds)
-
-  // 3 bis. AISIA del expediente (B15): la versión aprobada vigente de cada sistema.
+  // 3. AISIA del expediente (B15): la versión aprobada vigente de cada sistema.
   const { data: aisiaDocs } = await fluxion
     .from('documents')
     .select('id, ai_system_id')
@@ -405,7 +397,7 @@ export async function analyzeSoAFromAisia() {
     .eq('status', 'approved')
     .in('ai_system_id', inScopeIds)
 
-  if ((!assessments || assessments.length === 0) && (!aisiaDocs || aisiaDocs.length === 0)) {
+  if (!aisiaDocs || aisiaDocs.length === 0) {
     return { error: 'No hay evaluaciones AISIA aprobadas para los sistemas en alcance. Aprueba al menos una AISIA antes de usar esta función.' }
   }
 
@@ -414,7 +406,7 @@ export async function analyzeSoAFromAisia() {
 
   // Cada apartado del documento, con lo derivado y lo redactado.
   const documentContexts: string[] = []
-  for (const d of aisiaDocs ?? []) {
+  for (const d of aisiaDocs) {
     const composed = await composeDocument(d.id as string)
     if (!composed) continue
     const lines = composed.sections
@@ -422,36 +414,8 @@ export async function analyzeSoAFromAisia() {
       .map((sec) => `${sec.title}: ${[sec.derived, sec.manual].filter(Boolean).join('\n')}`)
     documentContexts.push([`SISTEMA: ${nameMap.get(d.ai_system_id as string) ?? '—'}`, ...lines].join('\n'))
   }
-  const b = (v: unknown) => (v === true ? 'Sí' : v === false ? 'No' : '—')
 
-  const systemContexts = [...(assessments ?? []).map((a) => {
-    const sections = (a.aisia_sections as { section_code: string; data: Record<string, unknown> }[]) ?? []
-    const s = (code: string) => sections.find((x) => x.section_code === code)?.data ?? {}
-    const s1 = s('S1'), s2 = s('S2'), s3 = s('S3'), s4 = s('S4'), s5 = s('S5'), s6 = s('S6')
-    return [
-      `SISTEMA: ${nameMap.get(a.ai_system_id as string) ?? '—'}`,
-      `Uso previsto: ${s1.intended_use ?? '—'}`,
-      `Usos prohibidos: ${s1.prohibited_uses ?? '—'}`,
-      `Totalmente automatizado: ${b(s1.fully_automated)}`,
-      `Interactúa directamente con personas: ${b(s1.interacts_persons)}`,
-      `Contexto de despliegue: ${s1.deployment_context ?? '—'}`,
-      `Stack tecnológico: ${s1.tech_stack ?? '—'}`,
-      `Procesa datos personales: ${b(s2.processes_personal_data)}`,
-      `Categorías especiales (Art.9 RGPD): ${s2.special_categories_description ?? 'Ninguna'}`,
-      `Fuentes de datos: ${s2.data_sources_description ?? '—'}`,
-      `Estado DPIA: ${s2.dpia_status ?? '—'}`,
-      `Resumen de riesgos: ${s3.risk_summary ?? '—'}`,
-      `Plan de monitoreo: ${s4.monitoring_plan ?? '—'}`,
-      `Medidas de tratamiento: ${s4.treatment_summary ?? '—'}`,
-      `Riesgo residual: ${s4.residual_risk_description ?? '—'}`,
-      `Severidad impacto en personas: ${s5.impact_severity ?? '—'}`,
-      `Grupos vulnerables afectados: ${b(s5.vulnerable_groups_affected)}`,
-      `Derechos impactados: ${s5.rights_impacted ?? '—'}`,
-      `Salvaguardas: ${s5.safeguards ?? '—'}`,
-      `Impacto social: ${s6.social_impact_description ?? '—'}`,
-      `Consideraciones ambientales: ${s6.environmental_consideration ?? '—'}`,
-    ].join('\n')
-  }), ...documentContexts].join('\n\n---\n\n')
+  const systemContexts = documentContexts.join('\n\n---\n\n')
 
   // 5. Build controls list
   const controlsList = ISO_42001_CONTROLS
@@ -497,7 +461,7 @@ Reglas:
     const suggestions: { control_code: string; applicable: boolean; reason: string }[] =
       Array.isArray(parsed) ? parsed : (parsed.suggestions ?? [])
 
-    return { suggestions, systemCount: (assessments?.length ?? 0) + documentContexts.length }
+    return { suggestions, systemCount: documentContexts.length }
   } catch (err) {
     console.error('AISIA analysis error:', err)
     return { error: 'No se pudo completar el análisis. Inténtalo de nuevo.' }

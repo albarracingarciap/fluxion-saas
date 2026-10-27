@@ -88,8 +88,8 @@ flowchart LR
 ```
 
 1. **Política.** En **Ajustes › Aprobaciones** se definen las políticas, con pasos sucesivos. Los tipos de
-   objeto son: plan de tratamiento, evaluación de impacto (AISIA), documento regulatorio, Declaración de
-   Aplicabilidad, evidencia y exclusión de brecha. Cada paso indica:
+   objeto son: plan de tratamiento, documento regulatorio (también la evaluación de impacto, AISIA),
+   Declaración de Aplicabilidad, evidencia y exclusión de brecha. Cada paso indica:
    - **Qué hace:** aprobar o emitir un dictamen (consulta).
    - **Quién:** un rol, una persona, un comité o una función de gobierno, con su rol de respaldo.
    - **Cuándo entra:** siempre o solo en determinados casos.
@@ -140,10 +140,11 @@ El plan de tratamiento y los documentos del expediente solo se aprueban en este 
 política, y la configuración no permite dejar ninguno sin cubrir. Quien redactó algún apartado de un documento
 no puede aprobarlo.
 
-La evaluación de impacto (AISIA), la Declaración de Aplicabilidad y las evidencias también se aprueban
-solo en este circuito: sus pantallas ya no permiten aprobarlas ni rechazarlas, y no se pueden enviar a
-aprobación si la organización no tiene activa una política para su tipo. Quien preparó la AISIA (quien la
-creó y quien la envió) y quien aporta una evidencia no pueden decidirlas.
+La Declaración de Aplicabilidad y las evidencias también se aprueban solo en este circuito: sus pantallas
+ya no permiten aprobarlas ni rechazarlas, y no se pueden enviar a aprobación si la organización no tiene
+activa una política para su tipo. La evaluación de impacto (AISIA) se aprueba como el resto de documentos
+regulatorios: no pueden decidirla quienes redactaron algún apartado. Quien aporta una evidencia tampoco
+puede decidirla.
 
 > **Pendiente de implementar.**
 > - La clasificación AI Act y la política de IA como objetos aprobables.

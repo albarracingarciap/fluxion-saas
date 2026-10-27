@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, X, MinusCircle, Clock, ChevronDown, ChevronRight, UserCheck, FileText } from 'lucide-react'
 
-import { APPROVAL_OBJECT_TYPES, type ApprovalApproverOptions } from '@/lib/approvals/catalog'
+import { approvalObjectTypeLabel, type ApprovalApproverOptions } from '@/lib/approvals/catalog'
 import {
   decideApproval, cancelApproval, getApprovalDecisions,
   type ApprovalRequestRow, type ApprovalDecisionRow,
@@ -32,7 +32,7 @@ const DICTAMEN_LABELS: Record<string, string> = {
 }
 
 function tipoLabel(t: string) {
-  return APPROVAL_OBJECT_TYPES.find((x) => x.key === t)?.label ?? t
+  return approvalObjectTypeLabel(t)
 }
 
 function fecha(iso: string | null) {

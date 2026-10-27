@@ -56,10 +56,9 @@ export async function generateApprovalMinutes(requestId: string): Promise<{
       .eq('id', request.object_id)
       .maybeSingle()
     aiSystemId = plan?.system_id ?? null
-  } else if (['aisia_assessment', 'document', 'evidence'].includes(request.object_type)) {
+  } else if (['document', 'evidence'].includes(request.object_type)) {
     // B11a: los demás objetos con sistema también llevan su acta al expediente.
-    const tabla = request.object_type === 'aisia_assessment' ? 'aisia_assessments'
-      : request.object_type === 'document' ? 'documents' : 'system_evidences'
+    const tabla = request.object_type === 'document' ? 'documents' : 'system_evidences'
     const { data: obj } = await admin
       .from(tabla)
       .select('ai_system_id')

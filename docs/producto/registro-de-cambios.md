@@ -71,6 +71,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B14c · Fecha de la segunda ronda (TODO 282) | Integrado en `main` | `fase3/b14c-segunda-ronda` | 2026-10-27 | **Sí** · `20261027110000_fmea_segunda_ronda_fecha.sql` |
 | B15a · Plantilla AISIA en el expediente (inactiva) | Integrado en `main` | `fase3/b15a-plantilla-aisia` | 2026-10-27 | **Sí** · `20261027120000_expediente_plantilla_aisia.sql` |
 | B15b · AISIA migrada al expediente y asistente retirado | Integrado en `main` | `fase3/b15b-migrar-aisia` | 2026-10-27 | **Sí** · `20261027130000_aisia_al_expediente.sql` |
+| B15c · Retirada de las tablas de la AISIA; inventario v1.6 y glosario | Integrado en `main` | `fase3/b15c-retirar-tablas-aisia` | 2026-10-27 | **Sí** · `20261027140000_aisia_retirar_tablas.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1828,4 +1829,30 @@ la segunda ejecución no migra nada y la plantilla queda activa. `npm test` 112/
 `funcional/expediente-documental.md`, `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md`,
 `negocio/evaluacion-de-impacto.md`, `tecnica/modelo-datos.md`, `_mapa.md` (fuentes). TODO 283 (glosario e inventario)
 abierto.
+
+---
+
+## B15c · Retirada de las tablas de la AISIA; inventario v1.6 y glosario
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b15c-retirar-tablas-aisia` ·
+**Migración:** **sí**, `supabase/migrations/20261027140000_aisia_retirar_tablas.sql`
+
+El responsable aplicó B15a y B15b, desplegó y validó la migración de las AISIA.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Base de datos | Se borran `aisia_assessments`, `aisia_sections`, `aisia_ai_generations` y `trg_aisia_lifecycle_rules`; las políticas de tipo `aisia_assessment` y su fila en `seed_default_approval_policies`; `add_default_consultations` ya no la contempla. Antes comprueba que no haya AISIA en un circuito abierto ni sistemas con AISIA aprobada solo en el asistente |
+| Solicitudes antiguas | Conservan título y sistema en el contexto (`legacy_label`, `legacy_ai_system_id`); `v_approval_requests` los lee de ahí y enlaza a la AISIA del expediente. `aisia_assessment` sigue en el enum (Postgres no permite quitarlo) |
+| Código | Fuera el efecto y la cancelación de `aisia_assessment`, su rama en las actas y la lectura de AISIA del asistente en la Declaración (sincronización A.5.2-A.5.5, insignias y **Analizar AISIA**). Ajustes ya no ofrece el tipo; `approvalObjectTypeLabel` nombra los tipos retirados en solicitudes y delegaciones antiguas |
+| Documentación (TODO 283, a petición del responsable) | `_inventario.md` v1.6 (§2, §4, §10.2, §11.3, §12); entrada «Evaluación de impacto del sistema de IA (AISIA)» del glosario; aprobaciones, ajustes, flujos de aprobación, modelo de datos y AISIA |
+
+**Verificación.** Migración probada en el Postgres local: se detiene con una AISIA aprobada solo en el asistente;
+con datos válidos borra las tablas, conserva la etiqueta y el enlace de una solicitud antigua, deja sin políticas
+`aisia_assessment` y la semilla crea las demás; la segunda ejecución no hace nada. `npm test` 112/112, `tsc
+--noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración y desplegar la web a la vez: la web anterior aún lee `aisia_assessments` en la
+Declaración. Solo web.
 

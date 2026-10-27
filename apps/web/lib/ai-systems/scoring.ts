@@ -85,7 +85,7 @@ export function getStatusCode(val: unknown) {
 }
 
 /**
- * @deprecated desde 2026-04-28 — sustituido por el módulo AISIA (aisia_assessments).
+ * @deprecated desde 2026-04-28 — sustituido por la AISIA (documento `aisia` del expediente desde B15).
  * Conservado solo para leer datos históricos en dashboards y dossier técnico.
  * NO llamar desde nuevas acciones de creación/edición de sistemas.
  */
@@ -118,7 +118,7 @@ export function calcISO(f: Record<string, unknown>) {
 }
 
 /**
- * @deprecated desde 2026-04-28 — sustituido por aisia_sections.
+ * @deprecated desde 2026-04-28 — sustituido por la AISIA del expediente (B15).
  * Conservado solo para leer snapshots históricos.
  */
 export function buildIsoChecksSnapshot(

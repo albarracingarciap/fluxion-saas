@@ -93,24 +93,9 @@ export async function buildSoAData(organizationId: string) {
   // Indexado por user_id, que es lo que guarda owner_user_id.
   const memberNameMap = new Map(members.map((m) => [m.user_id, m.display_name]))
 
-  // 2.e Fetch latest AISIA assessment status per system
-  const { data: aisiaRows } = await fluxion
-    .from('aisia_assessments')
-    .select('ai_system_id, status, version')
-    .eq('organization_id', organizationId)
-    .order('version', { ascending: false })
-
-  // Keep only the highest-version assessment per system
+  // 2.e Estado de la AISIA de cada sistema: su documento vivo del expediente
+  // (B15). Los estados se traducen a los de la insignia.
   const aisiaStatusMap: Record<string, string> = {}
-  for (const row of aisiaRows ?? []) {
-    const systemId = row.ai_system_id as string
-    if (!aisiaStatusMap[systemId]) {
-      aisiaStatusMap[systemId] = row.status as string
-    }
-  }
-
-  // AISIA del expediente (B15): el documento vivo manda sobre la evaluación del
-  // asistente. Sus estados se traducen a los de la insignia.
   const { data: aisiaDocs } = await fluxion
     .from('documents')
     .select('ai_system_id, status')

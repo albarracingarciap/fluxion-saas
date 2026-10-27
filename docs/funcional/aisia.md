@@ -20,6 +20,8 @@ fuente:
   - apps/web/app/(app)/plantillas/soa-iso42001/actions.ts
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
+  - supabase/migrations/20261027140000_aisia_retirar_tablas.sql
+  - apps/web/lib/approvals/catalog.ts
 ---
 
 # Evaluación de impacto del sistema de IA (AISIA)
@@ -94,12 +96,15 @@ expediente la última versión de la AISIA de cada sistema:
 - los modos de fallo y el plan elegidos a mano en S3 y S4 no se copian: el documento cita la evaluación
   vigente.
 
-Cada sistema migrado tiene el evento de historial «AISIA trasladada al expediente». Las tablas
-`aisia_assessments` y `aisia_sections` se conservan hasta validar la migración; mientras tanto, la
-Declaración sigue contando las AISIA aprobadas con el asistente.
+Cada sistema migrado tiene el evento de historial «AISIA trasladada al expediente».
 
-> **Pendiente de implementar.** Borrar las tablas `aisia_*` y el código que aún las lee (B15c), cuando el
-> responsable valide la migración.
+**Retirada de las tablas (B15c).** Validada la migración, `20261027140000_aisia_retirar_tablas.sql` borró
+`aisia_assessments`, `aisia_sections` y `aisia_ai_generations`, las políticas de tipo `aisia_assessment` y su
+fila en la semilla de políticas por defecto. Antes comprueba que no haya AISIA en un circuito abierto ni
+sistemas con una AISIA aprobada en el asistente sin otra aprobada en el expediente. Las solicitudes de
+aprobación antiguas se conservan: su título y su sistema se copiaron al contexto (`legacy_label`,
+`legacy_ai_system_id`) y enlazan a la AISIA del expediente; su tipo aparece como «Evaluación AISIA
+(asistente retirado)».
 
 > **Pendiente de implementar.** Propuesta de contenido por IA para los apartados redactados.
 

@@ -190,10 +190,10 @@ documento técnico de webhooks.
 
 | Campo | Tipo | Obligatorio | Descripción y valores |
 |---|---|---|---|
-| **Tipo de objeto** | selector | Sí | Plan de tratamiento (por defecto) · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de gap. No se puede cambiar al editar |
+| **Tipo de objeto** | selector | Sí | Plan de tratamiento (por defecto) · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de gap. No se puede cambiar al editar. La AISIA es un documento regulatorio (plantilla AISIA, B15) |
 | **Nombre** | texto | Sí | — |
 | **Se aplica a los niveles** | botones | No | Solo para planes de tratamiento: Nivel 1, 2 o 3. Sin marcar = todos |
-| **Se aplica a las plantillas** | botones | No | Solo para documentos: Anexo IV, FRIA, DPIA o Ficha del modelo. Sin marcar = todas |
+| **Se aplica a las plantillas** | botones | No | Solo para documentos: Anexo IV, FRIA, DPIA, Ficha del modelo o AISIA. Sin marcar = todas |
 | **Se aplica a los gaps** | botones | No | Solo para exclusiones de gaps (B11d): Riesgo sin tratar, Obligación sin cubrir, Control sin implantar, Evidencia caducada. Sin marcar = todas. Las capas que no gobierne ninguna política se excluyen sin aprobación |
 | **Cadena de aprobación** | lista de pasos | Al menos uno de aprobación sin condición | Cada paso indica: el tipo, **Aprobación** o **Consulta (dictamen)** (B11d); **Por rol**, **Persona concreta**, **Comité concreto**, **Comité por tipo** o **Función de gobierno**; el aprobador o consultado; el **Quórum** (comités; en los comités por tipo, vacío = el del comité); el **Rol de respaldo** (comités por tipo y funciones, solo en pasos de aprobación: una consulta sin nadie a quien consultar se omite); en los planes, **Solo si el plan tiene controles de seguridad** (B11d); y **Admite delegación** (por defecto sí) |
 | **Quien solicita puede aprobar** | casilla | No | Por defecto no (segregación de funciones) |

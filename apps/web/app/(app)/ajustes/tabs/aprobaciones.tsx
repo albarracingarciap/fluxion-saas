@@ -13,6 +13,7 @@ import {
   APPROVAL_COMMITTEE_TYPES,
   APPROVAL_GAP_LAYERS,
   APPROVAL_OBJECT_TYPES,
+  approvalObjectTypeLabel,
   APPROVAL_STEP_CONDITIONS,
   APPROVAL_STEP_KINDS,
   type ApprovalPolicyRow, type ApprovalStepRow, type ApprovalObjectType,
@@ -630,7 +631,7 @@ export function AprobacionesTab() {
                 <div className="flex items-center gap-2">
                   <span className="font-sora text-[13.5px] font-semibold text-ltt">{row.name}</span>
                   <span className="rounded-[5px] bg-ltcard2 border border-ltb px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-lttm">
-                    {APPROVAL_OBJECT_TYPES.find((t) => t.key === row.object_type)?.label ?? row.object_type}
+                    {approvalObjectTypeLabel(row.object_type)}
                   </span>
                   {row.is_default && (
                     <span className="rounded-[5px] bg-cyan-dim border border-cyan-border px-1.5 py-0.5 font-plex text-[9.5px] uppercase tracking-[0.6px] text-brand-cyan">
@@ -899,7 +900,7 @@ export function Delegaciones({ opciones }: { opciones: ApprovalApproverOptions }
                   Del {d.valid_from} al {d.valid_until}
                   {' · '}
                   {d.object_types.length
-                    ? d.object_types.map((t) => APPROVAL_OBJECT_TYPES.find((x) => x.key === t)?.label ?? t).join(', ')
+                    ? d.object_types.map((t) => approvalObjectTypeLabel(t)).join(', ')
                     : 'todos los tipos'}
                 </p>
               </div>

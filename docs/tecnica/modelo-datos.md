@@ -32,6 +32,7 @@ fuente:
   - supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
+  - supabase/migrations/20261027140000_aisia_retirar_tablas.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -289,8 +290,6 @@ erDiagram
   obligations ||--o{ obligation_evidence_types : ""
   organization_soa_controls }o--o| system_evidences : "validation_evidence_id"
   organization_soa_controls ||--o{ organization_soa_system_links : ""
-  ai_systems ||--o{ aisia_assessments : ""
-  aisia_assessments ||--o{ aisia_sections : ""
 ```
 
 | Tabla | Término | Campos clave | Migración |
@@ -303,7 +302,6 @@ erDiagram
 | `fluxion.gap_dispositions` | [Disposición de la brecha](../glosario.md#disposición-de-la-brecha) | `gap_key` único por organización, `gap_layer` ([tipo de brecha](../glosario.md#tipo-de-brecha)), `disposition`, `rationale`, `status` (`active`, o `pending` mientras espera aprobación) | `00000000000001`, `20261020170100` |
 | `fluxion.task_gap_links` | — | Vínculo entre tarea y `gap_key` | `00000000000001` |
 | `fluxion.organization_soa_controls`, `organization_soa_metadata`, `organization_soa_system_links`, `soa_lifecycle_log` | [Declaración de Aplicabilidad ISO 42001](../glosario.md#declaración-de-aplicabilidad-iso-42001) | `control_code` único por organización (el catálogo de 38 controles está en `apps/web/lib/templates/iso42001-catalog.ts`), `is_applicable`, `lifecycle_status` | `00000000000001` |
-| `fluxion.aisia_assessments`, `aisia_sections` | [AISIA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia) del asistente retirado | Sin uso para escribir desde B15b: la AISIA es el documento `aisia` del expediente. Se conservan hasta validar la migración (`20261027130000`); la Declaración aún cuenta sus AISIA aprobadas. Se borrarán en B15c | `00000000000001` |
 | `fluxion.preliminary_questionnaires` | [Cuestionario preliminar](../glosario.md#cuestionario-preliminar) | `status` ∈ `borrador`, `completado`; `answers jsonb`; `classification jsonb` (B13b): copia de la clasificación preliminar al completar, con `result` (resultado del motor único, con fundamento, avisos y `rulesVersion`), `obligations` (`[{code, label}]`) y `computed_at`. Es `null` en los borradores y en los cuestionarios completados antes de B13b. `ai_system_id` → `ai_systems` (`ON DELETE SET NULL`): sistema registrado desde el cuestionario (B13c), con índice único parcial `uq_preliminary_questionnaires_ai_system` (un cuestionario de origen por sistema). Mientras está vinculado, el trigger `trg_preliminary_questionnaire_locked` rechaza cambios de `answers` y `status` | `20260915090000`, `20261022100000`, `20261022110000` |
 
 Las [brechas](../glosario.md#brecha) no se guardan: se calculan en `apps/web/lib/gaps/data.ts`. Solo
@@ -338,7 +336,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
+| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15; la AISIA es este documento desde que se retiraron las tablas `aisia_*`, `20261027140000`); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
 | `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |
 | `fluxion.system_report_snapshots` | [Instantánea](../glosario.md#instantánea) de [informes del sistema](../glosario.md#informes-del-sistema) | `report_type`, `payload jsonb` | `00000000000001` |
@@ -379,7 +377,7 @@ Funciones SQL que usa la aplicación como RPC o mediante triggers:
 | `fluxion.plan_estado_por_acciones(uuid)` | `in_progress` o `closed` de un plan aprobado según sus acciones. La llaman el trigger `trg_treatment_action_plan_status` y la función anterior |
 | `fluxion.trg_evidence_review_rules()` | Trigger BEFORE en `system_evidences` (B10, revisado en B11g): con usuario autenticado, alta en `draft` o `pending_review` y solo las transiciones del ciclo; pasar a `valid` o `rejected` solo sin usuario (efecto de Flujos de aprobación). Las escrituras sin usuario (cron, expediente) no pasan por él |
 | `fluxion.trg_evidence_versions()` | Trigger AFTER en `system_evidences`: registra la versión en `system_evidence_versions` |
-| `fluxion.trg_aisia_lifecycle_rules()`, `trg_soa_lifecycle_rules()` | B11g: con usuario autenticado, la AISIA no pasa a `approved` ni `rejected` y la Declaración (`organization_soa_metadata.lifecycle_status`) no pasa a `approved`; lo hace el efecto de Flujos de aprobación |
+| `fluxion.trg_soa_lifecycle_rules()` | B11g: con usuario autenticado, la Declaración (`organization_soa_metadata.lifecycle_status`) no pasa a `approved`; lo hace el efecto de Flujos de aprobación. (`trg_aisia_lifecycle_rules()` se retiró con las tablas de la AISIA en B15c) |
 | `fluxion.trigger_evidence_closes_action()` (revisada en B12), `trg_evidence_valid_completes_actions()` | Al completar una mitigación con severidad residual medida, solo la traslada a `fmea_items.s_actual` si su evidencia está `valid`; si no, la acción queda `evidence_pending`. Al validarse la evidencia, el trigger AFTER de `system_evidences` completa esas acciones y la severidad se traslada |
 | `fluxion.trg_document_lifecycle_rules()` | Trigger BEFORE en `documents` (B09, revisado en B11f): con usuario autenticado, alta en `draft`, contenido editable solo en `draft`, transiciones `draft` ⇄ `in_review` y `approved` → `superseded`; pasar a `approved` solo sin usuario (el efecto de Flujos de aprobación y las actas) |
 | `fluxion.document_reopen(uuid)` | Reabre un expediente aprobado: lo pasa a `superseded` y crea la versión siguiente en borrador (`version`, `previous_id`) con su contenido |
