@@ -41,7 +41,9 @@ import {
   compareByCriticality,
   evaluationOverview,
   isCritical,
+  partialSubmission,
   severityBand,
+  withDeferredAtDefault,
 } from '@/lib/fmea/families';
 import type { SystemCausalGraph } from '@/lib/causal-graph/system-graph';
 
@@ -882,6 +884,33 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
   const overview = useMemo(() => evaluationOverview(items, itemsConFamilia), [items, itemsConFamilia]);
   const familiasEstimadas = familias.filter((f) => f.estimada).length;
 
+  // Plan parcial (DP-08): críticos y sus familias evaluados; el resto, a la segunda ronda.
+  const partial = useMemo(
+    () => partialSubmission(
+      items,
+      familias.flatMap((f) => f.itemIds.map((itemId) => ({ item_id: itemId, family_label: f.label })))
+    ),
+    [familias, items]
+  );
+  const canSubmitPartial = !isReadOnly && unresolvedCount > 0 && partial.eligible && secondReviewCount === 0;
+  // Zona del envío parcial: los modos de la segunda ronda cuentan con su severidad por defecto.
+  const partialZone = useMemo(
+    () =>
+      calculateFmeaZone(
+        withDeferredAtDefault(items).map((item) => ({
+          id: item.id,
+          dimension_id: item.dimension_id,
+          s_default_frozen: item.s_default_frozen,
+          o_value: item.o_value,
+          d_real_value: item.d_real_value,
+          s_actual: item.status === 'evaluated' ? item.s_actual : null,
+          status: item.status,
+        })),
+        data.system.aiact_risk_level
+      ),
+    [items, data.system.aiact_risk_level]
+  );
+
   useEffect(() => {
     if (isReadOnly || !hasPendingLocalChanges || isSavingItem || isSavingDraft || isSubmittingReview) {
       if (autosaveTimerRef.current) {
@@ -1277,6 +1306,37 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
     });
   }
 
+  function handleSubmitPartial() {
+    setGlobalError(null);
+    if (
+      !window.confirm(
+        `Se enviará un plan parcial: están evaluados los modos de severidad ${CRITICAL_SEVERITY} o más y los de sus familias.\n\n`
+          + `${partial.deferred} ${partial.deferred === 1 ? 'modo queda' : 'modos quedan'} para la segunda ronda, que se evalúa en la versión siguiente. `
+          + `La zona se calcula contando esos modos con su severidad por defecto (${getZoneLabel(partialZone)}). ¿Continuar?`
+      )
+    ) {
+      return;
+    }
+
+    startSubmittingReview(async () => {
+      const result = await submitFmeaForReview({
+        aiSystemId: data.system.id,
+        evaluationId: data.evaluation.id,
+        cachedZone: partialZone,
+        partial: true,
+      });
+
+      if (result?.error) {
+        setGlobalError(result.error);
+        return;
+      }
+
+      if (result?.planPath) {
+        router.push(result.planPath);
+      }
+    });
+  }
+
   function handleSubmitForReview() {
     setGlobalError(null);
 
@@ -1448,6 +1508,18 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
                 )}
                 {requiresExecutiveEscalation ? 'Enviar a alta dirección' : 'Enviar a revisión'}
               </button>
+              {canSubmitPartial && (
+                <button
+                  type="button"
+                  onClick={handleSubmitPartial}
+                  disabled={isSubmittingReview}
+                  title={`Quedan ${partial.deferred} modos para la segunda ronda`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-orb bg-ordim text-or font-sora text-[12.5px] font-medium hover:bg-white transition-colors disabled:opacity-60"
+                >
+                  {isSubmittingReview ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  Enviar plan parcial
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1552,6 +1624,23 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
         ) : (
           <div className="font-sora text-[12.5px] text-ltt2 mt-1">
             La lista está ordenada por criticidad: empieza por los de severidad más alta.
+          </div>
+        )}
+        {!isReadOnly && unresolvedCount > 0 && partial.required > 0 && (
+          <div className="font-sora text-[12.5px] text-ltt2 mt-1">
+            {partial.eligible ? (
+              <>
+                <span className="font-medium text-or">Plan parcial disponible:</span> los modos de severidad{' '}
+                {CRITICAL_SEVERITY} o más y los de sus familias están evaluados. Puedes enviarlo ya y dejar{' '}
+                {partial.deferred} {partial.deferred === 1 ? 'modo' : 'modos'} para la segunda ronda
+                {secondReviewCount > 0 && ', cuando se resuelvan las segundas revisiones'}.
+              </>
+            ) : (
+              <>
+                Plan parcial: faltan {partial.requiredOpen} de {partial.required} modos de severidad{' '}
+                {CRITICAL_SEVERITY} o más o de sus familias para poder enviarlo sin evaluar el resto.
+              </>
+            )}
           </div>
         )}
       </div>

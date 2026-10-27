@@ -21,6 +21,7 @@ import {
 import {
   draftMakesManual,
   isNoopFamilyUpdate,
+  partialSubmission,
   referenceSeverity,
   resolveFamilyEstimates,
   summarizeFamilies,
@@ -64,6 +65,8 @@ type SaveFmeaDraftInput = {
     status: 'pending' | 'evaluated' | 'skipped';
     requiresSecondReview?: boolean;
   }>;
+  /** Envío del plan parcial (DP-08): los modos no críticos sin evaluar quedan para la segunda ronda. */
+  partial?: boolean;
 };
 
 type ResolveFmeaSecondReviewInput = {
@@ -467,7 +470,24 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
   const skippedCount = items.filter((item) => item.status === 'skipped').length;
   const unresolvedCount = pendingCount + skippedCount;
 
-  if (unresolvedCount > 0) {
+  // Plan parcial (DP-08, B14b): se admite si están evaluados los modos críticos y
+  // los de sus familias. Se comprueba aquí, no se confía en el cliente.
+  let deferredCount = 0;
+  if (unresolvedCount > 0 && input.partial) {
+    const { data: memberships } = await fluxion
+      .from('v_fmea_item_families')
+      .select('item_id, family_label')
+      .eq('evaluation_id', input.evaluationId);
+    const partial = partialSubmission(items, (memberships ?? []) as Array<{ item_id: string; family_label: string }>);
+    if (!partial.eligible) {
+      return {
+        error: partial.required === 0
+          ? 'No hay modos de severidad 8 o más: el plan parcial no aplica y hay que evaluar todos los modos.'
+          : `El plan parcial todavía no puede enviarse: quedan ${partial.requiredOpen} modo${partial.requiredOpen === 1 ? '' : 's'} de severidad 8 o más o de sus familias por evaluar.`,
+      };
+    }
+    deferredCount = partial.deferred;
+  } else if (unresolvedCount > 0) {
     const parts: string[] = [];
 
     if (pendingCount > 0) {
@@ -683,6 +703,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       cached_zone: input.cachedZone,
       state: 'in_review',
       evaluator_id: context.evaluation.evaluator_id ?? user.id,
+      deferred_items_count: deferredCount,
     })
     .eq('id', input.evaluationId);
 
@@ -757,7 +778,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
       organization_id: membership.organization_id,
       event_type: 'fmea_submitted_for_review',
       event_title: 'Evaluación FMEA enviada a revisión',
-      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
+      event_summary: `La evaluación manual se envió a revisión con ${input.cachedZone.replace('_', ' ')} como zona cacheada.${deferredCount > 0 ? ` Plan parcial: ${deferredCount} modo${deferredCount === 1 ? '' : 's'} quedan para la segunda ronda.` : ''}${residualDowngrades > 0 ? ` ${residualDowngrades} modo${residualDowngrades === 1 ? '' : 's'} bajaron a observación tras re-cálculo residual.` : ''}`,
       actor_user_id: user.id,
       payload: {
         evaluation_id: input.evaluationId,
@@ -765,6 +786,7 @@ export async function submitFmeaForReview(input: SaveFmeaDraftInput) {
         treatment_plan_id: treatmentPlanId,
         treatment_actions_count: candidateItems.length,
         residual_downgrades: residualDowngrades,
+        deferred_items_count: deferredCount,
       },
     },
     ...(createdTreatmentPlan && treatmentPlanId

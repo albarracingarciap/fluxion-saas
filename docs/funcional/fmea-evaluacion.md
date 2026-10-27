@@ -24,6 +24,7 @@ fuente:
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
+  - supabase/migrations/20261027100000_fmea_plan_parcial.sql
 ---
 
 # Evaluación FMEA
@@ -97,6 +98,9 @@ Recuadro sobre la estimación por familia (B14):
 - Con familias: «Empieza por las familias: X de Y estimadas, que cubren Z modos. Después revisa en la lista
   los que se salgan (K ajustes manuales). S modos no están en ninguna familia y se evalúan uno a uno.»
 - Sin familias: «La lista está ordenada por criticidad: empieza por los de severidad más alta.»
+- Con modos sin resolver y algún modo crítico, el estado del [plan parcial](#plan-parcial): «Plan parcial: faltan
+  K de R modos de severidad 8 o más o de sus familias…» o «Plan parcial disponible: … Puedes enviarlo ya y dejar
+  D modos para la segunda ronda».
 
 La **severidad de referencia** de un modo es la severidad actual si está confirmado y la severidad por
 defecto si no (`referenceSeverity` en `lib/fmea/families.ts`). Es la que usan el recuento, el orden por
@@ -235,6 +239,7 @@ Solo la puede resolver un usuario distinto del evaluador.
 | **Volver a la estimación de familia** | Ídem | `restoreFamilyEstimateForItems`, en el editor de un modo con ajuste manual de una familia estimada. Deshabilitado con cambios sin guardar | El modo toma los valores de su familia. Historial «Estimado por familia». Recarga la página |
 | **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
 | **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
+| **Enviar plan parcial** | Ídem | Solo cuando el [plan parcial](#plan-parcial) está disponible y no quedan segundas revisiones. `submitFmeaForReview` con `partial`. Pide confirmación con el número de modos diferidos y la zona del envío | Como el envío completo; además guarda `deferred_items_count` |
 | **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) (desde la versión 2) | — |
 | **Nueva versión** | Analista de riesgos, Responsable del sistema | `startFmeaReevaluationAction`, con confirmación. Solo en la versión vigente y si no hay otra en curso | Ver [Versiones](#versiones) |
 
@@ -256,6 +261,30 @@ sola evaluación de riesgos y se aprueban juntos (DP-03, bloque B07).
 - **Evaluador:** se mantiene quien abrió la evaluación; quien la reenvía no lo sustituye.
 - **Prioridades:** se recalculan con la severidad residual.
 - **Navegación:** se abre el plan.
+
+### Plan parcial
+
+Decisión DP-08 (B14b). La evaluación se puede enviar sin evaluar todos los modos cuando:
+- están evaluados todos los modos **críticos**: severidad por defecto 8 o más, o confirmados con 8 o más
+  (`isCriticalForPartial`; bajar un modo al evaluarlo no lo saca del primer envío);
+- están evaluados todos los modos de las familias causales que contienen algún modo crítico;
+- no quedan segundas revisiones ni justificaciones obligatorias pendientes en los modos evaluados.
+
+Los modos pendientes o pospuestos que no se exigen quedan para la **segunda ronda**
+(`partialSubmission` en `lib/fmea/families.ts`). Sin modos críticos, el plan parcial no aplica.
+
+| Aspecto | Comportamiento |
+|---|---|
+| Zona del envío | Se calcula contando los modos de la segunda ronda con su severidad por defecto (`withDeferredAtDefault`); de ella salen el nivel de aprobación, el plazo y la cadencia |
+| Plan de tratamiento | Solo con los candidatos evaluados (severidad 7 o más, o con segunda revisión) |
+| Prioridades residuales | Solo se recalculan las de los modos evaluados; los diferidos siguen priorizados |
+| Registro | `fmea_evaluations.deferred_items_count` y el historial «Evaluación FMEA enviada a revisión» con «Plan parcial: N modos quedan para la segunda ronda» |
+| Barra de versiones | «Plan parcial · N modos para la segunda ronda», también en la primera evaluación y en el plan. En revisión: «Se aprueban los modos críticos; los demás se evalúan en la versión siguiente». Aprobada: «Abre una nueva versión para evaluar la segunda ronda» |
+| Segunda ronda | **Nueva versión**: los modos evaluados se copian y los diferidos arrancan pendientes |
+
+> TODO: confirmar si el plan parcial debe acortar la próxima revisión o avisar de la segunda ronda con una
+> fecha. Hoy la próxima revisión sigue la cadencia de la zona y la segunda ronda depende de que alguien abra
+> la versión nueva.
 
 **Cambios tras el envío.** Una evaluación enviada se puede retocar mientras su plan siga en borrador:
 vuelve a «Borrador» para reenviarla, sin cambiar el evaluador. Con el plan en aprobación o aprobado, la
@@ -297,6 +326,8 @@ su plan, si seguía abierto, también, y sus acciones abiertas se cancelan con s
 | Valores fuera de rango al confirmar | «Para confirmar un ítem necesitas O, D real y S actual válidos.» |
 | Falta justificación | «La justificación es obligatoria y debe tener al menos 50 caracteres.» |
 | Envío con ítems sin resolver | «La evaluación todavía no puede enviarse: quedan N pendiente(s) y M pospuesto(s) por resolver.» |
+| Plan parcial con críticos sin evaluar | «El plan parcial todavía no puede enviarse: quedan N modo(s) de severidad 8 o más o de sus familias por evaluar.» |
+| Plan parcial sin modos críticos | «No hay modos de severidad 8 o más: el plan parcial no aplica y hay que evaluar todos los modos.» |
 | Envío con justificaciones pendientes | «Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.» |
 | Envío con segundas revisiones pendientes | «Quedan N modo(s) pendientes de 2ª revisión antes del envío.» |
 | Envío de un sistema de alto riesgo sin responsable de supervisión humana | «Este sistema es de alto riesgo: asigna el Responsable de supervisión humana en la ficha (AI Act, Art. 14 y 26.2) antes de enviar la evaluación.» |

@@ -14,6 +14,8 @@ export type EvaluationVersionsInfo = {
   state: EvaluationState;
   approved_at: string | null;
   next_review_at: string | null;
+  /** Modos que quedaron para la segunda ronda al enviar un plan parcial (DP-08); 0 si el envío fue completo. */
+  deferred_items_count: number;
   /** Última versión aprobada del sistema (la vigente). */
   current_version: VersionRef | null;
   /** Versión en borrador o en revisión distinta de esta. */
@@ -34,7 +36,7 @@ export async function loadEvaluationVersions(params: {
 }): Promise<EvaluationVersionsInfo | null> {
   const { data: rows } = await params.fluxion
     .from('fmea_evaluations')
-    .select('id, state, version, approved_at, next_review_at')
+    .select('id, state, version, approved_at, next_review_at, deferred_items_count')
     .eq('organization_id', params.organizationId)
     .eq('system_id', params.aiSystemId)
     .order('version', { ascending: false });
@@ -45,6 +47,7 @@ export async function loadEvaluationVersions(params: {
     version: number;
     approved_at: string | null;
     next_review_at: string | null;
+    deferred_items_count: number | null;
   }>;
 
   const current = evaluations.find((row) => row.id === params.evaluationId);
@@ -63,6 +66,8 @@ export async function loadEvaluationVersions(params: {
     state: current.state,
     approved_at: current.approved_at,
     next_review_at: current.next_review_at,
+    // En borrador el recuento es del último envío y ya no vale: se recalcula al reenviar.
+    deferred_items_count: current.state === 'draft' ? 0 : current.deferred_items_count ?? 0,
     current_version: vigente ? { id: vigente.id, version: vigente.version } : null,
     open_version: open ? { id: open.id, version: open.version } : null,
     new_version_blocker: blocker,

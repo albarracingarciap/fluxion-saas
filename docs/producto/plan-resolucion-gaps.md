@@ -806,7 +806,8 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   clasificación preliminar; alta desde el cuestionario y bloque **Supuestos AI Act**; GPAI fuera de los niveles y
   catálogo de obligaciones según RN-O).
 - **Estado (2026-10-27).** B14a integrado: resumen al entrar, orden por criticidad, familia como forma de evaluar
-  por defecto, excepciones marcadas como ajuste manual y trazabilidad por modo. Queda B14b, el plan parcial (DP-08).
+  por defecto, excepciones marcadas como ajuste manual y trazabilidad por modo. B14b integrado: plan parcial
+  (DP-08). B14 cerrado.
 
 ## Fase 3 · Conexión y simplificación
 

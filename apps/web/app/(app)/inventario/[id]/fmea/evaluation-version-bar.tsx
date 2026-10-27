@@ -39,7 +39,10 @@ export function EvaluationVersionBar({
   if (!versions) return null;
 
   const isOpen = versions.state === 'draft' || versions.state === 'in_review';
-  if (isOpen && !versions.current_version) return null;
+  const deferred = versions.deferred_items_count;
+  // El plan parcial se muestra siempre, también en la primera evaluación: el
+  // aprobador tiene que saber que aprueba solo los modos críticos (DP-08).
+  if (isOpen && !versions.current_version && deferred === 0) return null;
 
   function handleStart() {
     if (
@@ -95,6 +98,24 @@ export function EvaluationVersionBar({
             </span>
             <span className="font-sora text-[12.5px] text-ltt2">Solo lectura. La evaluación vigente es otra versión.</span>
           </>
+        )}
+        {deferred > 0 && (
+          <span
+            className="inline-flex items-center px-2.5 py-1 rounded-[6px] bg-ordim border border-orb text-or font-plex text-[10px] uppercase tracking-[1px]"
+            title="Se envió con los modos de severidad 8 o más y los de sus familias evaluados"
+          >
+            Plan parcial · {deferred} {deferred === 1 ? 'modo' : 'modos'} para la segunda ronda
+          </span>
+        )}
+        {deferred > 0 && versions.state === 'in_review' && (
+          <span className="font-sora text-[12.5px] text-ltt2">
+            Se aprueban los modos críticos; los demás se evalúan en la versión siguiente.
+          </span>
+        )}
+        {deferred > 0 && versions.state === 'approved' && !versions.open_version && (
+          <span className="font-sora text-[12.5px] text-ltt2">
+            Abre una nueva versión para evaluar la segunda ronda.
+          </span>
         )}
         {isOpen && versions.current_version && (
           <>

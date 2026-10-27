@@ -290,3 +290,68 @@ export function evaluationOverview(
   }
   return { total: items.length, criticos, criticosPendientes, sinFamilia, porFamilia, manuales }
 }
+
+// ─── Plan parcial (DP-08, B14b) ──────────────────────────────────────────────
+
+type PartialItem = SeverityItem & { id: string }
+
+/**
+ * Crítico a efectos del plan parcial: severidad por defecto 8 o más, o confirmado
+ * con 8 o más. Se toma la mayor de las dos para que bajar un modo al evaluarlo no
+ * saque a su familia del primer envío.
+ */
+export function isCriticalForPartial(item: SeverityItem): boolean {
+  const actual = item.status === 'evaluated' && item.s_actual !== null ? item.s_actual : 0
+  return Math.max(item.s_default_frozen, actual) >= CRITICAL_SEVERITY
+}
+
+export type PartialSubmission = {
+  /** Modos que el primer envío exige evaluados: los críticos y los de sus familias. */
+  required: number
+  /** De ellos, los que siguen pendientes o pospuestos. */
+  requiredOpen: number
+  /** Modos sin resolver que quedan para la segunda ronda. */
+  deferred: number
+  /** Se puede enviar ya el plan parcial. */
+  eligible: boolean
+}
+
+/**
+ * Plan parcial (DP-08): la evaluación se puede enviar cuando están evaluados los
+ * modos de severidad 8 o más y todos los de sus familias. El resto queda para una
+ * segunda ronda, que se hace en la versión siguiente.
+ *
+ * Sin modos críticos no hay plan parcial: no habría nada evaluado que aprobar.
+ */
+export function partialSubmission(
+  items: readonly PartialItem[],
+  memberships: ReadonlyArray<{ item_id: string; family_label: string }>,
+): PartialSubmission {
+  const criticos = new Set(items.filter(isCriticalForPartial).map((i) => i.id))
+  const familiasCriticas = new Set(
+    memberships.filter((m) => criticos.has(m.item_id)).map((m) => m.family_label)
+  )
+  const exigidos = new Set(criticos)
+  for (const m of memberships) if (familiasCriticas.has(m.family_label)) exigidos.add(m.item_id)
+
+  let required = 0, requiredOpen = 0, deferred = 0
+  for (const i of items) {
+    const abierto = i.status !== 'evaluated'
+    if (exigidos.has(i.id)) {
+      required += 1
+      if (abierto) requiredOpen += 1
+    } else if (abierto) {
+      deferred += 1
+    }
+  }
+  return { required, requiredOpen, deferred, eligible: required > 0 && requiredOpen === 0 && deferred > 0 }
+}
+
+/**
+ * Ítems para calcular la zona de un envío parcial: los modos de la segunda ronda
+ * cuentan con su severidad por defecto, como si nada los mitigara, para que la
+ * zona aprobada no quede por debajo de la real.
+ */
+export function withDeferredAtDefault<T extends SeverityItem>(items: readonly T[]): T[] {
+  return items.map((i) => (i.status === 'evaluated' ? i : { ...i, status: 'evaluated', s_actual: i.s_default_frozen }))
+}
