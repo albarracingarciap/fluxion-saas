@@ -24,6 +24,8 @@ fuente:
   - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
   - supabase/migrations/20261028110000_registro_logs_sistema.sql
   - supabase/migrations/20261028120000_requerimientos_autoridad.sql
+  - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
+  - apps/web/lib/evaluation-status/reevaluation.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -88,7 +90,7 @@ Los artículos del AI Act se citan según su texto oficial en español. Las clá
 - **En el código:** `fluxion.ai_system_history`.
 
 ### Etapa de evaluación
-- **Definición:** grado en que un sistema de IA tiene hecho lo que le es exigible según su clasificación AI Act y el rol de la organización (DP-02). Las etapas son sucesivas: **Sin clasificar**, **Clasificado** (clasificación confirmada y obligaciones aceptadas o excluidas), **Evaluado** (evaluación de riesgos y plan aprobados, AISIA y documentos exigibles aprobados y, en alto riesgo, supervisión humana designada) y **Tratado** (mitigaciones cerradas, sin modos de severidad 9 sin tratar y obligaciones resueltas). **Vigente** es una condición transversal: sin evidencias caducadas, revisiones vencidas ni plazos del plan vencidos. Una práctica prohibida no se evalúa: su etapa es **Retirada o rediseño**. Un sistema fuera del ámbito del AI Act, o que no es un sistema de IA, se queda en Clasificado. La [Declaración de Aplicabilidad](#declaración-de-aplicabilidad-iso-42001) aprobada es un requisito de la organización, no del sistema. Se ve en la ficha del sistema y decide el siguiente paso del Dashboard y de Evaluaciones.
+- **Definición:** grado en que un sistema de IA tiene hecho lo que le es exigible según su clasificación AI Act y el rol de la organización (DP-02). Las etapas son sucesivas: **Sin clasificar**, **Clasificado** (clasificación confirmada y obligaciones aceptadas o excluidas), **Evaluado** (evaluación de riesgos y plan aprobados, AISIA y documentos exigibles aprobados y, en alto riesgo, supervisión humana designada) y **Tratado** (mitigaciones cerradas, sin modos de severidad 9 sin tratar y obligaciones resueltas). **Vigente** es una condición transversal: sin evidencias caducadas, revisiones vencidas, plazos del plan vencidos ni [reevaluaciones](#disparador-de-reevaluación) pendientes. Una práctica prohibida no se evalúa: su etapa es **Retirada o rediseño**. Un sistema fuera del ámbito del AI Act, o que no es un sistema de IA, se queda en Clasificado. La [Declaración de Aplicabilidad](#declaración-de-aplicabilidad-iso-42001) aprobada es un requisito de la organización, no del sistema. Se ve en la ficha del sistema y decide el siguiente paso del Dashboard y de Evaluaciones.
 - **No usar:** «sistema totalmente evaluado» como sí o no, «estado de cumplimiento».
 - **En el código:** `lib/evaluation-status/stages.ts` (`systemStage`, `EvaluationStage`); se calcula, no se guarda.
 
@@ -676,6 +678,11 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «requerimiento» a secas cuando pueda confundirse con un requisito, «solicitud de la autoridad», «inspección» como término general.
 - **En el código:** `fluxion.authority_requests`, `authority_request_systems`, `authority_request_evidences`; origen de tarea `authority_request`.
 - **Normativa:** AI Act, Art. 26.12.
+
+### Disparador de reevaluación
+- **Definición:** hecho que obliga a revisar la evaluación de un sistema de IA. Hay cuatro: un **incidente grave** del sistema, un **cambio de supuestos AI Act** en su ficha, la **revisión de la evaluación de riesgos vencida** y la **actualización de las reglas de clasificación**. Cada uno pide reevaluar algo concreto: los dos primeros, la evaluación de riesgos y, si aplican y ya hay una aprobada, la FRIA y la AISIA; la revisión vencida, la evaluación de riesgos; las reglas actualizadas, la clasificación AI Act. Se cierra solo cuando se aprueba lo que pide después de producirse; el Administrador y el Responsable del SGAI pueden descartarlo con un motivo. Mientras esté abierto, el sistema no está **Vigente** ([etapa de evaluación](#etapa-de-evaluación)) y tiene una tarea **Reevaluar sistema**: una sola abierta por sistema, a la que se suman los disparadores nuevos, asignada al Responsable del sistema y que se completa al cerrarse todos.
+- **No usar:** «alerta de reevaluación», «trigger».
+- **En el código:** `fluxion.reevaluation_triggers` (`trigger_key` ∈ `incidente_grave`, `supuestos_aiact`, `revision_fmea`, `catalogo`; `scope`; `state` ∈ `detectado`, `resuelto`, `descartado`); tarea con origen `reevaluation`; `lib/evaluation-status/reevaluation.ts`.
 
 ### Uso suspendido
 - **Definición:** marca de un sistema de IA cuyo uso ha suspendido la organización, como responsable del despliegue, porque usarlo conforme a las instrucciones puede dar lugar a un riesgo. No es un estado: el sistema conserva el suyo (Producción, Piloto…). Tiene fecha, motivo y, si lo hay, el [incidente](#incidente) que la motiva. Exige [avisos a terceros](#aviso-a-terceros) al proveedor o distribuidor y a la autoridad de vigilancia del mercado. Se levanta con **Reanudar uso**, indicando por qué, y la suspensión queda en el historial del sistema. Solo puede haber una activa por sistema.
