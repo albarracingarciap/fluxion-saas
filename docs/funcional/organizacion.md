@@ -85,6 +85,15 @@ La vista tiene ocho pestañas. Las cinco primeras se guardan con **Guardar cambi
 | **Módulos normativos** | selección múltiple | No | AI Act, ISO 42001, DORA, RGPD, ENS, MDR/IVDR | `organizations.normative_modules` ([marcos aplicables](../glosario.md#marco-aplicable)) |
 | **Apetito al riesgo** | selección única | No | Conservador · Moderado (por defecto) · Amplio | `organizations.apetito_riesgo` |
 
+**Madurez** (B18c: antes se pedía en el [Onboarding](onboarding.md)):
+
+| Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
+|---|---|---|---|---|
+| **Estado frente a ISO/IEC 42001** | selector | No | Sin certificación (por defecto) · En proceso · Certificada | `organizations.iso_42001_status` (`none`, `in_progress`, `certified`) |
+| **Inventario de sistemas de IA** | selector | No | No iniciado (por defecto) · Parcial · Completo | `organizations.ai_inventory_status` |
+| **Madurez de la gobernanza de la IA** | selector | No | Inicial · En desarrollo · Avanzada · Optimizada (0, 25, 50, 75) | `organizations.compliance_maturity` |
+| **Fecha de certificación** y **Organismo certificador** | fecha y texto | No | Solo si está Certificada; con otro estado se vacían al guardar | `iso_42001_cert_date`, `iso_42001_cert_body` |
+
 > TODO: confirmar los valores de tamaño y país.
 > - **Tamaño:** usa cinco valores, distintos de los tres del [Onboarding](onboarding.md).
 > - **País:** la vista propone «España» por defecto, pero las opciones y la base de datos usan «Espana»

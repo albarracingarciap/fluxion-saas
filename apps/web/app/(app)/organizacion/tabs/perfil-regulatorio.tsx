@@ -1,6 +1,6 @@
 'use client';
 
-import { Globe, Shield } from 'lucide-react';
+import { Globe, Shield, Gauge } from 'lucide-react';
 import {
   EU_COUNTRIES,
   NORMATIVE_MODULES,
@@ -8,7 +8,7 @@ import {
   RISK_APPETITE_OPTIONS,
   type NormativeModule,
 } from '@/lib/organization/options';
-import { SectionHeader, FieldLabel, selectCls, SelectArrow, type OrgFormData } from './shared';
+import { SectionHeader, FieldLabel, inputCls, selectCls, SelectArrow, type OrgFormData } from './shared';
 
 interface Props {
   formData: OrgFormData
@@ -211,6 +211,91 @@ export function PerfilRegulatoriTab({ formData, setFormData, isAdmin }: Props) {
               })}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Madurez: antes se pedía en el onboarding (B18c, F-17) */}
+      <div>
+        <SectionHeader
+          icon={<Gauge size={16} className="text-ltt2" />}
+          title="Madurez"
+          description="Situación frente a ISO/IEC 42001, estado del inventario y madurez de la gobernanza de la IA."
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5">
+          <div>
+            <FieldLabel>Estado frente a ISO/IEC 42001</FieldLabel>
+            <div className="relative">
+              <select
+                disabled={!isAdmin}
+                value={formData.iso_42001_status}
+                onChange={(e) => setFormData((p) => ({ ...p, iso_42001_status: e.target.value as OrgFormData['iso_42001_status'] }))}
+                className={selectCls}
+              >
+                <option value="none">Sin certificación</option>
+                <option value="in_progress">En proceso</option>
+                <option value="certified">Certificada</option>
+              </select>
+              <SelectArrow />
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Inventario de sistemas de IA</FieldLabel>
+            <div className="relative">
+              <select
+                disabled={!isAdmin}
+                value={formData.ai_inventory_status}
+                onChange={(e) => setFormData((p) => ({ ...p, ai_inventory_status: e.target.value as OrgFormData['ai_inventory_status'] }))}
+                className={selectCls}
+              >
+                <option value="none">No iniciado</option>
+                <option value="partial">Parcial</option>
+                <option value="complete">Completo</option>
+              </select>
+              <SelectArrow />
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Madurez de la gobernanza de la IA</FieldLabel>
+            <div className="relative">
+              <select
+                disabled={!isAdmin}
+                value={formData.compliance_maturity}
+                onChange={(e) => setFormData((p) => ({ ...p, compliance_maturity: Number(e.target.value) }))}
+                className={selectCls}
+              >
+                <option value={0}>Inicial · sin procesos formales</option>
+                <option value={25}>En desarrollo · primeros controles y políticas</option>
+                <option value={50}>Avanzada · procesos documentados y en uso</option>
+                <option value={75}>Optimizada · mejora continua y auditorías</option>
+              </select>
+              <SelectArrow />
+            </div>
+          </div>
+          {formData.iso_42001_status === 'certified' && (
+            <>
+              <div>
+                <FieldLabel>Fecha de certificación</FieldLabel>
+                <input
+                  type="date"
+                  disabled={!isAdmin}
+                  value={formData.iso_42001_cert_date}
+                  onChange={(e) => setFormData((p) => ({ ...p, iso_42001_cert_date: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <FieldLabel>Organismo certificador</FieldLabel>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={formData.iso_42001_cert_body}
+                  onChange={(e) => setFormData((p) => ({ ...p, iso_42001_cert_body: e.target.value }))}
+                  placeholder="Ej. Bureau Veritas, AENOR…"
+                  className={inputCls}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 

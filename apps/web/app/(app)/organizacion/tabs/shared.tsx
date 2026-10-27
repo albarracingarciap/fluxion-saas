@@ -12,6 +12,12 @@ export type OrgFormData = {
   geography:          string[]
   normative_modules:  NormativeModule[]
   apetito_riesgo:     RiskAppetite
+  // Madurez (antes en el onboarding, B18c)
+  iso_42001_status:    'certified' | 'in_progress' | 'none'
+  iso_42001_cert_date: string
+  iso_42001_cert_body: string
+  ai_inventory_status: 'complete' | 'partial' | 'none'
+  compliance_maturity: number
   sgai_responsible:   string
   sgai_email:         string
   fiscal_year_start:  number
@@ -53,6 +59,11 @@ export const DEFAULT_ORG_FORM: OrgFormData = {
   geography:          [],
   normative_modules:  [],
   apetito_riesgo:     'moderado',
+  iso_42001_status:    'none',
+  iso_42001_cert_date: '',
+  iso_42001_cert_body: '',
+  ai_inventory_status: 'none',
+  compliance_maturity: 0,
   sgai_responsible:   '',
   sgai_email:         '',
   fiscal_year_start:  1,

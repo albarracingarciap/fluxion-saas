@@ -85,7 +85,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | Id | Incidencia | Tipo | Prior. | Verif. | Ref. |
 |---|---|---|---|---|---|
 | A1 | Un invitado ve el campo de empresa en el registro, aunque se descarta | Incongruencia | Baja | Análisis | 57 |
-| A2 | Onboarding de invitados no administradores: la subida del logo falla y las respuestas no se guardan (RLS de `organizations`) | Error | Media | Análisis | 58 |
+| A2 | **✔ Resuelta en B18c.** Onboarding de invitados no administradores: la subida del logo falla y las respuestas no se guardan (RLS de `organizations`) | Error | Media | Análisis | 58 |
 | A3 | Dashboard: las pestañas no guardan el foco; **Revisar evidencias pendientes** lleva a otro sitio | Error | Baja | Análisis | 59 |
 | A4 | Chip de organización: muestra «Miembro» para casi todos y parece pulsable sin serlo (P2) | Error | Baja | Código | 60 |
 | A5 | Notificaciones: una notificación marcada como leída no sale de **No leídas** hasta recargar | Error | Baja | Análisis | 62 |

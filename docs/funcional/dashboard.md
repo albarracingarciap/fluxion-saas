@@ -48,7 +48,7 @@ Cuando la organización no tiene ningún sistema en `ai_systems`:
 
 | Bloque | Contenido |
 |---|---|
-| **Guía de despliegue** | Cuatro pestañas: Inventario, Cumplimiento, Riesgos y Gobernanza. Se abre la del foco elegido en el onboarding (`organizations.settings.first_focus`), marcada «Tu foco». Cada pestaña muestra tres pasos y un botón: **Registrar primer sistema** o, en Gobernanza, **Ir a mi organización** |
+| **Guía de despliegue** | Cuatro pestañas: Inventario, Cumplimiento, Riesgos y Gobernanza. Se abre la del foco guardado en `organizations.settings.first_focus`, marcada «Tu foco»; desde B18c el onboarding ya no lo pide y, sin él, se abre Inventario. Cada pestaña muestra tres pasos y un botón: **Registrar primer sistema** o, en Gobernanza, **Ir a mi organización** |
 | **Dashboard listo** | Invita a registrar el primer sistema, con los botones **Crear primer sistema**, **Cuestionario preliminar** y **Ver inventario**, y explica lo que desbloquea |
 
 ### Variante con sistemas
@@ -79,7 +79,6 @@ Cuando la organización no tiene ningún sistema en `ai_systems`:
 | Pestañas de la guía | Todos | Cambian la pestaña visible | No cambian el foco guardado |
 
 > TODO: confirmar varios comportamientos que parecen no intencionados:
-> - El paso del onboarding promete cambiar el foco «desde el dashboard», pero las pestañas no lo guardan.
 > - **Revisar evidencias pendientes** lleva al inventario y no a la biblioteca de evidencias, y
 >   **Abrir plan** lleva al FMEA.
 > - **Activos** incluye planes en borrador y en revisión, aunque su descripción dice «en ejecución o
@@ -98,7 +97,7 @@ No aplica.
 
 ## Vistas relacionadas
 
-- [Onboarding](onboarding.md): define el foco de la guía.
+- [Onboarding](onboarding.md): configuración inicial de la organización.
 - [Navegación](navegacion.md): menú y avisos comunes.
 - Las vistas enlazadas en **Acciones**.
 - Negocio: [Visión general](../negocio/vision-general.md).

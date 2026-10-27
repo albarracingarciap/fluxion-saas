@@ -33,6 +33,12 @@ export async function updateOrganizationProfile(formData: {
   geography: string[]
   normative_modules: string[]
   apetito_riesgo: RiskAppetite
+  // Madurez (B18c, antes en el onboarding)
+  iso_42001_status?: 'certified' | 'in_progress' | 'none'
+  iso_42001_cert_date?: string
+  iso_42001_cert_body?: string
+  ai_inventory_status?: 'complete' | 'partial' | 'none'
+  compliance_maturity?: number
   logo_url?: string
   settings?: SgaiSettings
   // Legal fields (migration 081)
@@ -101,6 +107,13 @@ export async function updateOrganizationProfile(formData: {
       geography:           formData.geography,
       normative_modules:   formData.normative_modules,
       apetito_riesgo:      formData.apetito_riesgo,
+      ...(formData.iso_42001_status ? {
+        iso_42001_status:    formData.iso_42001_status,
+        iso_42001_cert_date: formData.iso_42001_status === 'certified' ? (formData.iso_42001_cert_date || null) : null,
+        iso_42001_cert_body: formData.iso_42001_status === 'certified' ? (formData.iso_42001_cert_body || null) : null,
+      } : {}),
+      ...(formData.ai_inventory_status ? { ai_inventory_status: formData.ai_inventory_status } : {}),
+      ...(formData.compliance_maturity !== undefined ? { compliance_maturity: formData.compliance_maturity } : {}),
       logo_url:            formData.logo_url || null,
       settings:            mergedSettings,
       // Legal fields

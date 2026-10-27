@@ -4,10 +4,14 @@ titulo: Onboarding
 tipo: funcional
 modulo: transversal
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
   - apps/web/app/(auth)/onboarding/page.tsx
+  - apps/web/app/(auth)/onboarding/onboarding-wizard.tsx
+  - apps/web/app/(auth)/onboarding/bienvenida.tsx
   - apps/web/app/(auth)/onboarding/actions.ts
+  - apps/web/app/(app)/usuarios/actions.ts
+  - apps/web/app/(app)/organizacion/actions.ts
   - apps/web/lib/organization/options.ts
   - apps/web/app/api/organization/upload-logo/route.ts
   - apps/web/lib/supabase/middleware.ts
@@ -16,15 +20,17 @@ fuente:
 
 # Onboarding
 
-Asistente de configuración inicial en cuatro pasos que recoge el perfil de la
-[organización](../glosario.md#organización), su situación frente a ISO/IEC 42001 y el foco con el que quiere
-empezar.
+Primer acceso a la plataforma. Desde B18c (F-17, GAP-02) hay dos recorridos:
+- **Configuración inicial**, en tres pasos (Organización, Equipo y Primer sistema), para el Administrador de
+  una [organización](../glosario.md#organización) que aún no está configurada;
+- **Bienvenida**, una sola pantalla, para cualquier otro miembro: invitados y Administradores que llegan a
+  una organización ya configurada. No toca la organización.
 
 ## Propósito
 
-Adaptar Fluxion a la organización antes del primer uso: marcos normativos, madurez y guía de primeros
-pasos del [Dashboard](dashboard.md). Mientras no se completa, la aplicación no deja acceder al resto de
-vistas protegidas.
+Dejar la organización lista para trabajar: su perfil y marcos normativos, las personas que deciden
+(Responsable del SGAI y DPO) y el Comité de IA, y un primer paso con un sistema. Mientras el miembro no lo
+completa, la aplicación no deja acceder al resto de vistas protegidas.
 
 ## Acceso y permisos
 
@@ -35,24 +41,16 @@ vistas protegidas.
   - desde cualquier ruta protegida mientras no se complete.
 - **Disponibilidad:** Core.
 
-| Rol | Ver | Acciones permitidas |
+| Quién | Ve | Acciones permitidas |
 |---|---|---|
-| Cualquier rol con el onboarding sin completar | Sí | Recorrer los pasos y finalizar |
+| Administrador de una organización sin configurar (`organizations.settings.onboarding_completed` distinto de `true`) | Configuración inicial | Recorrer los tres pasos y terminar |
+| Cualquier otro miembro con el onboarding sin completar | Bienvenida | **Empezar** |
 | Con el onboarding completado | No: redirige a `/dashboard` | — |
 | Sin sesión | No: redirige a `/login` | — |
 
-Todos los miembros nuevos pasan por el onboarding, también los invitados, pero solo un `org_admin` puede
-guardar los datos de la organización.
-
-> TODO: confirmar el comportamiento para invitados que no son administradores.
-> - La subida del logotipo falla con un aviso.
-> - Sus respuestas no se guardan, porque la política RLS de `organizations` solo deja actualizar a
->   `org_admin` y la escritura afecta a 0 filas sin error.
-> - Su perfil sí queda marcado como completado.
-
 ## Campos
 
-### Paso 1 · Detalles de la organización
+### Paso 1 · Organización
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
@@ -63,71 +61,79 @@ guardar los datos de la organización.
 | **Módulos normativos activos** | botones conmutables | No | AI Act, ISO 42001, DORA, RGPD, ENS, MDR/IVDR. Por defecto AI Act, ISO 42001 y RGPD. Banca añade DORA, Salud añade MDR/IVDR y Sector Público añade ENS; el resto de sectores los quita | `organizations.normative_modules` ([marcos aplicables](../glosario.md#marco-aplicable)) |
 | **Logotipo Corporativo** | fichero | No | PNG, JPEG, WEBP o SVG, máximo 2 MB | `organizations.logo_url` (bucket `organization-logos`) |
 
-### Paso 2 · Contexto de cumplimiento
+La madurez, el estado frente a ISO/IEC 42001 y el estado del inventario ya no se piden aquí: están en
+[Organización](organizacion.md) › **Perfil regulatorio** › **Madurez**. El foco inicial desaparece; la guía
+del Dashboard abre por defecto el inventario.
 
-| Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
-|---|---|---|---|---|
-| **Estado frente a ISO 42001** | tarjetas | No | Sin certificación · En proceso · Certificado. Por defecto Sin certificación | `organizations.iso_42001_status` (`none`, `in_progress`, `certified`) |
-| **Fecha de certificación** | fecha | No | Solo si es Certificado | `organizations.iso_42001_cert_date` |
-| **Organismo certificador** | texto | No | Solo si es Certificado. Placeholder «Ej. Bureau Veritas, AENOR...» | `organizations.iso_42001_cert_body` |
-| **Estado del inventario de sistemas IA** | tarjetas | No | No iniciado · Parcial · Completo. Por defecto No iniciado | `organizations.ai_inventory_status` (`none`, `partial`, `complete`) |
-| **Madurez de gobernanza IA** | tarjetas | No | Inicial (0 %) · En desarrollo (25 %) · Avanzado (50 %) · Optimizado (75 %). Por defecto Inicial | `organizations.compliance_maturity` |
+### Paso 2 · Equipo
 
-### Paso 3 · Prioridad de despliegue
+Para el **Responsable del SGAI** y el **Delegado de Protección de Datos (DPO)**, una de tres opciones:
 
-| Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
-|---|---|---|---|---|
-| Foco inicial | tarjetas | No | Inventario de Sistemas IA · Cumplimiento Regulatorio · Gestión de Riesgos · Gobernanza y Comités. Por defecto Inventario | `organizations.settings.first_focus` (`inventory`, `compliance`, `risk`, `governance`) |
+| Opción | Qué hace |
+|---|---|
+| **Invitar por correo** | Crea la invitación con ese rol (`inviteUser`). El enlace se copia y envía desde [Usuarios](usuarios.md) |
+| **Lo asumo yo** | Añade el rol al Administrador (`updateMemberRoles`). DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6) |
+| **Más tarde** | No hace nada |
 
-### Paso 4 · Completado
+**Comité de IA** · **Constituir**: crea el comité de tipo `ai_committee` («Comité de IA», revisión cada
+3 meses, constituido hoy) con el Administrador como presidente (`committee_members.committee_role =
+'president'`). Si ya existe uno, no crea otro. El resto de miembros se añade en **Organización › Comités**.
 
-Mensaje «¡Todo configurado!» y botón para acceder.
+### Paso 3 · Primer sistema
+
+| Opción | Destino al terminar |
+|---|---|
+| **Cuestionario preliminar** (por defecto) | `/cuestionario-preliminar/nuevo` |
+| **Registrar un sistema** | `/inventario/nuevo` |
+| **Más tarde** | `/dashboard` |
+
+### Bienvenida
+
+Nombre de la organización y los roles con los que entra el miembro, y el botón **Empezar**.
 
 ## Acciones
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| Subir logotipo | `org_admin` | `POST /api/organization/upload-logo` | Guarda el logo en el momento, aunque no se termine el onboarding |
-| **Volver atrás** | Cualquiera | Paso anterior (oculto en los pasos 1 y 4) | — |
-| **Siguiente paso** / **Omitir paso** | Cualquiera | Avanza de paso. Las dos acciones hacen lo mismo: omitir un paso guarda sus valores por defecto | — |
-| **Acceder al Dashboard** | Cualquiera | Server action `saveOnboarding` | Ver abajo. Después navega a `/dashboard` |
+| Subir logotipo | Administrador | `POST /api/organization/upload-logo` | Guarda el logo en el momento |
+| **Siguiente paso** (paso 1) | Administrador | `saveOnboardingOrganization` | Guarda sector, país, tamaño, módulos y apetito, para no perderlos si el onboarding se deja a medias |
+| **Siguiente paso** (paso 2) | Administrador | Avanza | Lo hecho en el paso ya está guardado |
+| **Volver atrás** | Administrador | Paso anterior | — |
+| **Terminar** | Administrador | `completeOnboarding` | `settings.onboarding_completed` y `onboarding_completed_at` en la organización y `profiles.onboarding_completed = true`; navega al destino del paso 3 |
+| **Empezar** | Cualquier otro miembro | `completeWelcome` | Solo `profiles.onboarding_completed = true`; navega a `/dashboard` |
 
-`saveOnboarding` hace lo siguiente:
-1. Actualiza en `organizations` todos los campos anteriores. La fecha y el organismo de certificación
-   solo se guardan si el estado es Certificado.
-2. Añade a `settings` los valores `first_focus`, `onboarding_completed` y `onboarding_completed_at`.
-3. Marca `profiles.onboarding_completed = true`.
-
-No genera registro de auditoría ni avisos.
+Las invitaciones, los cambios de rol y el comité generan los mismos registros de auditoría que desde
+Usuarios y Organización.
 
 ## Validaciones
 
-- **Cliente:** ninguna; todos los pasos se pueden omitir.
-- **Logotipo:** «El archivo supera el límite de 2 MB»; sin permisos de administrador, «Sin permisos de
-  administrador». En pantalla, cualquier error muestra «No se pudo subir el logo. Comprueba el tamaño
-  (máx. 2 MB) e inténtalo de nuevo.»
-- **Base de datos:** restricciones sobre los valores de estado ISO, estado del inventario y madurez. La
-  fecha de certificación solo se admite con estado Certificado.
-- **Errores al guardar:**
-  - «No se encontró una organización vinculada a este usuario.»
-  - «No se pudo guardar la configuración inicial de la organización.»
-  - «No se pudo marcar el onboarding como completado.»
-
-  En pantalla aparece un aviso genérico.
+| Situación | Mensaje |
+|---|---|
+| Correo con formato incorrecto | «Indica un correo válido.» |
+| Ya hay una invitación pendiente para ese correo | «Ya existe una invitación pendiente para este correo.» |
+| Asumir DPO y Responsable del SGAI a la vez | «DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).» |
+| Un miembro que no es Administrador intenta guardar la organización (servidor) | «Solo un Administrador configura la organización.» |
+| Logotipo | «El archivo supera el límite de 2 MB»; en pantalla, «No se pudo subir el logo. Comprueba el tamaño (máx. 2 MB) e inténtalo de nuevo.» |
+| Error al cerrar | «No se pudo cerrar la configuración inicial: …» / «No se pudo marcar el onboarding como completado.» |
 
 ## Estados
 
 ```mermaid
 stateDiagram-v2
   [*] --> Pendiente: registro o invitación
-  Pendiente --> Completado: Acceder al Dashboard
+  Pendiente --> Completado: Terminar (Administrador de organización sin configurar)
+  Pendiente --> Completado: Empezar (resto de miembros)
 ```
 
-El estado es por persona (`profiles.onboarding_completed`), no por organización.
+El estado es por persona (`profiles.onboarding_completed`). La organización queda configurada
+(`settings.onboarding_completed`) cuando su Administrador termina la configuración inicial; a partir de
+ahí, los Administradores que se unan solo ven la bienvenida.
 
 ## Vistas relacionadas
 
 - [Registro](registro.md) e [Inicio de sesión](login.md): origen.
-- [Dashboard](dashboard.md): destino. Su guía de primeros pasos abre el foco elegido.
-- [Organización](organizacion.md): donde se editan después estos datos.
+- [Dashboard](dashboard.md), [Cuestionario preliminar](cuestionario-preliminar.md) y
+  [Alta de sistema](inventario-alta.md): destinos.
+- [Usuarios](usuarios.md): envío del enlace de las invitaciones.
+- [Organización](organizacion.md): perfil, madurez y comités.
 - Negocio: [Plataforma](../negocio/plataforma.md).

@@ -96,9 +96,10 @@ flowchart TD
     F["5 · Operación continua<br/>incidentes, supervisión, coste, tareas, revisiones"] -.reevaluación.-> C
 ```
 
-**0. Puesta en marcha (una vez).** La organización se da de alta y completa un breve onboarding:
-sector, país, madurez frente a ISO/IEC 42001 y foco inicial. Después completa su ficha (datos
-legales, responsables de gobierno), invita a sus miembros con su rol y configura avisos, conectores y
+**0. Puesta en marcha (una vez).** La organización se da de alta y completa una configuración inicial
+de tres pasos: su perfil, el equipo de gobierno (Responsable del SGAI, DPO y Comité de IA) y el primer
+sistema. Después completa su ficha (datos legales, madurez frente a ISO/IEC 42001), invita al resto de
+miembros con su rol y configura avisos, conectores y
 flujos de aprobación. Hasta completar el onboarding, la aplicación no deja continuar.
 
 **1. Alta y clasificación de cada sistema.**

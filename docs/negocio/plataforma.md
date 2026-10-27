@@ -100,9 +100,10 @@ flowchart LR
   E --> F[Operación con<br/>registro de auditoría]
 ```
 
-1. **Alta.** Quien se registra crea su organización y queda como administrador. Un onboarding de cuatro
-   pasos recoge el perfil de la organización, su situación frente a ISO/IEC 42001 y el foco inicial,
-   que decide qué guía de primeros pasos muestra el panel principal. Los pasos se pueden omitir.
+1. **Alta.** Quien se registra crea su organización y queda como administrador. Una configuración inicial
+   de tres pasos recoge el perfil de la organización, prepara el equipo de gobierno (invita al Responsable
+   del SGAI y al DPO y constituye el Comité de IA) y lleva al primer sistema. Los miembros que se unen
+   después solo ven una bienvenida.
 2. **Ficha de la organización.** Agrupa:
    - identidad;
    - datos legales y domicilio fiscal;
