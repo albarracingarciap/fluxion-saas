@@ -185,8 +185,11 @@ export type SystemDetailData = {
     scope?: string;
     level?: string | null;
     display?: { label: string };
+    roles?: { declared: string[]; suggested: string[] };
   } | null;
   aiact_review_pending?: boolean | null;
+  /** Rol de la organización en la cadena de valor del sistema (decide el expediente, DP-11). */
+  value_chain_roles?: string[] | null;
   /** Cuestionario preliminar del que se registró (B13c). */
   origin_questionnaire?: { id: string; title: string } | null;
   processes_personal_data: boolean | null;
@@ -1012,6 +1015,14 @@ const ANNEX_A_SHORT: Record<string, string> = {
   'A.7 Datos para sistemas de IA':                                            'A.7 Datos',
   'A.8 Información para las partes interesadas de los sistemas de IA':        'A.8 Información',
   'A.9 Uso de sistemas de IA':                                                'A.9 Uso responsable',
+};
+
+const VALUE_CHAIN_ROLE_LABELS: Record<string, string> = {
+  provider: 'Proveedor',
+  deployer: 'Responsable del despliegue',
+  importer: 'Importador',
+  distributor: 'Distribuidor',
+  authorised_representative: 'Representante autorizado',
 };
 
 const AISIA_STATUS_VISUAL: Record<string, { label: string; dot: string; pill: string }> = {
@@ -2639,6 +2650,29 @@ export function SystemDetailClient({
                         {' '}(sus respuestas sin campo en la ficha se consultan allí).
                       </p>
                     )}
+                    {(() => {
+                      // Rol en la cadena de valor (DP-11): decide qué documentos del expediente se
+                      // redactan y cuáles aporta el proveedor. Se cambia al editar el sistema.
+                      const declarados = system.value_chain_roles ?? [];
+                      const sugeridos = (system.aiact_result?.roles?.suggested ?? []).filter((r) => !declarados.includes(r));
+                      return (
+                        <div className="mb-3 font-sora text-[12px] text-ltt2">
+                          <span className="font-medium text-ltt">Rol de la organización:</span>{' '}
+                          {declarados.length > 0
+                            ? declarados.map((r) => VALUE_CHAIN_ROLE_LABELS[r] ?? r).join(', ')
+                            : <span className="text-or">sin declarar (no se considera proveedora)</span>}
+                          {' · '}
+                          <Link href={`/inventario/${system.id}/editar`} className="text-brand-cyan hover:underline">Cambiar</Link>
+                          {sugeridos.length > 0 && (
+                            <span className="block mt-1 text-or">
+                              Según los supuestos AI Act, también podría ser{' '}
+                              {sugeridos.map((r) => VALUE_CHAIN_ROLE_LABELS[r] ?? r).join(', ')}
+                              {sugeridos.includes('provider') ? ' (por ejemplo, por el Art. 25)' : ''}. Revísalo: decide qué documentos del expediente se redactan.
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {divergenciaMotor && (
                       <p className="mb-3 flex items-start gap-1.5 font-sora text-[12px] text-or">
                         <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />

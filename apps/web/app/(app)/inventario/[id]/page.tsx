@@ -77,6 +77,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       aiact_scope_reason,
       aiact_result,
       aiact_review_pending,
+      value_chain_roles,
       processes_personal_data,
       data_categories,
       special_categories,

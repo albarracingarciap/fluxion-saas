@@ -77,3 +77,17 @@ test('práctica prohibida sin excepción: se precarga (RN-P10)', () => {
   assert.equal(questionnaireToWizard({ ...respuestas, c1: ['scoring_social'] }).initial.prohibitedPractice, true)
   assert.equal(questionnaireToWizard({ ...respuestas, c1: ['emociones'], c1_exc_emociones: 'si', c1_exc_emociones__detalle: 'x' }).initial.prohibitedPractice, undefined)
 })
+
+test('proveedor sobrevenido (Art. 25): un «sí» añade el rol de proveedor (DP-11)', () => {
+  const despliegue: Answers = { ...respuestas, pos_roles: ['responsable_despliegue'] }
+  assert.deepEqual(questionnaireToWizard(despliegue).initial.valueChainRoles, ['deployer'])
+  assert.deepEqual(
+    questionnaireToWizard({ ...despliegue, a25_modificacion: 'si' }).initial.valueChainRoles,
+    ['deployer', 'provider'],
+  )
+  // Ya declarado como proveedor: no se repite.
+  assert.deepEqual(
+    questionnaireToWizard({ ...respuestas, a25_marca: 'si' }).initial.valueChainRoles,
+    ['provider', 'deployer'],
+  )
+})

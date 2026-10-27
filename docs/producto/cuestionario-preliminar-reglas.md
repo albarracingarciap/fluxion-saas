@@ -531,7 +531,7 @@ Claves del cuestionario (`answers`) → claves del asistente (`INIT` de `SystemW
 | `baseModel` | `q5_tecnologia` | Literal |
 | `externalModel` | `prov_nombre_comercial` | Solo si `propiedad` es `tercero_*` |
 | `extProvider` | `prov_nombre` | Ídem |
-| `valueChainRoles` | `pos_roles` | `proveedor` → `provider`; `responsable_despliegue` → `deployer`; `importador` → `importer`; `distribuidor` → `distributor`; `representante` → `authorised_representative`; `ninguno` → vacío |
+| `valueChainRoles` | `pos_roles`, `a25_*` | `proveedor` → `provider`; `responsable_despliegue` → `deployer`; `importador` → `importer`; `distribuidor` → `distributor`; `representante` → `authorised_representative`; `ninguno` → vacío. Si alguna pregunta del cambio de rol del Art. 25 (`a25_marca`, `a25_modificacion`, `a25_finalidad`) es «Sí», se añade `provider` (DP-11, 2026-10-27) |
 | `hasFineTuning` | `u_forma` | `true` si incluye `fine_tuning` |
 
 **Paso 6 · Gobierno**
