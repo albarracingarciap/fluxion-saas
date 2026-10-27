@@ -13,6 +13,12 @@ fuente:
   - apps/web/components/layout/sidebar.tsx
   - supabase/migrations/20260818170000_incidents_core.sql
   - apps/web/lib/ai-systems/notices.ts
+  - apps/web/app/(app)/incidentes/pestanas.tsx
+  - apps/web/app/(app)/incidentes/requerimientos/actions.ts
+  - apps/web/app/(app)/incidentes/requerimientos/requerimientos-client.tsx
+  - apps/web/app/(app)/incidentes/requerimientos/[id]/requerimiento-detalle.tsx
+  - apps/web/lib/governance/authority-requests.ts
+  - supabase/migrations/20261028120000_requerimientos_autoridad.sql
 ---
 
 # Incidentes
@@ -33,6 +39,9 @@ conocimiento del hecho, no cuando se establece la causa.».
 - **Menú:** **Incidentes**, con un contador de los [incidentes graves](../glosario.md#incidente-grave)
   cuya notificación está pendiente o solo es inicial.
 - **Disponibilidad:** Core.
+- **Pestañas** (B25d): **Incidentes** (`/incidentes`, esta vista) y **Requerimientos**
+  (`/incidentes?tab=requerimientos`, ver [Requerimientos de la autoridad](#pestaña-requerimientos)). La pestaña
+  Requerimientos muestra un contador de los requerimientos recibidos o en preparación.
 
 | Rol | Ver | Acciones permitidas |
 |---|---|---|
@@ -105,6 +114,63 @@ cumplimiento.
 > - Alta de incidentes desde una [señal de riesgo](../glosario.md#señal-de-riesgo) o por la API de
 >   ingesta. El vínculo con la señal existe en los datos, pero nada lo rellena.
 > - Integración con herramientas ITSM.
+
+## Pestaña Requerimientos
+
+Requerimientos de una autoridad (B25d, AI Act, Art. 26.12; decisión 4): peticiones de información o medidas
+correctoras con un plazo. No son incidentes y su plazo no es el del Art. 73. Cualquier miembro los consulta;
+los registran y gestionan los roles de gobierno (los mismos que los incidentes).
+
+**Lista**, de la recepción más reciente a la más antigua: referencia (REQ-AAAA-NNN, automática), qué se pide,
+estado, autoridad, tipo, fecha de recepción, sistemas afectados y plazo. Encima, «N con el plazo vencido» si los
+hay.
+
+| Plazo | Texto | Color |
+|---|---|---|
+| Respondido o Cerrado | «Respondido» | Verde |
+| Sin fecha límite | «Sin plazo indicado» | Gris |
+| Más de 5 días | «Quedan N días · vence el …» | Normal |
+| 5 días o menos | «Quedan N días» o «Vence hoy» | Naranja |
+| Pasado | «Plazo vencido hace N días» | Rojo |
+
+**Registrar requerimiento** (roles de gobierno):
+
+| Campo | Obligatorio | Descripción | Origen (`authority_requests.`) |
+|---|---|---|---|
+| **Autoridad** | Sí | Por ejemplo, «AESIA» | `authority` |
+| **Su referencia** | No | Número de expediente de la autoridad | `authority_reference` |
+| **Tipo** | Sí | Solicitud de información · Medidas correctoras · Otro | `kind` |
+| **Qué se pide** | Sí | — | `title` |
+| **Detalle** | No | Alcance, medidas exigidas, forma de respuesta | `description` |
+| **Recibido** | Sí | No futura; por defecto, hoy | `received_at` |
+| **Plazo de respuesta** | No | No anterior a la recepción | `due_at` |
+| **Responsable** | No | Miembro de la organización | `owner_id` |
+| **Incidente relacionado** | No | Incidente de la organización | `incident_id` |
+| **Sistemas afectados** | No | Sistemas del inventario | `authority_request_systems` |
+
+Al registrarlo se abre su detalle, se crea la [tarea](../glosario.md#tarea) «Responder al requerimiento {ref}
+({autoridad})», de prioridad alta, con el plazo como fecha límite, asignada al responsable y con origen
+«Requerimiento de la autoridad», y en el historial de cada sistema afectado queda «Requerimiento de la autoridad ·
+{ref}».
+
+**Detalle del requerimiento** (`/incidentes/requerimientos/{id}`): cabecera con la autoridad, su referencia, el
+tipo, la fecha de recepción, el detalle, los sistemas afectados (enlace a su ficha) y el incidente relacionado; el
+plazo; y dos secciones:
+
+| Sección | Contenido | Quién edita |
+|---|---|---|
+| **Gestión y respuesta** | **Estado** (Recibido · En preparación · Respondido · Cerrado), plazo, responsable, **Respuesta**, **Fecha de la respuesta** y **Evidencias de la respuesta** (de la biblioteca, con buscador; las no validadas se marcan). **Guardar** | Gobierno |
+| **Tareas (N)** | Tareas del requerimiento con su estado y fecha; **+ Añadir** crea otra con título y fecha límite | Gobierno |
+
+Para pasar a Respondido o Cerrado hacen falta la fecha y el resumen de la respuesta: «Indica la fecha de la
+respuesta para marcarlo como respondido o cerrado.», «Resume qué se respondió.». Al pasar a respondido queda en el
+historial de los sistemas afectados «Requerimiento respondido · {ref}». Al cerrar se guarda la fecha de cierre.
+Otros errores: «Indica la autoridad que lo emite.», «Indica qué se pide.», «El plazo no puede ser anterior a la
+recepción.», «La respuesta no puede ser anterior a la recepción.», «Solo los roles de gobierno pueden gestionar los
+requerimientos de la autoridad.».
+
+> TODO: confirmar si los requerimientos necesitan avisos de plazo propios. Hoy el recordatorio es el de la tarea
+> «Responder…», con el plazo como fecha límite; no hay avisos como los del reloj del Art. 73.
 
 ## Validaciones
 

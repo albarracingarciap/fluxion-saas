@@ -57,6 +57,7 @@ import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
 import { UseSuspensionCard } from './use-suspension-card';
 import { LogsCard } from './logs-card';
+import { AuthorityRequestsCard, type SystemAuthorityRequest } from './authority-requests-card';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -774,6 +775,8 @@ function getHistoryEventVisual(eventType: string) {
   if (eventType === 'deployment_plan_incomplete') return { tone: 'bg-ordim text-or border-orb', label: 'Despliegue' };
   // Uso suspendido, avisos y reanudación (B25a).
   if (EVENTOS_USO.includes(eventType)) return { tone: 'bg-red-dim text-re border-reb', label: 'Uso' };
+  // Requerimientos de la autoridad (B25d).
+  if (eventType.startsWith('authority_request_')) return { tone: 'bg-ordim text-or border-orb', label: 'Requerimiento' };
   // Registro de logs (B25c, Art. 26.6).
   if (eventType === 'log_retention_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Logs' };
   if (EVENTOS_AIACT.includes(eventType)) {
@@ -793,6 +796,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
   { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' || t === 'log_retention_updated' },
   { key: 'uso',         label: 'Uso',          match: (t) => EVENTOS_USO.includes(t) },
+  { key: 'requerimientos', label: 'Requerimientos', match: (t) => t.startsWith('authority_request_') },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
@@ -1435,6 +1439,7 @@ export function SystemDetailClient({
   deployment,
   suspendedSince,
   suspendFromIncidentId,
+  authorityRequests,
   history,
   classificationEvents,
   evidences,
@@ -1460,6 +1465,8 @@ export function SystemDetailClient({
   suspendedSince: string | null;
   /** Incidente desde el que se pide suspender el uso (B25b). */
   suspendFromIncidentId: string | null;
+  /** Requerimientos de la autoridad que afectan al sistema (B25d). */
+  authorityRequests: SystemAuthorityRequest[];
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -4141,6 +4148,8 @@ export function SystemDetailClient({
             <ResponsablesCard systemId={system.id} />
 
             <LogsCard systemId={system.id} />
+
+            <AuthorityRequestsCard requests={authorityRequests} />
 
             <div>
               <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm mb-3">Acciones rápidas</div>

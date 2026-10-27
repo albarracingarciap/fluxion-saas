@@ -45,6 +45,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/logs-actions.ts
   - apps/web/lib/governance/logs.ts
   - supabase/migrations/20261028110000_registro_logs_sistema.sql
+  - apps/web/app/(app)/inventario/[id]/authority-requests-card.tsx
 ---
 
 # Ficha del sistema
@@ -91,7 +92,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Requerimientos de la autoridad** (si los hay), **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -184,6 +185,10 @@ guardar queda en el historial («Registro de logs actualizado», etiqueta **Logs
 auditoría.
 
 La verificación vale 12 meses (decisión del responsable, 2026-10-28).
+
+**Requerimientos de la autoridad** (B25d). Solo si algún requerimiento afecta al sistema: referencia y qué se pide
+(enlace a su detalle), autoridad, estado y plazo. Se gestionan en [Incidentes › Requerimientos](incidentes.md#pestaña-requerimientos).
+En el historial, la etiqueta **Requerimiento** y el filtro **Requerimientos** reúnen su recepción y su respuesta.
 
 **Acciones rápidas:**
 
