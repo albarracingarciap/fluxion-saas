@@ -37,6 +37,7 @@ export type AuditAction =
   | 'system.notice_recorded'
   | 'system.log_retention_updated'
   | 'system.reevaluation_dismissed'
+  | 'system.post_biometric_updated'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

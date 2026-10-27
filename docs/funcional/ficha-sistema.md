@@ -51,6 +51,11 @@ fuente:
   - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
   - apps/web/app/(app)/inventario/[id]/reevaluation-card.tsx
   - apps/web/app/(app)/inventario/[id]/reevaluation-actions.ts
+  - apps/web/app/(app)/inventario/[id]/biometric-card.tsx
+  - apps/web/app/(app)/inventario/[id]/biometric-actions.ts
+  - apps/web/lib/governance/biometric.ts
+  - apps/web/lib/governance/biometric-server.ts
+  - supabase/migrations/20261028150000_biometria_remota_diferido.sql
 ---
 
 # Ficha del sistema
@@ -97,7 +102,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Reevaluación necesaria** (si hay disparadores abiertos), **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Requerimientos de la autoridad** (si los hay), **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Reevaluación necesaria** (si hay disparadores abiertos), **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Biometría remota en diferido** (si aplica), **Requerimientos de la autoridad** (si los hay), **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -196,6 +201,19 @@ guardar queda en el historial («Registro de logs actualizado», etiqueta **Logs
 auditoría.
 
 La verificación vale 12 meses (decisión del responsable, 2026-10-28).
+
+**Biometría remota en diferido** (B21c, AI Act, Art. 26.10). Solo en los sistemas de alto riesgo del Anexo III,
+punto 1.a, en los que la organización es responsable del despliegue (o si la casilla quedó marcada y el sistema
+dejó de estar en el supuesto, con el aviso «El sistema ya no está en el supuesto…»). La casilla **Identificación
+biométrica remota en diferido (AI Act, Art. 26.10)** la cambian el Administrador, el Responsable del SGAI y el
+Responsable del sistema (`ai_systems.post_remote_biometric_id`). Al marcarla se crea la [tarea](tareas.md) del
+informe anual del año en curso («Creada la tarea del informe anual de este año.») y, cada año, el cron diario crea
+la del año nuevo: «Informe anual Art. 26.10 · {año} · {sistema}», prioridad alta, asignada al Responsable del
+sistema y con fecha límite el 31 de diciembre. Debajo, las tareas de informe con su estado. Queda en el historial
+(«Biometría», filtro **Edición**) y en la auditoría.
+
+> **Pendiente de definir.** El AI Act no fija la fecha del informe anual; el desarrollo ha puesto el 31 de
+> diciembre del año al que se refiere.
 
 **Requerimientos de la autoridad** (B25d). Solo si algún requerimiento afecta al sistema: referencia y qué se pide
 (enlace a su detalle), autoridad, estado y plazo. Se gestionan en [Incidentes › Requerimientos](incidentes.md#pestaña-requerimientos).

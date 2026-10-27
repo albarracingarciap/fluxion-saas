@@ -58,6 +58,7 @@ import { ResponsablesCard } from './responsables-card';
 import { UseSuspensionCard } from './use-suspension-card';
 import { LogsCard } from './logs-card';
 import { ReevaluationCard } from './reevaluation-card';
+import { BiometricCard } from './biometric-card';
 import { AuthorityRequestsCard, type SystemAuthorityRequest } from './authority-requests-card';
 
 export type SystemHistoryEntry = {
@@ -780,6 +781,8 @@ function getHistoryEventVisual(eventType: string) {
   if (eventType.startsWith('authority_request_')) return { tone: 'bg-ordim text-or border-orb', label: 'Requerimiento' };
   // Reevaluación (B21a).
   if (eventType.startsWith('reevaluation_')) return { tone: 'bg-ordim text-or border-orb', label: 'Reevaluación' };
+  // Biometría remota en diferido (B21c, Art. 26.10).
+  if (eventType === 'post_biometric_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Biometría' };
   // Registro de logs (B25c, Art. 26.6).
   if (eventType === 'log_retention_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Logs' };
   if (EVENTOS_AIACT.includes(eventType)) {
@@ -797,7 +800,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'all',         label: 'Todos',        match: () => true },
   { key: 'aiact',       label: 'AI Act',       match: (t) => EVENTOS_AIACT.includes(t) },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
-  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' || t === 'log_retention_updated' },
+  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' || t === 'log_retention_updated' || t === 'post_biometric_updated' },
   { key: 'uso',         label: 'Uso',          match: (t) => EVENTOS_USO.includes(t) },
   { key: 'requerimientos', label: 'Requerimientos', match: (t) => t.startsWith('authority_request_') },
   { key: 'reevaluacion', label: 'Reevaluación', match: (t) => t.startsWith('reevaluation_') },
@@ -4154,6 +4157,8 @@ export function SystemDetailClient({
             <ResponsablesCard systemId={system.id} />
 
             <LogsCard systemId={system.id} />
+
+            <BiometricCard systemId={system.id} />
 
             <AuthorityRequestsCard requests={authorityRequests} />
 
