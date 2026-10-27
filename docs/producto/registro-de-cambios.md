@@ -80,6 +80,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario e inventario v1.7 tras B16 (TODO 284 y 287) | Integrado en `main` | `docs/glosario-inventario-b16` | 2026-10-27 | No |
 | Informe del flujo de trabajo de sistemas de IA | Integrado en `main` | `docs/informe-flujo-trabajo` | 2026-10-27 | No |
 | B17a · Art. 26 por apartados y fecha de exigibilidad | Integrado en `main` | `fase3/b17a-art26` | 2026-10-27 | **Sí** · `20261027160000_ai_act_art26_apartados.sql` |
+| B17b · Notificación de la FRIA, presentación del registro UE y FRIA trazada | Integrado en `main` | `fase3/b17b-fria` | 2026-10-27 | **Sí** · `20261027170000_expediente_notificaciones_fria.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2020,4 +2021,34 @@ catálogo).
 
 **Documentación.** `negocio/obligaciones.md`, `funcional/catalogo-obligaciones.md`, `tecnica/modelo-datos.md`,
 `producto/cuestionario-preliminar-reglas.md` (RN-O08), `producto/informe-flujo-trabajo-ia.md`, `producto/plan-resolucion-gaps.md`.
+
+---
+
+## B17b · Notificación de la FRIA, presentación del registro UE y FRIA trazada
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17b-fria` ·
+**Migración:** **sí**, `supabase/migrations/20261027170000_expediente_notificaciones_fria.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md)): la notificación de la FRIA a la autoridad
+(Art. 27.3) solo podía anotarse como texto del apartado 27.3, que además era obligatorio antes de enviar la FRIA a
+aprobación, cuando la notificación ocurre después. Tampoco quedaba constancia de la presentación de la ficha para el
+registro UE. La FRIA no trazaba los riesgos de derechos fundamentales del análisis ni la DPIA a la que complementa.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Notificaciones (migración) | `fluxion.document_notifications`: autoridad o registro, fecha, referencia y notas, por versión de documento; solo inserción y solo de documentos aprobados (RLS) |
+| Expediente | Panel **Notificación a la autoridad de vigilancia del mercado** (FRIA, Art. 27.3) y **Presentación en la base de datos de la UE** (ficha para el registro UE, Art. 49), con aviso mientras no conste. Evento de historial |
+| FRIA v2 (migración) | El 27.3 deja de ser obligatorio para enviar a aprobación; nuevas guías del 27.1.d y del 27.4. Los documentos ya creados siguen con la v1 |
+| FRIA trazada (`lib/documents/derive-fria.ts`, nuevo) | 27.1.d: modos de fallo de las dimensiones ética y legal con severidad actual 7 o más del análisis vigente y las instrucciones de uso del proveedor adjuntas; 27.4: la DPIA del expediente y la de la ficha. Para la v1 y la v2 |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; FRIA v2 con el 27.3 no obligatorio).
+`npm test` 134/134 (cuatro tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha
+probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/expediente-documental.md`, `funcional/registro-ue.md`, `negocio/documentacion-del-sistema.md`,
+`tecnica/modelo-datos.md`, `producto/informe-flujo-trabajo-ia.md`.
 

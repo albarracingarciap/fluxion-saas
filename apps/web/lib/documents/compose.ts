@@ -4,6 +4,7 @@ import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 import { deriveAisiaFromFmea, deriveAisiaFromSystem, type AisiaFmeaItem, type AisiaPlanAction } from './derive-aisia'
 import { deriveEuRegistry, euRegistrySectionFilter, type EuRegistryContext } from './derive-eu-registry'
 import { applicabilityFacts, documentApplicability } from './applicability'
+import { deriveFriaDpia, deriveFriaRisks, type FriaRiskItem } from './derive-fria'
 
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createComplianceClient } from '@/lib/supabase/compliance'
@@ -371,6 +372,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   let history: Array<Record<string, unknown>> = []
   let hitl: Record<string, unknown> | null = null
   let euRegistry: EuRegistryContext | null = null
+  let fria: { items: FriaRiskItem[]; providerInstructions: string[]; dpia: Record<string, unknown> | null } | null = null
   let aisiaItems: AisiaFmeaItem[] = []
   let aisiaActions: AisiaPlanAction[] = []
 
@@ -460,6 +462,38 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       sectionsDef = sectionsDef.filter((d) => enSeccion(d.ref))
     }
 
+    // FRIA (B17b): riesgos de derechos fundamentales del análisis, instrucciones
+    // del proveedor y la DPIA del expediente.
+    if (doc.template_key === 'fria') {
+      const [{ data: itemRows }, { data: instrucciones }, { data: dpiaDoc }] = await Promise.all([
+        evalRow
+          ? fluxion.from('fmea_items').select('failure_mode_id, status, s_actual').eq('evaluation_id', evalRow.id)
+          : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+        fluxion.from('system_evidences').select('title')
+          .eq('ai_system_id', doc.ai_system_id)
+          .contains('tags', ['doc-proveedor-tipo-instrucciones']),
+        fluxion.from('documents').select('status, version, approved_at')
+          .eq('ai_system_id', doc.ai_system_id).eq('template_key', 'dpia').neq('status', 'superseded')
+          .maybeSingle(),
+      ])
+      const modeIds = (itemRows ?? []).map((i) => i.failure_mode_id as string)
+      const { data: modes } = modeIds.length
+        ? await createComplianceClient().from('failure_modes').select('id, code, name, dimension_id').in('id', modeIds)
+        : { data: [] }
+      const modeById = new Map(((modes ?? []) as Array<{ id: string; code: string; name: string; dimension_id: string | null }>).map((m) => [m.id, m]))
+      fria = {
+        items: (itemRows ?? []).map((i) => {
+          const m = modeById.get(i.failure_mode_id as string)
+          return {
+            code: m?.code ?? '—', name: m?.name ?? 'Modo de fallo', dimension_id: m?.dimension_id ?? null,
+            status: String(i.status), s_actual: (i.s_actual as number | null) ?? null,
+          }
+        }),
+        providerInstructions: ((instrucciones ?? []) as Array<{ title: string }>).map((e) => e.title),
+        dpia: (dpiaDoc as Record<string, unknown> | null) ?? null,
+      }
+    }
+
     // AISIA (B15): S3 y S4 citan los modos y las acciones, no solo los recuentos.
     if (doc.template_key === 'aisia' && evalRow) {
       const { data: itemRows } = await fluxion
@@ -498,7 +532,11 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   const sections: ComposedSection[] = sectionsDef.map((def) => {
     let derived: string | null = null
     const esAisia = def.ref.startsWith('AISIA.')
-    if (def.source === 'derived:system' && euRegistry) {
+    if (fria && def.ref === '27.1.d') {
+      derived = deriveFriaRisks({ evaluation, items: fria.items, providerInstructions: fria.providerInstructions })
+    } else if (fria && def.ref === '27.4') {
+      derived = deriveFriaDpia({ dpia: fria.dpia, system })
+    } else if (def.source === 'derived:system' && euRegistry) {
       derived = deriveEuRegistry(def.ref, euRegistry)
     } else if (def.source === 'derived:system' && system) {
       derived = esAisia ? deriveAisiaFromSystem(def.ref, system) : deriveFromSystem(def.ref, system)

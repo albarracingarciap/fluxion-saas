@@ -29,6 +29,34 @@ export const TEMPLATE_META: Record<TemplateKey, { label: string; legalRef: strin
   aisia:      { label: 'AISIA',             legalRef: 'ISO/IEC 42001 · §6.1.4 · Anexo A.5',                             slug: 'aisia' },
 }
 
+/**
+ * Plantillas cuyo documento aprobado se notifica a una autoridad o se presenta
+ * en un registro (B17b). Fluxion no envía nada: deja constancia de cuándo, a
+ * quién y con qué referencia.
+ */
+export const DOCUMENT_NOTIFICATION: Partial<Record<TemplateKey, {
+  title: string
+  legalRef: string
+  authorityLabel: string
+  authorityDefault: string
+  pendingWarning: string
+}>> = {
+  fria: {
+    title: 'Notificación a la autoridad de vigilancia del mercado',
+    legalRef: 'AI Act, Art. 27.3',
+    authorityLabel: 'Autoridad notificada',
+    authorityDefault: 'Autoridad de vigilancia del mercado',
+    pendingWarning: 'La FRIA está aprobada pero no consta su notificación a la autoridad de vigilancia del mercado (Art. 27.3).',
+  },
+  eu_registry: {
+    title: 'Presentación en la base de datos de la UE',
+    legalRef: 'AI Act, Art. 49',
+    authorityLabel: 'Registro',
+    authorityDefault: 'Base de datos de la UE (Art. 71)',
+    pendingWarning: 'La ficha está aprobada pero no consta su presentación en la base de datos de la UE (Art. 49).',
+  },
+}
+
 export function templateMeta(key: string) {
   if (isTemplateKey(key)) return TEMPLATE_META[key]
   // Las actas se generan con la misma maquinaria, pero no son expedientes.
