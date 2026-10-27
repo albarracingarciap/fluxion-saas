@@ -84,6 +84,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17c · Propuestas de estado de las obligaciones | Integrado en `main` | `fase3/b17c-cumplimiento-conectado` | 2026-10-27 | No |
 | B17d · Exclusión de brechas según F-14 | Integrado en `main` | `fase3/b17d-exclusion-gaps` | 2026-10-27 | **Sí** · `20261027180000_gaps_exclusion_obligaciones.sql` |
 | B17e1 · Tipo del catálogo en las evidencias y obligación resuelta por evidencias | Integrado en `main` | `fase3/b17e1-tipos-evidencia` | 2026-10-27 | **Sí** · `20261027190000_evidencias_tipo_catalogo.sql` |
+| B17e2 · Controles de la Declaración propuestos desde el plan | Integrado en `main` | `fase3/b17e2-correspondencia-anexo-a` | 2026-10-27 | **Sí** · `20261027200000_soa_correspondencia_anexo_a.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2145,3 +2146,33 @@ probado en el navegador.
 **Documentación.** `funcional/evidencias.md`, `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md`
 (GAP-11), `tecnica/modelo-datos.md`, `_incidencias.md` (C6 resuelta).
 
+## B17e2 · Controles de la Declaración propuestos desde el plan
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17e2-correspondencia-anexo-a` ·
+**Migración:** **sí**, `supabase/migrations/20261027200000_soa_correspondencia_anexo_a.sql`
+
+**Problema** (F-11, GAP-29): un control implantado en el plan de tratamiento, con su evidencia, no se reflejaba en
+la Declaración de Aplicabilidad: había que marcar a mano el control del Anexo A equivalente, y las etiquetas
+«ISO A.x» de las plantillas seguían otra numeración.
+
+**Decisión del responsable (2026-10-27):** aprobada la correspondencia inicial entre las plantillas CTL-001 a
+CTL-059 y los controles del Anexo A ([correspondencia](correspondencia-controles-anexo-a.md)).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `compliance.control_template_soa_controls` (plantilla → control del Anexo A, con confianza alta o media), con la correspondencia inicial: 56 filas, 47 plantillas |
+| Datos › Plantilla ↔ Anexo A (nuevo) | Consulta para todos; alta, cambio de confianza y baja para la administración de la plataforma |
+| Propuestas (`lib/soa/proposals.ts` y `proposal-facts.ts`, nuevos) | Un control aplicable propone «Implantado» cuando todos sus sistemas vinculados tienen una mitigación completada, con evidencia válida, de una plantilla correspondiente. Misma regla de «todos los sistemas vinculados» que la AISIA |
+| Declaración | Etiqueta **Propuesta: Implantado** en la lista; motivo y **Aceptar propuesta** en el panel del control, solo en borrador. Al aceptar se recalcula, se anota el motivo en las observaciones y queda en el historial de cada sistema y en **Cambios en controles** |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas: 56 filas, 47 plantillas). `npm test`
+148/148 (cuatro tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado
+en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web: la Declaración lee la tabla nueva. Solo web.
+
+**Documentación.** `funcional/declaracion-aplicabilidad.md`, `tecnica/modelo-datos.md`,
+`producto/correspondencia-controles-anexo-a.md` (aprobada). Falta la vista funcional de **Datos › Plantilla ↔
+Anexo A**, que no está en `_mapa.md`.

@@ -894,6 +894,9 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   elegido al subirla, y los tipos libres actuales se traducen cuando se pueda; se propone una correspondencia
   inicial entre las plantillas de control (CTL-001 a CTL-059) y los controles del Anexo A de la ISO 42001, para
   revisión; la brecha de control de la Declaración sin implantar cuenta una por cada sistema vinculado al control.
+- **B17e2 (2026-10-27):** correspondencia inicial aprobada y cargada (`compliance.control_template_soa_controls`,
+  mantenida en **Datos › Plantilla ↔ Anexo A**); los controles de la Declaración proponen «Implantado» desde el plan
+  de tratamiento. Queda B17e3, las brechas de control de la Declaración sin implantar.
 - **Depende de:** B07, B11, B12.
 - **Talla:** L.
 
