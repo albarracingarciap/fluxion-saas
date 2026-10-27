@@ -72,7 +72,7 @@ Solo aparecen las exclusiones vigentes de brechas que siguen existiendo.
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Ver origen** | Todos | Navega al objeto de origen de la brecha | — |
-| **Reactivar** | Administrador, Responsable del SGAI, CAIO | Pide confirmación («¿Reactivar este gap?») y ejecuta `revertGapDispositionAction` | Borra la exclusión: la brecha vuelve a la cola |
+| **Reactivar** | Administrador, Responsable del SGAI, CAIO | Pide confirmación («¿Reactivar este gap?») y ejecuta `revertGapDispositionAction` | Borra la exclusión: la brecha vuelve a la cola. Si es una Obligación sin cubrir, la obligación vuelve a Pendiente (B17d) |
 | **Retirar exclusión** (pendiente) | Quien la pidió, Administrador, Responsable del SGAI, CAIO | Pide confirmación («¿Retirar la exclusión? Se cancela su solicitud de aprobación.») | Cancela la solicitud y borra la exclusión. Sin permiso: «Solo quien pidió la exclusión, o un administrador, puede retirarla.» |
 | **Ver en Aprobaciones** (pendiente) | Todos | Navega a [Aprobaciones](aprobaciones.md) | — |
 | **Exportar CSV** | Todos | Descarga `gaps_excluidos_AAAA-MM-DD.csv` | Columnas de la cola más Tipo exclusión, Justificación, Decidido por, Fecha decisión y Caduca exclusión |

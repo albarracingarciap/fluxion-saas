@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
 import { obligationProposal } from '@/lib/obligations/proposals';
+import { excluirBrechas } from '@/lib/gaps/exclusion';
 import { loadProposalFacts } from '@/lib/obligations/proposal-facts';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
@@ -308,46 +309,47 @@ export async function excludeSystemObligation(input: {
     .is('archived_at', null)
     .maybeSingle();
 
-  const now = new Date().toISOString();
-  const payload = {
-    ai_system_id: input.aiSystemId,
-    organization_id: membership.organization_id,
-    source_framework: 'AI_ACT',
-    obligation_code: code,
-    obligation_key: code,
-    title: input.title,
-    description: `Obligación excluida: ${input.title}`,
-    status: 'excluded',
-    priority: 'low',
-    notes: input.justification,
-    resolved_at: now,
-    resolved_by: user.id,
-  };
-
-  if (existing?.id) {
-    const { error } = await adminFluxion
+  // Excluir una obligación es excluir su «Obligación sin cubrir» (F-14, B17d):
+  // pasa por la misma regla y, si una política lo pide, por aprobación (DP-07).
+  let obligationId = existing?.id as string | undefined;
+  if (!obligationId) {
+    const { data: creada, error } = await adminFluxion
       .from('system_obligations')
-      .update(payload)
-      .eq('id', existing.id);
-    if (error) return { error: error.message };
-  } else {
-    const { error } = await adminFluxion.from('system_obligations').insert(payload);
-    if (error) return { error: error.message };
+      .insert({
+        ai_system_id: input.aiSystemId,
+        organization_id: membership.organization_id,
+        source_framework: 'AI_ACT',
+        obligation_code: code,
+        obligation_key: code,
+        title: input.title,
+        description: `Obligación aplicable derivada de ${input.title}.`,
+        status: 'pending',
+        priority: 'medium',
+      })
+      .select('id')
+      .single();
+    if (error || !creada) return { error: error?.message ?? 'No se pudo registrar la obligación.' };
+    obligationId = creada.id as string;
   }
 
-  await insertAiSystemHistoryEvents(fluxion, [
-    {
-      ai_system_id: input.aiSystemId,
-      organization_id: membership.organization_id,
-      event_type: 'obligation_excluded',
-      event_title: 'Obligación excluida',
-      event_summary: `Se ha excluido la obligación "${input.code} — ${input.title}". Justificación: ${input.justification}`,
-      actor_user_id: user.id,
-    },
-  ]);
+  const { data: perfil } = await fluxion
+    .from('profiles').select('id').eq('user_id', user.id).eq('organization_id', membership.organization_id).maybeSingle();
+
+  const result = await excluirBrechas({
+    fluxion,
+    organizationId: membership.organization_id,
+    profileId: perfil?.id ?? null,
+    gaps: [{ gapKey: `normativo:${obligationId}`, gapLayer: 'normativo', gapSourceId: obligationId, gapTitle: `${code} — ${input.title}` }],
+    disposition: 'not_applicable',
+    rationale: input.justification,
+    expiresAt: null,
+    actorUserId: user.id,
+  });
+  if ('error' in result) return result;
 
   revalidatePath(`/inventario/${input.aiSystemId}`);
-  return { success: true };
+  revalidatePath('/gaps');
+  return { success: true, pending: result.pending > 0 };
 }
 
 /**

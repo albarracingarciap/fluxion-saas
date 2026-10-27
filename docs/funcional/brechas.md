@@ -165,15 +165,29 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 | **Exportar / Imprimir** | Todos | Imprime la página desde el navegador | — |
 | **Ver snapshots** · **Excluidos** · **Ver inventario** | Todos | Navegan a [Instantáneas de brechas](brechas-instantaneas.md), [Brechas excluidas](brechas-excluidas.md) e [Inventario](inventario.md) | — |
 
-### Excluir brecha
+### Excluir obligación y posponer evidencia (F-14, B17d)
+
+Cada capa se aparta de la cola de una sola manera (`GAP_LAYER_EXCLUSION` en `lib/gaps/exclusion-rules.ts`):
+
+| Capa | Botón | Qué hace |
+|---|---|---|
+| Riesgo sin tratar · Control sin implantar | Ninguno | Se resuelven en el [plan de tratamiento](plan-de-tratamiento.md) (mitigar, aceptar con su aprobación, transferir o evitar). El servidor rechaza su exclusión |
+| Obligación sin cubrir | **Excluir obligación** | Con la exclusión activa (al pedirla, si ninguna política la gobierna, o al aprobarse), la obligación pasa a Excluida en el sistema. No caduca: al **Reactivar** el gap, la obligación vuelve a Pendiente |
+| Evidencia caducada | **Posponer** | La brecha sale de la cola hasta la fecha indicada |
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
-| **Tipo de exclusión** | opciones | Sí | Aceptado (riesgo conocido y aceptado, por defecto) · No aplica (fuera del alcance) | `gap_dispositions.disposition` (`accepted`, `not_applicable`) |
+| **Tipo de exclusión** | opciones | Sí | Aceptado (por defecto) · No aplica | `gap_dispositions.disposition` (`accepted`, `not_applicable`) |
 | **Justificación** | texto largo | Sí | Mínimo 10 caracteres | `rationale` |
-| **Caducidad de la exclusión** | fecha | No | Si se indica, la brecha vuelve a la cola en esa fecha | `expires_at` |
+| **Pospuesto hasta** | fecha | Sí, solo al posponer | La brecha vuelve a la cola en esa fecha | `expires_at` |
 
-En las brechas Riesgo sin tratar y Obligación sin cubrir, el modal avisa: «Excluir un riesgo sin tratar o una
+En bloque, **Excluir o posponer** cuenta solo las brechas que se pueden apartar; el modal indica cuántas se
+omiten porque se resuelven en el plan y pide la fecha si hay evidencias caducadas.
+
+Las exclusiones de Riesgo sin tratar y Control sin implantar que ya estaban activas se conservan; se pueden
+reactivar desde [Brechas excluidas](brechas-excluidas.md).
+
+En las brechas Obligación sin cubrir, el modal avisa: «Excluir un riesgo sin tratar o una
 obligación sin cubrir es aceptarlo: la exclusión pasa por Aprobaciones y la brecha sigue en la cola hasta que se
 aprueba.» El aviso de la exclusión en bloque indica cuántas quedan pendientes. El aviso sigue la política por
 defecto; lo que decide es la política activa.

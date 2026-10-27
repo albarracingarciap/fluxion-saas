@@ -1,5 +1,6 @@
 'use client'
 
+import { canExcludeGapLayer, gapExclusionLabel } from '@/lib/gaps/exclusion-rules'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -210,17 +211,17 @@ export function GapCard({ gap, members, taskStatus, selected, onToggleSelect }: 
                 <ShieldOff size={12} />
                 Exclusión pendiente de aprobación
               </Link>
-              ) : (
+              ) : canExcludeGapLayer(gap.layer) ? (
               <button
                 type="button"
                 onClick={() => setShowDispose(true)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-ltb bg-ltbg text-lttm font-sora text-[11px] hover:border-ltbl hover:text-ltt transition-colors"
-                title="Marcar como aceptado o no aplicable"
+                title={gap.layer === 'caducidad' ? 'Posponer la renovación de la evidencia hasta una fecha' : 'Excluir la obligación (puede pasar por aprobación)'}
               >
                 <ShieldOff size={12} />
-                Excluir
+                {gapExclusionLabel(gap.layer)}
               </button>
-              )}
+              ) : null}
               <Link
                 href={gap.detail_url}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[7px] border border-transparent bg-gradient-to-r from-brand-cyan to-brand-blue text-white font-sora text-[11px] hover:-translate-y-px transition-all"

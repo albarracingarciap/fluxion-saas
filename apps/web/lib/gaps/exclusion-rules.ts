@@ -16,3 +16,43 @@ export const GAP_LAYERS_WITH_APPROVAL: ReadonlyArray<GapLayer> = ['fmea', 'norma
 export function gapExclusionNeedsApproval(layer: GapLayer): boolean {
   return GAP_LAYERS_WITH_APPROVAL.includes(layer)
 }
+
+/**
+ * Cómo se aparta cada capa de la cola (F-14, B17d).
+ *
+ * - `plan`: «Riesgo sin tratar» y «Control sin implantar» no se excluyen desde
+ *   el análisis de gaps; se resuelven en el plan de tratamiento (mitigar,
+ *   aceptar con su aprobación, transferir o evitar). Aceptar un riesgo tiene una
+ *   sola vía.
+ * - `obligacion`: «Obligación sin cubrir» se excluye excluyendo la obligación,
+ *   con aprobación si la política lo pide (DP-07).
+ * - `posponer`: «Evidencia caducada» solo se pospone hasta una fecha.
+ */
+export type GapLayerExclusion = 'plan' | 'obligacion' | 'posponer'
+
+export const GAP_LAYER_EXCLUSION: Record<GapLayer, GapLayerExclusion> = {
+  fmea: 'plan',
+  control: 'plan',
+  normativo: 'obligacion',
+  caducidad: 'posponer',
+}
+
+export function canExcludeGapLayer(layer: GapLayer): boolean {
+  return GAP_LAYER_EXCLUSION[layer] !== 'plan'
+}
+
+/** Texto del botón de la capa; null si no se excluye desde el análisis de gaps. */
+export function gapExclusionLabel(layer: GapLayer): string | null {
+  const modo = GAP_LAYER_EXCLUSION[layer]
+  return modo === 'obligacion' ? 'Excluir obligación' : modo === 'posponer' ? 'Posponer' : null
+}
+
+/** Error de una exclusión que la regla no admite; null si se admite. */
+export function gapExclusionError(layer: GapLayer, expiresAt: string | null | undefined): string | null {
+  const modo = GAP_LAYER_EXCLUSION[layer]
+  if (modo === 'plan') {
+    return 'Los gaps «Riesgo sin tratar» y «Control sin implantar» no se excluyen: se resuelven en el plan de tratamiento (mitigar, aceptar, transferir o evitar).'
+  }
+  if (modo === 'posponer' && !expiresAt) return 'Una evidencia caducada solo se pospone hasta una fecha: indícala.'
+  return null
+}

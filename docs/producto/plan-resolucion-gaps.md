@@ -890,6 +890,10 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   vínculo con la DPIA; B17c, propuestas de estado de las obligaciones desde las aprobaciones; B17d, exclusión de
   brechas según F-14; B17e, obligación resuelta por evidencias de los tipos exigidos, controles de la Declaración
   propuestos desde el plan y brechas de controles sin implantar.
+- **Decisiones para B17e (2026-10-27):** cada evidencia lleva el tipo del catálogo (`compliance.evidence_types`),
+  elegido al subirla, y los tipos libres actuales se traducen cuando se pueda; se propone una correspondencia
+  inicial entre las plantillas de control (CTL-001 a CTL-059) y los controles del Anexo A de la ISO 42001, para
+  revisión; la brecha de control de la Declaración sin implantar cuenta una por cada sistema vinculado al control.
 - **Depende de:** B07, B11, B12.
 - **Talla:** L.
 

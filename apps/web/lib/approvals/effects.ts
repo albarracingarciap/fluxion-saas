@@ -2,6 +2,7 @@ import 'server-only'
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
+import { excludeObligations } from '@/lib/gaps/obligation-exclusion'
 import { templateMeta } from '@/lib/documents/templates'
 import { applyRiskEvaluationApproval } from '@/lib/fmea/lifecycle'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
@@ -203,10 +204,25 @@ async function aplicarAEvidencia(params: EfectoParams): Promise<{ aviso?: string
 async function aplicarAExclusion(params: EfectoParams): Promise<{ aviso?: string }> {
   const admin = createNoCacheAdminClient()
   const consulta = admin.from('gap_dispositions')
-  const { error } = params.outcome === 'approved'
+  const { data, error } = params.outcome === 'approved'
     ? await consulta.update({ status: 'active' }).eq('id', params.objectId).eq('status', 'pending')
-    : await consulta.delete().eq('id', params.objectId).eq('status', 'pending')
+        .select('organization_id, gap_layer, gap_source_id, rationale')
+    : await consulta.delete().eq('id', params.objectId).eq('status', 'pending').select('id')
   if (error) return aviso('la exclusión del gap no se pudo actualizar', error)
+
+  // «Obligación sin cubrir»: la exclusión aprobada excluye la obligación (F-14, B17d).
+  const fila = params.outcome === 'approved'
+    ? ((data ?? [])[0] as { organization_id: string; gap_layer: string; gap_source_id: string; rationale: string } | undefined)
+    : undefined
+  if (fila?.gap_layer === 'normativo') {
+    await excludeObligations({
+      admin,
+      organizationId: fila.organization_id,
+      obligationIds: [fila.gap_source_id],
+      rationale: fila.rationale,
+      actorUserId: params.actorUserId ?? null,
+    })
+  }
   return {}
 }
 
