@@ -528,6 +528,7 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Obligación sin cubrir | `normativo` | Obligación aplicable no resuelta |
 | Riesgo sin tratar | `fmea` | Modo de fallo con severidad actual de 7 o más sin mitigación en curso ni cierre |
 | Control sin implantar | `control` | Acción de mitigación pendiente de cierre o con evidencia pendiente |
+| Control de la Declaración sin implantar | `soa` | Control del Anexo A aplicable en la [Declaración de Aplicabilidad](#declaración-de-aplicabilidad-iso-42001) que no está «Implantado» ni «Externalizado»: una brecha por cada sistema vinculado. Se resuelve en la Declaración; no se excluye. En la interfaz, «Declaración» |
 | Evidencia caducada | `caducidad` | Evidencia caducada o con caducidad próxima |
 
 ### Disposición de la brecha
