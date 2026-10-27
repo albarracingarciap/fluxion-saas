@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { computeCausalDegrees } from '@/lib/causal-graph/propagation';
 import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { composeDocument } from '@/lib/documents/compose';
+import { loadProposalFacts } from '@/lib/obligations/proposal-facts';
+import { obligationProposal, type ObligationProposal } from '@/lib/obligations/proposals';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
@@ -389,6 +391,14 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     evidenceStatusMap[ev.id] = ev.status;
   }
 
+  // Propuestas de estado de las obligaciones (B17c).
+  const proposalFacts = await loadProposalFacts(fluxion, params.id);
+  const obligationProposals: Record<string, ObligationProposal> = {};
+  for (const row of obligationRows ?? []) {
+    const p = obligationProposal((row.obligation_code as string | null) ?? null, row.status as string, proposalFacts);
+    if (p) obligationProposals[row.id as string] = p;
+  }
+
   const obligationRecords: SystemObligationEntry[] = (obligationRows ?? []).map((row) => ({
     id: row.id,
     source_framework: row.source_framework,
@@ -669,6 +679,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       evidences={evidences}
       evidenceStatusMap={evidenceStatusMap}
       obligationRecords={obligationRecords}
+      obligationProposals={obligationProposals}
       failureModes={failureModes}
       systemGraph={systemGraph}
       treatmentPlanData={treatmentPlanData}

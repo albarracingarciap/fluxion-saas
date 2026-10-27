@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history';
+import { obligationProposal } from '@/lib/obligations/proposals';
+import { loadProposalFacts } from '@/lib/obligations/proposal-facts';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
@@ -343,6 +345,58 @@ export async function excludeSystemObligation(input: {
       actor_user_id: user.id,
     },
   ]);
+
+  revalidatePath(`/inventario/${input.aiSystemId}`);
+  return { success: true };
+}
+
+/**
+ * Acepta la propuesta de estado de una obligación (B17c): se vuelve a calcular
+ * en el servidor con los hechos del sistema y, si sigue en pie, la obligación
+ * queda resuelta con el motivo en sus notas de resolución.
+ */
+export async function acceptObligationProposal(input: { aiSystemId: string; obligationId: string }) {
+  const supabase = createClient();
+  const fluxion = createFluxionClient();
+  const adminFluxion = createAdminFluxionClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
+
+  const { data: membership } = await fluxion
+    .from('profiles').select('organization_id').eq('user_id', user.id).single();
+  if (!membership) return { error: 'No se encontró organización asociada al usuario.' };
+
+  const { data: obligation } = await fluxion
+    .from('system_obligations')
+    .select('id, ai_system_id, obligation_code, status, resolution_notes')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', input.aiSystemId)
+    .eq('id', input.obligationId)
+    .maybeSingle();
+  if (!obligation) return { error: 'No se encontró la obligación.' };
+
+  const facts = await loadProposalFacts(fluxion, input.aiSystemId);
+  const proposal = obligationProposal(obligation.obligation_code, obligation.status, facts);
+  if (!proposal) return { error: 'La propuesta ya no está vigente: revisa la obligación y resuélvela a mano si procede.' };
+
+  const notas = [obligation.resolution_notes?.trim(), `Propuesta aceptada: ${proposal.reason}`].filter(Boolean).join('\n');
+  const { error } = await adminFluxion
+    .from('system_obligations')
+    .update({ status: 'resolved', resolution_notes: notas, resolved_at: new Date().toISOString(), resolved_by: user.id })
+    .eq('id', obligation.id)
+    .eq('organization_id', membership.organization_id);
+  if (error) return { error: error.message };
+
+  await insertAiSystemHistoryEvents(fluxion, [{
+    ai_system_id: input.aiSystemId,
+    organization_id: membership.organization_id,
+    event_type: 'obligation_resolved',
+    event_title: 'Obligación resuelta',
+    event_summary: `La obligación ${obligation.obligation_code} se resolvió aceptando su propuesta: ${proposal.reason}`,
+    payload: { obligation_id: obligation.id, obligation_code: obligation.obligation_code, status: 'resolved', proposal: proposal.reason },
+    actor_user_id: user.id,
+  }]);
 
   revalidatePath(`/inventario/${input.aiSystemId}`);
   return { success: true };

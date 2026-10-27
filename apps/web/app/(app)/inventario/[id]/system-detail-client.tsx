@@ -40,7 +40,8 @@ import {
 } from '@/app/(app)/evidencias/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
-import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
+import { acceptObligationProposal, acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
+import type { ObligationProposal } from '@/lib/obligations/proposals';
 import { getPendingReconciliation } from '@/app/(app)/inventario/actions/classification';
 import { classifyAIAct } from '@/lib/ai-systems/scoring';
 import { catalogCodeFromRef } from '@/lib/ai-act';
@@ -1417,6 +1418,7 @@ export function SystemDetailClient({
   evidences,
   evidenceStatusMap,
   obligationRecords,
+  obligationProposals,
   failureModes,
   systemGraph,
   treatmentPlanData,
@@ -1431,6 +1433,8 @@ export function SystemDetailClient({
   evidences: SystemEvidenceEntry[];
   evidenceStatusMap: Record<string, string>;
   obligationRecords: SystemObligationEntry[];
+  /** Propuestas de estado por id de obligación (B17c). */
+  obligationProposals: Record<string, ObligationProposal>;
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
   treatmentPlanData: TreatmentPlanData | null;
@@ -1664,6 +1668,7 @@ export function SystemDetailClient({
           ownerName: record.owner_name ?? null,
           resolvedByName: record.resolved_by_name ?? null,
           isSynthetic: false,
+          proposal: obligationProposals[record.id] ?? null,
         };
       });
     }
@@ -1700,9 +1705,20 @@ export function SystemDetailClient({
         ownerName: persisted?.owner_name ?? null,
         resolvedByName: persisted?.resolved_by_name ?? null,
         isSynthetic,
+        proposal: persisted ? obligationProposals[persisted.id] ?? null : null,
       };
     });
-  }, [obligationRecords, system, evidenceStatusMap]);
+  }, [obligationRecords, obligationProposals, system, evidenceStatusMap]);
+
+  const [acceptingProposal, setAcceptingProposal] = useState<string | null>(null);
+  const handleAcceptProposal = async (obligationId: string) => {
+    setAcceptingProposal(obligationId);
+    const res = await acceptObligationProposal({ aiSystemId: system.id, obligationId });
+    setAcceptingProposal(null);
+    if ('error' in res && res.error) { showToast(res.error); return; }
+    showToast('Obligación resuelta con la propuesta');
+    router.refresh();
+  };
 
   const hasSynthetic = useMemo(() => obligations.some((o) => o.isSynthetic), [obligations]);
 
@@ -2786,6 +2802,14 @@ export function SystemDetailClient({
                                   <div className={`w-[6px] h-[6px] rounded-full shrink-0 ${status.dot}`} />
                                   <span className={`font-sora text-[12px] font-medium ${status.color}`}>{status.label}</span>
                                 </div>
+                                {obligation.proposal && (
+                                  <span
+                                    title={obligation.proposal.reason}
+                                    className="mt-1 inline-flex items-center gap-1 px-1.5 py-px rounded-[4px] border border-grb bg-grdim font-sora text-[10.5px] text-gr"
+                                  >
+                                    Propuesta: Resuelta
+                                  </span>
+                                )}
                               </td>
                               <td className="p-3">
                                 <div className="flex items-center gap-1.5">
@@ -2819,12 +2843,27 @@ export function SystemDetailClient({
                                       </button>
                                     </>
                                   ) : obligation.status === 'excluded' ? null : (
-                                    <button
-                                      onClick={() => openObligationModal(obligation.ref)}
-                                      className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
-                                    >
-                                      {obligation.status === 'resolved' ? 'Ver' : 'Resolver →'}
-                                    </button>
+                                    <>
+                                      {obligation.proposal && obligation.id && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAcceptProposal(obligation.id as string);
+                                          }}
+                                          disabled={acceptingProposal === obligation.id}
+                                          title={obligation.proposal.reason}
+                                          className="px-2 py-1 rounded-[5px] font-sora text-[10px] font-semibold text-gr border border-grb hover:bg-grdim transition-all disabled:opacity-50"
+                                        >
+                                          Aceptar propuesta
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => openObligationModal(obligation.ref)}
+                                        className="px-3 py-1.5 rounded-[6px] font-sora text-[11px] font-medium text-lttm border border-transparent group-hover:border-ltb group-hover:bg-ltcard2 transition-all"
+                                      >
+                                        {obligation.status === 'resolved' ? 'Ver' : 'Resolver →'}
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </td>
