@@ -141,6 +141,14 @@ async function aplicarADocumento(params: EfectoParams): Promise<{ aviso?: string
       payload: { document_id: d.id, template_key: d.template_key, approval_request_id: params.requestId },
     }])
   }
+
+  // La AISIA aprobada satisface A.5.2-A.5.5 de la Declaración (B15), como la del asistente.
+  if (aprobado && d.template_key === 'aisia') {
+    const sync = await syncAisiaSoaControls(admin, d.organization_id)
+    if (sync.deferred) {
+      return { aviso: 'La Declaración de Aplicabilidad no está en borrador: los controles A.5.2 a A.5.5 se actualizarán al iniciar su próxima revisión.' }
+    }
+  }
   return {}
 }
 

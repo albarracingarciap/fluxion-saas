@@ -30,6 +30,7 @@ fuente:
   - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
   - supabase/migrations/20261027100000_fmea_plan_parcial.sql
   - supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql
+  - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -336,7 +337,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`; `organization_id` nulo significa plantilla de Fluxion | `20260819200000` |
+| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15a, inactiva hasta B15b); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
 | `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |
 | `fluxion.system_report_snapshots` | [Instantánea](../glosario.md#instantánea) de [informes del sistema](../glosario.md#informes-del-sistema) | `report_type`, `payload jsonb` | `00000000000001` |

@@ -69,6 +69,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B14b · Plan parcial sobre los modos críticos (DP-08) | Integrado en `main` | `fase3/b14b-plan-parcial` | 2026-10-27 | **Sí** · `20261027100000_fmea_plan_parcial.sql` |
 | Glosario tras B14 | Integrado en `main` | `docs/glosario-b14` | 2026-10-27 | No |
 | B14c · Fecha de la segunda ronda (TODO 282) | Integrado en `main` | `fase3/b14c-segunda-ronda` | 2026-10-27 | **Sí** · `20261027110000_fmea_segunda_ronda_fecha.sql` |
+| B15a · Plantilla AISIA en el expediente (inactiva) | Integrado en `main` | `fase3/b15a-plantilla-aisia` | 2026-10-27 | **Sí** · `20261027120000_expediente_plantilla_aisia.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1764,4 +1765,34 @@ Sigue abierto el TODO 282 (fecha de la segunda ronda).
 
 **Documentación.** `funcional/fmea-evaluacion.md`, `negocio/analisis-modos-de-fallo.md`, `tecnica/modelo-datos.md`,
 `glosario.md` (Segunda ronda, a petición del responsable). TODO 282 resuelto.
+
+---
+
+## B15a · Plantilla AISIA en el expediente (inactiva)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b15a-plantilla-aisia` ·
+**Migración:** **sí**, `supabase/migrations/20261027120000_expediente_plantilla_aisia.sql`
+
+**Problema** (F-09, DP-04, DP-05): la AISIA tiene su propio asistente, que vuelve a pedir datos de la ficha y hace
+seleccionar a mano los modos de fallo y el plan, mientras el expediente ya resuelve ese tipo de documento (apartados
+derivados, redacción, huecos, aprobación, PDF y evidencia).
+
+**Cambios** (primera parte de B15; nada visible todavía):
+
+| Área | Cambio |
+|---|---|
+| Plantilla (migración) | `aisia` v1, S1 a S6, **inactiva**. S1.a, S2.a y S5.a de la ficha (`derived:system`); S3.a y S4.a de la evaluación vigente y su plan (`derived:fmea`); el resto, redacción. Clave admitida en `document_templates_key_check`; `chk_documents_system_scope` exige sistema |
+| Derivación (`lib/documents/derive-aisia.ts`, nuevo) | S3.a cita los modos evaluados con severidad actual 7 o más y el plan parcial; S4.a, el plan y sus acciones por opción. Módulo puro con tests; `compose.ts` carga los modos y las acciones solo para esta plantilla |
+| Aprobación | Política por defecto «Expediente · AISIA (DP-01)»: Comité de IA, consulta al DPO, Responsable del SGAI si no hay comité. Cada organización recibe una copia, con sus pasos, de sus políticas activas de AISIA |
+| Declaración | Aprobar una AISIA del expediente actualiza A.5.2 a A.5.5 (`syncAisiaSoaControls` cuenta también los documentos aprobados); la insignia por sistema y **Analizar AISIA** leen también los documentos |
+| Código | `TEMPLATE_KEYS` y `TEMPLATE_META` incluyen `aisia`; Ajustes la ofrece en las políticas de documentos |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; copia de las políticas con sus pasos y
+semilla para una organización nueva). `npm test` 113/113 (seis tests nuevos), `tsc --noEmit`, `next lint` y
+`check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Pendiente:** B15b (migración de las AISIA existentes, activar la plantilla y retirar el asistente) y B15c (borrar las
+tablas `aisia_*` tras validar).
 
