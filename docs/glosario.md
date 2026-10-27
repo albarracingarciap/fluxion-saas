@@ -12,6 +12,8 @@ fuente:
   - supabase/migrations/20260818170000_incidents_core.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - apps/web/lib/fmea/domain.ts
+  - apps/web/lib/fmea/families.ts
+  - apps/web/lib/failure-modes/activation-engine.ts
   - apps/web/lib/fmea/treatment-plan.ts
   - apps/web/lib/gaps/data.ts
   - apps/web/lib/types/auth.ts
@@ -239,9 +241,16 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `compliance.failure_modes.origin`; `compliance.failure_mode_norm_refs`.
 
 ### Familia causal
-- **Definición:** cadena típica de causas y efectos que agrupa modos de fallo relacionados. Hay ocho, de la A a la H. Por ejemplo, la A es «Drift y calidad de datos → sesgo → discriminación».
+- **Definición:** cadena típica de causas y efectos que agrupa modos de fallo relacionados en el [grafo causal](#grafo-causal). Hay ocho, de la A a la H. Por ejemplo, la A es «Drift y calidad de datos → sesgo → discriminación».
+- **No confundir** con la [familia de activación](#familia-de-activación), que es la que usa la estimación por familia.
 - **No usar:** «cluster», «grupo de riesgos».
 - **En el código:** `compliance.causal_families`.
+
+### Familia de activación
+- **Definición:** grupo de modos de fallo que el motor de activación activa por una misma característica del sistema, por ejemplo «IA generativa y contenido sintético» o «Decisión o impacto sobre personas». El motor define veinte, y cada sistema activa las que le aplican (diez en el sistema de prueba medido en `producto/circuito.md`). Un modo puede estar en varias. Es la familia de la [estimación por familia](#estimación-por-familia).
+- **No confundir** con la [familia causal](#familia-causal) (A-H, grafo causal).
+- **No usar:** «familia causal» para este concepto, «cluster».
+- **En el código:** `FAILURE_MODE_ACTIVATION_FAMILIES` en `lib/failure-modes/activation-engine.ts`; `system_failure_modes.activation_family_ids`, `activation_family_labels`; vista `fluxion.v_fmea_item_families`.
 
 ### Relación causal
 - **Definición:** vínculo entre dos nodos del grafo causal que indica que uno causa, amplifica, habilita o se correlaciona con otro.
@@ -338,9 +347,29 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **En el código:** `fmea_items.second_review_status`; `requiresSecondReview` en `lib/fmea/domain.ts`.
 
 ### Estimación por familia
-- **Definición:** forma de evaluar la ocurrencia y la detectabilidad real de todos los modos de fallo de una familia causal a la vez, con una justificación común de al menos 50 caracteres.
+- **Definición:** forma de evaluar la ocurrencia y la detectabilidad real de todos los modos de fallo de una [familia de activación](#familia-de-activación) a la vez, con una justificación común de al menos 50 caracteres. Es la forma de evaluar por defecto del análisis de modos de fallo: las familias se ordenan por criticidad y los modos solo se tocan como excepción ([ajuste manual](#ajuste-manual)). Si un modo está en varias familias estimadas, toma la ocurrencia y la detectabilidad más altas. Cada cambio queda en el historial del modo.
 - **No usar:** «evaluación masiva».
-- **En el código:** `fluxion.fmea_family_estimates`; `fmea_items.estimate_source` ∈ `family`, `manual`.
+- **En el código:** `fluxion.fmea_family_estimates`; `fmea_items.estimate_source` ∈ `family`, `manual`, y `estimate_families`; `lib/fmea/families.ts`; eventos `family_estimated`, `family_withdrawn` y `family_exception` de `fluxion.fmea_item_history`.
+
+### Ajuste manual
+- **Definición:** valoración de un modo de fallo hecha uno a uno (confirmar, posponer o cambiar sus valores en la lista), que prevalece sobre la estimación por familia: aplicar o retirar la estimación de su familia ya no lo modifica. **Volver a la estimación de familia** deshace el ajuste y **Restablecer a pendiente** lo borra.
+- **No usar:** «override», «excepción manual».
+- **En el código:** `fmea_items.estimate_source = 'manual'`; `draftMakesManual` en `lib/fmea/families.ts`.
+
+### Severidad de referencia
+- **Definición:** severidad con la que se ordena y se cuenta un modo de fallo durante el análisis: la [severidad actual](#severidad-actual-s_actual) si está confirmado y la [severidad por defecto](#severidad-por-defecto-s_default) si no. La usan el resumen al entrar («M con severidad 8 o más»), el orden por criticidad y el filtro **S ≥ 8**.
+- **No usar:** «severidad efectiva», «criticidad» como valor numérico.
+- **En el código:** `referenceSeverity` en `lib/fmea/families.ts`.
+
+### Plan parcial
+- **Definición:** envío a aprobación de un análisis de modos de fallo con los modos críticos (severidad por defecto o actual de 8 o más) y todos los de sus familias de activación evaluados, dejando el resto para la [segunda ronda](#segunda-ronda). Para no infravalorar el riesgo, la zona del envío cuenta los modos diferidos con su severidad por defecto. Sin modos críticos no aplica. Decisión DP-08.
+- **No usar:** «evaluación incompleta», «envío provisional».
+- **En el código:** `partialSubmission` y `withDeferredAtDefault` en `lib/fmea/families.ts`; `fmea_evaluations.deferred_items_count` (0 = envío completo).
+
+### Segunda ronda
+- **Definición:** evaluación de los modos de fallo que quedaron sin evaluar en un plan parcial. Se hace en la versión siguiente del análisis, que copia los modos evaluados y deja pendientes los diferidos.
+- **No usar:** «segunda revisión» (es otra cosa: ver [segunda revisión](#segunda-revisión)).
+- **En el código:** `fmea_evaluations.deferred_items_count`; **Nueva versión** (`startFmeaReevaluationAction`).
 
 ### Riesgo de negocio
 - **Definición:** riesgo que afecta a la viabilidad o al retorno de un sistema de IA y que no se evalúa en el análisis de modos de fallo, porque no comparte su escala. Se valora con probabilidad e impacto de 1 a 5; su producto es la exposición.

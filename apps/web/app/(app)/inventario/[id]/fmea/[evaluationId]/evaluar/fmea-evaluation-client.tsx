@@ -1722,12 +1722,12 @@ export function FmeaEvaluationClient({ data, causalGraph }: { data: FmeaEvaluati
 
             {/* Fila propia: los nombres de familia son largos y mezclarlos con
                 las dimensiones convertia la barra en un muro. Y son dos cortes
-                distintos del mismo conjunto — dimension y familia causal—, asi
+                distintos del mismo conjunto — dimension y familia de activacion—, asi
                 que separarlos tambien es mas honesto. */}
             {familias.length > 0 && (
               <div className="px-5 py-3 border-b border-ltb">
                 <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-2">
-                  Por familia causal
+                  Por familia
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {familias.map((f) => (
