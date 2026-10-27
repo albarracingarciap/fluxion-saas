@@ -73,8 +73,7 @@ activa para su tipo:
 | Objeto | Se abre al | Pantalla del objeto mientras está pendiente |
 |---|---|---|
 | Plan de tratamiento | Enviarlo a aprobación | El panel de aprobación remite a Aprobaciones |
-| Evaluación AISIA | Enviarla para aprobación (exige política; contexto `prepared_by`: quien la creó y quien la envía, B11g) | La ficha muestra «La decisión se toma en Aprobaciones». Sin botones de aprobar ni rechazar desde B11g |
-| Expediente documental | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política depende de la plantilla, `template_key`; el contexto lleva `prepared_by`, B11f) | «La aprobación se decide en Aprobaciones…» (no hay botón de aprobar desde B11f). **Volver a borrador** cancela la solicitud |
+| Expediente documental, incluida la [AISIA](aisia.md) (B15) | Enviarlo a revisión (sin apartados obligatorios sin cubrir; la política depende de la plantilla, `template_key`; el contexto lleva `prepared_by`, B11f) | «La aprobación se decide en Aprobaciones…» (no hay botón de aprobar desde B11f). **Volver a borrador** cancela la solicitud |
 | Declaración de Aplicabilidad | Enviarla a revisión (exige política y todos los controles aplicables justificados) | **En Aprobaciones**; sin **Aprobar SoA** desde B11g. **Iniciar nueva revisión** cancela la solicitud |
 | Evidencia | Enviarla a revisión (también en bloque; exige política; contexto `prepared_by`: quien la aporta). Las que el sistema crea pendientes de revisión (PDF de un expediente sin aprobar, informes generados) abren su solicitud solas (`openEvidenceReview`); sin política quedan en borrador | «Se decide en Aprobaciones»; sin **Aprobar** ni **Rechazar** desde B11g. Si se cambia su contenido o su fichero, vuelve a borrador y la solicitud se cancela |
 | Exclusión de gap (B11d) | Excluir una brecha (también en bloque) cuya capa gobierna una política; por defecto, «Riesgo sin tratar» y «Obligación sin cubrir» (DP-07). El contexto lleva `gap_layer` y el título de la brecha | La brecha sigue en la cola con **Exclusión pendiente de aprobación**, y en [Brechas excluidas](brechas-excluidas.md) en **Pendientes de aprobación**. **Retirar exclusión** cancela la solicitud |
@@ -83,8 +82,8 @@ activa para su tipo:
 de aprobaciones de DP-01 (ver [Ajustes](ajustes.md), pestaña Aprobaciones), y cada tipo conserva siempre al
 menos una activa. El plan de tratamiento ya no tiene vía propia (B11e): sin política para su nivel no se
 puede enviar, y Ajustes no deja guardar, desactivar ni borrar una política si algún nivel del plan se queda
-sin cubrir. Lo mismo con las plantillas del expediente (B11f). La AISIA, la Declaración y las evidencias
-tampoco tienen vía propia (B11g): su tipo conserva siempre una política activa sin condiciones, su envío la
+sin cubrir. Lo mismo con las plantillas del expediente (B11f), también la AISIA desde B15. La Declaración y las
+evidencias tampoco tienen vía propia (B11g): su tipo conserva siempre una política activa sin condiciones, su envío la
 exige y la base de datos no deja aprobarlas desde la sesión de un usuario. Ningún objeto se aprueba fuera
 del circuito.
 
@@ -135,10 +134,10 @@ Zona I.
 
 | Elemento | Descripción | Origen |
 |---|---|---|
-| Título | Objeto de la solicitud: nombre del sistema (plan), título (AISIA, expediente, evidencia) o «Declaración de Aplicabilidad ISO/IEC 42001» | `v_approval_requests.object_label` |
+| Título | Objeto de la solicitud: nombre del sistema (plan), título (expediente, evidencia) o «Declaración de Aplicabilidad ISO/IEC 42001». Las solicitudes antiguas de la AISIA del asistente conservan su título (`context.legacy_label`, B15c) | `v_approval_requests.object_label` |
 | **Ver {objeto} →** | Abre la pantalla del objeto para revisarlo antes de decidir | `object_href` |
 | Título (exclusión de gap) | «Exclusión de gap · {título del gap}», guardado en el contexto: se conserva aunque la exclusión se borre al rechazarse | `context.gap_title` |
-| Tipo | Plan de tratamiento · Evaluación AISIA · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de gap | `object_type` |
+| Tipo | Plan de tratamiento · Documento regulatorio · Declaración de Aplicabilidad · Evidencia · Exclusión de gap; en solicitudes antiguas, «Evaluación AISIA (asistente retirado)» | `object_type` |
 | Estado (cerradas) | Aprobada · Rechazada · Cancelada | `status` |
 | Datos | «{política} · Paso N de M [(consulta)] · {votos} de {quórum} votos (en comités) · Solicitada por {persona} el {fecha}» | `policy_snapshot`, `current_position`, `current_step.kind` |
 | Motivo | Por qué le toca decidir: «Te corresponde por tu rol», «Estás designado en la política», «Eres miembro del comité» o «Por delegación» | `approval_can_decide` |
@@ -170,8 +169,7 @@ Zona I.
    | Objeto | Aprobada | Rechazada |
    |---|---|---|
    | Plan de tratamiento | Aprobado; la evaluación de riesgos queda aprobada (B07) | Vuelve a borrador con la nota «[DEVUELTO] {motivo}» |
-   | Evaluación AISIA | Aprobada, con quien decidió y la referencia `APR-…`; actualiza los controles A.5.2-A.5.5 si la Declaración está en borrador | Rechazada, con el motivo |
-   | Expediente documental | Aprobado, con quien decidió | Vuelve a borrador |
+   | Expediente documental | Aprobado, con quien decidió; si es la AISIA, actualiza los controles A.5.2-A.5.5 si la Declaración está en borrador | Vuelve a borrador |
    | Declaración de Aplicabilidad | Aprobada, con quien decidió | Vuelve a borrador |
    | Evidencia | Válida, con quien decidió | Rechazada, con el motivo |
    | Exclusión de gap | La exclusión pasa a activa: la brecha sale de la cola | La exclusión se borra: la brecha sigue en la cola |

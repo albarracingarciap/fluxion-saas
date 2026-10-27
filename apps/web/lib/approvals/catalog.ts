@@ -12,7 +12,6 @@
 
 export const APPROVAL_OBJECT_TYPES = [
   { key: 'treatment_plan',   label: 'Plan de tratamiento' },
-  { key: 'aisia_assessment', label: 'Evaluación AISIA' },
   { key: 'document',         label: 'Documento regulatorio' },
   { key: 'soa',              label: 'Declaración de Aplicabilidad' },
   { key: 'evidence',         label: 'Evidencia' },
@@ -20,6 +19,20 @@ export const APPROVAL_OBJECT_TYPES = [
 ] as const
 
 export type ApprovalObjectType = (typeof APPROVAL_OBJECT_TYPES)[number]['key']
+
+/**
+ * Tipos retirados que aún aparecen en solicitudes y delegaciones antiguas. La
+ * AISIA del asistente (`aisia_assessment`) se retiró en B15c: desde B15b es un
+ * documento del expediente.
+ */
+const LEGACY_APPROVAL_OBJECT_LABELS: Record<string, string> = {
+  aisia_assessment: 'Evaluación AISIA (asistente retirado)',
+}
+
+/** Nombre de un tipo de objeto, también de los retirados. */
+export function approvalObjectTypeLabel(key: string): string {
+  return APPROVAL_OBJECT_TYPES.find((t) => t.key === key)?.label ?? LEGACY_APPROVAL_OBJECT_LABELS[key] ?? key
+}
 
 export type ApprovalStepRow = {
   id?:               string

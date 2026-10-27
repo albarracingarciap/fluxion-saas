@@ -11,8 +11,8 @@ import 'server-only';
  * (`transitionSoAStatus('draft')`).
  *
  * Desde B15 la AISIA es una plantilla del expediente (`documents.template_key =
- * 'aisia'`): cuenta un documento aprobado (o aprobado y después sustituido por
- * una versión nueva) igual que una evaluación AISIA aprobada del asistente.
+ * 'aisia'`): cuenta un documento aprobado, o aprobado y después sustituido por
+ * una versión nueva.
  */
 
 const AISIA_SATISFIES_SOA = ['A.5.2', 'A.5.3', 'A.5.4', 'A.5.5'] as const;
@@ -63,13 +63,6 @@ export async function syncAisiaSoaControls(
 
     const linkedSystemIds = (links as Array<{ ai_system_id: string }>).map((l) => l.ai_system_id);
 
-    const { data: approvedRows } = await fluxion
-      .from('aisia_assessments')
-      .select('ai_system_id')
-      .eq('organization_id', organizationId)
-      .eq('status', 'approved')
-      .in('ai_system_id', linkedSystemIds);
-
     const { data: approvedDocs } = await fluxion
       .from('documents')
       .select('ai_system_id')
@@ -80,7 +73,7 @@ export async function syncAisiaSoaControls(
       .in('ai_system_id', linkedSystemIds);
 
     const approvedSet = new Set(
-      ([...(approvedRows ?? []), ...(approvedDocs ?? [])] as Array<{ ai_system_id: string }>).map((r) => r.ai_system_id)
+      ((approvedDocs ?? []) as Array<{ ai_system_id: string }>).map((r) => r.ai_system_id)
     );
     if (!linkedSystemIds.every((id) => approvedSet.has(id))) continue;
 

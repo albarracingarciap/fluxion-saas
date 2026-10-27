@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.5** | **2026-10-26** | **Revisado** por Pedro Albarracín | Catálogos `/datos/*`: solo la administración de la plataforma (`platform_admin`) los modifica; §7.2 resuelto y decisión 39 corregida. Ver §2.6, §7 y §14.1 |
+| **1.6** | **2026-10-27** | **Revisado** por Pedro Albarracín | AISIA como plantilla del expediente (B15, DP-04 y DP-05): el asistente y las tablas `aisia_*` se retiran; la ruta antigua redirige al expediente. Ver §2, §4, §10.2, §11.3 y §12 |
+| 1.5 | 2026-10-26 | Revisado por Pedro Albarracín | Catálogos `/datos/*`: solo la administración de la plataforma (`platform_admin`) los modifica; §7.2 resuelto y decisión 39 corregida. Ver §2.6, §7 y §14.1 |
 | 1.4 | 2026-10-14 | Revisado por Pedro Albarracín | Modelo del catálogo de tablas básicas: catálogo estándar de Fluxion, copia por organización y actualizaciones ofrecidas al `org_admin`. Ver §14.1 |
 | 1.3 | 2026-10-13 | Revisado por Pedro Albarracín | Catálogo de tablas básicas mantenido por el `org_admin` de cada cliente; Flujos de aprobación pasa al Core (corrige v1.2); niveles de aprobación pendientes de definir. Ver §14 |
 | 1.2 | 2026-10-13 | Revisado por Pedro Albarracín | Respuestas a las preguntas abiertas de §11.5 y §8: 72-73, catálogo `/datos`, flujo de aprobación básico, seguridad aplazada, audiencias, servicios desplegados, modelos LLM. Ver §13 |
@@ -113,8 +114,8 @@ Columna Control:
 | `/inventario/[id]/editar` | Edición del sistema | AUTH, MW |
 | `/inventario/[id]/clasificacion` | Clasificación AI Act con el motor de reglas (ruta «heredada») | MW · [!] huérfana |
 | `/inventario/[id]/riesgos-negocio` | Registro de riesgos de negocio | MW |
-| `/inventario/[id]/aisia/[assessmentId]` | AISIA (ISO 42001), secciones S1 a S6 | AUTH |
-| `/inventario/[id]/expediente/[key]` | Documento regulatorio: `annex_iv`, `fria`, `dpia`, `model_card` | MW |
+| `/inventario/[id]/aisia/[assessmentId]` | v1.6: redirección a `expediente/aisia` (el asistente de la AISIA se retiró en B15) | AUTH |
+| `/inventario/[id]/expediente/[key]` | Documento regulatorio: `annex_iv`, `fria`, `dpia`, `model_card` y, desde v1.6, `aisia` | MW |
 | `/inventario/[id]/anexo-iv` | Redirección antigua a `expediente/annex_iv` | — |
 | `/inventario/[id]/technical-dossier` (+ `snapshots/[id]`) | Dossier técnico y sus versiones | AUTH, MW |
 | `/inventario/[id]/eu-registry` (+ `snapshots/[id]`) | Ficha para el registro UE (Art. 71) | AUTH, MW |
@@ -222,7 +223,7 @@ El inventario de abril (`recursos/docs/db_inventory_2026-04-28.md`) está parcia
 | Gaps | `gaps` (parece muerta), `gap_dispositions`, `task_gap_links`. Las brechas se calculan en `apps/web/lib/gaps/data.ts` |
 | Evidencias | `system_evidences`, `system_evidence_versions`, `system_obligation_evidences`, `system_failure_mode_evidences`, `evidence_expiry_alerts`, `evidences` (segundo modelo) |
 | SoA ISO 42001 | `organization_soa_controls`, `organization_soa_metadata`, `organization_soa_system_links`, `soa_controls_log`, `soa_lifecycle_log`. El catálogo de controles está en `apps/web/lib/templates/iso42001-catalog.ts` |
-| AISIA | `aisia_assessments`, `aisia_sections`, `aisia_ai_generations` |
+| AISIA | v1.6: documento del expediente (`documents.template_key = 'aisia'`). Las tablas del asistente (`aisia_assessments`, `aisia_sections`, `aisia_ai_generations`) se retiraron en B15c |
 | Riesgos de negocio | `business_risk_assessments` (exposición calculada como probabilidad × impacto) |
 | Tareas | `tasks` (origen polimórfico), `task_comments`, `task_attachments`, `task_checklist_items`, `task_watchers`, `task_activity_log`, `task_templates`, `task_saved_views`, `task_recurrences`, `task_recurrence_runs` |
 | Notificaciones y canales | `notifications`, `notification_channels` (Slack o Teams; la URL va en Vault), `channel_deliveries` |
@@ -246,7 +247,7 @@ El inventario de abril (`recursos/docs/db_inventory_2026-04-28.md`) está parcia
 - `evaluation_state`: draft, in_review, approved, superseded
 - `approval_level`: level_1, level_2, level_3
 - `task_status`: todo, in_progress, blocked, in_review, done, cancelled
-- `approval_object_type`: treatment_plan, aisia_assessment, document, soa, evidence
+- `approval_object_type`: treatment_plan, aisia_assessment, document, soa, evidence (v1.6: `aisia_assessment` en desuso, solo en solicitudes y delegaciones antiguas; la AISIA se aprueba como `document`)
 - `incident_status`: open, investigating, contained, closed
 
 Hay muchos estados guardados como `text` con CHECK en vez de enum.
@@ -266,7 +267,7 @@ Hay muchos estados guardados como `text` con CHECK en vez de enum.
 - [!] `rag.search_chunks` es `SECURITY DEFINER` y acepta el `org_id` que le pase quien la llama.
 - [!] La dimensión de los embeddings no coincide: 1024 en `rag.chunks` y 1536 en `rag.organization_chunks`. El corpus por tenant no se usa en el código.
 - [!] Hay dos modelos de evidencia: `evidences`, usada por las acciones de tratamiento, y `system_evidences`, que usa todo lo demás.
-- [!] Tablas sin uso aparente en el código: `gaps`, `evidence_controls`, `causal_graph_instances`, `reevaluation_triggers`, `committee_sessions`, `aisia_ai_generations`, `rag.ingestion_jobs`, `rag.organization_*` y las tablas `*_legacy_20260417`.
+- [!] Tablas sin uso aparente en el código: `gaps`, `evidence_controls`, `causal_graph_instances`, `reevaluation_triggers`, `committee_sessions`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*` y las tablas `*_legacy_20260417`.
 - [!] Hay FKs polimórficas o ausentes (`tasks.source_id`, `approval_requests.object_id`, `business_risk_assessments.failure_mode_id`, etc.). Las referencias a usuarios mezclan `auth.users` y `profiles`.
 - [!] `webhooks.secret` se guarda en claro, mientras que los canales usan Vault.
 - [!] `expire_invitations()` existe pero ningún cron la invoca.
@@ -406,7 +407,7 @@ La autorización real está escrita a mano en cada sitio:
 | SoA: enviar y aprobar | `ROLES_CAN_SUBMIT` y `ROLES_CAN_APPROVE` (`plantillas/soa-iso42001/actions.ts`) |
 | Descubrimientos | `RESOLVER_ROLES` |
 | **Editar plan de tratamiento y segunda revisión FMEA** | `['admin','editor','dpo','technical']`. [!] Tres de esos cuatro roles no existen, así que **en la práctica solo `dpo`** |
-| AISIA, clasificación, edición de sistema, evidencias, presupuestos, tarifas, tareas, catálogos `/datos` (v1.5: `/datos` ya comprueba `platform_admin` al escribir) | Sin comprobación de rol en el código. [?] No he verificado si RLS lo cubre en todos los casos |
+| AISIA, clasificación, edición de sistema, evidencias, presupuestos, tarifas, tareas, catálogos `/datos` (v1.5: `/datos` ya comprueba `platform_admin` al escribir; v1.6: la AISIA es un documento del expediente y sigue sus reglas) | Sin comprobación de rol en el código. [?] No he verificado si RLS lo cubre en todos los casos |
 
 Otros problemas con los roles:
 - [!] **Etiqueta del sidebar:** `getRoleLabel` (`app/(app)/layout.tsx:13`) espera `admin`, `editor` y `viewer`, así que casi todos los roles se muestran como «Miembro».
@@ -582,7 +583,7 @@ Salen del Core: AISIA, Riesgos de negocio y Cuestionario preliminar (pasan a «E
 | ~~Flujos de aprobación~~ → **pasa al Core** (v1.3). Absorbe la aprobación del plan de tratamiento | `approvals` + aprobación propia del plan | 27 · integración; v1.3 · Core | Dos mecanismos separados; hoy es módulo opcional |
 | **Documentación del sistema** (Anexo IV, FRIA, DPIA, Model card) | `doc-engine` | 28 · separación | Implementado (redacción humana + PDF) |
 | **Actas y paquetes de auditoría** | `doc-engine` (`approval_minutes`, «paquetes de auditoría») | 28 · separación | Plantilla de actas sí; paquetes no |
-| **Evaluación de impacto**: AISIA, Riesgos de negocio, Cuestionario preliminar | Core | 29 · sale del Core | Implementado |
+| **Evaluación de impacto**: AISIA, Riesgos de negocio, Cuestionario preliminar | Core | 29 · sale del Core | Implementado. v1.6: la AISIA queda en el Core (DP-04) y se redacta como plantilla del expediente (DP-05, B15) |
 | Linaje de datos y modelos, AI Gateway | `lineage`, `ai-gateway` | Sin cambios | No existen. Se documentan como próximas funcionalidades (52) |
 
 ### 10.3 Unificaciones de datos
@@ -604,11 +605,11 @@ Salen del Core: AISIA, Riesgos de negocio y Cuestionario preliminar (pasan a «E
 > - `hasModule`/`requireModule` son código muerto hoy, pero el gating por módulo es necesario para la estructura de §10. Se registran como «muerto hoy, a implementar».
 
 ### 11.3 Base de datos sin uso o legacy (44-49)
-- **Tablas:** `fluxion.gaps`, `compliance.frameworks`, `compliance.requirements`, `compliance.requirement_control_mappings`, `compliance.failure_mode_causal_relations`, `evidence_controls`, `causal_graph_instances`, `reevaluation_triggers`, `committee_sessions`, `aisia_ai_generations`, `rag.ingestion_jobs`, `rag.organization_*`, `treatment_plans_legacy_20260417` y `treatment_actions_legacy_20260417`.
+- **Tablas:** `fluxion.gaps`, `compliance.frameworks`, `compliance.requirements`, `compliance.requirement_control_mappings`, `compliance.failure_mode_causal_relations`, `evidence_controls`, `causal_graph_instances`, `reevaluation_triggers`, `committee_sessions`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*`, `treatment_plans_legacy_20260417` y `treatment_actions_legacy_20260417`.
 - **Columnas:** `ai_systems.iso_42001_score` / `iso_42001_checks` (y la pestaña «ISO 42001» de la ficha) y `ai_systems.aiact_obligations`.
 - **Tipos y funciones:** el enum `treatment_action_type` y `fluxion.current_organization_id()`.
 
-> **Nota:** varias de estas tablas son la base de funcionalidades que la decisión 58-64 manda implementar: `committee_sessions` (62), `reevaluation_triggers` (63), `aisia_ai_generations` (61) y `rag.organization_*` (64). Hoy no tienen uso, pero se podrían reutilizar.
+> **Nota:** varias de estas tablas son la base de funcionalidades que la decisión 58-64 manda implementar: `committee_sessions` (62), `reevaluation_triggers` (63), `aisia_ai_generations` (61; v1.6: retirada en B15c, ver §12) y `rag.organization_*` (64). Hoy no tienen uso, pero se podrían reutilizar.
 
 ### 11.4 Herramientas internas, próximas funcionalidades y docs a actualizar
 - **Herramientas internas, se documentan como tales (50):** `apps/web/scripts/*` (`apply-metadata`, `check-evidences`, `check-soa-db`, `inspect-profiles`, `seed_causal_relations`, `seed_failure_modes`, `test-soa-insert`).
@@ -644,7 +645,7 @@ Se documentan como «pendiente de implementar». No se describen como existentes
 | 58 | Facturación y paso de módulos a `enabled` | `billing:manage`, `organizations.plan` |
 | 59 | Agente 2: revisión IA de la priorización de modos de fallo | `priority_source = 'agent'` |
 | 60 | Agente 3 · Generador de documentos | Plantillas, renderer, idioma y pie de página en Organización |
-| 61 | Generación IA en AISIA | `aisia_ai_generations` |
+| 61 | Generación IA en AISIA | v1.6: apartados redactados de la plantilla `aisia` del expediente; la tabla `aisia_ai_generations`, que nunca se usó, se retiró en B15c |
 | 62 | Sesiones de comité y actas | `committee_sessions`, plantilla `approval_minutes` |
 | 63 | Disparadores de reevaluación del FMEA | `reevaluation_triggers` |
 | 64 | RAG por organización (documentos propios del cliente) | `rag.organization_*` (vector 1536, a alinear con 1024) |

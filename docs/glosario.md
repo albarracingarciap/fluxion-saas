@@ -548,15 +548,17 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Normativa:** ISO/IEC 42001, §6.1.3.d y Anexo A.
 
 ### Evaluación de impacto del sistema de IA (AISIA)
-- **Definición:** evaluación de las consecuencias de un sistema de IA sobre personas, grupos y sociedad. Tiene seis secciones:
+- **Definición:** evaluación de las consecuencias de un sistema de IA sobre personas, grupos y sociedad. Es una plantilla del [expediente documental](#expediente-documental), con su ciclo (borrador, en revisión, aprobado, sustituido), su aprobación, su PDF y su evidencia. Tiene seis secciones:
   - S1: Descripción del sistema.
-  - S2: Datos e información.
-  - S3: Modos de fallo identificados.
-  - S4: Acciones de tratamiento.
-  - S5: Impacto en personas.
+  - S2: Datos.
+  - S3: Riesgos.
+  - S4: Tratamiento.
+  - S5: Impacto en las personas.
   - S6: Impacto social.
+
+  S1 y S2 salen de la ficha del sistema; S3 y S4, de la evaluación de riesgos vigente y de su plan; S5 parte de lo que la ficha dice sobre las personas afectadas. El resto se redacta. Una AISIA aprobada satisface los controles A.5.2 a A.5.5 de la Declaración de Aplicabilidad.
 - **No usar:** «AISIA» sin el nombre largo la primera vez, «evaluación de impacto» a secas (se confunde con la FRIA y la DPIA).
-- **En el código:** `fluxion.aisia_assessments` (`status` ∈ `draft`, `submitted`, `approved`, `rejected`); `fluxion.aisia_sections`.
+- **En el código:** `fluxion.documents` con `template_key = 'aisia'`; `lib/documents/derive-aisia.ts`. Las tablas del asistente anterior (`aisia_assessments`, `aisia_sections`) se retiraron en B15c; el tipo de aprobación `aisia_assessment` queda solo en solicitudes antiguas.
 - **Normativa:** ISO/IEC 42001, §6.1.4.
 
 ### Evaluación de impacto

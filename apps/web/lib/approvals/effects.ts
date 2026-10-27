@@ -34,8 +34,6 @@ export async function applyApprovalOutcome(params: {
   switch (params.objectType) {
     case 'treatment_plan':
       return aplicarAPlan(params)
-    case 'aisia_assessment':
-      return aplicarAAisia(params)
     case 'document':
       return aplicarADocumento(params)
     case 'soa':
@@ -64,47 +62,6 @@ const refActa = (requestId: string) => `APR-${requestId.slice(0, 8)}`
 function aviso(que: string, error: { message: string }) {
   console.error(`[approvals/effects] ${que}:`, error)
   return { aviso: `La decisión quedó registrada, pero ${que}: ${error.message}` }
-}
-
-// ── AISIA (B11a) ─────────────────────────────────────────────────────────────
-
-async function aplicarAAisia(params: EfectoParams): Promise<{ aviso?: string }> {
-  const admin = createNoCacheAdminClient()
-  const { data: a } = await admin
-    .from('aisia_assessments')
-    .select('id, organization_id, ai_system_id, version, status')
-    .eq('id', params.objectId)
-    .maybeSingle()
-  if (!a) return { aviso: 'La decisión quedó registrada, pero la AISIA ya no existe.' }
-
-  const now = new Date().toISOString()
-  const aprobada = params.outcome === 'approved'
-
-  const { error } = await admin
-    .from('aisia_assessments')
-    .update(aprobada
-      ? { status: 'approved', approved_by: params.actorProfileId ?? null, approved_at: now, approval_minutes_ref: refActa(params.requestId) }
-      : { status: 'rejected', rejected_by: params.actorProfileId ?? null, rejected_at: now, rejection_reason: params.reason ?? 'Sin motivo registrado' })
-    .eq('id', a.id)
-  if (error) return aviso('la AISIA no se pudo actualizar', error)
-
-  await insertAiSystemHistoryEvents(admin, [{
-    ai_system_id: a.ai_system_id,
-    organization_id: a.organization_id,
-    event_type: aprobada ? 'aisia_approved' : 'aisia_rejected',
-    event_title: aprobada ? 'AISIA aprobada' : 'AISIA rechazada',
-    event_summary: `La evaluación AISIA v${a.version} fue ${aprobada ? 'aprobada' : 'rechazada'} en Flujos de aprobación.`,
-    actor_user_id: params.actorUserId ?? null,
-    payload: { assessment_id: a.id, approval_request_id: params.requestId, reason: params.reason ?? null },
-  }])
-
-  if (aprobada) {
-    const sync = await syncAisiaSoaControls(admin, a.organization_id)
-    if (sync.deferred) {
-      return { aviso: 'La Declaración de Aplicabilidad no está en borrador: los controles A.5.2 a A.5.5 se actualizarán al iniciar su próxima revisión.' }
-    }
-  }
-  return {}
 }
 
 // ── Expediente documental (B11a) ─────────────────────────────────────────────
@@ -337,18 +294,6 @@ export async function applyApprovalCancellation(params: {
       await historial(p.system_id, p.organization_id, 'treatment_plan_cancelled', 'Aprobación del plan cancelada',
         `La solicitud de aprobación del plan ${p.code} se canceló y el plan vuelve a borrador. Motivo: ${params.reason}`,
         params.actorUserId, { treatment_plan_id: p.id })
-      return {}
-    }
-    case 'aisia_assessment': {
-      const { data: a } = await admin.from('aisia_assessments')
-        .select('id, organization_id, ai_system_id, version, status').eq('id', params.objectId).maybeSingle()
-      if (!a || a.status !== 'submitted') return {}
-      const { error } = await admin.from('aisia_assessments')
-        .update({ status: 'draft', submitted_at: null, submitted_by: null }).eq('id', a.id)
-      if (error) return aviso('la AISIA no se pudo devolver a borrador', error)
-      await historial(a.ai_system_id, a.organization_id, 'aisia_cancelled', 'Aprobación de la AISIA cancelada',
-        `La solicitud de aprobación de la AISIA v${a.version} se canceló y vuelve a borrador. Motivo: ${params.reason}`,
-        params.actorUserId, { assessment_id: a.id })
       return {}
     }
     case 'document': {

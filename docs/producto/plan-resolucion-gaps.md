@@ -809,8 +809,8 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   por defecto, excepciones marcadas como ajuste manual y trazabilidad por modo. B14b integrado: plan parcial
   (DP-08). B14 cerrado.
 - **Estado (2026-10-27).** B15 en tres partes: B15a (plantilla `aisia` inactiva, políticas, Declaración y **Analizar
-  AISIA**) y B15b (AISIA existentes migradas, plantilla activa, asistente retirado) integrados; B15c borrará las tablas
-  `aisia_*` cuando se valide la migración.
+  AISIA**) y B15b (AISIA existentes migradas, plantilla activa, asistente retirado) integrados; B15c (tablas `aisia_*` retiradas tras validar
+  la migración) integrado. B15 cerrado.
 
 ## Fase 3 · Conexión y simplificación
 
