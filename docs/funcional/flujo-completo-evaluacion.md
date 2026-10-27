@@ -524,6 +524,8 @@ flowchart LR
    modos hay y cuántos tienen severidad 8 o más, y ordena por criticidad. Se trabaja por
    [estimación por familia](../glosario.md#estimación-por-familia) por defecto y modo a modo para las
    excepciones, que quedan como ajuste manual; también se puede posponer o **Delegar como tarea** (B14).
+   Con los modos de severidad 8 o más y sus familias evaluados se puede **Enviar plan parcial** y dejar el
+   resto para una segunda ronda en la versión siguiente (DP-08).
 4. **Justificar y pasar la [segunda revisión](../glosario.md#segunda-revisión)** cuando la severidad se
    aparta de la de por defecto.
 5. **Enviar a revisión** (o **Enviar a alta dirección** si hay severidad 9). ⛔ Sin pendientes,

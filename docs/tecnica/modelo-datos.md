@@ -28,6 +28,7 @@ fuente:
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
   - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
+  - supabase/migrations/20261027100000_fmea_plan_parcial.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -256,7 +257,7 @@ erDiagram
 | `compliance.causal_families`, `causal_nodes`, `causal_relationships`, `causal_node_failure_mode_links` | [Familia causal](../glosario.md#familia-causal), [relación causal](../glosario.md#relación-causal), [grafo causal](../glosario.md#grafo-causal) | Familias A-H; cada relación une dos nodos dentro de una familia, con `type` ∈ `causes`, `amplifies`, `enables`, `correlates`; los nodos se vinculan a modos de fallo | `00000000000005` |
 | `compliance.control_templates`, `failure_mode_control_refs` | [Plantilla de control](../glosario.md#plantilla-de-control) | CTL-001 a CTL-059; vínculo entre modo de fallo y control | `00000000000005` |
 | `fluxion.system_failure_modes` | [Activación](../glosario.md#activación-de-modos-de-fallo) y [priorización](../glosario.md#priorización) | Único por (sistema, modo); `activation_source`, `priority_status`, `priority_score` | `00000000000001` |
-| `fluxion.fmea_evaluations` | [Análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) | `state`, `version`, `cached_zone` ([zona de riesgo](../glosario.md#zona-de-riesgo)), `approver_id`, `approved_at`, `next_review_at`. `approved` = vigente; las versiones anteriores pasan a `superseded` al aprobarse una nueva | `00000000000001`, `20261020100000` |
+| `fluxion.fmea_evaluations` | [Análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) | `state`, `version`, `cached_zone` ([zona de riesgo](../glosario.md#zona-de-riesgo)), `approver_id`, `approved_at`, `next_review_at`, `deferred_items_count` (modos para la segunda ronda de un plan parcial; 0 = envío completo). `approved` = vigente; las versiones anteriores pasan a `superseded` al aprobarse una nueva | `00000000000001`, `20261020100000`, `20261027100000` |
 | `fluxion.fmea_items` | — | `o_value` ([O](../glosario.md#ocurrencia-o)), `d_real_value` ([D_real](../glosario.md#detectabilidad-real-d_real)), `s_default_frozen`, `s_actual`, `s_residual`, `second_review_status`, `estimate_source` (`family` o `manual`: el ajuste manual no lo sobrescribe la familia) y `estimate_families`. Sin `organization_id`: hereda la organización de la evaluación | `00000000000001`, `20260908090000` |
 | `fluxion.fmea_item_history` | — | Historial por ítem: valores anteriores y nuevos de O, D, S y estado. `event_type` ∈ `evaluated`, `skipped`, `second_review_approved`, `second_review_rejected`, `family_estimated`, `family_withdrawn`, `family_exception` | `00000000000001`, `20261027090000` |
 | `fluxion.fmea_family_estimates` | [Estimación por familia](../glosario.md#estimación-por-familia) | Único por (`evaluation_id`, `family_label`); justificación de al menos 50 caracteres | `20260908090000` |

@@ -211,7 +211,8 @@ cuando no queda ninguna. Si una acción se reabre, el plan vuelve a «En ejecuci
 - **Estados de la acción que se usan:** «Pendiente», «En curso» (desde la tarea), «Completada»,
   «Aceptada» y «Cancelada».
 - **Versiones:** la barra de versiones de la [Evaluación FMEA](fmea-evaluacion.md#versiones) aparece
-  también aquí, con **Nueva versión** en la versión vigente.
+  también aquí, con **Nueva versión** en la versión vigente. Si la evaluación se envió como plan parcial,
+  indica «Plan parcial · N modos para la segunda ronda» (B14b).
 
 > **Pendiente de implementar.** Las instantáneas «Ejecución iniciada» y «Plan cerrado» solo se guardan al aprobarse el
 > plan; si se cierra más tarde, al cerrar su última acción, no se guarda instantánea.

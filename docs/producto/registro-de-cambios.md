@@ -66,6 +66,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Varios tipos de output por sistema (fuera del plan, TODO 78) | Integrado en `main` | `fase2/tipos-output` | 2026-10-26 | **Sí** · `20261026100000_inventario_tipos_output.sql` |
 | Inventario v1.5 y glosario: administración de la plataforma | Integrado en `main` | `docs/inventario-glosario-plataforma` | 2026-10-26 | No |
 | B14a · FMEA por familias y priorizado | Integrado en `main` | `fase3/b14a-fmea-familias` | 2026-10-27 | **Sí** · `20261027090000_fmea_familias_trazabilidad.sql` |
+| B14b · Plan parcial sobre los modos críticos (DP-08) | Integrado en `main` | `fase3/b14b-plan-parcial` | 2026-10-27 | **Sí** · `20261027100000_fmea_plan_parcial.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1683,3 +1684,38 @@ el criterio de aceptación (unas 10 estimaciones de familia y sus excepciones) q
 **Documentación.** `funcional/fmea-evaluacion.md`, `negocio/analisis-modos-de-fallo.md`,
 `funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`, `_incidencias.md` (R6). TODO 279 (glosario) y
 280 (número de familias) abiertos.
+
+---
+
+## B14b · Plan parcial sobre los modos críticos (DP-08)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b14b-plan-parcial` ·
+**Migración:** **sí**, `supabase/migrations/20261027100000_fmea_plan_parcial.sql`
+
+**Problema** (F-05, DP-08): la evaluación solo se podía enviar con todos los modos resueltos. Con 119 modos, el
+tratamiento de los más graves esperaba a que se evaluara también lo menos relevante.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Regla (`lib/fmea/families.ts`) | `partialSubmission`: se exigen evaluados los modos críticos (severidad por defecto o confirmada 8 o más) y todos los de sus familias; el resto queda para la segunda ronda. Sin modos críticos no aplica. `withDeferredAtDefault`: para la zona del envío, los diferidos cuentan con su severidad por defecto |
+| Evaluación | Botón **Enviar plan parcial** con confirmación (modos diferidos y zona); el resumen al entrar dice cuántos modos críticos faltan o que el plan parcial ya está disponible |
+| Envío (`submitFmeaForReview`) | Con `partial`, el servidor vuelve a comprobar la regla; el plan solo lleva candidatos evaluados y las prioridades residuales solo cambian en los evaluados. Guarda `deferred_items_count` y lo anota en el historial |
+| Barra de versiones (evaluación y plan) | «Plan parcial · N modos para la segunda ronda», también en la primera evaluación, para que el aprobador lo vea; aprobada, recuerda abrir la nueva versión |
+| Datos (migración) | `fmea_evaluations.deferred_items_count` (entero, 0 por defecto) |
+
+**Segunda ronda.** Se hace con **Nueva versión**: copia los modos evaluados y deja pendientes los diferidos (sin
+cambios en la creación de versiones).
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 106/106 (cuatro tests
+nuevos), `tsc --noEmit` sin errores, `next lint` sin avisos y `check-server-actions.sh` correcto. No se ha probado
+en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web (la barra de versiones lee la columna nueva). Solo
+web.
+
+**Documentación.** `funcional/fmea-evaluacion.md` (apartado Plan parcial), `funcional/plan-de-tratamiento.md`,
+`negocio/analisis-modos-de-fallo.md`, `funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`. TODO 281
+(glosario: «Plan parcial», «Segunda ronda») y 282 (fecha de la segunda ronda) abiertos.
+

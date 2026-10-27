@@ -19,6 +19,7 @@ fuente:
   - apps/web/app/(app)/evaluaciones/page.tsx
   - supabase/migrations/00000000000005_seed_compliance.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
+  - supabase/migrations/20261027100000_fmea_plan_parcial.sql
   - apps/web/lib/fmea/families.ts
   - apps/web/app/(app)/inventario/[id]/fmea/[evaluationId]/evaluar/familias-panel.tsx
   - docs/producto/circuito.md
@@ -134,6 +135,12 @@ flowchart LR
    revisión, pasan al [plan de tratamiento](plan-de-tratamiento.md). La evaluación y su plan forman una
    sola evaluación de riesgos del sistema: siempre se envían juntos a aprobación, aunque no haya ningún
    modo que tratar.
+
+   **Plan parcial.** Si se quiere tratar antes lo más grave, la evaluación se puede enviar en cuanto están
+   evaluados los modos de severidad 8 o más y todos los de sus familias. Los demás quedan para una
+   **segunda ronda**, que se evalúa en la versión siguiente. Para no infravalorar el riesgo, la zona del
+   envío cuenta los modos de la segunda ronda con su severidad por defecto. El aprobador ve que el plan es
+   parcial y cuántos modos quedan.
 7. **Aprobación.** Al aprobarse el plan, la evaluación queda aprobada y pasa a ser la **vigente** del
    sistema, con su fecha de próxima revisión según la zona: mensual, trimestral, semestral o anual.
 8. **Versiones.** Desde la evaluación vigente, el Analista de riesgos o el Responsable del sistema abren

@@ -9,11 +9,14 @@ import {
   compareByCriticality,
   draftMakesManual,
   evaluationOverview,
+  isCriticalForPartial,
   isNoopFamilyUpdate,
+  partialSubmission,
   referenceSeverity,
   resolveFamilyEstimates,
   severityBand,
   summarizeFamilies,
+  withDeferredAtDefault,
   type FamilyItem,
 } from '../lib/fmea/families'
 
@@ -143,4 +146,47 @@ test('resumen al entrar: priorizados, severidad 8 o más, sin familia y excepcio
     { id: 'm4', status: 'pending', s_default_frozen: 5, s_actual: null, estimate_source: null },
   ], new Set(['m1', 'm2', 'm3']))
   assert.deepEqual(o, { total: 4, criticos: 2, criticosPendientes: 1, sinFamilia: 1, porFamilia: 1, manuales: 1 })
+})
+
+// ─── Plan parcial (DP-08, B14b) ──────────────────────────────────────────────
+
+const modo = (id: string, s_default_frozen: number, status = 'pending', s_actual: number | null = null) =>
+  ({ id, s_default_frozen, status, s_actual })
+
+test('crítico para el plan parcial: la mayor de la severidad por defecto y la confirmada', () => {
+  assert.equal(isCriticalForPartial(modo('a', 8)), true)
+  // Bajarlo al evaluarlo no lo saca del primer envío.
+  assert.equal(isCriticalForPartial(modo('a', 9, 'evaluated', 4)), true)
+  assert.equal(isCriticalForPartial(modo('a', 6, 'evaluated', 8)), true)
+  assert.equal(isCriticalForPartial(modo('a', 7)), false)
+})
+
+test('plan parcial: exige los críticos y todos los de sus familias; el resto, a la segunda ronda', () => {
+  const memberships = [
+    { item_id: 'c1', family_label: 'A' }, { item_id: 'a2', family_label: 'A' },
+    { item_id: 'b1', family_label: 'B' },
+  ]
+  // c1 crítico evaluado, a2 de su familia pendiente: aún no.
+  let r = partialSubmission([
+    modo('c1', 9, 'evaluated', 7), modo('a2', 5), modo('b1', 6), modo('s1', 9),
+  ], memberships)
+  assert.deepEqual(r, { required: 3, requiredOpen: 2, deferred: 1, eligible: false })
+
+  // Todos los exigidos evaluados (s1, crítico sin familia, también): b1 queda para la segunda ronda.
+  r = partialSubmission([
+    modo('c1', 9, 'evaluated', 7), modo('a2', 5, 'evaluated', 4), modo('b1', 6, 'skipped'), modo('s1', 9, 'evaluated', 8),
+  ], memberships)
+  assert.deepEqual(r, { required: 3, requiredOpen: 0, deferred: 1, eligible: true })
+})
+
+test('plan parcial: no aplica sin modos críticos ni cuando ya está todo evaluado', () => {
+  assert.equal(partialSubmission([modo('a', 6, 'evaluated', 5), modo('b', 7)], []).eligible, false)
+  assert.equal(partialSubmission([modo('a', 9, 'evaluated', 6), modo('b', 7, 'evaluated', 6)], []).eligible, false)
+})
+
+test('zona del envío parcial: los modos de la segunda ronda cuentan con su severidad por defecto', () => {
+  const [a, b] = withDeferredAtDefault([modo('a', 9, 'evaluated', 5), modo('b', 7, 'skipped')])
+  assert.equal(a.s_actual, 5)
+  assert.equal(b.status, 'evaluated')
+  assert.equal(b.s_actual, 7)
 })
