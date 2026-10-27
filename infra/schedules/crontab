@@ -16,3 +16,6 @@
 # Minuto 50: caducidad de las solicitudes de aprobacion (B11c). Horaria: las
 # caducidades se cuentan en dias, asi que una hora de margen basta.
 50 * * * * /opt/fluxion/app-cron.sh /api/cron/approval-expiry
+# 07:20 diario: plazos de los requerimientos de la autoridad (B25e). Se cuentan
+# en dias; una pasada diaria basta.
+20 7 * * *  /opt/fluxion/app-cron.sh /api/cron/authority-request-deadlines

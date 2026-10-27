@@ -2453,3 +2453,31 @@ prueba un trigger que leía una columna inexistente. `npm test` 184/184 (tres te
 
 **Documentación.** `funcional/incidentes.md`, `funcional/tareas.md`, `funcional/ficha-sistema.md`,
 `tecnica/modelo-datos.md`, `_pendientes.md` (294: glosario; 295: avisos de plazo).
+
+## B25e · Avisos de plazo de los requerimientos
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b25e-avisos-requerimientos` ·
+**Migración:** **sí**, `supabase/migrations/20261028130000_requerimientos_avisos_plazo.sql`
+
+**Problema** (TODO 295): el único recordatorio del plazo de un requerimiento era su tarea «Responder…». Decisión del
+responsable (2026-10-28): necesitan avisos de plazo propios.
+
+**Se aprovecha lo existente:** el patrón del reloj del Art. 73 (`incident-deadlines`): umbrales idempotentes,
+campana, canales de Slack y Teams y reintento de entregas.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `authority_request_deadline_alerts`: umbral avisado por requerimiento y plazo |
+| Reglas (`lib/governance/authority-requests.ts`) | `requestAlertThresholds`: 5 días o menos y vencido |
+| Cron | `GET /api/cron/authority-request-deadlines`, diario a las 07:20 UTC (`infra/schedules/crontab`) |
+| Canales | Eventos «Requerimiento de la autoridad: plazo próximo» y «… plazo vencido» en **Ajustes › Canales** |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 185/185 (un test nuevo),
+`tsc --noEmit` y `next lint` correctos. El cron no se ha ejecutado contra una base con datos.
+
+**Despliegue.** Aplicar la migración, desplegar la web y añadir la línea nueva del crontab en el servidor.
+
+**Documentación.** `funcional/incidentes.md`, `tecnica/tareas-programadas.md`, `tecnica/eventos-y-avisos.md`,
+`infra/schedules/README.md`, `_pendientes.md` (295 resuelto).

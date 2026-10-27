@@ -32,6 +32,8 @@ const EVENTS = [
   { value: 'incident.deadline_half',   label: 'Mitad del plazo de notificación' },
   { value: 'incident.deadline_urgent', label: '80 % del plazo consumido' },
   { value: 'incident.deadline_overdue',label: 'Plazo de notificación vencido' },
+  { value: 'authority_request.deadline_soon',    label: 'Requerimiento de la autoridad: plazo próximo' },
+  { value: 'authority_request.deadline_overdue', label: 'Requerimiento de la autoridad: plazo vencido' },
   { value: 'cost.budget_threshold',    label: 'Presupuesto de IA superado' },
   { value: 'hitl.discordance_spike',  label: 'Sube la discordancia humana' },
 ]

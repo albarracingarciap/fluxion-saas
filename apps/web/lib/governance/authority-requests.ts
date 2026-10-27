@@ -53,3 +53,17 @@ export function requestDeadlineLabel(d: RequestDeadline): string {
     default: return d.daysLeft === 0 ? 'Vence hoy' : `Quedan ${d.daysLeft} ${d.daysLeft === 1 ? 'día' : 'días'}`
   }
 }
+
+/**
+ * Avisos de plazo (B25e, TODO 295): `soon` con 5 días o menos, `overdue` al
+ * vencer sin responder. Devuelve los umbrales alcanzados, en orden, para
+ * avisar también de los que se saltaron si el cron estuvo parado.
+ */
+export type RequestAlertThreshold = 'soon' | 'overdue'
+
+export function requestAlertThresholds(status: AuthorityRequestStatus, dueAt: string | null, today: string): RequestAlertThreshold[] {
+  const d = requestDeadline(status, dueAt, today)
+  if (d.state === 'vencido') return ['soon', 'overdue']
+  if (d.state === 'proximo') return ['soon']
+  return []
+}

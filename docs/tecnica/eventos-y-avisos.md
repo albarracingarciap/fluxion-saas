@@ -21,6 +21,8 @@ fuente:
   - apps/web/app/api/cron/hitl-discordance/route.ts
   - supabase/migrations/20260812090000_signals_core.sql
   - supabase/migrations/20260818190000_incidents_alerts_channels.sql
+  - apps/web/app/api/cron/authority-request-deadlines/route.ts
+  - supabase/migrations/20261028130000_requerimientos_avisos_plazo.sql
 ---
 
 # Eventos y avisos
@@ -76,6 +78,7 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | `mention`, `comment_added`, `attachment_added` | Comentarios y adjuntos de tareas | Sí |
 | `incident_reported` | Alta de incidente, a los roles de gobierno | No |
 | `incident_deadline` | Umbrales del plazo del Art. 73 | No |
+| `authority_request_deadline` | Plazo de un requerimiento de la autoridad próximo o vencido (B25e) | No |
 | `review_due` | Revisiones de tratamiento próximas o vencidas | No |
 | `signal_alert` | Señal alta o crítica | No |
 | `approval_pending`, `approval_closed` | Flujos de aprobación | No |
@@ -102,6 +105,8 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | `incident.deadline_half` | Mitad del plazo de notificación |
 | `incident.deadline_urgent` | 80 % del plazo consumido |
 | `incident.deadline_overdue` | Plazo de notificación vencido |
+| `authority_request.deadline_soon` | Requerimiento de la autoridad: plazo próximo |
+| `authority_request.deadline_overdue` | Requerimiento de la autoridad: plazo vencido |
 | `cost.budget_threshold` | Presupuesto de IA superado |
 | `hitl.discordance_spike` | Sube la discordancia humana |
 | `approval.pending` | — (no aparece en la lista) |
@@ -134,6 +139,7 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | `fluxion.notification_channels` | tabla | `channel_type` (`slack`, `teams`), `name`, `secret_id` (Vault), `events`, `is_active`, `last_success_at`, `last_error` | `20260818190000_incidents_alerts_channels.sql` |
 | `fluxion.channel_deliveries` | tabla | `channel_id`, `event_type`, `payload`, `status` (`pending`, `sent`, `failed`, `abandoned`), `attempts` | ídem |
 | `fluxion.incident_deadline_alerts` | tabla | Umbral ya avisado por incidente | ídem |
+| `fluxion.authority_request_deadline_alerts` | tabla | Umbral ya avisado por requerimiento y plazo (B25e) | `20261028130000` |
 | `telemetry.cost_budget_alerts` | tabla | Umbral ya avisado por presupuesto y mes | `20260823090000_telemetry_budgets.sql` |
 | `fluxion.evidence_expiry_alerts` | tabla | Alerta de caducidad viva por evidencia | — |
 
@@ -163,6 +169,7 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | `evidence-expiry` | Diaria, 07:00 UTC | Alertas a 30 días, a 7 días y vencida, en `evidence_expiry_alerts`, que alimentan el banner de evidencias. Marca como caducadas las evidencias vencidas |
 | `review-reminders` | Lunes, 08:00 UTC | `review_due` a cada responsable de acciones aceptadas o diferidas con revisión en 30 días o vencida |
 | `incident-deadlines` | Cada hora | `incident_deadline` y canal en cada umbral, una sola vez |
+| `authority-request-deadlines` | Diario | `authority_request_deadline` y canal con 5 días o menos y al vencer, una vez por plazo |
 | `cost-budgets` | Cada hora | Señal y canal al alcanzar el umbral más alto nuevo |
 | `hitl-discordance` | Diaria, 06:30 UTC | Señal y canal por sistema, una por semana |
 | `outbox` | Cada 5 min | Webhooks salientes |
