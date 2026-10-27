@@ -178,13 +178,12 @@ de logs**:
 | **Última verificación** | Fecha no futura. Debajo, «Vuelve a verificarse antes del …» o «Verificación vencida el …» | `verified_at` |
 | **Notas** | Por ejemplo, otro plazo exigido por el Derecho nacional o de la Unión | `notes` |
 
-Está **Completo** con: dónde se guardan, conservación de al menos 6 meses (o «Conservación a cargo del
+Está **[Completo](../glosario.md#registro-de-logs)** con: dónde se guardan, conservación de al menos 6 meses (o «Conservación a cargo del
 proveedor» si los controla el proveedor), evidencia en estado Válida y verificación de los últimos 12 meses. Al
 guardar queda en el historial («Registro de logs actualizado», etiqueta **Logs**, filtro **Edición**) y en la
 auditoría.
 
-> **Pendiente de definir.** El plazo de 12 meses para volver a verificar lo ha fijado el desarrollo; la decisión 5
-> pide verificarlo periódicamente sin indicar cada cuánto.
+La verificación vale 12 meses (decisión del responsable, 2026-10-28).
 
 **Acciones rápidas:**
 
