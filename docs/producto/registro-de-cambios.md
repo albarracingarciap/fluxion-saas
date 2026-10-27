@@ -70,6 +70,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Glosario tras B14 | Integrado en `main` | `docs/glosario-b14` | 2026-10-27 | No |
 | B14c · Fecha de la segunda ronda (TODO 282) | Integrado en `main` | `fase3/b14c-segunda-ronda` | 2026-10-27 | **Sí** · `20261027110000_fmea_segunda_ronda_fecha.sql` |
 | B15a · Plantilla AISIA en el expediente (inactiva) | Integrado en `main` | `fase3/b15a-plantilla-aisia` | 2026-10-27 | **Sí** · `20261027120000_expediente_plantilla_aisia.sql` |
+| B15b · AISIA migrada al expediente y asistente retirado | Integrado en `main` | `fase3/b15b-migrar-aisia` | 2026-10-27 | **Sí** · `20261027130000_aisia_al_expediente.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1795,4 +1796,36 @@ semilla para una organización nueva). `npm test` 113/113 (seis tests nuevos), `
 
 **Pendiente:** B15b (migración de las AISIA existentes, activar la plantilla y retirar el asistente) y B15c (borrar las
 tablas `aisia_*` tras validar).
+
+---
+
+## B15b · AISIA migrada al expediente y asistente retirado
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b15b-migrar-aisia` ·
+**Migración:** **sí**, `supabase/migrations/20261027130000_aisia_al_expediente.sql` (después de la de B15a)
+
+**Datos de partida** (consulta del responsable en producción): 2 AISIA, ambas en borrador, de 2 sistemas, sin
+solicitudes de aprobación abiertas.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Migración de datos | Por sistema, la última versión de su AISIA pasa a documento `aisia`: aprobada → aprobado (con quién y cuándo); el resto → borrador. El texto redactado de cada sección va a su apartado, con su autor; lo derivado no se copia, salvo los textos de S1 editados que ya no coinciden con la ficha. Se detiene si hay AISIA en un circuito abierto. Historial «AISIA trasladada al expediente» |
+| Plantilla | `aisia` activa: aparece como pestaña del expediente |
+| Ficha › ISO 42001 | La tarjeta AISIA lee el documento: estado, versión, cobertura de apartados obligatorios y huecos, o fecha de aprobación; **Iniciar evaluación AISIA**, **Continuar en el expediente →** o **Ver en el expediente →** |
+| Asistente | Retirados `aisia-wizard-client.tsx`, `aisia/actions.ts` (`initAisia`, `updateAisiaSection`, `submitAisia`, `reopenAisia`) y `lib/aisia/prefill.ts` con su test. `/inventario/[id]/aisia/[assessmentId]` redirige al expediente |
+| Se conserva hasta B15c | Tablas `aisia_*`, el efecto de aprobación de `aisia_assessment` y la lectura de AISIA aprobadas del asistente en la Declaración |
+
+**Verificación.** Migración probada en el Postgres local con tres AISIA de prueba (dos versiones de un sistema, la
+última en borrador, y una aprobada de otro): migra la última de cada sistema con su estado, copia solo lo redactado,
+la segunda ejecución no migra nada y la plantilla queda activa. `npm test` 112/112 (se retira el test de la precarga),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar las migraciones de B15a y B15b, en ese orden, antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/aisia.md` reescrito (la AISIA en el expediente y la migración),
+`funcional/expediente-documental.md`, `funcional/ficha-sistema.md`, `funcional/flujo-completo-evaluacion.md`,
+`negocio/evaluacion-de-impacto.md`, `tecnica/modelo-datos.md`, `_mapa.md` (fuentes). TODO 283 (glosario e inventario)
+abierto.
 

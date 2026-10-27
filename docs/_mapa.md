@@ -88,7 +88,7 @@ Evaluación de calidad, Integración ITSM, Linaje y AI Gateway no existen todav�
 | NEG-SUPERVISION | `docs/negocio/supervision-post-comercializacion.md` | negocio | comercial | supervision-post-comercializacion | `lib/hitl/data.ts`, `docs/modulos/c2-supervision-humana.md` | borrador |
 | NEG-DOCUMENTACION | `docs/negocio/documentacion-del-sistema.md` | negocio | comercial | documentacion-del-sistema | `lib/documents/templates.ts`, `docs/modulos/c1-documentacion-regulatoria.md` | borrador |
 | NEG-ACTAS | `docs/negocio/actas-y-auditoria.md` | negocio | comercial | actas-y-auditoria | `lib/approvals/minutes.ts`, `lib/documents/derive-approval.ts`, `mig/20260902090000_approval_minutes.sql` | borrador |
-| NEG-IMPACTO | `docs/negocio/evaluacion-de-impacto.md` | negocio | comercial | evaluacion-de-impacto | `(app)/inventario/[id]/aisia/**`, `(app)/inventario/[id]/riesgos-negocio/*`, `(app)/cuestionario-preliminar/**`, `docs/modulos/aisia-auditoria.md` | borrador |
+| NEG-IMPACTO | `docs/negocio/evaluacion-de-impacto.md` | negocio | comercial | evaluacion-de-impacto | `lib/documents/derive-aisia.ts`, `(app)/inventario/[id]/riesgos-negocio/*`, `(app)/cuestionario-preliminar/**`, `docs/modulos/aisia-auditoria.md` | borrador |
 | NEG-HOJA-RUTA | `docs/negocio/hoja-de-ruta.md` | negocio | comercial | transversal | `docs/_inventario.md` §10, §11.4 y §12, `lib/modules/registry.ts` (`available: false`) | borrador |
 
 ## 3. Funcional (`docs/funcional/`, uno por vista, audiencia técnica)
@@ -145,7 +145,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-REGISTRO-UE | `docs/funcional/registro-ue.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/eu-registry/**`, `lib/ai-systems/eu-registry.ts` | borrador |
 | FUN-INFORME-BRECHAS | `docs/funcional/informe-brechas-sistema.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/gap-report/**`, `lib/ai-systems/gap-report.ts` | borrador |
 | FUN-EXPEDIENTE | `docs/funcional/expediente-documental.md` | funcional | tecnica | documentacion-del-sistema | `(app)/inventario/[id]/expediente/[key]/*`, `lib/documents/*` | borrador |
-| FUN-AISIA | `docs/funcional/aisia.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/inventario/[id]/aisia/**` | borrador |
+| FUN-AISIA | `docs/funcional/aisia.md` | funcional | tecnica | evaluacion-de-impacto | `lib/documents/derive-aisia.ts`, `(app)/inventario/[id]/expediente/[key]/*`, `lib/aisia/soa-sync.ts` | borrador |
 | FUN-RIESGOS-NEGOCIO | `docs/funcional/riesgos-negocio.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/inventario/[id]/riesgos-negocio/*` | borrador |
 | FUN-CUESTIONARIO | `docs/funcional/cuestionario-preliminar.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/cuestionario-preliminar/{page.tsx,list-client.tsx,actions.ts}` | borrador |
 | FUN-CUESTIONARIO-FORM | `docs/funcional/cuestionario-preliminar-formulario.md` | funcional | tecnica | evaluacion-de-impacto | `(app)/cuestionario-preliminar/{nuevo,[id]}/page.tsx`, `(app)/cuestionario-preliminar/{questionnaire-form.tsx,classification-panel.tsx}`, `lib/preliminary-questionnaire/{schema.ts,to-aiact.ts}`, `mig/20261022100000_cuestionario_clasificacion.sql` | borrador |
