@@ -1,5 +1,7 @@
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion'
 import { ISO_42001_CONTROLS, type Iso42001Control } from './iso42001-catalog'
+import { loadSoaProposals } from '@/lib/soa/proposal-facts'
+import type { SoaProposal } from '@/lib/soa/proposals'
 
 export type SoAControlRecord = Iso42001Control & {
   dbId?: string
@@ -11,6 +13,8 @@ export type SoAControlRecord = Iso42001Control & {
   validationEvidenceId: string | null
   notes: string | null
   linkedSystemIds: string[]
+  /** Propuesta de estado desde los planes de tratamiento (B17e2). */
+  proposal: SoaProposal | null
 }
 
 export type OrgMember = {
@@ -143,8 +147,19 @@ export async function buildSoAData(organizationId: string) {
       validationEvidenceId: dbRecord?.validation_evidence_id ?? null,
       notes: dbRecord?.notes ?? null,
       linkedSystemIds: links.map((l) => l.ai_system_id),
+      proposal: null,
     }
   })
+
+  // 3.b Propuestas desde los planes de tratamiento (B17e2). Service role
+  // filtrado por organización, como el resto de la Declaración.
+  const proposals = await loadSoaProposals(
+    adminFluxion,
+    organizationId,
+    controls.map((c) => ({ code: c.id, isApplicable: c.isApplicable, status: c.status, linkedSystemIds: c.linkedSystemIds })),
+    Object.fromEntries((aiSystems ?? []).map((s) => [s.id as string, s.name as string])),
+  )
+  for (const c of controls) c.proposal = proposals[c.id] ?? null
 
   // Calculate KPIs
   const totalControls = controls.length

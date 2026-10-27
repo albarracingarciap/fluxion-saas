@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { SoAControlRecord } from '@/lib/templates/data'
+import type { SoAControlRecord } from '@/lib/templates/data'
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import type { OrgMember } from '@/lib/templates/data'
 import {
@@ -10,7 +10,7 @@ import {
   AlertTriangle, Search, SlidersHorizontal, ChevronDown, BookOpen, User, Zap,
   LayoutList, Network,
 } from 'lucide-react'
-import { updateSoAControl, suggestSoAJustification, bulkUpdateApplicability } from './actions'
+import { updateSoAControl, suggestSoAJustification, bulkUpdateApplicability, acceptSoAProposal } from './actions'
 
 type Props = {
   controls: SoAControlRecord[]
@@ -461,6 +461,14 @@ export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, 
                               {STATUS_LABELS[control.status]?.label ?? control.status}
                             </Badge>
                           )}
+                          {control.isApplicable && control.proposal && (
+                            <span
+                              title={control.proposal.reason}
+                              className="inline-flex items-center gap-1 px-1.5 py-px rounded-[4px] border border-grb bg-grdim font-sora text-[10.5px] text-gr"
+                            >
+                              Propuesta: Implantado
+                            </span>
+                          )}
                           {missingJustification && (
                             <span className="inline-flex items-center gap-1 font-plex text-[10px] px-1.5 py-0.5 rounded bg-[#fff7ed] border border-[#fde68a] text-[#d97706]">
                               <AlertTriangle size={9} />
@@ -697,6 +705,7 @@ function SoAEditSlideOver({
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAccepting, setIsAccepting] = useState(false)
 
   // In-scope system IDs are used automatically as linked systems (Option B)
   const inScopeSystemIds = inScopeSystems.map((s) => s.id)
@@ -722,6 +731,21 @@ function SoAEditSlideOver({
       setError('Error inesperado al guardar')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAcceptProposal = async () => {
+    if (!control.dbId) return
+    setIsAccepting(true)
+    setError(null)
+    try {
+      const res = await acceptSoAProposal({ id: control.dbId })
+      if (res.error) setError(res.error)
+      else onClose()
+    } catch {
+      setError('Error inesperado al aceptar la propuesta')
+    } finally {
+      setIsAccepting(false)
     }
   }
 
@@ -772,6 +796,26 @@ function SoAEditSlideOver({
           {error && (
             <div className="p-3 rounded-lg bg-red-dim border border-reb text-re text-[13px] font-sora">
               {error}
+            </div>
+          )}
+
+          {/* ── Propuesta desde los planes de tratamiento (B17e2) ── */}
+          {control.isApplicable && control.proposal && (
+            <div className="p-4 rounded-[10px] bg-grdim border border-grb flex flex-col gap-3">
+              <div>
+                <p className="font-sora text-[13px] font-semibold text-gr">Propuesta: Implantado</p>
+                <p className="font-sora text-[12px] text-ltt2 mt-1 leading-relaxed">{control.proposal.reason}</p>
+              </div>
+              {!isReadOnly && (
+                <button
+                  onClick={handleAcceptProposal}
+                  disabled={isAccepting}
+                  className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] font-sora text-[12px] font-semibold text-gr border border-grb bg-ltcard hover:bg-grdim transition-all disabled:opacity-50"
+                >
+                  {isAccepting ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Aceptar propuesta
+                </button>
+              )}
             </div>
           )}
 

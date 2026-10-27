@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Database, ShieldAlert, Network, Shield, FileCheck, Scale, Link2, Shuffle, Share2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Database, ShieldAlert, Network, Shield, FileCheck, Scale, Link2, Shuffle, Share2, ShieldCheck } from "lucide-react";
 
 type CatalogCard = {
   href:        string
@@ -85,6 +85,14 @@ const CORRESPONDENCIAS: CatalogCard[] = [
     iconColor: 'text-gr',
     title: 'Modo ↔ Medida',
     description: 'Correspondencias entre modos de fallo y medidas de control, con distinción de mitigación primaria.',
+  },
+  {
+    href: '/datos/mappings/plantilla-anexo-a',
+    icon: <ShieldCheck className="w-5 h-5" />,
+    iconBg: 'bg-cyan-dim border border-cyan-border',
+    iconColor: 'text-brand-cyan',
+    title: 'Plantilla ↔ Anexo A',
+    description: 'Controles del Anexo A de la ISO/IEC 42001 que cubre cada plantilla de control: alimentan las propuestas de la Declaración de Aplicabilidad.',
   },
   {
     href: '/datos/relaciones-causales',

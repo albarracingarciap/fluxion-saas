@@ -18,10 +18,13 @@ fuente:
   - apps/web/app/(app)/plantillas/soa-iso42001/soa-print-view.tsx
   - apps/web/lib/templates/data.ts
   - apps/web/lib/templates/iso42001-catalog.ts
+  - apps/web/lib/soa/proposals.ts
+  - apps/web/lib/soa/proposal-facts.ts
   - apps/web/lib/approvals/open.ts
   - apps/web/lib/approvals/effects.ts
   - supabase/migrations/00000000000001_schema.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - supabase/migrations/20261027200000_soa_correspondencia_anexo_a.sql
 ---
 
 # Declaración de Aplicabilidad ISO 42001
@@ -102,6 +105,7 @@ Edición de un control (panel lateral):
 
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
+| **Propuesta: Implantado** | solo lectura | — | Solo si hay propuesta: el motivo y, en borrador, **Aceptar propuesta**. Ver [Propuesta desde el plan de tratamiento](#propuesta-desde-el-plan-de-tratamiento) | Calculada (`lib/soa/proposals.ts`) |
 | Texto normativo | solo lectura | — | Descripción del control | `iso42001-catalog.ts` |
 | **Aplicabilidad** | interruptor | — | ¿Aplica este control a tu SGIA? | `organization_soa_controls.is_applicable` |
 | **Justificación de aplicabilidad/exclusión** | texto largo | Para aprobar, en los aplicables | Con **Sugerir con IA** | `justification` |
@@ -114,6 +118,20 @@ Edición de un control (panel lateral):
 El propietario debe ser un miembro de la organización; si no, se muestra «El propietario seleccionado no
 pertenece a la organización.».
 
+#### Propuesta desde el plan de tratamiento
+
+Un control aplicable que no está «Implantado» ni «Externalizado» propone **Implantado** cuando todos sus
+sistemas vinculados tienen en su [plan de tratamiento](../glosario.md#plan-de-tratamiento) una acción de
+mitigación completada, con evidencia válida, cuyo control sale de una
+[plantilla de control](../glosario.md#plantilla-de-control) que corresponde a ese control del Anexo A. La
+correspondencia la mantiene la administración de la plataforma en **Datos › Plantilla ↔ Anexo A**
+(`compliance.control_template_soa_controls`); la inicial está en
+[la correspondencia aprobada](../producto/correspondencia-controles-anexo-a.md). Sin sistemas vinculados no hay
+propuesta.
+
+La lista muestra la etiqueta **Propuesta: Implantado** junto al estado, con el motivo al pasar el ratón, y el
+panel lateral, el motivo completo: las plantillas implantadas en cada sistema. La propuesta no cambia nada sola.
+
 > TODO: confirmar un comportamiento de la edición de controles.
 > - **Vista Por sistema:** muestra todos los controles aplicables en todos los sistemas en alcance, no los
 >   vínculos reales.
@@ -123,6 +141,7 @@ pertenece a la organización.».
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Guardar control** | Todos | `updateSoAControl` | Actualiza el control y sus sistemas vinculados. Historial «Actualización de control aplicable» en cada sistema |
+| **Aceptar propuesta** (solo en borrador) | Todos | `acceptSoAProposal`: vuelve a calcular la propuesta y, si sigue vigente, pone el control en «Implantado» | Añade «Propuesta aceptada: …» a las observaciones. Historial en cada sistema vinculado y registro en **Cambios en controles** |
 | **Setup rápido** › **Marcar aplicables** / **Marcar excluidos** | Todos | Aplicabilidad en bloque | Pone los controles en «No iniciado» |
 | **Sugerir con IA** | Todos | Propone una justificación para el control, con el contexto de los sistemas y el alcance | Rellena el campo; no guarda |
 | **Analizar AISIA** (solo en borrador) | Todos | Lee las AISIA aprobadas de los sistemas en alcance y propone con IA la aplicabilidad y la razón de los 38 controles | Muestra las propuestas, marca las que cambian algo y permite invertir cada una |
@@ -158,6 +177,8 @@ aprobación.
 | Enviar sin permiso | «No tienes permisos para enviar el documento a revisión.» |
 | Iniciar nueva revisión sin permiso | «No tienes permisos para reabrir el documento SoA.» |
 | Aprobar fuera de Aprobaciones (base de datos) | «La Declaración de Aplicabilidad se aprueba en Aprobaciones.» |
+| Aceptar una propuesta que ya no se cumple | «La propuesta ya no está vigente: revisa el control y cámbialo a mano si procede.» |
+| Aceptar una propuesta fuera de borrador | «La Declaración no está en borrador: inicia una nueva revisión para cambiar controles.» |
 | Error de la IA | «Error en el motor de IA: …» / «No se pudo completar el análisis. Inténtalo de nuevo.» |
 
 ## Estados

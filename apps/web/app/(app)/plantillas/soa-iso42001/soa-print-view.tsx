@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { SoAControlRecord, SoAMetadata } from '@/lib/templates/data'
+import type { SoAControlRecord, SoAMetadata } from '@/lib/templates/data'
 import './print.css'
 
 type Props = {

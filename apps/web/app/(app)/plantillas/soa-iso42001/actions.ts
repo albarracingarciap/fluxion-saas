@@ -9,6 +9,8 @@ import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
+import { loadSoaProposalFacts } from '@/lib/soa/proposal-facts'
+import { soaControlProposal } from '@/lib/soa/proposals'
 import { composeDocument } from '@/lib/documents/compose'
 import { cancelLiveApprovalRequest, hasApprovalPolicy, openApprovalRequest } from '@/lib/approvals/open'
 
@@ -164,6 +166,88 @@ export async function updateSoAControl(input: SoAControlUpdatePayload) {
   if (logError) {
     console.error('Error recording SoA control log:', logError)
   }
+
+  revalidatePath('/plantillas/soa-iso42001')
+  return { success: true }
+}
+
+/**
+ * Acepta la propuesta «Implantado» de un control (B17e2). Se recalcula aquí:
+ * si ya no se cumple, no se aplica. Solo con la Declaración en borrador.
+ */
+export async function acceptSoAProposal(input: { id: string }) {
+  const fluxion = createFluxionClient()
+  const adminClient = createAdminFluxionClient()
+  const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
+
+  if (!user) redirect('/login')
+  if (!membership || !onboardingCompleted || !profile) redirect('/onboarding')
+  const organizationId = membership.organization_id
+
+  const { data: meta } = await adminClient
+    .from('organization_soa_metadata')
+    .select('lifecycle_status')
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+  if (((meta?.lifecycle_status as string | null) ?? 'draft') !== 'draft') {
+    return { error: 'La Declaración no está en borrador: inicia una nueva revisión para cambiar controles.' }
+  }
+
+  const { data: control } = await adminClient
+    .from('organization_soa_controls')
+    .select('id, control_code, is_applicable, justification, status, validation_evidence_id, notes, organization_soa_system_links ( ai_system_id )')
+    .eq('id', input.id)
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+  if (!control) return { error: 'No se encontró el control.' }
+
+  const sinPropuesta = { error: 'La propuesta ya no está vigente: revisa el control y cámbialo a mano si procede.' }
+  const linkedSystemIds = ((control.organization_soa_system_links ?? []) as Array<{ ai_system_id: string }>).map((l) => l.ai_system_id)
+  if (linkedSystemIds.length === 0) return sinPropuesta
+
+  const [{ data: systems }, { templatesByCode, facts }] = await Promise.all([
+    adminClient.from('ai_systems').select('id, name').eq('organization_id', organizationId).in('id', linkedSystemIds),
+    loadSoaProposalFacts(adminClient, organizationId),
+  ])
+  const proposal = soaControlProposal(
+    { code: control.control_code, isApplicable: control.is_applicable, status: control.status, linkedSystemIds },
+    templatesByCode,
+    facts,
+    Object.fromEntries(((systems ?? []) as Array<{ id: string; name: string }>).map((s) => [s.id, s.name])),
+  )
+  if (!proposal) return sinPropuesta
+
+  const notes = [control.notes?.trim(), `Propuesta aceptada: ${proposal.reason}`].filter(Boolean).join('\n')
+  const { error } = await adminClient
+    .from('organization_soa_controls')
+    .update({ status: 'implemented', notes })
+    .eq('id', control.id)
+    .eq('organization_id', organizationId)
+  if (error) return { error: error.message }
+
+  await insertAiSystemHistoryEvents(fluxion, linkedSystemIds.map((systemId) => ({
+    ai_system_id: systemId,
+    organization_id: organizationId,
+    event_type: 'soa_control_updated',
+    event_title: `Actualización de control aplicable: ${control.control_code}`,
+    event_summary: `El control ${control.control_code} pasa a «Implantado» en la Declaración de Aplicabilidad aceptando su propuesta: ${proposal.reason}`,
+    actor_user_id: user.id,
+    payload: { control_id: control.id, control_code: control.control_code, status: 'implemented', proposal: proposal.reason },
+  })))
+
+  const { error: logError } = await adminClient.from('soa_controls_log').insert({
+    soa_control_id: control.id,
+    organization_id: organizationId,
+    actor_user_id: profile.id,
+    control_code: control.control_code,
+    is_applicable: control.is_applicable,
+    justification: control.justification,
+    status: 'implemented',
+    notes,
+    validation_evidence_id: control.validation_evidence_id,
+    linked_system_ids: linkedSystemIds,
+  })
+  if (logError) console.error('Error recording SoA control log:', logError)
 
   revalidatePath('/plantillas/soa-iso42001')
   return { success: true }
