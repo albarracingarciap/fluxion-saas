@@ -925,7 +925,9 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   del proveedor GPAI, pendientes de definir; el marcado CE se acredita con la declaración UE de conformidad del
   proveedor (Art. 47) adjunta y válida, sin campo propio; el plan de despliegue va en la tarjeta de etapa de la
   ficha, solo en alto riesgo con la organización como responsable del despliegue.
-- **Estado (2026-10-27):** B18a y B18b integrados.
+- **Estado (2026-10-27):** B18 cerrado: B18a, B18b y B18c integrados. La gobernanza con referencias a miembros (F-13) ya
+  estaba hecha en B23b (funciones designadas, Responsable del SGAI y DPO por rol, comités con miembros) y en B11b
+  (políticas por defecto que los usan); B18c solo la conecta con el onboarding.
 
 ### B19 · Hitos como evidencia
 

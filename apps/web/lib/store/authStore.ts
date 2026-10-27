@@ -42,6 +42,12 @@ export interface Organization {
   external_auditor_name?: string | null
   external_auditor_contact?: string | null
   external_auditor_cert?: string | null
+  // Madurez (onboarding hasta B18c; Organización › Perfil regulatorio)
+  iso_42001_status?: string | null
+  iso_42001_cert_date?: string | null
+  iso_42001_cert_body?: string | null
+  ai_inventory_status?: string | null
+  compliance_maturity?: number | null
   // Retention fields (migration 083)
   evidence_retention_months?: number | null
   audit_log_retention_months?: number | null

@@ -88,6 +88,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17e3 · Gaps de controles de la Declaración sin implantar | Integrado en `main` | `fase3/b17e3-brechas-soa` | 2026-10-27 | No |
 | B18a · Etapas de evaluación (DP-02) | Integrado en `main` | `fase3/b18a-etapas` | 2026-10-27 | No |
 | B18b · Plan de despliegue y práctica prohibida | Integrado en `main` | `fase3/b18b-plan-despliegue` | 2026-10-27 | No |
+| B18c · Onboarding en tres pasos y bienvenida | Integrado en `main` | `fase3/b18c-onboarding-gobernanza` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2264,3 +2265,29 @@ guardar su ficha sin cambiarles el estado.
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/ficha-sistema-edicion.md`, `funcional/inventario-alta.md`,
 `producto/plan-resolucion-gaps.md`.
+
+## B18c · Onboarding en tres pasos y bienvenida
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b18c-onboarding-gobernanza` · **Migración:** no
+
+**Problema** (GAP-02, F-17, A2): el onboarding pedía madurez, estado ISO, inventario y foco, que solo cambiaban la
+guía del Dashboard, y no pedía a las personas que después bloquean las aprobaciones. Además, todos los miembros nuevos
+lo recorrían: un invitado sin permisos no guardaba nada y la subida del logo le fallaba.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Configuración inicial (Administrador de una organización sin configurar) | Tres pasos: **Organización** (se guarda al continuar), **Equipo** (invitar al Responsable del SGAI y al DPO, asumir uno de los roles o dejarlo para más tarde, y constituir el Comité de IA con el Administrador como presidente) y **Primer sistema** (cuestionario preliminar, alta o Dashboard). Reutiliza las acciones de Usuarios y Comités |
+| Bienvenida (resto de miembros) | Una pantalla con la organización y los roles; solo marca el perfil. Resuelve A2 |
+| Organización › Perfil regulatorio | Nueva sección **Madurez**: estado frente a ISO/IEC 42001 (con fecha y organismo si está certificada), inventario y madurez de la gobernanza |
+| Gobernanza (F-13) | Sin cambios: ya referencia miembros desde B23b |
+
+**Verificación.** `npm test` 167/167, `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha
+probado en el navegador.
+
+**Despliegue.** Solo web. Las organizaciones ya configuradas no vuelven a ver la configuración inicial; sus miembros
+pendientes verán la bienvenida.
+
+**Documentación.** `funcional/onboarding.md` (reescrita), `funcional/organizacion.md`, `_incidencias.md` (A2
+resuelta), `_pendientes.md` (58 resuelto), `producto/plan-resolucion-gaps.md`.
