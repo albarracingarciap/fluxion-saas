@@ -23,6 +23,7 @@ fuente:
   - supabase/migrations/20261028090000_supervision_humana_documentada.sql
   - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
   - supabase/migrations/20261028110000_registro_logs_sistema.sql
+  - supabase/migrations/20261028120000_requerimientos_autoridad.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -655,6 +656,26 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «SLA», «deadline».
 - **En el código:** `incident_notification_days`; `ai_incidents.became_aware_at`, `notification_deadline`.
 - **Normativa:** AI Act, Art. 73.2, 73.3 y 73.4.
+
+### Requerimiento de la autoridad
+- **Definición:** petición de una autoridad a la organización sobre uno o varios sistemas de IA: información o documentación, medidas correctoras u otra actuación, normalmente con un plazo. Tiene referencia propia (REQ-AAAA-NNN), autoridad, tipo, fecha de recepción, plazo, responsable, respuesta con su fecha, evidencias y tareas; al registrarlo se crea la tarea de responderlo con el plazo como fecha límite. No es un [incidente](#incidente) y su plazo no es el [plazo de notificación](#plazo-de-notificación) del Art. 73. Se gestiona en la pestaña **Requerimientos** de Incidentes.
+
+| Estado | Valor |
+|---|---|
+| Recibido | `received` |
+| En preparación | `in_progress` |
+| Respondido | `answered` |
+| Cerrado | `closed` |
+
+| Tipo | Valor |
+|---|---|
+| Solicitud de información | `information` |
+| Medidas correctoras | `corrective_measures` |
+| Otro | `other` |
+
+- **No usar:** «requerimiento» a secas cuando pueda confundirse con un requisito, «solicitud de la autoridad», «inspección» como término general.
+- **En el código:** `fluxion.authority_requests`, `authority_request_systems`, `authority_request_evidences`; origen de tarea `authority_request`.
+- **Normativa:** AI Act, Art. 26.12.
 
 ### Uso suspendido
 - **Definición:** marca de un sistema de IA cuyo uso ha suspendido la organización, como responsable del despliegue, porque usarlo conforme a las instrucciones puede dar lugar a un riesgo. No es un estado: el sistema conserva el suyo (Producción, Piloto…). Tiene fecha, motivo y, si lo hay, el [incidente](#incidente) que la motiva. Exige [avisos a terceros](#aviso-a-terceros) al proveedor o distribuidor y a la autoridad de vigilancia del mercado. Se levanta con **Reanudar uso**, indicando por qué, y la suspensión queda en el historial del sistema. Solo puede haber una activa por sistema.
