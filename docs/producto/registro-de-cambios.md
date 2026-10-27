@@ -77,6 +77,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Rol en la cadena de valor en la ficha y Art. 25 en el alta (TODO 285) | Integrado en `main` | `fase3/b16-rol-en-ficha` | 2026-10-27 | No |
 | B16b · Ficha para el registro UE en el expediente (Anexo VIII) | Integrado en `main` | `fase3/b16b-registro-ue` | 2026-10-27 | **Sí** · `20261027150000_expediente_registro_ue.sql` |
 | B16c · Brechas por sistema; dossier técnico e informe de brechas retirados; glosario | Integrado en `main` | `fase3/b16c-informes` | 2026-10-27 | No |
+| Glosario e inventario v1.7 tras B16 (TODO 284 y 287) | Integrado en `main` | `docs/glosario-inventario-b16` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1969,4 +1970,17 @@ correctos. No se ha probado en el navegador.
 **Documentación.** `negocio/informes-del-sistema.md` reescrito; `funcional/dossier-tecnico.md` e
 `funcional/informe-brechas-sistema.md` como vistas retiradas; `funcional/brechas.md`, `funcional/ficha-sistema.md`,
 `_mapa.md`, `glosario.md`. TODO 287 (inventario) abierto.
+
+---
+
+## Glosario e inventario v1.7 tras B16 (TODO 284 y 287)
+
+**Fecha:** 2026-10-27 · **Rama:** `docs/glosario-inventario-b16` · **Migración:** no
+
+A petición del responsable:
+- `glosario.md`: entradas nuevas **Aplicabilidad de un documento** (se redacta, documentación del proveedor, no aplica;
+  DP-11) y **Documentación del proveedor**; **Rol en la cadena de valor** (decide el expediente, Art. 25, sin roles no se
+  es proveedora, dónde se ve y se cambia) y **Expediente documental** actualizadas.
+- `_inventario.md` v1.7: rutas del dossier técnico, del registro UE y del informe de brechas como redirecciones (§2.2),
+  `eu_registry` y aplicabilidad en el expediente, Documentación del sistema en §10.2 y respuesta 72 (§13.1).
 
