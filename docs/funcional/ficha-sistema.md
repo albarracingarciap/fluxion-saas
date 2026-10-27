@@ -126,6 +126,13 @@ o un Responsable del sistema:
   preliminar «{título}» (sus respuestas sin campo en la ficha se consultan allí).». El título enlaza al
   [formulario del cuestionario](cuestionario-preliminar-formulario.md), que es de solo lectura mientras
   esté vinculado.
+- **Rol de la organización:** el [rol en la cadena de valor](../glosario.md#rol-en-la-cadena-de-valor)
+  declarado (`ai_systems.value_chain_roles`) o «sin declarar (no se considera proveedora)», con **Cambiar**,
+  que lleva a la edición del sistema («Tu papel frente a este sistema»). Si el motor sugiere roles que no
+  están declarados (`aiact_result.roles.suggested`): «Según los supuestos AI Act, también podría ser {roles}
+  (por ejemplo, por el Art. 25). Revísalo: decide qué documentos del expediente se redactan.». El rol decide
+  qué documentos del [expediente](expediente-documental.md#aplicabilidad-por-sistema-dp-11-b16a) se
+  redactan (DP-11).
 - Si la clasificación vigente difiere de la que propone el motor (otro ámbito, u otro nivel dentro del
   ámbito), por ejemplo porque la fijó el Asistente de clasificación o una revisión manual: «La
   clasificación vigente ({nivel}) difiere de la que propone el motor de clasificación ({propuesta del

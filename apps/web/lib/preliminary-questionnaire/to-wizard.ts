@@ -124,7 +124,11 @@ export function questionnaireToWizard(a: Answers): WizardPrefill {
     put('extProvider', txt(a, 'prov_nombre'))
   }
   put('baseModel', txt(a, 'q5_tecnologia'))
-  put('valueChainRoles', lista(a, 'pos_roles').map((r) => ROLES[r]).filter(Boolean))
+  // Proveedor sobrevenido (Art. 25): marca propia, modificación sustancial o
+  // cambio de finalidad hacen proveedora a la organización (DP-11).
+  const roles = lista(a, 'pos_roles').map((r) => ROLES[r]).filter(Boolean)
+  const art25 = ['a25_marca', 'a25_modificacion', 'a25_finalidad'].some((k) => a[k] === 'si')
+  put('valueChainRoles', art25 && !roles.includes('provider') ? [...roles, 'provider'] : roles)
   if (lista(a, 'u_forma').includes('fine_tuning')) put('hasFineTuning', true)
 
   // Paso 6 · Gobierno

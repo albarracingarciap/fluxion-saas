@@ -74,6 +74,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B15c · Retirada de las tablas de la AISIA; inventario v1.6 y glosario | Integrado en `main` | `fase3/b15c-retirar-tablas-aisia` | 2026-10-27 | **Sí** · `20261027140000_aisia_retirar_tablas.sql` |
 | Decisión DP-11 (aplicabilidad del expediente) | Integrado en `main` | `docs/dp11-aplicabilidad` | 2026-10-27 | No |
 | B16a · Aplicabilidad del expediente y documentación del proveedor | Integrado en `main` | `fase3/b16a-aplicabilidad` | 2026-10-27 | No |
+| Rol en la cadena de valor en la ficha y Art. 25 en el alta (TODO 285) | Integrado en `main` | `fase3/b16-rol-en-ficha` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1885,4 +1886,25 @@ correctos. No se ha probado en el navegador.
 
 **Documentación.** `funcional/expediente-documental.md`, `negocio/documentacion-del-sistema.md`. TODO 284 (glosario)
 y 285 (rol visible en la ficha) abiertos.
+
+---
+
+## Rol en la cadena de valor en la ficha y Art. 25 en el alta (TODO 285)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b16-rol-en-ficha` · **Migración:** no
+
+Desde DP-11 el rol de la organización decide qué documentos del expediente se redactan, pero no se veía en la ficha.
+A petición del responsable:
+- **Ficha › Clasificación AI Act:** «Rol de la organización» con los roles declarados (o «sin declarar (no se
+  considera proveedora)») y **Cambiar**, que lleva a la edición del sistema. Si el motor sugiere roles que no están
+  declarados, lo avisa.
+- **Alta desde el cuestionario preliminar:** el cuestionario ya pedía el rol («Posición en la cadena», obligatoria).
+  Ahora, si alguna pregunta del cambio de rol del Art. 25 es «Sí», el alta añade el rol de proveedor; antes solo
+  quedaba como rol sugerido por el motor.
+
+**Verificación.** `npm test` 120/120 (un test nuevo), `tsc --noEmit` y `next lint` correctos. No se ha probado en el
+navegador.
+
+**Documentación.** `funcional/ficha-sistema.md`, `producto/cuestionario-preliminar-reglas.md` (§ volcado). TODO 285
+resuelto.
 
