@@ -124,7 +124,7 @@ avisos: deja constancia de que se hicieron.
 
 | Acción | Campos | Resultado |
 |---|---|---|
-| **Suspender el uso** | Fecha (no futura), **Motivo** (obligatorio) e incidente que la motiva (opcional, entre los incidentes del sistema) | La tarjeta pasa a **Uso suspendido** y la cabecera muestra «Uso suspendido desde el …». Historial «Uso suspendido». Solo puede haber una suspensión activa |
+| **Suspender el uso** | Fecha (no futura), **Motivo** (obligatorio) e incidente que la motiva (opcional, entre los incidentes del sistema). Desde un incidente (**Suspender el uso →**, B25b) el formulario se abre con ese incidente elegido | La tarjeta pasa a **Uso suspendido** y la cabecera muestra «Uso suspendido desde el …». Historial «Uso suspendido». Solo puede haber una suspensión activa |
 | **Registrar aviso** | **Destinatario** (Proveedor, Importador, Distribuidor o Autoridad de vigilancia del mercado), nombre, fecha (no anterior a la suspensión), canal, referencia y evidencia de la biblioteca (del sistema o de la organización), opcionales salvo destinatario y fecha | Se añade a la lista de avisos. Historial «Aviso de la suspensión del uso» |
 | **Reanudar uso** | Fecha (no anterior a la suspensión) y **Por qué se puede reanudar** (obligatorio) | La suspensión se cierra y pasa a **Ver suspensiones anteriores**. Historial «Uso reanudado». Si faltan avisos, se avisa («Falta: …»), no se bloquea |
 

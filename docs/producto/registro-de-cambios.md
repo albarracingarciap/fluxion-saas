@@ -2356,3 +2356,33 @@ riesgos no registra avisos de suspensiones). `npm test` 173/173 (dos tests nuevo
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/inventario.md`, `tecnica/modelo-datos.md`,
 `_pendientes.md` (291: glosario).
+
+## B25b · Avisos del responsable del despliegue ante un incidente
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b25b-avisos-incidente` · **Migración:** no (usa `external_notices` de B25a)
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 3.2): ante un incidente grave, el
+responsable del despliegue informa inmediatamente primero al proveedor y después al importador o distribuidor y a
+la autoridad (AI Act, Art. 26.5). El módulo de Incidentes solo registraba la notificación a la autoridad.
+
+**Se aprovecha lo existente:** **Dar parte**, la clasificación (con **Nuestro rol**), la notificación a la autoridad
+con el reloj del Art. 73 y la tabla de avisos y la suspensión de B25a.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Reglas (`lib/ai-systems/notices.ts`) | `incidentNoticePlan`: proveedor, importador o distribuidor (si los hay) y autoridad; aviso si la autoridad consta antes que el proveedor |
+| Dar parte | **Nuestro rol** se propone según el rol en la cadena de valor de los sistemas afectados |
+| Detalle de incidente | Sección **Avisos del responsable del despliegue · artículo 26.5** con los pasos, la lista y **Registrar aviso**; recordatorio en **Notificación a la autoridad**; sección **Uso de los sistemas afectados** con **Suspender el uso →** |
+| Lista de incidentes | «Aviso al proveedor pendiente (Art. 26.5)» |
+| Ficha | `?suspender={incidente}` abre la suspensión con el incidente elegido |
+| Común | Formulario de aviso compartido (`components/notices/notice-form.tsx`) entre suspensión e incidente |
+
+**Verificación.** `npm test` 176/176 (tres tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. Las políticas de `external_notices` para incidentes se comprobaron en B25a. No se ha probado en el
+navegador.
+
+**Despliegue.** Solo web, sin migración.
+
+**Documentación.** `funcional/incidente-detalle.md`, `funcional/incidentes.md`, `funcional/ficha-sistema.md`.

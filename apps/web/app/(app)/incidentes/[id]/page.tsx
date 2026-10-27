@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { getAppAuthState } from '@/lib/auth/app-state'
-import { getIncident, getOrgMembers, getCorrectiveActions } from '../actions'
+import { getIncident, getOrgMembers, getCorrectiveActions, getIncidentOperation } from '../actions'
 import { IncidenteDetalle } from './incidente-detalle'
 import { hasAnyRole } from '@/lib/auth/roles'
 
@@ -20,6 +20,8 @@ export default async function IncidentePage({ params }: { params: { id: string }
   if (!incident) notFound()
 
   const canGovern = hasAnyRole(auth.membership, GOVERNANCE_ROLES)
+  // Avisos del responsable del despliegue y uso de los sistemas afectados (B25b).
+  const operation = await getIncidentOperation(incident)
 
   return (
     <IncidenteDetalle
@@ -27,6 +29,8 @@ export default async function IncidentePage({ params }: { params: { id: string }
       members={members}
       actions={actions}
       canGovern={canGovern}
+      evidences={operation.evidences}
+      suspensions={operation.suspensions}
     />
   )
 }

@@ -21,7 +21,14 @@ import {
   type SystemObligationEntry,
 } from './system-detail-client';
 
-export default async function SystemDetailPage({ params }: { params: { id: string } }) {
+export default async function SystemDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  /** `suspender`: incidente desde el que se abre «Suspender el uso» (B25b). */
+  searchParams?: { suspender?: string };
+}) {
   const supabase = createClient();
   const compliance = createComplianceClient();
   const fluxion = createFluxionClient();
@@ -701,6 +708,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       stageOrganization={stageOrganization}
       deployment={stageRow?.deployment ?? null}
       suspendedSince={suspensionActiva?.suspended_at ?? null}
+      suspendFromIncidentId={searchParams?.suspender ?? null}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

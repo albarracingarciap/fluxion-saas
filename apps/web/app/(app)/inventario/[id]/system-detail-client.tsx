@@ -1431,6 +1431,7 @@ export function SystemDetailClient({
   stageOrganization,
   deployment,
   suspendedSince,
+  suspendFromIncidentId,
   history,
   classificationEvents,
   evidences,
@@ -1454,6 +1455,8 @@ export function SystemDetailClient({
   deployment: DeploymentPlan | null;
   /** Uso suspendido desde esta fecha (B25a); null si no lo está. */
   suspendedSince: string | null;
+  /** Incidente desde el que se pide suspender el uso (B25b). */
+  suspendFromIncidentId: string | null;
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -4128,7 +4131,7 @@ export function SystemDetailClient({
               </div>
             </div>
 
-            <UseSuspensionCard systemId={system.id} />
+            <UseSuspensionCard systemId={system.id} fromIncidentId={suspendFromIncidentId} />
 
             {stage && <StageCard stage={stage} organization={stageOrganization} deployment={deployment} />}
 

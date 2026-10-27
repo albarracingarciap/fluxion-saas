@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Circle, Loader2, PauseCircle } from 'lucide-react';
 
-import type { NoticeRecipient } from '@/lib/ai-systems/notices';
+import { NoticeForm } from '@/components/notices/notice-form';
 
 import {
   getSystemSuspension,
@@ -29,10 +29,14 @@ const fecha = (d: string) => new Date(d).toLocaleDateString('es-ES');
  * constancia de los avisos al proveedor o distribuidor y a la autoridad, y
  * reanudarlo. El sistema conserva su estado.
  */
-export function UseSuspensionCard({ systemId }: { systemId: string }) {
+export function UseSuspensionCard({ systemId, fromIncidentId = null }: {
+  systemId: string;
+  /** Abre «Suspender el uso» con este incidente elegido (B25b, desde el incidente). */
+  fromIncidentId?: string | null;
+}) {
   const [data, setData] = useState<SystemSuspension | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<'suspender' | 'aviso' | 'reanudar' | null>(null);
+  const [form, setForm] = useState<'suspender' | 'aviso' | 'reanudar' | null>(fromIncidentId ? 'suspender' : null);
   const [verAnteriores, setVerAnteriores] = useState(false);
   const router = useRouter();
 
@@ -79,7 +83,8 @@ export function UseSuspensionCard({ systemId }: { systemId: string }) {
 
           <Avisos suspension={activa} />
 
-          {data.canEdit && form === null && (
+          {/* Si se llegó desde un incidente con el uso ya suspendido, no hay nada que abrir. */}
+          {data.canEdit && (form === null || form === 'suspender') && (
             <div className="flex flex-wrap gap-2 mt-3">
               <button type="button" onClick={() => setForm('aviso')} className={`${botonCls} bg-cyan-dim text-brand-cyan border border-cyan-border hover:bg-cyan-dim2`}>
                 Registrar aviso
@@ -89,7 +94,18 @@ export function UseSuspensionCard({ systemId }: { systemId: string }) {
               </button>
             </div>
           )}
-          {form === 'aviso' && <FormAviso systemId={systemId} suspensionId={activa.id} data={data} onCancel={() => setForm(null)} onDone={hecho} />}
+          {form === 'aviso' && (
+            <NoticeForm
+              evidences={data.evidences}
+              minDate={activa.suspendedAt}
+              onCancel={() => setForm(null)}
+              onSubmit={async (v) => {
+                const res = await recordSuspensionNotice({ systemId, suspensionId: activa.id, ...v });
+                if ('ok' in res) await hecho();
+                return res;
+              }}
+            />
+          )}
           {form === 'reanudar' && <FormReanudar systemId={systemId} suspension={activa} onCancel={() => setForm(null)} onDone={hecho} />}
         </>
       ) : (
@@ -103,7 +119,9 @@ export function UseSuspensionCard({ systemId }: { systemId: string }) {
               Suspender el uso
             </button>
           )}
-          {form === 'suspender' && <FormSuspender systemId={systemId} data={data} onCancel={() => setForm(null)} onDone={hecho} />}
+          {form === 'suspender' && data.canEdit && (
+            <FormSuspender systemId={systemId} data={data} initialIncidentId={fromIncidentId} onCancel={() => setForm(null)} onDone={hecho} />
+          )}
         </>
       )}
 
@@ -172,10 +190,13 @@ function Acciones({ saving, label, onCancel, onSubmit }: { saving: boolean; labe
   );
 }
 
-function FormSuspender({ systemId, data, onCancel, onDone }: { systemId: string; data: SystemSuspension; onCancel: () => void; onDone: () => Promise<void> }) {
+function FormSuspender({ systemId, data, initialIncidentId, onCancel, onDone }: {
+  systemId: string; data: SystemSuspension; initialIncidentId: string | null; onCancel: () => void; onDone: () => Promise<void>
+}) {
   const [suspendedAt, setSuspendedAt] = useState(hoy());
   const [reason, setReason] = useState('');
-  const [incidentId, setIncidentId] = useState('');
+  const [incidentId, setIncidentId] = useState(
+    initialIncidentId && data.incidents.some((i) => i.id === initialIncidentId) ? initialIncidentId : '');
   const [error, setError] = useState<string | null>(null);
   const [saving, start] = useTransition();
 
@@ -206,54 +227,6 @@ function FormSuspender({ systemId, data, onCancel, onDone }: { systemId: string;
       )}
       {error && <p className="mt-2 font-sora text-[11.5px] text-re">{error}</p>}
       <Acciones saving={saving} label="Suspender el uso" onCancel={onCancel} onSubmit={enviar} />
-    </div>
-  );
-}
-
-function FormAviso({ systemId, suspensionId, data, onCancel, onDone }: {
-  systemId: string; suspensionId: string; data: SystemSuspension; onCancel: () => void; onDone: () => Promise<void>
-}) {
-  const [recipient, setRecipient] = useState<NoticeRecipient>('provider');
-  const [recipientName, setRecipientName] = useState('');
-  const [notifiedAt, setNotifiedAt] = useState(hoy());
-  const [channel, setChannel] = useState('');
-  const [reference, setReference] = useState('');
-  const [evidenceId, setEvidenceId] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [saving, start] = useTransition();
-
-  function enviar() {
-    setError(null);
-    start(async () => {
-      const res = await recordSuspensionNotice({ systemId, suspensionId, recipient, recipientName, notifiedAt, channel, reference, evidenceId: evidenceId || null });
-      if ('error' in res) setError(res.error);
-      else await onDone();
-    });
-  }
-
-  return (
-    <div className="mt-3 pt-3 border-t border-ltb">
-      <p className="font-sora text-[11px] text-lttm">Fluxion no envía el aviso: deja constancia de que se hizo.</p>
-      <label className={labelCls}>Destinatario</label>
-      <select className={inputCls} value={recipient} onChange={(e) => setRecipient(e.target.value as NoticeRecipient)} disabled={saving}>
-        {data.recipients.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-      </select>
-      <label className={labelCls}>Nombre (opcional)</label>
-      <input className={inputCls} value={recipientName} onChange={(e) => setRecipientName(e.target.value)} disabled={saving}
-        placeholder="Proveedor o autoridad a la que se avisa" />
-      <label className={labelCls}>Fecha del aviso</label>
-      <input type="date" className={inputCls} value={notifiedAt} max={hoy()} onChange={(e) => setNotifiedAt(e.target.value)} disabled={saving} />
-      <label className={labelCls}>Canal (opcional)</label>
-      <input className={inputCls} value={channel} onChange={(e) => setChannel(e.target.value)} disabled={saving} placeholder="Correo, sede electrónica, portal del proveedor…" />
-      <label className={labelCls}>Referencia (opcional)</label>
-      <input className={inputCls} value={reference} onChange={(e) => setReference(e.target.value)} disabled={saving} placeholder="Acuse, número de registro o de ticket" />
-      <label className={labelCls}>Evidencia (opcional)</label>
-      <select className={inputCls} value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)} disabled={saving}>
-        <option value="">Sin evidencia</option>
-        {data.evidences.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
-      </select>
-      {error && <p className="mt-2 font-sora text-[11.5px] text-re">{error}</p>}
-      <Acciones saving={saving} label="Registrar aviso" onCancel={onCancel} onSubmit={enviar} />
     </div>
   );
 }
