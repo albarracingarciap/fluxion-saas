@@ -172,7 +172,7 @@ export function BulkDispositionModal({ selectedGaps: seleccion, onClose, onSucce
           {omitidos > 0 && (
             <p className="font-sora text-[11.5px] text-ltt2">
               {omitidos} {omitidos === 1 ? 'gap de riesgo o de control no se incluye' : 'gaps de riesgo o de control no se incluyen'}:
-              se resuelven en el plan de tratamiento.
+              se resuelven en el plan de tratamiento o, los de la Declaración, en la Declaración.
             </p>
           )}
 

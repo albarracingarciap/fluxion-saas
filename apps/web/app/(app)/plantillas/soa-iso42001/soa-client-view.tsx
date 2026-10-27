@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { SoAControlRecord } from '@/lib/templates/data'
 import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
@@ -20,6 +20,8 @@ type Props = {
   members: OrgMember[]
   aisiaStatusMap: Record<string, string>
   isReadOnly?: boolean
+  /** Control que se abre al entrar (`?control=A.x.y`). */
+  initialControlCode?: string | null
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
@@ -42,8 +44,12 @@ const DOMAIN_SHORT: Record<string, string> = {
 type ApplicabilityFilter = 'all' | 'applicable' | 'excluded'
 type StatusFilter = 'all' | 'not_started' | 'planned' | 'in_progress' | 'implemented' | 'externalized' | 'missing_justification'
 
-export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, members, aisiaStatusMap, isReadOnly = false }: Props) {
+export function SoAClientView({ controls, aiSystems, inScopeSystems, evidences, members, aisiaStatusMap, isReadOnly = false, initialControlCode = null }: Props) {
   const [selectedControl, setSelectedControl] = useState<SoAControlRecord | null>(null)
+  // Tras montar: el panel va en un portal y no existe en el render del servidor.
+  useEffect(() => {
+    if (initialControlCode) setSelectedControl(controls.find((c) => c.id === initialControlCode) ?? null)
+  }, [initialControlCode]) // eslint-disable-line react-hooks/exhaustive-deps
   const [search, setSearch] = useState('')
   const [filterApplicability, setFilterApplicability] = useState<ApplicabilityFilter>('all')
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all')

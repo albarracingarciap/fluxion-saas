@@ -38,7 +38,11 @@ const LIFECYCLE_CONFIG = {
   },
 }
 
-export default async function SoAPage() {
+export default async function SoAPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
   const { user, profile, membership, onboardingCompleted } = await getAppAuthState()
 
   if (!user) {
@@ -162,6 +166,8 @@ export default async function SoAPage() {
             members={data.members}
             aisiaStatusMap={data.aisiaStatusMap}
             isReadOnly={isReadOnly}
+            // Enlace desde un gap «Control de la Declaración sin implantar» (B17e3).
+            initialControlCode={typeof searchParams?.control === 'string' ? searchParams.control : null}
           />
 
           <SoAPrintView

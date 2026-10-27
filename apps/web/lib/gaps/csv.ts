@@ -4,6 +4,7 @@ const LAYER_LABELS_ES: Record<string, string> = {
   normativo: 'Normativo',
   fmea: 'FMEA',
   control: 'Control',
+  soa: 'Declaración',
   caducidad: 'Caducidad',
 }
 

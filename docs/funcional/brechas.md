@@ -27,6 +27,7 @@ fuente:
   - apps/web/app/(app)/tareas/actions.ts
   - supabase/migrations/00000000000001_schema.sql
   - apps/web/lib/gaps/exclusion-rules.ts
+  - apps/web/lib/gaps/soa.ts
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
 ---
 
@@ -69,6 +70,7 @@ La vista no restringe ninguna acción por rol. El límite para excluir lo pone l
 | **Gaps normativos** | Brechas «Obligación sin cubrir» |
 | **Gaps FMEA** | Brechas «Riesgo sin tratar» |
 | **Controles pendientes** | Brechas «Control sin implantar» |
+| **Declaración** | Brechas «Control de la Declaración sin implantar» |
 | **Caducidades** | Brechas «Evidencia caducada», incluidas las ya caducadas |
 | **Estado inicial del módulo** | Total de brechas abiertas y capas activas |
 
@@ -79,6 +81,7 @@ La vista no restringe ninguna acción por rol. El límite para excluir lo pone l
 | Normativo | Obligación AI Act del sistema no resuelta ni excluida | Según su prioridad: crítica, alta o media (baja y media cuentan como media) | Pestaña Obligaciones de la [Ficha del sistema](ficha-sistema.md) |
 | FMEA | Modo de fallo de la última evaluación con severidad actual 7 o más, sin mitigación en curso ni cierre | 9 crítica · 8 alta · 7 media | [Evaluación FMEA del modo](fmea-evaluacion.md) |
 | Control | Mitigación del último plan pendiente, en curso o con evidencia pendiente | Según la severidad del modo | [Plan de tratamiento de la acción](plan-de-tratamiento.md) |
+| Declaración | Control del Anexo A aplicable en la [Declaración de Aplicabilidad](declaracion-aplicabilidad.md) que no está «Implantado» ni «Externalizado»: una brecha por cada sistema vinculado al control (B17e3). Si el control tiene propuesta «Implantado», el contexto lo indica | Media | El control en la Declaración (**Abrir Declaración →** abre su panel) |
 | Caducidad | Evidencia que caduca en 30 días o menos, o ya caducada | 7 días o menos, o caducada: crítica · 14 días o menos: alta · 30 o menos: media | Pestaña Evidencias de la ficha |
 
 Las brechas normativas muestran además los modos de fallo activos que agravan el incumplimiento:
@@ -101,7 +104,7 @@ Cada sistema muestra también su [zona de riesgo](../glosario.md#zona-de-riesgo)
 |---|---|
 | Estado general | Todos · Mis gaps · Solo críticos · Sin owner · Vencidos |
 | Bloqueos operativos | Sin owner · Sin fecha · Vence pronto (7 días o menos) |
-| Tipo de gap | Normativo · FMEA · Control · Caducidad |
+| Tipo de gap | Normativo · FMEA · Control · Declaración · Caducidad |
 | Sistema | Uno por sistema |
 | Vista | Híbrida (grupos y cola) · Grupos · Detalle (cola) |
 
@@ -116,6 +119,7 @@ Hasta 12 grupos:
 | Obligaciones AI Act pendientes | Brechas normativas de un sistema |
 | {familia} sin tratamiento | Brechas FMEA de un sistema y una dimensión (Técnica, Seguridad, Ética, Gobernanza, ROI, Legal tipo B) |
 | Acciones de tratamiento pendientes | Controles pendientes de un plan |
+| {control} · sin implantar | Brechas de un control de la Declaración en todos sus sistemas vinculados |
 | Evidencias próximas a caducar | Caducidades de un sistema |
 
 Cada grupo muestra su gravedad máxima, el número de brechas, los sistemas y el responsable sugerido.
@@ -153,7 +157,7 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
-| **Asignar** / **Editar asignación** | Todos | `updateGapAssignment`: responsable y fecha. En caducidades, la fecha es la nueva caducidad de la evidencia | Actualiza la obligación, la acción del plan o la evidencia de origen. No disponible en brechas FMEA |
+| **Asignar** / **Editar asignación** | Todos | `updateGapAssignment`: responsable y fecha. En caducidades, la fecha es la nueva caducidad de la evidencia | Actualiza la obligación, la acción del plan o la evidencia de origen. No disponible en brechas FMEA ni de la Declaración (el responsable es el propietario del control en la Declaración) |
 | **Asignar grupo** | Todos | `updateGapGroupAssignment` | Ídem, en todas las brechas del grupo |
 | **Crear tarea** | Todos | `createGapTaskAction`: crea una [tarea](../glosario.md#tarea) con el título de la brecha, prioridad según la gravedad, responsable y fecha | Si ya existe, la reutiliza. Notifica al asignado. No disponible en brechas FMEA |
 | **Crear tareas** (grupo) | Todos | Una tarea por brecha, o una tarea paraguas del grupo | La paraguas queda vinculada a cada brecha |
@@ -172,6 +176,7 @@ Cada capa se aparta de la cola de una sola manera (`GAP_LAYER_EXCLUSION` en `lib
 | Capa | Botón | Qué hace |
 |---|---|---|
 | Riesgo sin tratar · Control sin implantar | Ninguno | Se resuelven en el [plan de tratamiento](plan-de-tratamiento.md) (mitigar, aceptar con su aprobación, transferir o evitar). El servidor rechaza su exclusión |
+| Control de la Declaración sin implantar | Ninguno | Se resuelve en la [Declaración](declaracion-aplicabilidad.md): implantándolo, externalizándolo o declarándolo no aplicable con su justificación. El servidor rechaza su exclusión, y la base de datos no admite disposiciones de este tipo |
 | Obligación sin cubrir | **Excluir obligación** | Con la exclusión activa (al pedirla, si ninguna política la gobierna, o al aprobarse), la obligación pasa a Excluida en el sistema. No caduca: al **Reactivar** el gap, la obligación vuelve a Pendiente |
 | Evidencia caducada | **Posponer** | La brecha sale de la cola hasta la fecha indicada |
 

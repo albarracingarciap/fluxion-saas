@@ -91,7 +91,7 @@ export function BulkActionBar({ selectedGaps, onClear, onAssign, onCreateTasks, 
         disabled={excludableCount === 0}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] border border-ltb text-ltt2 font-sora text-[12px] hover:border-ltbl hover:text-ltt transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         title={excludableCount === 0
-          ? 'Los riesgos sin tratar y los controles sin implantar se resuelven en el plan de tratamiento'
+          ? 'Los riesgos sin tratar y los controles sin implantar se resuelven en el plan de tratamiento; los controles de la Declaración, en la Declaración'
           : 'Excluir las obligaciones o posponer las evidencias caducadas seleccionadas'}
       >
         <ShieldOff size={12} />

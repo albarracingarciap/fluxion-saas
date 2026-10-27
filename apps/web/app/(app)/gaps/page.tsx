@@ -10,6 +10,7 @@ import {
   Info,
   LayoutDashboard,
   ShieldAlert,
+  ShieldCheck,
   ShieldOff,
 } from 'lucide-react'
 import { getAppAuthState } from '@/lib/auth/app-state'
@@ -35,6 +36,7 @@ const LAYER_LABELS = {
   normativo: 'Normativo',
   fmea: 'FMEA',
   control: 'Control',
+  soa: 'Declaración',
   caducidad: 'Caducidad',
 } as const
 
@@ -68,6 +70,10 @@ const LAYER_META: Record<UnifiedGapRecord['layer'], { pill: string; bar: string 
   control: {
     pill: 'bg-cyan-dim text-brand-cyan border-cyan-border',
     bar: 'bg-brand-cyan',
+  },
+  soa: {
+    pill: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
+    bar: 'bg-brand-blue',
   },
   caducidad: {
     pill: 'bg-[#f4f0fb] text-[#6b3bbf] border-[#c2a8e8]',
@@ -363,7 +369,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
         <IntelItem label="Caducidades próximas" value={data.caducities.length} />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="Gaps normativos"
           value={String(data.summary.by_layer.normativo)}
@@ -384,6 +390,13 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
           detail="Mitigaciones sin cierre completo"
           accent="cyan"
           Icon={ShieldAlert}
+        />
+        <KpiCard
+          label="Declaración"
+          value={String(data.summary.by_layer.soa)}
+          detail="Controles aplicables sin implantar"
+          accent="cyan"
+          Icon={ShieldCheck}
         />
         <KpiCard
           label="Caducidades"
@@ -410,7 +423,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                 <div>
                   <p className="font-sora text-[13px] font-semibold text-ltt">Radar unificado operativo</p>
                   <p className="font-sora text-[12px] text-ltt2 mt-1">
-                    Esta primera versión ya consolida cuatro capas reales del producto: normativo, FMEA, controles de mitigación y caducidades, manteniendo la acción principal en el módulo origen.
+                    Consolida cinco capas reales del producto: normativo, FMEA, controles de mitigación, controles de la Declaración y caducidades, manteniendo la acción principal en el módulo origen.
                   </p>
                 </div>
               </div>
@@ -429,10 +442,11 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                     data.summary.by_layer.normativo,
                     data.summary.by_layer.fmea,
                     data.summary.by_layer.control,
+                    data.summary.by_layer.soa,
                     data.summary.by_layer.caducidad,
                   ].filter((count) => count > 0).length
                 )}
-                detail={`${data.summary.by_layer.control} controles · ${data.summary.by_layer.caducidad} caducidades`}
+                detail={`${data.summary.by_layer.control} controles · ${data.summary.by_layer.soa} de la Declaración · ${data.summary.by_layer.caducidad} caducidades`}
               />
             </div>
 
@@ -533,7 +547,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3 mt-2">
                     <p className="font-sora text-[12px] text-lttm">
-                      {row.gaps_normativo_count} normativos · {row.gaps_fmea_count} FMEA · {row.gaps_control_count} controles · {row.gaps_caducidad_count} caducidades
+                      {row.gaps_normativo_count} normativos · {row.gaps_fmea_count} FMEA · {row.gaps_control_count} controles · {row.gaps_soa_count} de la Declaración · {row.gaps_caducidad_count} caducidades
                     </p>
                     <p className="font-sora text-[12px] text-brand-cyan inline-flex items-center gap-1">
                       Abrir sistema
@@ -632,7 +646,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
           </FilterGroup>
 
           <FilterGroup label="Tipo de gap">
-            {(['normativo', 'fmea', 'control', 'caducidad'] as GapLayer[]).map((layer) => (
+            {(['normativo', 'fmea', 'control', 'soa', 'caducidad'] as GapLayer[]).map((layer) => (
               <FilterChip
                 key={layer}
                 href={buildGapFilterHref(currentParams, 'layer', layer, { toggle: true })}

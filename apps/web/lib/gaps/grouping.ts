@@ -142,6 +142,20 @@ export function buildGapGroups(gaps: UnifiedGapRecord[]): GapGroupRecord[] {
       continue
     }
 
+    if (gap.layer === 'soa') {
+      registerGroup({
+        key: `soa_por_control:${gap.source_ref}`,
+        group_type: 'soa_por_control',
+        layer: 'soa',
+        title: `${gap.title} · sin implantar`,
+        subtitle: 'Control de la Declaración agrupado por sus sistemas vinculados',
+        detail_url: gap.detail_url,
+        child: gap,
+        owner_hint: gap.owner_name,
+      })
+      continue
+    }
+
     registerGroup({
       key: `caducidad_por_sistema:${gap.system_id}`,
       group_type: 'caducidad_por_sistema',
