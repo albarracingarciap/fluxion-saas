@@ -110,3 +110,11 @@ test('tarjeta de siguiente paso: alta del primer sistema, sistemas retirados fue
   assert.equal(card.href, '/inventario/p/expediente/aisia')
   assert.match(card.description, /P · etapa Clasificado/)
 })
+
+test('un disparador de reevaluación abierto quita la vigencia (B21a)', () => {
+  const s = systemStage(con({ pendingReevaluations: 1 }))
+  assert.equal(s.stage, 'tratado')
+  assert.equal(s.vigente, false)
+  assert.equal(s.next?.key, 'reevaluacion')
+  assert.equal(s.next?.href, '/inventario/s1')
+})

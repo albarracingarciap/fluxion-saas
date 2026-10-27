@@ -47,6 +47,10 @@ fuente:
   - apps/web/lib/approvals/open.ts
   - docs/_inventario.md
   - docs/_incidencias.md
+  - apps/web/lib/evaluation-status/reevaluation.ts
+  - apps/web/lib/evaluation-status/reevaluation-server.ts
+  - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
+  - apps/web/app/api/cron/reevaluation-triggers/route.ts
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -142,13 +146,13 @@ anteriores:
 | Clasificado | Nivel de riesgo determinado (o fuera del ámbito) sin reclasificación pendiente; ninguna obligación sugerida sin aceptar ni excluir |
 | Evaluado | Evaluación de riesgos y plan aprobados; AISIA aprobada; Anexo IV, ficha para el registro UE y FRIA aprobados cuando la aplicabilidad (DP-11) manda redactarlos; en alto riesgo, responsable de supervisión humana designado |
 | Tratado | Mitigaciones del plan cerradas; ningún modo de severidad 9 sin acción en el plan (también los diferidos); obligaciones resueltas o excluidas |
-| Vigente | Sin evidencias caducadas; sin revisión de la evaluación ni de acciones aceptadas vencida; plazo del plan al día |
+| Vigente | Sin evidencias caducadas; sin revisión de la evaluación ni de acciones aceptadas vencida; plazo del plan al día; sin reevaluaciones pendientes (B21a) |
 
 «Sin brechas críticas abiertas» no se comprueba aparte: las brechas críticas son obligaciones críticas sin
 resolver, modos de severidad 9 sin tratar o pendientes de cierre y evidencias caducadas o a punto de
 caducar, y todas tienen su requisito en la tabla. Las medidas de transparencia del Art. 50 cuentan como
-obligaciones (Tratado). Los disparadores de reevaluación de B21 aún no existen: hoy solo cuenta la
-reclasificación pendiente.
+obligaciones (Tratado). Desde B21a, un disparador de reevaluación abierto que aún pide algo quita la vigencia
+(«Sin reevaluaciones pendientes»).
 
 > **ℹ Aclaración.** Hoy ninguna etapa se puede alcanzar de forma verificable a partir de **Evaluado**: la
 > AISIA no tiene versión ligera. La evaluación FMEA ya se aprueba (GAP-13, resuelto en B07) y el
@@ -940,10 +944,30 @@ del expediente, y dejar las anteriores como sustituidas.
 > - **FMEA y plan:** ✔ resuelto en B07. **Nueva versión** abre la versión siguiente desde la vigente,
 >   partiendo de sus valores; al aprobarse, la anterior y su plan pasan a «Sustituida» y «Sustituido».
 > - **AISIA:** una aprobada no se puede rehacer (GAP-23).
-> - **Disparadores:** la fecha de próxima revisión, los incidentes y los cambios en la ficha no avisan
->   ni abren una reevaluación. El expediente sí avisa si la ficha cambió después de la última edición.
->
-> **Pendiente de implementar.** Disparadores de reevaluación del FMEA (decisión 63).
+> - **Disparadores:** ✔ resuelto en B21a (decisión 63). Ver [Disparadores de reevaluación](#disparadores-de-reevaluación).
+
+### Disparadores de reevaluación
+
+B21a (decisión 63; decisiones del responsable del 2026-10-28). Un disparador abre la reevaluación de un sistema,
+crea o reutiliza su tarea **Reevaluar sistema** y queda en la tarjeta **Reevaluación necesaria** de la
+[ficha](ficha-sistema.md) y en su historial:
+
+| Disparador | Cuándo se abre | Qué pide reevaluar |
+|---|---|---|
+| Incidente grave | Al guardar como grave un incidente que no lo era, para cada sistema afectado | Evaluación de riesgos; FRIA y AISIA si aplican y ya hay una aprobada |
+| Cambio de supuestos AI Act | Al guardar la ficha con supuestos distintos de los que tenía (la primera vez que se rellenan no cuenta) | Ídem |
+| Revisión de la evaluación de riesgos vencida | Cada día, si la fecha de próxima revisión de la evaluación aprobada ya pasó | Evaluación de riesgos |
+| Reglas de clasificación actualizadas | Cada día, si la clasificación se hizo con una versión de las reglas anterior a la vigente | Clasificación AI Act |
+
+- **Una tarea por sistema:** mientras haya una tarea «Reevaluar sistema» abierta, los disparadores nuevos se
+  añaden a su descripción. Se asigna al Responsable del sistema.
+- **Cierre:** cada disparador se cierra solo cuando se aprueba lo que pide después de detectarse (la
+  clasificación, cuando usa las reglas vigentes sin reclasificación pendiente). Se comprueba cada día y al
+  abrir la ficha. Sin disparadores abiertos, la tarea pasa a Completada.
+- **Descartar:** el Administrador y el Responsable del SGAI pueden descartar un disparador con un motivo de al
+  menos 10 caracteres; queda en el historial y en la auditoría.
+- **Vigencia:** un disparador abierto quita la condición **Vigente**.
+- Un mismo disparador (sistema, tipo y origen) no se abre dos veces mientras esté abierto.
 
 > **ℹ Aclaración.** Desde B13a, editar la ficha del sistema propone una reclasificación (`I17`): si
 > cambian el nivel de riesgo o las obligaciones, queda una reclasificación pendiente de conciliar en la

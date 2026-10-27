@@ -73,6 +73,9 @@ function getSourceHref(task: TaskRow): string | null {
   // Requerimientos de la autoridad (B25d).
   if (task.source_type === 'authority_request' && task.source_id)
     return `/incidentes/requerimientos/${task.source_id}`
+  // Reevaluación del sistema (B21a): source_id es el sistema.
+  if (task.source_type === 'reevaluation' && task.source_id)
+    return `/inventario/${task.source_id}`
   return null
 }
 

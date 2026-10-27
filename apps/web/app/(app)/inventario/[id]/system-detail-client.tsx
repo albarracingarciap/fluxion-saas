@@ -57,6 +57,7 @@ import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
 import { UseSuspensionCard } from './use-suspension-card';
 import { LogsCard } from './logs-card';
+import { ReevaluationCard } from './reevaluation-card';
 import { AuthorityRequestsCard, type SystemAuthorityRequest } from './authority-requests-card';
 
 export type SystemHistoryEntry = {
@@ -777,6 +778,8 @@ function getHistoryEventVisual(eventType: string) {
   if (EVENTOS_USO.includes(eventType)) return { tone: 'bg-red-dim text-re border-reb', label: 'Uso' };
   // Requerimientos de la autoridad (B25d).
   if (eventType.startsWith('authority_request_')) return { tone: 'bg-ordim text-or border-orb', label: 'Requerimiento' };
+  // Reevaluación (B21a).
+  if (eventType.startsWith('reevaluation_')) return { tone: 'bg-ordim text-or border-orb', label: 'Reevaluación' };
   // Registro de logs (B25c, Art. 26.6).
   if (eventType === 'log_retention_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Logs' };
   if (EVENTOS_AIACT.includes(eventType)) {
@@ -797,6 +800,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' || t === 'log_retention_updated' },
   { key: 'uso',         label: 'Uso',          match: (t) => EVENTOS_USO.includes(t) },
   { key: 'requerimientos', label: 'Requerimientos', match: (t) => t.startsWith('authority_request_') },
+  { key: 'reevaluacion', label: 'Reevaluación', match: (t) => t.startsWith('reevaluation_') },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
@@ -4142,6 +4146,8 @@ export function SystemDetailClient({
             </div>
 
             <UseSuspensionCard systemId={system.id} fromIncidentId={suspendFromIncidentId} />
+
+            <ReevaluationCard systemId={system.id} />
 
             {stage && <StageCard stage={stage} organization={stageOrganization} deployment={deployment} />}
 

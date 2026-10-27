@@ -16,6 +16,7 @@ fuente:
   - apps/web/lib/ai-systems/notices.ts
   - apps/web/components/notices/notice-form.tsx
   - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
+  - apps/web/lib/evaluation-status/reevaluation-server.ts
 ---
 
 # Detalle de incidente
@@ -136,7 +137,7 @@ aparecen en el tablero de Ejecución.».
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **Registrar aviso** | Gobierno | `recordIncidentNotice`: crea un aviso en `external_notices` con `incident_id`. La autoridad no se admite aquí | «Aviso registrado.» |
-| **Guardar clasificación** | Gobierno | `classifyIncident` | Recalcula plazo y estado de notificación. «Clasificación guardada y plazo recalculado.» |
+| **Guardar clasificación** | Gobierno | `classifyIncident` | Recalcula plazo y estado de notificación. «Clasificación guardada y plazo recalculado.» Si pasa a grave, abre un [disparador de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación) en cada sistema afectado (B21a) |
 | **Registrar notificación inicial** | Gobierno | `recordNotification` (`initial_sent`) | «Notificación inicial registrada.» El plazo sigue contando |
 | **Registrar notificación completa** | Gobierno | `recordNotification` (`complete_sent`) | «Notificación completa registrada. El reloj se detiene.» |
 | **+ Añadir** (acción correctiva) | Gobierno | `addCorrectiveAction`: crea una [tarea](../glosario.md#tarea) de prioridad alta con origen «Incidente de IA» | «Acción correctiva creada como tarea.» |

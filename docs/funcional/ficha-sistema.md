@@ -46,6 +46,11 @@ fuente:
   - apps/web/lib/governance/logs.ts
   - supabase/migrations/20261028110000_registro_logs_sistema.sql
   - apps/web/app/(app)/inventario/[id]/authority-requests-card.tsx
+  - apps/web/lib/evaluation-status/reevaluation.ts
+  - apps/web/lib/evaluation-status/reevaluation-server.ts
+  - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
+  - apps/web/app/(app)/inventario/[id]/reevaluation-card.tsx
+  - apps/web/app/(app)/inventario/[id]/reevaluation-actions.ts
 ---
 
 # Ficha del sistema
@@ -92,7 +97,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Requerimientos de la autoridad** (si los hay), **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Reevaluación necesaria** (si hay disparadores abiertos), **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Requerimientos de la autoridad** (si los hay), **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -135,6 +140,12 @@ avisos: deja constancia de que se hicieron.
 
 Mientras está suspendido, la tarjeta muestra los avisos exigidos con su marca: **Aviso al proveedor o
 distribuidor** y **Aviso a la autoridad de vigilancia del mercado**. Las tres acciones quedan en la auditoría.
+
+**Reevaluación necesaria** (B21a). Solo si el sistema tiene disparadores de reevaluación abiertos: para cada uno,
+su tipo (Incidente grave, Cambio de supuestos AI Act, Revisión de la evaluación de riesgos vencida, Reglas de
+clasificación actualizadas), la fecha, la descripción y lo que falta por reevaluar como enlaces (**Evaluación de
+riesgos →**, **FRIA →**, **AISIA →**, **Clasificación AI Act →**). El Administrador y el Responsable del SGAI ven
+**Descartar…**, que pide el motivo. Ver [disparadores de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación).
 
 **Etapa de evaluación** (B18a, DP-02). La etapa alcanzada (Sin clasificar, Clasificado, Evaluado, Tratado,
 o Retirada o rediseño en una práctica prohibida), **Siguiente:** con lo primero que falta y la lista de
@@ -319,7 +330,8 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 
 - **Eventos:** cronología del [historial del sistema](../glosario.md#historial-del-sistema), agrupada
   por fecha (Hoy, Ayer, Esta semana…).
-- **Filtros:** Todos, AI Act, Obligaciones, Edición, Uso, ISO 42001, FMEA y Evidencias. **Uso** (B25a)
+- **Filtros:** Todos, AI Act, Obligaciones, Edición, Uso, Requerimientos, Reevaluación, ISO 42001, FMEA y
+  Evidencias. **Reevaluación** (B21a) agrupa los disparadores abiertos, completados y descartados. **Uso** (B25a)
   agrupa la suspensión, sus avisos y la reanudación.
 - **Contenido de cada evento:** título, fecha, actor y, en las clasificaciones, el cambio de nivel. Los
   eventos anteriores a B13d con el nivel `gpai` se señalan como de nivel antiguo: en la pestaña Historial,

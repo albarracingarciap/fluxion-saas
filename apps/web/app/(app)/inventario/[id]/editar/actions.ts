@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
 import { deploymentWarning, prohibitedStatusError } from '@/lib/evaluation-status/deployment';
 import { loadSystemStages } from '@/lib/evaluation-status/load';
+import { registerReevaluation } from '@/lib/evaluation-status/reevaluation-server';
 
 // Map free-text data volume strings from the wizard to their ENUM values
 const DATA_VOLUME_MAP: Record<string, string> = {
@@ -61,6 +62,16 @@ function normalizeDocStatus(value: unknown) {
   }
 
   return DOC_STATUS_VALUES.has(value) ? value : null;
+}
+
+/** JSON con las claves ordenadas, para comparar supuestos sin depender del orden. */
+function jsonEstable(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(jsonEstable).join(',')}]`;
+  if (v && typeof v === 'object') {
+    return `{${Object.keys(v as Record<string, unknown>).sort()
+      .map((k) => `${JSON.stringify(k)}:${jsonEstable((v as Record<string, unknown>)[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v ?? null);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -196,7 +207,7 @@ export async function updateAISystem(formData: Record<string, any>) {
 
   const { data: previo } = await fluxion
     .from('ai_systems')
-    .select('status, aiact_result, aiact_risk_level')
+    .select('status, aiact_result, aiact_risk_level, aiact_inputs')
     .eq('id', systemId)
     .eq('organization_id', membership.organization_id)
     .maybeSingle();
@@ -291,6 +302,19 @@ export async function updateAISystem(formData: Record<string, any>) {
       actor_user_id: user.id,
     }] : []),
   ]);
+
+  // B21a: cambiar los supuestos AI Act de un sistema que ya los tenía abre una
+  // reevaluación. La primera vez que se rellenan no es un cambio.
+  if (previo?.aiact_inputs && formData.aiactInputs && jsonEstable(previo.aiact_inputs) !== jsonEstable(formData.aiactInputs)) {
+    await registerReevaluation({
+      organizationId: membership.organization_id,
+      systemId,
+      key: 'supuestos_aiact',
+      sourceRef: null,
+      detail: 'se han cambiado los supuestos AI Act en la ficha.',
+      actorUserId: user.id,
+    });
+  }
 
   // B18b (decisión 2): pasar a Producción sin completar el plan de despliegue
   // avisa, no bloquea. Queda en el historial con lo que faltaba.
