@@ -105,6 +105,13 @@ export function documentApplicability(templateKey: string, f: ApplicabilityFacts
       if (alto) return { mode: 'proveedor', reason: `${NO_PROVEEDOR} Para el registro, el número de registro del proveedor.` }
       return { mode: 'no_aplica', reason: 'El registro en la base de datos de la UE solo se exige a los sistemas de alto riesgo y a la excepción del Art. 6.3.' }
 
+    case 'post_market_plan':
+      // B26: el sistema de vigilancia poscomercialización es del proveedor (Art. 72). El responsable del
+      // despliegue vigila el funcionamiento e informa al proveedor (Art. 26.5): no redacta este plan.
+      if (alto && proveedor) return { mode: 'redactar', reason: 'Proveedor de un sistema de alto riesgo (AI Act, Art. 72 y Anexo IV, punto 9).' }
+      if (alto) return { mode: 'no_aplica', reason: 'El plan de vigilancia poscomercialización es del proveedor. Como responsable del despliegue, la organización vigila el funcionamiento e informa al proveedor (Art. 26.5).' }
+      return { mode: 'no_aplica', reason: 'El plan de vigilancia poscomercialización solo se exige al proveedor de un sistema de alto riesgo.' }
+
     case 'fria': {
       // Misma regla que la obligación AI-ACT-ART27 (RN-O06).
       const puntos = annexIIIPoints(f)

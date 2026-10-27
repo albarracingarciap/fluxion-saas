@@ -13,6 +13,7 @@
  * | Evidencias válidas vinculadas de todos los tipos obligatorios del catálogo | Obligación resuelta (B17e1) |
  * | Supervisión humana documentada: competencia, formación, autoridad y medidas | Art. 26.2 resuelta (B24) |
  * | Registro de logs completo: ubicación, conservación mínima, evidencia válida y verificación vigente | Art. 26.6 resuelta (B25c) |
+ * | Plan de vigilancia poscomercialización aprobado | Art. 72 resuelta (B26) |
  *
  * Módulo puro.
  */
@@ -28,7 +29,7 @@ export type ProposalFacts = {
   /** Evaluación de riesgos vigente (aprobada). */
   approvedEvaluation: { version: number; approvedAt: string } | null
   /** Último documento aprobado de cada plantilla. */
-  approvedDocuments: Partial<Record<'annex_iv' | 'fria' | 'eu_registry', ApprovedDocumentFact>>
+  approvedDocuments: Partial<Record<'annex_iv' | 'fria' | 'eu_registry' | 'post_market_plan', ApprovedDocumentFact>>
   /** Sección del Anexo VIII de la ficha para el registro UE (DP-11). */
   euRegistrySection: 'A' | 'B' | 'C' | null
   /** Supervisión humana documentada (B24). */
@@ -93,6 +94,10 @@ function proposalFromApprovals(code: string, facts: ProposalFacts): ObligationPr
       return d?.notified
         ? { status: 'resolved', reason: `FRIA v${d.version} aprobada el ${fecha(d.approvedAt)} y notificada a la autoridad.` }
         : null
+    }
+    case 'AI-ACT-ART72': {
+      const d = doc.post_market_plan
+      return d ? { status: 'resolved', reason: `Plan de vigilancia poscomercialización v${d.version} aprobado el ${fecha(d.approvedAt)}.` } : null
     }
     case 'AI-ACT-ART26-2':
       return facts.oversightDocumented

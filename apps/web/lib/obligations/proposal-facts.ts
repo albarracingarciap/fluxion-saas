@@ -9,7 +9,7 @@ import type { ApprovedDocumentFact, LinkedEvidenceFact, ProposalFacts } from './
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FluxionClient = any
 
-const PLANTILLAS = ['annex_iv', 'fria', 'eu_registry'] as const
+const PLANTILLAS = ['annex_iv', 'fria', 'eu_registry', 'post_market_plan'] as const
 
 /** Hechos de un sistema para las propuestas de estado de sus obligaciones (B17c). */
 export async function loadProposalFacts(fluxion: FluxionClient, aiSystemId: string): Promise<ProposalFacts> {

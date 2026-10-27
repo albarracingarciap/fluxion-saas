@@ -14,7 +14,7 @@ import { systemStage, type RequiredDocumentFact, type SystemStage } from './stag
 type FluxionClient = any
 
 /** Documentos del expediente que cuentan para «Evaluado» (DP-02), además de la AISIA. */
-const DOCUMENTOS_ETAPA = ['annex_iv', 'eu_registry', 'fria'] as const
+const DOCUMENTOS_ETAPA = ['annex_iv', 'eu_registry', 'post_market_plan', 'fria'] as const
 const PLAN_APROBADO = new Set(['approved', 'in_progress', 'closed'])
 const MITIGACION_ABIERTA = new Set(['pending', 'in_progress', 'evidence_pending'])
 /** Documentación del proveedor (B16a) por etiqueta o por tipo del catálogo (B17e1). */

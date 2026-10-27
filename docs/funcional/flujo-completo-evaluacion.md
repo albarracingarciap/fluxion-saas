@@ -51,6 +51,7 @@ fuente:
   - apps/web/lib/evaluation-status/reevaluation-server.ts
   - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
   - apps/web/app/api/cron/reevaluation-triggers/route.ts
+  - apps/web/lib/evaluation-status/load.ts
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -144,7 +145,7 @@ anteriores:
 | Etapa | Requisitos que se comprueban |
 |---|---|
 | Clasificado | Nivel de riesgo determinado (o fuera del ámbito) sin reclasificación pendiente; ninguna obligación sugerida sin aceptar ni excluir |
-| Evaluado | Evaluación de riesgos y plan aprobados; AISIA aprobada; Anexo IV, ficha para el registro UE y FRIA aprobados cuando la aplicabilidad (DP-11) manda redactarlos; en alto riesgo, responsable de supervisión humana designado |
+| Evaluado | Evaluación de riesgos y plan aprobados; AISIA aprobada; Anexo IV, ficha para el registro UE, plan de vigilancia poscomercialización (B26) y FRIA aprobados cuando la aplicabilidad (DP-11) manda redactarlos; en alto riesgo, responsable de supervisión humana designado |
 | Tratado | Mitigaciones del plan cerradas; ningún modo de severidad 9 sin acción en el plan (también los diferidos); obligaciones resueltas o excluidas |
 | Vigente | Sin evidencias caducadas; sin revisión de la evaluación ni de acciones aceptadas vencida; plazo del plan al día; sin reevaluaciones pendientes (B21a) |
 

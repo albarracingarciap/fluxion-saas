@@ -31,7 +31,7 @@ test('inactivas, de otro tipo o con otras condiciones no cubren', () => {
 const doc = (conditions: Record<string, string[]>, is_active = true): CoveragePolicy =>
   ({ object_type: 'document', is_active, conditions })
 
-test('las políticas por defecto cubren las plantillas del expediente (B11f; AISIA, B15)', () => {
+test('las políticas por defecto cubren las plantillas del expediente (B11f; AISIA, B15; plan de vigilancia, B26)', () => {
   assert.deepEqual(documentTemplatesWithoutPolicy([
     doc({ template_key: ['annex_iv'] }),
     doc({ template_key: ['fria'] }),
@@ -39,6 +39,7 @@ test('las políticas por defecto cubren las plantillas del expediente (B11f; AIS
     doc({ template_key: ['model_card'] }),
     doc({ template_key: ['aisia'] }),
     doc({ template_key: ['eu_registry'] }),
+    doc({ template_key: ['post_market_plan'] }),
   ]), [])
   assert.deepEqual(documentTemplatesWithoutPolicy([doc({})]), [])
 })
@@ -48,5 +49,5 @@ test('una plantilla sin política activa queda al descubierto', () => {
     doc({ template_key: ['annex_iv', 'fria'] }),
     doc({ template_key: ['dpia'] }, false),
     plan({}),
-  ]), ['eu_registry', 'dpia', 'model_card', 'aisia'])
+  ]), ['eu_registry', 'post_market_plan', 'dpia', 'model_card', 'aisia'])
 })

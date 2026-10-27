@@ -33,6 +33,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-tabs.tsx
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
   - apps/web/lib/evaluation-status/reevaluation.ts
+  - supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql
 ---
 
 # Expediente documental
@@ -89,6 +90,7 @@ Cada plantilla aplica a un sistema según el rol de la organización en su caden
 |---|---|---|---|
 | Anexo IV | Proveedor y alto riesgo | Alto riesgo sin ser proveedor | Resto, también con la clasificación pendiente |
 | Ficha para el registro UE | Proveedor de alto riesgo (sección A), proveedor con la excepción del Art. 6.3 (sección B) o responsable del despliegue que es organismo público (sección C). Ver [Ficha para el registro UE](registro-ue.md) | Alto riesgo sin ser proveedor | Resto e infraestructura crítica (registro nacional) |
+| Plan de vigilancia poscomercialización (B26) | Proveedor y alto riesgo (AI Act, Art. 72 y Anexo IV, punto 9) | — | Resto. Como responsable del despliegue, la vigilancia es la del Art. 26.5 (ver [ficha](ficha-sistema.md), **Uso del sistema**) |
 | FRIA | Responsable del despliegue de alto riesgo del Anexo III (salvo solo el punto 2) que es organismo público o presta servicios públicos (`aiact_inputs.publicBody`), o con los puntos 5b o 5c: la misma regla que la obligación del Art. 27 | — | Resto |
 | Ficha del modelo | Proveedor de un modelo GPAI (`aiact_result.gpai.modelProvider`) | — | Resto |
 | DPIA | La ficha marca que trata datos personales | — | Resto, también sin respuesta |
@@ -278,6 +280,18 @@ envíalo de nuevo.».
 
 Cada cambio de estado queda en el historial del sistema. Fuera de estas transiciones, la base de datos lo
 rechaza; las actas de aprobación, que genera el sistema, nacen aprobadas.
+
+**Plan de vigilancia poscomercialización** (B26, AI Act, Art. 72). Plantilla `post_market_plan` con seis apartados:
+objeto y alcance (sistema, versión, finalidad y proporcionalidad); datos que se recopilan (funcionamiento y
+cumplimiento; incidentes, reclamaciones y retroalimentación; registros del Art. 12, opcional); fuentes y canales
+(responsables del despliegue y otras fuentes; interacción con otros sistemas de IA, opcional); análisis (métodos,
+indicadores y umbrales; frecuencia y responsables); acciones derivadas (gestión de riesgos y acciones correctoras;
+incidentes graves y comunicación); e integración con otros sistemas de vigilancia (Anexo I, sección A, opcional).
+Todos se redactan a mano. Lo aprueba por defecto el Responsable del SGAI, como el Anexo IV. Aprobado, el Art. 72
+propone «Resuelta» y cuenta para la etapa **Evaluado**.
+
+> **Pendiente de definir.** El Art. 72.3 prevé un modelo de plan de la Comisión por acto de ejecución; cuando se
+> publique, la plantilla se revisará con una versión nueva.
 
 **Revisión anual de la FRIA y la AISIA** (B21b). En la FRIA y la AISIA aprobadas, junto a «aprobado el …»
 aparece «· revisión anual antes del …» (12 meses después de la aprobación), o en rojo «· revisión anual vencida

@@ -228,6 +228,7 @@ En el historial, la etiqueta **Requerimiento** y el filtro **Requerimientos** re
 | AISIA | [AISIA](aisia.md) del expediente |
 | Eval. riesgos | [Análisis de modos de fallo](../glosario.md#análisis-de-modos-de-fallo-fmea) del sistema |
 | Ficha registro UE | [Ficha para el registro UE](registro-ue.md), plantilla del expediente (B16b) |
+| Vigilancia poscom. | Plan de vigilancia poscomercialización del [expediente](expediente-documental.md) (B26); solo aplica al proveedor de alto riesgo |
 | Gaps del sistema | [Análisis de brechas](brechas.md) filtrado por el sistema, con su instantánea (B16c) |
 
 > TODO: confirmar los botones **Exportar PDF** y **Abrir agente** de la cabecera, que no hacen nada.
@@ -289,6 +290,7 @@ volver a comprobar la propuesta en el servidor, y añade a sus notas de resoluci
 | Art. 6.4 · Documentar la excepción del Art. 6.3 | Lo mismo, si la ficha es de la sección B |
 | Art. 26.2 · Supervisión humana por personas competentes | La supervisión documentada del sistema está completa (B24) |
 | Art. 26.6 · Conservación de los registros generados automáticamente | El **Registro de logs** está completo (B25c) |
+| Art. 72 · Vigilancia poscomercialización | Plan de vigilancia poscomercialización aprobado (B26) |
 | Cualquiera con tipos de evidencia obligatorios en el catálogo | Tiene vinculadas evidencias válidas de todos esos tipos (B17e1) |
 
 **Resolver obligación** (modal):
