@@ -199,9 +199,21 @@ export async function saveOversightMeasures(input: { systemId: string; measures:
     .update({ oversight_measures: input.measures.trim() || null })
     .eq('id', input.systemId)
     .eq('organization_id', profile.organization_id)
-    .select('id');
+    .select('id, name');
   if (error) return { error: 'No se pudieron guardar las medidas: ' + error.message };
   if (!updated || updated.length === 0) return { error: 'No tienes permisos para modificar este sistema.' };
+
+  void logAuditEvent({
+    organization_id: profile.organization_id,
+    actor_id: profile.id,
+    actor_name: profile.full_name ?? undefined,
+    actor_email: profile.email ?? undefined,
+    action: 'system.oversight_documented',
+    target_type: 'organization',
+    target_id: input.systemId,
+    target_label: String((updated[0] as { name: string }).name),
+    metadata: { field: 'oversight_measures' },
+  });
 
   revalidatePath(`/inventario/${input.systemId}`);
   return { ok: true };

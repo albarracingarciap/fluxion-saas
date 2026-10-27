@@ -55,6 +55,7 @@ import { StageCard, type StageOrganization } from './stage-card';
 import type { SystemStage } from '@/lib/evaluation-status/stages';
 import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
+import { UseSuspensionCard } from './use-suspension-card';
 
 export type SystemHistoryEntry = {
   id: string;
@@ -760,6 +761,8 @@ function computeEvidenceBadge(status: string, evStatuses: string[]): { label: st
 
 /** Eventos de clasificación AI Act (B13a: propuesta y conciliación). */
 const EVENTOS_AIACT = ['classification_recalculated', 'classification_reviewed', 'classification_proposed', 'classification_reconciled'];
+/** Uso suspendido (B25a, Art. 26.5). */
+const EVENTOS_USO = ['use_suspended', 'use_suspension_notice', 'use_resumed'];
 
 function getHistoryEventVisual(eventType: string) {
   if (eventType === 'system_created' || eventType === 'system_registered_from_questionnaire') {
@@ -768,6 +771,8 @@ function getHistoryEventVisual(eventType: string) {
   if (eventType === 'system_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Edición' };
   // Paso a producción sin completar el plan de despliegue (B18b).
   if (eventType === 'deployment_plan_incomplete') return { tone: 'bg-ordim text-or border-orb', label: 'Despliegue' };
+  // Uso suspendido, avisos y reanudación (B25a).
+  if (EVENTOS_USO.includes(eventType)) return { tone: 'bg-red-dim text-re border-reb', label: 'Uso' };
   if (EVENTOS_AIACT.includes(eventType)) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
@@ -784,6 +789,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'aiact',       label: 'AI Act',       match: (t) => EVENTOS_AIACT.includes(t) },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
   { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' },
+  { key: 'uso',         label: 'Uso',          match: (t) => EVENTOS_USO.includes(t) },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
@@ -1424,6 +1430,7 @@ export function SystemDetailClient({
   stage,
   stageOrganization,
   deployment,
+  suspendedSince,
   history,
   classificationEvents,
   evidences,
@@ -1445,6 +1452,8 @@ export function SystemDetailClient({
   stageOrganization: StageOrganization;
   /** Plan de despliegue (B18b). */
   deployment: DeploymentPlan | null;
+  /** Uso suspendido desde esta fecha (B25a); null si no lo está. */
+  suspendedSince: string | null;
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -2543,6 +2552,11 @@ export function SystemDetailClient({
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium border ${statusMeta.pill} ${statusMeta.text}`}>
                   {statusMeta.label}
                 </span>
+                {suspendedSince && (
+                  <span title="AI Act, Art. 26.5" className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-red-dim text-re border border-reb">
+                    Uso suspendido desde el {new Date(suspendedSince).toLocaleDateString('es-ES')}
+                  </span>
+                )}
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full font-plex text-[10.5px] font-medium bg-ltcard2 text-lttm border border-ltb">
                   {system.provider_origin ? PROVIDER_LABELS[system.provider_origin] ?? system.provider_origin : 'Origen no definido'}
                 </span>
@@ -4113,6 +4127,8 @@ export function SystemDetailClient({
                 </div>
               </div>
             </div>
+
+            <UseSuspensionCard systemId={system.id} />
 
             {stage && <StageCard stage={stage} organization={stageOrganization} deployment={deployment} />}
 

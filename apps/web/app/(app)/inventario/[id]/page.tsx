@@ -681,6 +681,14 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
   // Etapa de evaluación (DP-02, B18a). En la Declaración, sin etiquetas de
   // alcance entran todos los sistemas (`buildSoAData`).
   const [stageRow] = await loadSystemStages(fluxion, membership.organization_id, [params.id]);
+  // Uso suspendido (B25a, Art. 26.5): marca aparte del estado.
+  const { data: suspensionActiva } = await fluxion
+    .from('system_use_suspensions')
+    .select('suspended_at')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', params.id)
+    .is('resumed_at', null)
+    .maybeSingle();
   const stageOrganization = {
     soaApproved: soaMetadata?.lifecycle_status === 'approved',
     inScope: soaScopeSystemTags.length === 0 || isInSoaScope,
@@ -692,6 +700,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       stage={stageRow?.stage ?? null}
       stageOrganization={stageOrganization}
       deployment={stageRow?.deployment ?? null}
+      suspendedSince={suspensionActiva?.suspended_at ?? null}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}
