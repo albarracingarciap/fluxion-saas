@@ -121,8 +121,33 @@ apartado 4. La fase 4 añade funcionalidad.
 | **DP-08** | Plan parcial sobre los modos críticos (F-05, opción C de `circuito.md`) | B14 | **Decidida** (2026-10-20): sí, en una segunda iteración de B14 (la primera, evaluación por familias por defecto) |
 | **DP-09** | Alcance ISO 42001 de organización (cláusulas 4 a 10) | B20 | **Decidida** (2026-10-20): las 10 obligaciones ISO del catálogo, a nivel organización, con sesiones de comité y acta |
 | **DP-10** | Términos y modelo de datos pendientes de la especificación del cuestionario (`_pendientes.md` 236 a 242) | B13 | **Decidida** (2026-10-20): ver la [especificación](cuestionario-preliminar-reglas.md), «Decisiones del 2026-10-20» |
+| **DP-11** | Aplicabilidad de los documentos del expediente según el rol en la cadena de valor y el nivel de riesgo | B16 | **Decidida** (2026-10-27). Ver §5 |
 
 ## 5. Decisiones tomadas
+
+### DP-11 · Documentos del expediente según rol y nivel de riesgo
+
+Decidida por el responsable el 2026-10-27, antes de B16. Cada plantilla del expediente tiene una regla de
+aplicabilidad, definida en un solo sitio, según el rol de la organización en la cadena de valor del sistema y su
+clasificación AI Act. El expediente muestra a cada sistema solo lo que le aplica, en uno de tres modos:
+**redactar** (Fluxion compone el documento), **documentación del proveedor** (se adjunta como evidencia lo que
+entrega el proveedor) o **no aplica**.
+
+| Plantilla | Redactar | Documentación del proveedor | No aplica |
+|---|---|---|---|
+| Anexo IV | Proveedor y alto riesgo | No proveedor y alto riesgo | Resto |
+| Registro UE (Anexo VIII) | Proveedor y alto riesgo (sección A); proveedor que aplica la excepción del Art. 6.3 (sección B, Art. 49.2); responsable del despliegue que es autoridad pública y sistema de alto riesgo (sección C, Art. 49.3) | No proveedor y alto riesgo (número de registro del proveedor) | Resto. Infraestructura crítica (Anexo III, punto 2): registro nacional, no en la base de datos de la UE |
+| FRIA | Responsable del despliegue obligado por el Art. 27 | — | Resto |
+| Ficha del modelo | Proveedor de un modelo GPAI | — | Resto |
+| DPIA | El sistema trata datos personales | — | Resto |
+| AISIA | Siempre (ISO/IEC 42001) | — | — |
+
+- **Documentación del proveedor.** Quien despliega no suele recibir el Anexo IV, sino las instrucciones de uso
+  (Art. 13), la declaración UE de conformidad (Art. 47) y el número de registro (Art. 49). La opción se llama
+  «Documentación del proveedor» y admite esos documentos.
+- **Proveedor.** Lo es quien tiene ese rol declarado en el sistema, también el proveedor sobrevenido por
+  modificación sustancial o comercialización con su marca (Art. 25).
+- Lectura del AI Act pendiente de revisión jurídica (como TODO 238 y 239).
 
 ### DP-01 · Roles, comités y circuito de aprobación
 
@@ -840,8 +865,11 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
 
 - **Resuelve:** GAP-25; F-10.
 - **Alcance.** Plantilla `eu_registry` en el expediente con el Anexo VIII; informe de brechas como filtro por
-  sistema de `/gaps` con instantánea; retirada del dossier técnico (con redirección a la ficha).
-- **Depende de:** B09; DP-06.
+  sistema de `/gaps` con instantánea; retirada del dossier técnico (con redirección a la ficha). Con DP-11:
+  aplicabilidad de cada plantilla según rol y nivel de riesgo, y modo «Documentación del proveedor».
+- **Partes:** B16a (aplicabilidad y documentación del proveedor), B16b (`eu_registry`, secciones A, B y C del
+  Anexo VIII), B16c (informe de brechas por sistema y retirada del dossier técnico).
+- **Depende de:** B09; DP-06, DP-11.
 - **Talla:** M.
 
 ### B17 · Cumplimiento conectado
