@@ -53,6 +53,7 @@ import type { ClassificationEventEntry } from '@/components/classification/Class
 import type { RiskLevel } from '@/types/classification';
 import { StageCard, type StageOrganization } from './stage-card';
 import type { SystemStage } from '@/lib/evaluation-status/stages';
+import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
 
 export type SystemHistoryEntry = {
@@ -765,6 +766,8 @@ function getHistoryEventVisual(eventType: string) {
     return { tone: 'bg-cyan-dim text-brand-cyan border-cyan-border', label: 'Alta' };
   }
   if (eventType === 'system_updated') return { tone: 'bg-ltcard2 text-ltt border-ltb', label: 'Edición' };
+  // Paso a producción sin completar el plan de despliegue (B18b).
+  if (eventType === 'deployment_plan_incomplete') return { tone: 'bg-ordim text-or border-orb', label: 'Despliegue' };
   if (EVENTOS_AIACT.includes(eventType)) {
     return { tone: 'bg-red-dim text-re border-reb', label: 'AI Act' };
   }
@@ -780,7 +783,7 @@ const HISTORY_CATEGORIES: { key: string; label: string; match: (t: string) => bo
   { key: 'all',         label: 'Todos',        match: () => true },
   { key: 'aiact',       label: 'AI Act',       match: (t) => EVENTOS_AIACT.includes(t) },
   { key: 'obligations', label: 'Obligaciones', match: (t) => t.startsWith('obligation_') },
-  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' },
+  { key: 'edit',        label: 'Edición',      match: (t) => t === 'system_updated' || t === 'system_created' || t === 'system_registered_from_questionnaire' || t === 'deployment_plan_incomplete' },
   { key: 'iso',         label: 'ISO 42001',    match: (t) => t === 'iso_recalculated' || t.startsWith('aisia_') },
   { key: 'fmea',        label: 'FMEA',         match: (t) => t === 'failure_modes_activated' },
   { key: 'evidence',    label: 'Evidencias',   match: (t) => t.startsWith('evidence_') },
@@ -1420,6 +1423,7 @@ export function SystemDetailClient({
   system,
   stage,
   stageOrganization,
+  deployment,
   history,
   classificationEvents,
   evidences,
@@ -1439,6 +1443,8 @@ export function SystemDetailClient({
   /** Etapa de evaluación (DP-02, B18a). */
   stage: SystemStage | null;
   stageOrganization: StageOrganization;
+  /** Plan de despliegue (B18b). */
+  deployment: DeploymentPlan | null;
   history: SystemHistoryEntry[];
   classificationEvents: ClassificationEventEntry[];
   evidences: SystemEvidenceEntry[];
@@ -4108,7 +4114,7 @@ export function SystemDetailClient({
               </div>
             </div>
 
-            {stage && <StageCard stage={stage} organization={stageOrganization} />}
+            {stage && <StageCard stage={stage} organization={stageOrganization} deployment={deployment} />}
 
             <ResponsablesCard systemId={system.id} />
 

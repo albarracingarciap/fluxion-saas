@@ -925,7 +925,7 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   del proveedor GPAI, pendientes de definir; el marcado CE se acredita con la declaración UE de conformidad del
   proveedor (Art. 47) adjunta y válida, sin campo propio; el plan de despliegue va en la tarjeta de etapa de la
   ficha, solo en alto riesgo con la organización como responsable del despliegue.
-- **Estado (2026-10-27):** B18a integrado.
+- **Estado (2026-10-27):** B18a y B18b integrados.
 
 ### B19 · Hitos como evidencia
 

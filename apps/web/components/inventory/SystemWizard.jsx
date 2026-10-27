@@ -653,7 +653,7 @@ function LivePreview({f,step,analysing,mode,preliminaryLabel}){
 
 // ─── STEP FORMS ───────────────────────────────────────────────
 
-function Step1({f,set,tags,setTags,tagInput,setTagInput}){
+function Step1({f,set,tags,setTags,tagInput,setTagInput,cls}){
   const addTag=e=>{if(e.key==="Enter"&&tagInput.trim()){setTags([...tags,tagInput.trim()]);setTagInput("")}}
   const rmTag=i=>setTags(tags.filter((_,j)=>j!==i));
   return(<>
@@ -681,6 +681,12 @@ function Step1({f,set,tags,setTags,tagInput,setTagInput}){
           <option value="">Seleccionar estado...</option>
           {[["produccion","🟢 Producción"],["desarrollo","🔵 Desarrollo"],["piloto","🟡 Piloto / Testing"],["deprecado","⚫ Deprecado"],["retirado","🔴 Retirado"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
         </select>
+        {/* B18b: el servidor rechaza poner en servicio una práctica prohibida. */}
+        {cls?.level === "prohibited" && ["produccion","piloto"].includes(f.status) && (
+          <p style={{marginTop:6,fontSize:12,color:"#d93025"}}>
+            Práctica prohibida (AI Act, Art. 5): no se puede guardar en Producción ni en Piloto. Elige otro estado.
+          </p>
+        )}
       </div>
     </div>
     <div className="field-row fr2">
@@ -1311,6 +1317,10 @@ export default function SystemWizard({
       if (result?.reclasificacion === 'pendiente_previa') {
         window.alert('Los cambios se han guardado, pero la clasificación no se ha revisado: el sistema ya tiene una reclasificación pendiente de conciliar. Concíliala en la ficha y, si hace falta, usa «✏ Revisar clasificación».');
       }
+      if (result?.deploymentWarning) {
+        // B18b (decisión 2): pasar a Producción sin el plan de despliegue completo avisa, no bloquea.
+        window.alert(`Los cambios se han guardado. ${result.deploymentWarning}\n\nCompleta el plan en la tarjeta «Etapa de evaluación» de la ficha.`);
+      }
       if (mode === 'create' && result?.clasificacionInicial === 'no_disponible') {
         // El sistema existe, pero sin la primera versión de su clasificación ni
         // sus obligaciones (B13e): se abre la ficha para recuperarlo.
@@ -1387,7 +1397,7 @@ export default function SystemWizard({
                     </span>
                   </div>
                 )}
-                {step === 1 && <Step1 f={f} set={set} tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} />}
+                {step === 1 && <Step1 f={f} set={set} tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} cls={clsActual} />}
                 {step === 2 && <Step2 f={f} set={set} cbToggle={cbToggle} />}
                 {step === 3 && <Step3 f={f} set={set} cls={clsActual} />}
                 {step === 4 && <Step4 f={f} set={set} cbToggle={cbToggle} />}

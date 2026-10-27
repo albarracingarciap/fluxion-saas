@@ -87,6 +87,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17e2 · Controles de la Declaración propuestos desde el plan | Integrado en `main` | `fase3/b17e2-correspondencia-anexo-a` | 2026-10-27 | **Sí** · `20261027200000_soa_correspondencia_anexo_a.sql` |
 | B17e3 · Gaps de controles de la Declaración sin implantar | Integrado en `main` | `fase3/b17e3-brechas-soa` | 2026-10-27 | No |
 | B18a · Etapas de evaluación (DP-02) | Integrado en `main` | `fase3/b18a-etapas` | 2026-10-27 | No |
+| B18b · Plan de despliegue y práctica prohibida | Integrado en `main` | `fase3/b18b-plan-despliegue` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2233,3 +2234,33 @@ correctos. No se ha probado en el navegador.
 **Documentación.** `funcional/flujo-completo-evaluacion.md` (DP-02 implementada, casos especiales y cómo se calcula),
 `funcional/ficha-sistema.md`, `funcional/dashboard.md`, `funcional/evaluaciones.md`, `producto/plan-resolucion-gaps.md`
 (división de B18 y decisiones), `_pendientes.md` (289: término «Etapa de evaluación»).
+
+## B18b · Plan de despliegue y práctica prohibida
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b18b-plan-despliegue` · **Migración:** no
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), fase 2): nada recogía lo que el
+responsable del despliegue de un sistema de alto riesgo debe tener antes de ponerlo en servicio, y un sistema
+clasificado como práctica prohibida se podía poner en Producción sin ningún aviso.
+
+**Decisiones del responsable (2026-10-27):** pasar a Producción sin completar el plan avisa y no bloquea; el marcado
+CE se acredita con la declaración UE de conformidad del proveedor adjunta y válida; una práctica prohibida no se puede
+poner en Producción ni en Piloto; el plan va en la tarjeta de etapa.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Plan (`lib/evaluation-status/deployment.ts`, nuevo, puro) | Solo alto riesgo con el rol de responsable del despliegue: instrucciones de uso y declaración UE del proveedor válidas (por etiqueta o tipo del catálogo), supervisión humana, FRIA aprobada y notificada si aplica, y obligaciones 26.4, 26.7 y 26.11 resueltas si el sistema las tiene |
+| Datos (`lib/evaluation-status/load.ts`) | El cargador de etapas calcula también el plan |
+| Ficha | Sección **Plan de despliegue** en la tarjeta de etapa; evento **Despliegue** en el historial |
+| Alta y edición | Una práctica prohibida en Producción o Piloto se rechaza en el servidor (en la edición cuenta la clasificación vigente y la nueva) y el paso 1 lo advierte. Pasar a Producción, o darse de alta en ella, sin el plan completo guarda, avisa con lo que falta y lo anota en el historial |
+
+**Verificación.** `npm test` 167/167 (seis tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web. Los sistemas prohibidos que ya estén en Producción o Piloto no se tocan, pero no se podrá
+guardar su ficha sin cambiarles el estado.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/ficha-sistema-edicion.md`, `funcional/inventario-alta.md`,
+`producto/plan-resolucion-gaps.md`.

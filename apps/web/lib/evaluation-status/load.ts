@@ -3,6 +3,8 @@ import 'server-only'
 import { applicabilityFacts, documentApplicability } from '@/lib/documents/applicability'
 import { TEMPLATE_META } from '@/lib/documents/templates'
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
+import { createComplianceClient } from '@/lib/supabase/compliance'
+import { deploymentPlan, type DeploymentObligation, type DeploymentPlan } from './deployment'
 import { systemStage, type RequiredDocumentFact, type SystemStage } from './stages'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -12,6 +14,9 @@ type FluxionClient = any
 const DOCUMENTOS_ETAPA = ['annex_iv', 'eu_registry', 'fria'] as const
 const PLAN_APROBADO = new Set(['approved', 'in_progress', 'closed'])
 const MITIGACION_ABIERTA = new Set(['pending', 'in_progress', 'evidence_pending'])
+/** Documentación del proveedor (B16a) por etiqueta o por tipo del catálogo (B17e1). */
+const TIPO_INSTRUCCIONES = 'EVT-DOC-04'
+const TIPO_DECLARACION = 'EVT-DOC-03'
 
 export type SystemStageRow = {
   id: string
@@ -19,6 +24,8 @@ export type SystemStageRow = {
   status: string
   level: string | null
   stage: SystemStage
+  /** Plan de despliegue (B18b): solo alto riesgo con la organización como responsable del despliegue. */
+  deployment: DeploymentPlan | null
 }
 
 type Sistema = Record<string, unknown> & {
@@ -50,7 +57,7 @@ export async function loadSystemStages(
       .select('id, name, status, aiact_result, aiact_risk_level, aiact_review_pending, aiact_obligations, aiact_inputs, value_chain_roles, is_gpai, manages_critical_infra, processes_personal_data, human_oversight_owner_id')
       .eq('organization_id', organizationId), 'id'),
     filtrar(fluxion.from('system_obligations')
-      .select('ai_system_id, status')
+      .select('ai_system_id, status, obligation_code')
       .eq('organization_id', organizationId)
       .is('archived_at', null), 'ai_system_id'),
     filtrar(fluxion.from('fmea_evaluations')
@@ -60,21 +67,21 @@ export async function loadSystemStages(
       .select('id, system_id, evaluation_id, status, deadline')
       .eq('organization_id', organizationId), 'system_id'),
     filtrar(fluxion.from('documents')
-      .select('ai_system_id, template_key, status, approved_at')
+      .select('id, ai_system_id, template_key, status, approved_at')
       .eq('organization_id', organizationId)
       .in('status', ['approved', 'superseded'])
       .not('approved_at', 'is', null), 'ai_system_id'),
     filtrar(fluxion.from('system_evidences')
-      .select('ai_system_id, status, expires_at')
+      .select('ai_system_id, status, expires_at, tags, evidence_type_id')
       .eq('organization_id', organizationId), 'ai_system_id'),
   ])
 
   const sistemas = (sistemasR.data ?? []) as Sistema[]
-  const obligaciones = (obligacionesR.data ?? []) as Array<{ ai_system_id: string; status: string }>
+  const obligaciones = (obligacionesR.data ?? []) as Array<{ ai_system_id: string; status: string; obligation_code: string | null }>
   const evaluaciones = (evaluacionesR.data ?? []) as Array<{ id: string; system_id: string; state: string; version: number; next_review_at: string | null }>
   const planes = (planesR.data ?? []) as Array<{ id: string; system_id: string; evaluation_id: string; status: string; deadline: string | null }>
-  const documentos = (documentosR.data ?? []) as Array<{ ai_system_id: string; template_key: string }>
-  const evidencias = (evidenciasR.data ?? []) as Array<{ ai_system_id: string | null; status: string; expires_at: string | null }>
+  const documentos = (documentosR.data ?? []) as Array<{ id: string; ai_system_id: string; template_key: string }>
+  const evidencias = (evidenciasR.data ?? []) as Array<{ ai_system_id: string | null; status: string; expires_at: string | null; tags: string[] | null; evidence_type_id: string | null }>
 
   // Evaluación de referencia de cada sistema (B07) y su plan.
   const porSistema = <T,>(rows: T[], key: (r: T) => string | null) => {
@@ -107,6 +114,18 @@ export async function loadSystemStages(
       ? fluxion.from('treatment_actions').select('plan_id, fmea_item_id, option, status, review_due_date').in('plan_id', planIds)
       : { data: [] },
   ])
+  // Plan de despliegue (B18b): notificación de la FRIA y tipos del catálogo de
+  // la documentación del proveedor.
+  const friaIds = documentos.filter((d) => d.template_key === 'fria').map((d) => d.id)
+  const [notificacionesR, tiposR] = await Promise.all([
+    friaIds.length
+      ? fluxion.from('document_notifications').select('document_id').in('document_id', friaIds)
+      : { data: [] },
+    createComplianceClient().from('evidence_types').select('id, code').in('code', [TIPO_INSTRUCCIONES, TIPO_DECLARACION]),
+  ])
+  const friaNotificada = new Set(((notificacionesR.data ?? []) as Array<{ document_id: string }>).map((n) => n.document_id))
+  const tipoId = new Map(((tiposR.data ?? []) as Array<{ id: string; code: string }>).map((t) => [t.code, t.id]))
+
   const items = (itemsR.data ?? []) as Array<{ id: string; evaluation_id: string; status: string; s_actual: number | null }>
   const acciones = (accionesR.data ?? []) as Array<{ plan_id: string; fmea_item_id: string; option: string | null; status: string; review_due_date: string | null }>
 
@@ -158,6 +177,29 @@ export async function loadSystemStages(
       planDeadlineOverdue: Boolean(plan && (plan.status === 'approved' || plan.status === 'in_progress') && plan.deadline && plan.deadline < hoy),
     })
 
-    return { id: s.id, name: s.name, status: s.status, level, stage }
+    // Documentación del proveedor válida: por su etiqueta o por su tipo del catálogo.
+    const docProveedor = (tag: string, code: string) => evid.some((e) =>
+      e.status === 'valid' && ((e.tags ?? []).includes(tag) || (e.evidence_type_id !== null && e.evidence_type_id === tipoId.get(code))))
+    const obligacion = (code: string): DeploymentObligation => {
+      const fila = obl.find((o) => o.obligation_code === code && o.status !== 'excluded')
+      if (!fila) return null
+      return fila.status === 'resolved' ? 'resolved' : 'open'
+    }
+    const friaAplica = documentApplicability('fria', facts).mode === 'redactar'
+    const friaDocs = (docsPorSistema.get(s.id) ?? []).filter((d) => d.template_key === 'fria')
+    const deployment = deploymentPlan({
+      systemId: s.id,
+      level,
+      valueChainRoles: facts.valueChainRoles,
+      providerInstructions: docProveedor('doc-proveedor-tipo-instrucciones', TIPO_INSTRUCCIONES),
+      providerDeclaration: docProveedor('doc-proveedor-tipo-declaracion', TIPO_DECLARACION),
+      oversightDesignated: Boolean(s.human_oversight_owner_id),
+      fria: friaAplica ? { approved: friaDocs.length > 0, notified: friaDocs.some((d) => friaNotificada.has(d.id)) } : null,
+      inputData: obligacion('AI-ACT-ART26-4'),
+      workersInformed: obligacion('AI-ACT-ART26-7'),
+      affectedInformed: obligacion('AI-ACT-ART26-11'),
+    })
+
+    return { id: s.id, name: s.name, status: s.status, level, stage, deployment }
   })
 }

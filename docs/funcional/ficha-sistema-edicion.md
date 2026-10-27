@@ -101,11 +101,14 @@ Las mismas del [Alta de sistema](inventario-alta.md#validaciones), y además:
 |---|---|
 | Falta el identificador del sistema | «Falta el identificador del sistema a actualizar.» |
 | Rol sin permiso de edición | Error técnico de la base de datos |
+| Práctica prohibida en Producción o Piloto (B18b): cuenta la clasificación vigente y la que resulta de los datos editados | «Práctica prohibida (AI Act, Art. 5): el sistema no se puede poner en Producción ni en Piloto. Retíralo o rediséñalo y vuelve a clasificarlo.» |
+| Paso a Producción de un sistema de alto riesgo con la organización como responsable del despliegue, sin el [plan de despliegue](ficha-sistema.md#cabecera-y-panel-lateral) completo (B18b) | Se guarda y avisa con lo que falta (decisión 2: no bloquea). Queda en el historial como «Paso a producción sin completar el plan de despliegue» |
 
 ## Estados
 
 El estado del sistema (Producción, Desarrollo, Piloto, Deprecado o Retirado) se cambia aquí, en el
-paso 1. No hay restricciones entre estados.
+paso 1. No hay restricciones entre estados, salvo que una práctica prohibida no puede estar en Producción ni
+en Piloto (B18b).
 
 ## Vistas relacionadas
 
