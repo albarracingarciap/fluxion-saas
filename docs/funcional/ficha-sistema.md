@@ -93,6 +93,21 @@ Sin ninguno de los dos casos no se muestra etiqueta. Los sistemas que tenían GP
 pasaron a la categoría con el nivel «Pendiente» y la insignia «Pendiente de revisar con el motor nuevo»
 (migración `20261026090000_ai_act_gpai_catalogo.sql`).
 
+**Plan de despliegue** (B18b). En la misma tarjeta, solo en los sistemas de alto riesgo en los que la
+organización tiene el rol de responsable del despliegue: lo que debe tener antes de pasar a Producción, cada
+punto con su enlace.
+
+| Punto | Se cumple cuando |
+|---|---|
+| Instrucciones de uso del proveedor verificadas (AI Act, Art. 13 y 26.1) | Documentación del proveedor de tipo instrucciones, o evidencia de tipo EVT-DOC-04, en estado Válida |
+| Declaración UE de conformidad del proveedor verificada: marcado CE (Art. 47 y 48) | Documentación del proveedor de tipo declaración, o evidencia EVT-DOC-03, Válida. Acredita el marcado CE; no hay campo propio |
+| Supervisión humana asignada (Art. 26.2) | Responsable de supervisión humana designado |
+| FRIA aprobada y notificada a la autoridad (Art. 27) | Solo si la FRIA aplica (DP-11): aprobada y con su notificación registrada |
+| Datos de entrada (Art. 26.4), trabajadores informados (26.7), personas afectadas informadas (26.11) | Solo si el sistema tiene la obligación y no está excluida: resuelta |
+
+Pasar a Producción sin completarlo avisa, no bloquea (decisión 2); el aviso queda en el historial con el
+evento **Despliegue**. El plan no cambia la etapa.
+
 **Etapa de evaluación** (B18a, DP-02). La etapa alcanzada (Sin clasificar, Clasificado, Evaluado, Tratado,
 o Retirada o rediseño en una práctica prohibida), **Siguiente:** con lo primero que falta y la lista de
 requisitos por etapa y de vigencia, cada uno con su enlace. Al pie, el requisito de la organización: si la

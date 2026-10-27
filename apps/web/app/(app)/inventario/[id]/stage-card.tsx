@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, CheckCircle2, Circle, ShieldCheck } from 'lucide-react';
 
+import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { STAGE_LABEL, type StageGroup, type SystemStage } from '@/lib/evaluation-status/stages';
 
 /** Declaración de Aplicabilidad: requisito de la organización (DP-02). */
@@ -25,7 +26,16 @@ const STAGE_TONE: Record<SystemStage['stage'], string> = {
  * Etapa de evaluación del sistema (DP-02, B18a): la etapa alcanzada, lo que
  * falta para la siguiente y la vigencia. Cada punto enlaza adonde se resuelve.
  */
-export function StageCard({ stage, organization }: { stage: SystemStage; organization: StageOrganization }) {
+export function StageCard({
+  stage,
+  organization,
+  deployment,
+}: {
+  stage: SystemStage;
+  organization: StageOrganization;
+  /** Plan de despliegue (B18b): solo alto riesgo con la organización como responsable del despliegue. */
+  deployment: DeploymentPlan | null;
+}) {
   const retirada = stage.stage === 'retirada';
 
   return (
@@ -89,6 +99,32 @@ export function StageCard({ stage, organization }: { stage: SystemStage; organiz
             })}
           </div>
         </>
+      )}
+
+      {deployment && (
+        <div className="mt-3 pt-3 border-t border-ltb">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className={`font-sora text-[11.5px] font-semibold ${deployment.complete ? 'text-gr' : 'text-ltt'}`}>Plan de despliegue</div>
+            <span className="font-plex text-[10px] text-lttm">
+              {deployment.items.length - deployment.missing.length}/{deployment.items.length}
+            </span>
+          </div>
+          <p className="font-sora text-[11px] text-lttm mb-1.5">
+            Alto riesgo con la organización como responsable del despliegue: antes de pasar a Producción.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {deployment.items.map((i) => (
+              <li key={i.key}>
+                <Link href={i.href} className="flex items-start gap-1.5 font-sora text-[11.5px] text-ltt2 hover:text-brand-cyan transition-colors">
+                  {i.done
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-gr shrink-0 mt-px" />
+                    : <Circle className="w-3.5 h-3.5 text-lttm shrink-0 mt-px" />}
+                  <span className={i.done ? 'text-lttm' : ''}>{i.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <Link

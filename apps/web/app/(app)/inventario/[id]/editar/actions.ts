@@ -7,6 +7,8 @@ import { callClassificationService, classificationColumns, classifyWithCatalog, 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
+import { deploymentWarning, prohibitedStatusError } from '@/lib/evaluation-status/deployment';
+import { loadSystemStages } from '@/lib/evaluation-status/load';
 
 // Map free-text data volume strings from the wizard to their ENUM values
 const DATA_VOLUME_MAP: Record<string, string> = {
@@ -192,6 +194,19 @@ export async function updateAISystem(formData: Record<string, any>) {
     return { error: 'Falta el identificador del sistema a actualizar.' };
   }
 
+  const { data: previo } = await fluxion
+    .from('ai_systems')
+    .select('status, aiact_result, aiact_risk_level')
+    .eq('id', systemId)
+    .eq('organization_id', membership.organization_id)
+    .maybeSingle();
+
+  // B18b: una práctica prohibida no se pone en Producción ni en Piloto. Cuenta
+  // la clasificación vigente y la que resulta de los datos editados.
+  const nivelVigente = (previo?.aiact_result as { level?: string | null } | null)?.level ?? (previo?.aiact_risk_level as string | null) ?? null;
+  const bloqueo = prohibitedStatusError(formData.status, [nivelVigente, cls.level]);
+  if (bloqueo) return { error: bloqueo };
+
   const { data, error } = await fluxion
     .from('ai_systems')
     .update({
@@ -277,7 +292,26 @@ export async function updateAISystem(formData: Record<string, any>) {
     }] : []),
   ]);
 
+  // B18b (decisión 2): pasar a Producción sin completar el plan de despliegue
+  // avisa, no bloquea. Queda en el historial con lo que faltaba.
+  let aviso: string | null = null;
+  if (formData.status === 'produccion' && previo?.status !== 'produccion') {
+    const [fila] = await loadSystemStages(fluxion, membership.organization_id, [systemId]);
+    aviso = deploymentWarning(fila?.deployment ?? null);
+    if (aviso && fila?.deployment) {
+      await insertAiSystemHistoryEvents(fluxion, [{
+        ai_system_id: systemId,
+        organization_id: membership.organization_id,
+        event_type: 'deployment_plan_incomplete',
+        event_title: 'Paso a producción sin completar el plan de despliegue',
+        event_summary: `Faltaba: ${fila.deployment.missing.map((i) => i.label).join('; ')}.`,
+        payload: { missing: fila.deployment.missing.map((i) => i.key) },
+        actor_user_id: user.id,
+      }]);
+    }
+  }
+
   revalidatePath('/inventario');
   revalidatePath(`/inventario/${systemId}`);
-  return { success: true, id: data.id, reclasificacion };
+  return { success: true, id: data.id, reclasificacion, deploymentWarning: aviso };
 }

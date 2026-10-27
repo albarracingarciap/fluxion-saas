@@ -691,6 +691,7 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
       system={{ ...system, origin_questionnaire: cuestionarioOrigen ?? null }}
       stage={stageRow?.stage ?? null}
       stageOrganization={stageOrganization}
+      deployment={stageRow?.deployment ?? null}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

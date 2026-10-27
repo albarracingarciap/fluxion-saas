@@ -297,6 +297,8 @@ Si se abandona el alta, no se vincula nada y el cuestionario sigue disponible.
 | Faltan campos obligatorios del paso | **Continuar →** se atenúa y no avanza. No hay mensaje |
 | Versión con formato incorrecto o **ID interno** repetido | Al guardar se muestra el error técnico de la base de datos junto al botón |
 | Usuario sin organización | «No se encontró organización asociada al usuario.» |
+| Práctica prohibida en Producción o Piloto (B18b) | El paso 1 lo advierte bajo **Estado actual** y el servidor lo rechaza: «Práctica prohibida (AI Act, Art. 5): el sistema no se puede poner en Producción ni en Piloto. Retíralo o rediséñalo y vuelve a clasificarlo.» |
+| Alta en Producción de un sistema de alto riesgo con la organización como responsable del despliegue, sin el [plan de despliegue](ficha-sistema.md#cabecera-y-panel-lateral) completo (B18b) | Se registra y avisa con lo que falta (decisión 2: no bloquea). Queda en el historial como «Alta en producción sin completar el plan de despliegue» |
 | Alta desde un cuestionario que ya no existe, no está completado o ya tiene sistema | «No se encontró el cuestionario de origen.», «El cuestionario de origen no está completado.» o «El cuestionario de origen ya tiene un sistema vinculado.» |
 | El cuestionario se vincula a otro sistema mientras se guarda | «No se pudo vincular el cuestionario: ya tiene un sistema. No se ha registrado el sistema.» |
 

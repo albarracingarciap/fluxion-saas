@@ -7,6 +7,8 @@ import { callClassificationService, classificationColumns, classifyWithCatalog, 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { normalizeOutputTypes } from '@/lib/ai-systems/output-types';
+import { deploymentWarning, prohibitedStatusError } from '@/lib/evaluation-status/deployment';
+import { loadSystemStages } from '@/lib/evaluation-status/load';
 
 // Map free-text data volume strings from the wizard to their ENUM values
 const DATA_VOLUME_MAP: Record<string, string> = {
@@ -109,6 +111,10 @@ export async function saveAISystem(formData: Record<string, any>) {
     catalog: await loadAiActCatalog(),
   });
   const cls = classification.result;
+
+  // B18b: una práctica prohibida no se da de alta en Producción ni en Piloto.
+  const bloqueo = prohibitedStatusError(formData.status, [cls.level]);
+  if (bloqueo) return { error: bloqueo };
 
   // Build the insert payload mapping wizard fields → DB columns
   const payload = {
@@ -308,6 +314,25 @@ export async function saveAISystem(formData: Record<string, any>) {
     console.error('Error en clasificación inicial (no bloqueante):', classifyError);
   }
 
+  // B18b (decisión 2): de alta directamente en Producción sin el plan de
+  // despliegue completo: aviso, sin bloquear, y constancia en el historial.
+  let aviso: string | null = null;
+  if (formData.status === 'produccion') {
+    const [fila] = await loadSystemStages(fluxion, membership.organization_id, [data.id]);
+    aviso = deploymentWarning(fila?.deployment ?? null);
+    if (aviso && fila?.deployment) {
+      await insertAiSystemHistoryEvents(fluxion, [{
+        ai_system_id: data.id,
+        organization_id: membership.organization_id,
+        event_type: 'deployment_plan_incomplete',
+        event_title: 'Alta en producción sin completar el plan de despliegue',
+        event_summary: `Faltaba: ${fila.deployment.missing.map((i) => i.label).join('; ')}.`,
+        payload: { missing: fila.deployment.missing.map((i) => i.key) },
+        actor_user_id: user.id,
+      }]);
+    }
+  }
+
   revalidatePath('/inventario');
-  return { success: true, id: data.id, clasificacionInicial };
+  return { success: true, id: data.id, clasificacionInicial, deploymentWarning: aviso };
 }
