@@ -85,6 +85,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B17d · Exclusión de brechas según F-14 | Integrado en `main` | `fase3/b17d-exclusion-gaps` | 2026-10-27 | **Sí** · `20261027180000_gaps_exclusion_obligaciones.sql` |
 | B17e1 · Tipo del catálogo en las evidencias y obligación resuelta por evidencias | Integrado en `main` | `fase3/b17e1-tipos-evidencia` | 2026-10-27 | **Sí** · `20261027190000_evidencias_tipo_catalogo.sql` |
 | B17e2 · Controles de la Declaración propuestos desde el plan | Integrado en `main` | `fase3/b17e2-correspondencia-anexo-a` | 2026-10-27 | **Sí** · `20261027200000_soa_correspondencia_anexo_a.sql` |
+| B17e3 · Gaps de controles de la Declaración sin implantar | Integrado en `main` | `fase3/b17e3-brechas-soa` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2176,3 +2177,29 @@ en el navegador.
 **Documentación.** `funcional/declaracion-aplicabilidad.md`, `tecnica/modelo-datos.md`,
 `producto/correspondencia-controles-anexo-a.md` (aprobada). Falta la vista funcional de **Datos › Plantilla ↔
 Anexo A**, que no está en `_mapa.md`.
+
+## B17e3 · Gaps de controles de la Declaración sin implantar
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17e3-brechas-soa` · **Migración:** no
+
+**Problema** (F-11): un control del Anexo A declarado aplicable en la Declaración de Aplicabilidad y sin implantar no
+aparecía en el análisis de gaps; solo se veía entrando en la Declaración.
+
+**Decisión del responsable (2026-10-27):** un gap por cada sistema vinculado al control.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Gaps (`lib/gaps/soa.ts`, nuevo; `lib/gaps/data.ts`) | Nuevo tipo `soa`, «Control de la Declaración sin implantar»: control aplicable que no está «Implantado» ni «Externalizado», uno por sistema vinculado. Se identifica por el vínculo control-sistema, que sirve de origen de sus tareas. Gravedad media. Si el control tiene propuesta «Implantado» (B17e2), el contexto lo indica |
+| Exclusión (`lib/gaps/exclusion-rules.ts`) | No se excluye: se resuelve en la Declaración. El servidor lo rechaza y la base de datos tampoco admite disposiciones de este tipo (el CHECK de `gap_dispositions.gap_layer` no lo incluye), por eso no hay migración |
+| Análisis de gaps | Indicador **Declaración**, filtro, grupo por control («{control} · sin implantar»), etiqueta en la cola, CSV, instantáneas y exposición por sistema (cuenta en el total, no en el índice) |
+| Declaración | `?control=A.x.y` abre el panel del control: es el enlace **Abrir Declaración →** del gap |
+
+**Verificación.** `npm test` 152/152 (cuatro tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web.
+
+**Documentación.** `funcional/brechas.md`, `funcional/declaracion-aplicabilidad.md`, `_pendientes.md` (288: el tipo
+nuevo en el glosario).

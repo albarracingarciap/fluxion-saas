@@ -23,3 +23,9 @@ test('una evidencia caducada solo se pospone hasta una fecha', () => {
   assert.match(gapExclusionError('caducidad', null)!, /hasta una fecha/)
   assert.equal(gapExclusionError('caducidad', '2026-12-31'), null)
 })
+
+test('los controles de la Declaración sin implantar se resuelven en la Declaración, no se excluyen (B17e3)', () => {
+  assert.equal(canExcludeGapLayer('soa'), false)
+  assert.equal(gapExclusionLabel('soa'), null)
+  assert.match(gapExclusionError('soa', '2026-12-31')!, /se resuelven en la Declaración de Aplicabilidad/)
+})

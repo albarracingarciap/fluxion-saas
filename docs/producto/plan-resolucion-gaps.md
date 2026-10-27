@@ -896,7 +896,9 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   revisión; la brecha de control de la Declaración sin implantar cuenta una por cada sistema vinculado al control.
 - **B17e2 (2026-10-27):** correspondencia inicial aprobada y cargada (`compliance.control_template_soa_controls`,
   mantenida en **Datos › Plantilla ↔ Anexo A**); los controles de la Declaración proponen «Implantado» desde el plan
-  de tratamiento. Queda B17e3, las brechas de control de la Declaración sin implantar.
+  de tratamiento.
+- **B17e3 (2026-10-27):** gap «Control de la Declaración sin implantar», uno por sistema vinculado, que se
+  resuelve en la Declaración (no se excluye). Con él se cierra B17.
 - **Depende de:** B07, B11, B12.
 - **Talla:** L.
 

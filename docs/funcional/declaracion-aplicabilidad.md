@@ -201,5 +201,8 @@ sigue siendo editable.
 - [Aprobaciones](aprobaciones.md): decisión de la Declaración.
 - [AISIA](aisia.md): fuente de las propuestas. Al aprobarse una AISIA, los controles A.5.2 a A.5.5 pasan a
   «Implantado» si todos sus sistemas tienen AISIA aprobada.
+- [Análisis de brechas](brechas.md): cada control aplicable que no está «Implantado» ni «Externalizado» es una
+  brecha «Control de la Declaración sin implantar» en cada sistema vinculado (B17e3). Su enlace abre la
+  Declaración con el panel del control (`?control=A.x.y`).
 - [Biblioteca de evidencias](evidencias.md), [Ficha del sistema](ficha-sistema.md), [Dashboard](dashboard.md).
 - Negocio: [Declaración de Aplicabilidad ISO 42001](../negocio/declaracion-aplicabilidad.md).

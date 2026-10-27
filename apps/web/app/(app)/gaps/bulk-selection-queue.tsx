@@ -191,7 +191,7 @@ function SeveritySection({
   if (items.length === 0) return null
 
   const meta = SEVERITY_META[severity]
-  const layerBreakdown = (['normativo', 'fmea', 'control', 'caducidad'] as GapLayer[])
+  const layerBreakdown = (['normativo', 'fmea', 'control', 'soa', 'caducidad'] as GapLayer[])
     .map((layer) => ({ layer, count: items.filter((item) => item.layer === layer).length }))
     .filter((entry) => entry.count > 0)
 

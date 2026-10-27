@@ -104,6 +104,10 @@ export function GapAnalysisSnapshotView({
                   <InfoCard label="Controles">
                     {data.summary.by_layer.control} acciones de mitigación pendientes
                   </InfoCard>
+                  <InfoCard label="Declaración">
+                    {/* Las instantáneas anteriores a B17e3 no traen esta capa. */}
+                    {data.summary.by_layer.soa ?? 0} controles de la Declaración sin implantar
+                  </InfoCard>
                   <InfoCard label="Caducidades">
                     {data.summary.by_layer.caducidad} renovaciones preventivas activas
                   </InfoCard>

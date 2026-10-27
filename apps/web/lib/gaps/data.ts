@@ -7,13 +7,17 @@ import {
   GAP_GROUPING_ENGINE_VERSION,
   type GapGroupingMeta,
 } from '@/lib/gaps/grouping'
+import { soaGapCandidates, SOA_STATUS_LABEL } from '@/lib/gaps/soa'
+import { loadSoaProposals } from '@/lib/soa/proposal-facts'
+import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 
-export type GapLayer = 'normativo' | 'fmea' | 'control' | 'caducidad'
+export type GapLayer = 'normativo' | 'fmea' | 'control' | 'soa' | 'caducidad'
 export type GapSeverity = 'critico' | 'alto' | 'medio'
 export type GapGroupType =
   | 'normativo_por_sistema'
   | 'fmea_por_familia'
   | 'control_por_plan'
+  | 'soa_por_control'
   | 'caducidad_por_sistema'
 
 type GapSystemRow = {
@@ -126,6 +130,17 @@ type GapOrganizationMemberRow = {
   full_name: string | null
 }
 
+type GapSoaControlRow = {
+  id: string
+  control_code: string
+  is_applicable: boolean
+  status: string
+  /** auth.users.id */
+  owner_user_id: string | null
+  created_at: string
+  organization_soa_system_links: Array<{ id: string; ai_system_id: string }> | null
+}
+
 type GapDispositionRow = {
   id: string
   gap_key: string
@@ -220,6 +235,8 @@ export type GapExposureSystem = {
   gaps_normativo_count: number
   gaps_fmea_count: number
   gaps_control_count: number
+  /** Controles de la Declaración sin implantar (B17e3). */
+  gaps_soa_count: number
   gaps_caducidad_count: number
 }
 
@@ -324,6 +341,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     plansResult,
     membersResult,
     dispositionsResult,
+    soaControlsResult,
   ] = await Promise.all([
     fluxion
       .from('ai_systems')
@@ -355,6 +373,11 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       .from('gap_dispositions')
       .select('id, gap_key, gap_layer, gap_source_id, disposition, rationale, decided_by, decided_at, expires_at, status')
       .eq('organization_id', organizationId),
+    fluxion
+      .from('organization_soa_controls')
+      .select('id, control_code, is_applicable, status, owner_user_id, created_at, organization_soa_system_links ( id, ai_system_id )')
+      .eq('organization_id', organizationId)
+      .eq('is_applicable', true),
   ])
 
   if (systemsResult.error) {
@@ -371,6 +394,11 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
   const plans = (plansResult.data ?? []) as GapPlanRow[]
   const members = (membersResult.data ?? []) as GapOrganizationMemberRow[]
   const dispositions = (dispositionsResult.data ?? []) as GapDispositionRow[]
+  // Sin Declaración iniciada no hay filas: no hay gaps de esta capa.
+  if (soaControlsResult.error) {
+    console.error('[gaps] no se pudieron cargar los controles de la Declaración:', soaControlsResult.error.message)
+  }
+  const soaControls = (soaControlsResult.data ?? []) as unknown as GapSoaControlRow[]
 
   // Evaluación de referencia de cada sistema (B07): la vigente o, si aún no
   // hay ninguna aprobada, la última versión. El plan es el de esa evaluación.
@@ -449,6 +477,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
         ...evidences.map((row) => row.owner_user_id),
         ...treatmentActions.map((row) => row.owner_id),
         ...controls.map((row) => row.owner_id),
+        ...soaControls.map((row) => row.owner_user_id),
         ...dispositions.map((row) => row.decided_by),
       ].filter((value): value is string => typeof value === 'string' && value.length > 0)
     )
@@ -729,6 +758,75 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     })
   }
 
+  // Controles de la Declaración sin implantar (B17e3): uno por sistema vinculado.
+  const soaCandidates = soaGapCandidates(soaControls.map((c) => ({
+    id: c.id,
+    code: c.control_code,
+    isApplicable: c.is_applicable,
+    status: c.status,
+    links: (c.organization_soa_system_links ?? []).map((l) => ({ id: l.id, systemId: l.ai_system_id })),
+  })))
+  // Propuesta «Implantado» desde los planes (B17e2): se avisa en el gap.
+  const soaProposals = soaCandidates.length === 0
+    ? {}
+    : await loadSoaProposals(
+        fluxion,
+        organizationId,
+        soaControls.map((c) => ({
+          code: c.control_code,
+          isApplicable: c.is_applicable,
+          status: c.status,
+          linkedSystemIds: (c.organization_soa_system_links ?? []).map((l) => l.ai_system_id),
+        })),
+        Object.fromEntries(systems.map((sys) => [sys.id, sys.name])),
+      )
+  const soaControlById = new Map(soaControls.map((c) => [c.id, c]))
+  const isoControlByCode = new Map(ISO_42001_CONTROLS.map((c) => [c.id, c]))
+  for (const candidate of soaCandidates) {
+    const system = systemMap.get(candidate.systemId)
+    const control = soaControlById.get(candidate.controlId)
+    if (!system || !control) continue
+    const iso = isoControlByCode.get(candidate.code)
+    const ownerName = formatOwnerName(profileMap.get(control.owner_user_id ?? ''))
+    const estado = SOA_STATUS_LABEL[candidate.status] ?? candidate.status
+
+    gaps.push({
+      key: `soa:${candidate.linkId}`,
+      id: candidate.linkId,
+      layer: 'soa',
+      severity: 'medio',
+      system_id: system.id,
+      system_name: system.name,
+      system_code: getSystemCode(system),
+      system_status: system.status,
+      system_domain: system.domain,
+      aiact_risk_level: system.aiact_risk_level,
+      title: iso ? `${candidate.code} · ${iso.title}` : candidate.code,
+      meta: `${getSystemCode(system)} · ${candidate.code} · ${ownerName ?? 'Sin propietario'}`,
+      source_ref: candidate.code,
+      owner_id: control.owner_user_id,
+      owner_name: ownerName,
+      due_date: null,
+      overdue: false,
+      days_until_due: null,
+      created_at: control.created_at,
+      detail_url: `/plantillas/soa-iso42001?control=${encodeURIComponent(candidate.code)}`,
+      action_label: 'Abrir Declaración →',
+      context_label: soaProposals[candidate.code]
+        ? `Declaración ISO 42001 · ${estado} · Propuesta: Implantado`
+        : `Declaración ISO 42001 · ${estado}`,
+      evaluation_id: null,
+      plan_id: null,
+      treatment_action_id: null,
+      control_id: null,
+      evidence_id: null,
+      failure_mode_id: null,
+      obligation_id: null,
+      raw_score: null,
+      causal_amplifiers: null,
+    })
+  }
+
   for (const evidence of evidences) {
     const system = systemMap.get(evidence.ai_system_id)
     if (!system) continue
@@ -809,7 +907,8 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       normativo: 1,
       fmea: 2,
       control: 3,
-      caducidad: 4,
+      soa: 4,
+      caducidad: 5,
     }
 
     if (layerOrder[a.layer] !== layerOrder[b.layer]) {
@@ -835,6 +934,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
     normativo: activeGaps.filter((gap) => gap.layer === 'normativo').length,
     fmea: activeGaps.filter((gap) => gap.layer === 'fmea').length,
     control: activeGaps.filter((gap) => gap.layer === 'control').length,
+    soa: activeGaps.filter((gap) => gap.layer === 'soa').length,
     caducidad: activeGaps.filter((gap) => gap.layer === 'caducidad').length,
   }
 
@@ -896,10 +996,11 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
         gaps_normativo_count: systemGaps.filter((gap) => gap.layer === 'normativo').length,
         gaps_fmea_count: systemGaps.filter((gap) => gap.layer === 'fmea').length,
         gaps_control_count: systemGaps.filter((gap) => gap.layer === 'control').length,
+        gaps_soa_count: systemGaps.filter((gap) => gap.layer === 'soa').length,
         gaps_caducidad_count: systemGaps.filter((gap) => gap.layer === 'caducidad').length,
       }
     })
-    .filter((row) => row.gaps_normativo_count + row.gaps_fmea_count + row.gaps_control_count + row.gaps_caducidad_count > 0)
+    .filter((row) => row.gaps_normativo_count + row.gaps_fmea_count + row.gaps_control_count + row.gaps_soa_count + row.gaps_caducidad_count > 0)
     .sort((a, b) => b.exposure_score - a.exposure_score)
 
   const systemsWithGaps = exposure.map((row) => ({
@@ -910,6 +1011,7 @@ export async function buildGapsData(organizationId: string): Promise<GapsDataRes
       row.gaps_normativo_count +
       row.gaps_fmea_count +
       row.gaps_control_count +
+      row.gaps_soa_count +
       row.gaps_caducidad_count,
   }))
 

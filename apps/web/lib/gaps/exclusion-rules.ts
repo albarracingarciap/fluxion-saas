@@ -27,18 +27,23 @@ export function gapExclusionNeedsApproval(layer: GapLayer): boolean {
  * - `obligacion`: «Obligación sin cubrir» se excluye excluyendo la obligación,
  *   con aprobación si la política lo pide (DP-07).
  * - `posponer`: «Evidencia caducada» solo se pospone hasta una fecha.
+ * - `declaracion`: «Control de la Declaración sin implantar» (B17e3) se resuelve
+ *   en la Declaración de Aplicabilidad: implantándolo, externalizándolo o
+ *   declarándolo no aplicable con su justificación.
  */
-export type GapLayerExclusion = 'plan' | 'obligacion' | 'posponer'
+export type GapLayerExclusion = 'plan' | 'obligacion' | 'posponer' | 'declaracion'
 
 export const GAP_LAYER_EXCLUSION: Record<GapLayer, GapLayerExclusion> = {
   fmea: 'plan',
   control: 'plan',
+  soa: 'declaracion',
   normativo: 'obligacion',
   caducidad: 'posponer',
 }
 
 export function canExcludeGapLayer(layer: GapLayer): boolean {
-  return GAP_LAYER_EXCLUSION[layer] !== 'plan'
+  const modo = GAP_LAYER_EXCLUSION[layer]
+  return modo === 'obligacion' || modo === 'posponer'
 }
 
 /** Texto del botón de la capa; null si no se excluye desde el análisis de gaps. */
@@ -52,6 +57,9 @@ export function gapExclusionError(layer: GapLayer, expiresAt: string | null | un
   const modo = GAP_LAYER_EXCLUSION[layer]
   if (modo === 'plan') {
     return 'Los gaps «Riesgo sin tratar» y «Control sin implantar» no se excluyen: se resuelven en el plan de tratamiento (mitigar, aceptar, transferir o evitar).'
+  }
+  if (modo === 'declaracion') {
+    return 'Los gaps «Control de la Declaración sin implantar» no se excluyen: se resuelven en la Declaración de Aplicabilidad (implantar, externalizar o declarar no aplicable con su justificación).'
   }
   if (modo === 'posponer' && !expiresAt) return 'Una evidencia caducada solo se pospone hasta una fecha: indícala.'
   return null

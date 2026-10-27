@@ -4,6 +4,7 @@ export const LAYER_LABELS: Record<GapLayer, string> = {
   normativo: 'Normativo',
   fmea: 'FMEA',
   control: 'Control',
+  soa: 'Declaración',
   caducidad: 'Caducidad',
 }
 
@@ -29,6 +30,7 @@ export const LAYER_META: Record<GapLayer, { pill: string; bar: string }> = {
   normativo: { pill: 'bg-red-dim text-re border-reb', bar: 'bg-re' },
   fmea: { pill: 'bg-ordim text-or border-orb', bar: 'bg-or' },
   control: { pill: 'bg-cyan-dim text-brand-cyan border-cyan-border', bar: 'bg-brand-cyan' },
+  soa: { pill: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20', bar: 'bg-brand-blue' },
   caducidad: { pill: 'bg-[#f4f0fb] text-[#6b3bbf] border-[#c2a8e8]', bar: 'bg-[#6b3bbf]' },
 }
 
