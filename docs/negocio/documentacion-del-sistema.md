@@ -11,6 +11,7 @@ fuente:
   - apps/web/lib/documents/lifecycle-rules.ts
   - supabase/migrations/20261020120000_expediente_ciclo.sql
   - apps/web/lib/documents/templates.ts
+  - apps/web/lib/documents/applicability.ts
   - apps/web/lib/documents/compose.ts
   - apps/web/lib/documents/render.ts
   - services/renderer/README.md
@@ -86,6 +87,11 @@ flowchart LR
    | Evaluación de impacto relativa a la protección de datos (DPIA) | Art. 35 del RGPD | Tratamientos de alto riesgo para las personas |
    | Ficha del modelo | Anexo XII del AI Act | Proveedores de modelos de IA de uso general |
 
+   Cada sistema ve solo los documentos que le aplican según su clasificación AI Act y el papel de la
+   organización frente a él. Si el sistema es de alto riesgo pero la organización no es su proveedora, la
+   documentación técnica no se redacta: se adjunta como evidencia la que entrega el proveedor (instrucciones
+   de uso, declaración UE de conformidad, número de registro). Si la organización es la proveedora, se
+   redacta en Fluxion.
 2. **Composición.** Cada apartado indica si es obligatorio, una guía de qué debe contener y de dónde
    sale su contenido: de la ficha del sistema, del análisis de modos de fallo, del historial o de la
    redacción de la organización. Los datos deducidos se actualizan solos cuando cambia el sistema.

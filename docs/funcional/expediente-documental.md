@@ -25,6 +25,9 @@ fuente:
   - apps/web/lib/documents/derive-aisia.ts
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
+  - apps/web/lib/documents/applicability.ts
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-tabs.tsx
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
 ---
 
 # Expediente documental
@@ -67,8 +70,48 @@ lleva en su contexto (`prepared_by`) a quienes escribieron algún apartado, y ni
 pueden decidir, tampoco por delegación. La base de datos no deja aprobar un expediente desde la sesión de un
 usuario (`trg_document_lifecycle_rules`).
 
-Al abrir la vista, si el sistema no tiene un documento vivo para esa plantilla, se crea uno en borrador
-con la versión activa más reciente de la plantilla.
+Al abrir la vista, si el sistema no tiene un documento vivo para esa plantilla y la plantilla se redacta para
+ese sistema, se crea uno en borrador con la versión activa más reciente de la plantilla.
+
+### Aplicabilidad por sistema (DP-11, B16a)
+
+Cada plantilla aplica a un sistema según el rol de la organización en su cadena de valor
+(`ai_systems.value_chain_roles`, «Tu papel frente a este sistema» al editarlo) y su clasificación AI Act
+(`documentApplicability` en `lib/documents/applicability.ts`), en uno de tres modos:
+
+| Plantilla | Redactar | Documentación del proveedor | No aplica |
+|---|---|---|---|
+| Anexo IV | Proveedor y alto riesgo | Alto riesgo sin ser proveedor | Resto, también con la clasificación pendiente |
+| FRIA | Responsable del despliegue de alto riesgo del Anexo III (salvo solo el punto 2) que es organismo público o presta servicios públicos (`aiact_inputs.publicBody`), o con los puntos 5b o 5c: la misma regla que la obligación del Art. 27 | — | Resto |
+| Ficha del modelo | Proveedor de un modelo GPAI (`aiact_result.gpai.modelProvider`) | — | Resto |
+| DPIA | La ficha marca que trata datos personales | — | Resto, también sin respuesta |
+| AISIA | Siempre | — | — |
+
+Sin roles declarados, la organización no se considera proveedora.
+
+- **Pestañas:** solo las plantillas que aplican, con «· del proveedor» en las de documentación del proveedor.
+  Una plantilla que no aplica sigue apareciendo, con «· no aplica», si el sistema ya tiene documento. La ayuda
+  de cada pestaña da el motivo.
+- **No aplica:** la vista dice «Este documento no aplica a este sistema» con el motivo, y no crea el documento.
+- **Documento que ha dejado de aplicar** (cambió la clasificación o el rol): se muestra con un aviso y se
+  conserva lo redactado.
+
+### Documentación del proveedor (DP-11, B16a)
+
+Cuando la organización no es proveedora de un sistema de alto riesgo, el Anexo IV no se redacta: la vista
+**Documentación del proveedor** permite adjuntar lo que entrega el proveedor como evidencias del sistema.
+
+| Campo | Tipo | Obligatorio | Descripción y valores | Origen |
+|---|---|---|---|---|
+| **Tipo** | selector | Sí | Instrucciones de uso (Art. 13) · Declaración UE de conformidad (Art. 47) · Número o ficha de registro en la base de datos de la UE (Art. 49) · Documentación técnica facilitada por el proveedor · Otro documento del proveedor | `system_evidences.evidence_type` (`technical_doc`, `certification`, `record`, `other`) y etiqueta `doc-proveedor-tipo-*` |
+| **Título** | texto | Sí | — | `title` |
+| **Fichero** o **Enlace** | fichero o URL | Sí | El fichero se sube al almacenamiento de evidencias | `storage_path` o `external_url` |
+
+- **Añadir como evidencia** crea la evidencia en borrador, con las etiquetas `documentacion-proveedor` y
+  `doc-proveedor-<plantilla>`, y el evento de historial «Documentación del proveedor añadida». Sigue la revisión
+  habitual de las [evidencias](evidencias.md).
+- **Documentos aportados:** título, tipo y estado de la evidencia, con **Abrir** (enlace) y **Ver evidencia →**.
+- Si el sistema ya tenía el documento redactado, el aviso enlaza a él (`?vista=documento`).
 
 ## Campos
 
@@ -166,6 +209,10 @@ Con una política de [Flujos de aprobación](../glosario.md#flujos-de-aprobació
 | Aprobar desde la API con sesión de usuario | «El expediente se aprueba en Aprobaciones.» |
 | Apartado inexistente en la plantilla | «El apartado {ref} no existe en esta versión de la plantilla.» |
 | Enviar con huecos | «No se puede enviar a aprobación con apartados obligatorios sin cubrir: {refs}.» |
+| Crear un documento que no se redacta para el sistema | El motivo de la aplicabilidad (DP-11) |
+| Documentación del proveedor sin fichero ni enlace | «Adjunta un fichero o indica la URL del documento.» |
+| Documentación del proveedor en una plantilla que se redacta | «Este documento no se adjunta como documentación del proveedor para este sistema.» |
+| Fallo al subir el fichero del proveedor | «El documento se registró, pero el fichero no se pudo subir: … Súbelo desde Evidencias.» |
 | Almacenamiento no configurado | «El almacenamiento de documentos no está configurado.» |
 | Renderizador no configurado o con error | «El servicio de renderizado no está configurado (RENDERER_URL / RENDERER_SECRET).» / «el renderizador respondió {status}: …» |
 | PDF generado pero no guardado | «El PDF se generó pero no se pudo guardar.» |
