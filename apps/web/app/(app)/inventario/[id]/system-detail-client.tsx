@@ -38,7 +38,6 @@ import {
   reviewSystemEvidence,
   type ReviewAction,
 } from '@/app/(app)/evidencias/actions';
-import { initAisia, reopenAisia } from './aisia/actions';
 import { resolveSystemObligation } from './obligaciones/actions';
 import { activateSystemFailureModes, promoteFailureModeToPrioritized, dismissFailureMode, restoreFailureMode, recalculateSystemFailureModes, bulkPromoteFailureModes } from './modos-de-fallo/actions';
 import { acceptSystemObligations, excludeSystemObligation } from './obligaciones/actions';
@@ -256,35 +255,18 @@ export type SystemDetailData = {
   updated_by: string | null;
 };
 
-export type AisiaSectionEntry = {
+/** AISIA del sistema: su documento vivo del expediente (B15). */
+export type AisiaDocumentEntry = {
   id: string;
-  assessment_id: string;
-  section_code: string;
-  data: Record<string, unknown>;
-  status: string; // pending | in_progress | complete
-  last_generated_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type AisiaAssessmentEntry = {
-  id: string;
-  ai_system_id: string;
-  status: string; // draft | submitted | approved | rejected
+  status: string; // draft | in_review | approved
   version: number;
-  title: string | null;
-  created_by: string;
-  created_by_name: string | null;
-  submitted_by: string | null;
-  /** La decisión se toma en Flujos de aprobación (B11a). */
-  in_approval_circuit?: boolean;
-  submitted_at: string | null;
+  title: string;
   approved_at: string | null;
-  rejected_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  sections: AisiaSectionEntry[];
+  /** Fracción de apartados obligatorios cubiertos (0-1). */
+  completeness: number;
+  gaps: number;
+  /** La decisión se toma en Flujos de aprobación. */
+  in_approval_circuit: boolean;
 };
 
 export type SoaControlState = {
@@ -1032,20 +1014,10 @@ const ANNEX_A_SHORT: Record<string, string> = {
   'A.9 Uso de sistemas de IA':                                                'A.9 Uso responsable',
 };
 
-const AISIA_SECTION_LABELS: Record<string, string> = {
-  S1: 'Descripción del sistema',
-  S2: 'Datos e información',
-  S3: 'Modos de fallo identificados',
-  S4: 'Acciones de tratamiento',
-  S5: 'Impacto en personas',
-  S6: 'Impacto social',
-};
-
 const AISIA_STATUS_VISUAL: Record<string, { label: string; dot: string; pill: string }> = {
   draft:     { label: 'Borrador',           dot: 'bg-lttm',   pill: 'bg-ltcard text-lttm border-ltb' },
-  submitted: { label: 'Enviada — revisión', dot: 'bg-or',     pill: 'bg-ordim text-or border-orb' },
+  in_review: { label: 'En revisión',        dot: 'bg-or',     pill: 'bg-ordim text-or border-orb' },
   approved:  { label: 'Aprobada',           dot: 'bg-gr',     pill: 'bg-grdim text-gr border-grb' },
-  rejected:  { label: 'Rechazada',          dot: 'bg-re',     pill: 'bg-red-dim text-re border-reb' },
 };
 
 function getSoaBadge(soaState: SoaControlState | undefined) {
@@ -1063,24 +1035,12 @@ function IsoTab({
   soaControls,
   isInSoaScope,
   soaScopeSystemTags,
-  onInitAisia,
-  isInitingAisia,
-  aisiaError,
-  onReopenAisia,
-  isReopeningAisia,
-  aisiaReopenError,
 }: {
   system: SystemDetailData;
-  aisia: AisiaAssessmentEntry | null;
+  aisia: AisiaDocumentEntry | null;
   soaControls: SoaControlState[];
   isInSoaScope: boolean;
   soaScopeSystemTags: string[];
-  onInitAisia: () => void;
-  isInitingAisia: boolean;
-  aisiaError: string | null;
-  onReopenAisia: (assessmentId: string) => void;
-  isReopeningAisia: boolean;
-  aisiaReopenError: string | null;
 }) {
   const systemControls = ISO_42001_CONTROLS.filter((c) =>
     (SYSTEM_ANNEX_A_GROUPS as readonly string[]).includes(c.group)
@@ -1103,15 +1063,6 @@ function IsoTab({
 
   const hasLegacyData = system.iso_42001_score !== null;
   const statusVisual = aisia ? (AISIA_STATUS_VISUAL[aisia.status] ?? AISIA_STATUS_VISUAL.draft) : null;
-
-  // Progreso de secciones cuando hay AISIA
-  const sectionProgress = aisia
-    ? {
-        complete: aisia.sections.filter((s) => s.status === 'complete').length,
-        inProgress: aisia.sections.filter((s) => s.status === 'in_progress').length,
-        total: aisia.sections.length,
-      }
-    : null;
 
   return (
     <div className="space-y-4">
@@ -1187,7 +1138,7 @@ function IsoTab({
         </div>
       )}
 
-      {/* ── AISIA card ── */}
+      {/* ── AISIA card (B15: documento del expediente) ── */}
       <div className="bg-ltcard border border-ltb rounded-[12px] shadow-[0_1px_4px_#004aad08,0_2px_12px_#004aad06] overflow-hidden">
         <div className="bg-ltcard2 px-5 py-3.5 border-b border-ltb flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -1214,9 +1165,8 @@ function IsoTab({
           )}
         </div>
 
-        {/* ── Estado vacío ── */}
-        {!aisia && (
-          <div className="p-6">
+        <div className="p-6">
+          {!aisia ? (
             <div className="max-w-[520px]">
               <div className="font-sora text-[20px] font-semibold text-ltt mb-2">
                 Este sistema no tiene ninguna evaluación AISIA
@@ -1226,154 +1176,71 @@ function IsoTab({
                 de este sistema sobre personas y sociedad. Es necesaria para satisfacer
                 los controles{' '}
                 <span className="font-medium text-ltt">A.5.2, A.5.3, A.5.4 y A.5.5</span>{' '}
-                del Anexo A de ISO 42001.
+                del Anexo A de ISO 42001. Se redacta en el expediente documental: la
+                descripción, los datos, los riesgos y su tratamiento salen de la ficha y
+                de la evaluación de riesgos vigente.
               </div>
-              {aisiaError && (
-                <div className="mb-4 px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
-                  {aisiaError}
-                </div>
-              )}
-              <button
-                onClick={onInitAisia}
-                disabled={isInitingAisia}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              <Link
+                href={`/inventario/${system.id}/expediente/aisia`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors"
               >
-                {isInitingAisia ? 'Iniciando…' : 'Iniciar evaluación AISIA'}
-              </button>
+                Iniciar evaluación AISIA
+              </Link>
             </div>
-            {hasLegacyData && (
-              <div className="mt-5 pt-5 border-t border-ltb flex items-start gap-3">
-                <div className="w-8 h-8 rounded-[8px] bg-ordim border border-orb flex items-center justify-center text-or text-[13px] shrink-0">
-                  !
-                </div>
-                <div>
-                  <div className="font-plex text-[12px] font-semibold text-or mb-0.5">
-                    Score legacy disponible
-                  </div>
-                  <div className="text-[12px] text-lttm leading-relaxed">
-                    Este sistema tiene un score ISO anterior del{' '}
-                    <span className="font-medium">{system.iso_42001_score}%</span> (calculado
-                    con el modelo de 10 checks). Ese dato se conserva pero ya no se actualiza.
-                    Inicia una AISIA para obtener la evaluación formal por cláusulas.
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Estado con evaluación activa ── */}
-        {aisia && (
-          <div className="p-6">
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-5 items-start">
               <div>
-                <div className="font-sora text-[18px] font-semibold text-ltt mb-1">
-                  {aisia.title ?? `Evaluación AISIA v${aisia.version}`}
+                <div className="font-sora text-[18px] font-semibold text-ltt mb-1">{aisia.title}</div>
+                <div className="text-[12.5px] text-lttm">
+                  {aisia.status === 'approved' && aisia.approved_at
+                    ? `Aprobada el ${new Date(aisia.approved_at).toLocaleDateString('es-ES')}`
+                    : `${Math.round(aisia.completeness * 100)} % de los apartados obligatorios cubiertos`
+                      + (aisia.gaps > 0 ? ` · ${aisia.gaps} ${aisia.gaps === 1 ? 'hueco' : 'huecos'}` : '')}
                 </div>
-                {sectionProgress && (
-                  <div className="text-[12.5px] text-lttm">
-                    {sectionProgress.complete} de {sectionProgress.total} secciones completadas
-                    {sectionProgress.inProgress > 0 && ` · ${sectionProgress.inProgress} en progreso`}
-                  </div>
+                {aisia.status === 'in_review' && (
+                  <p className="mt-3 font-sora text-[12px] text-ltt2">
+                    {aisia.in_approval_circuit ? (
+                      <>
+                        La decisión se toma en{' '}
+                        <Link href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</Link>,
+                        con la política de aprobación de la organización.
+                      </>
+                    ) : (
+                      'Sin solicitud de aprobación abierta. Devuélvela a borrador desde el expediente o revisa las políticas en Ajustes › Aprobaciones.'
+                    )}
+                  </p>
                 )}
               </div>
-              {aisia.status === 'draft' ? (
-                <Link
-                  href={`/inventario/${system.id}/aisia/${aisia.id}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors shrink-0"
-                >
-                  Continuar evaluación →
-                </Link>
-              ) : (
-                <Link
-                  href={`/inventario/${system.id}/aisia/${aisia.id}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard2 text-ltt font-plex text-[13px] font-medium hover:bg-ltcard transition-colors shrink-0"
-                >
-                  Ver evaluación →
-                </Link>
-              )}
+              <Link
+                href={`/inventario/${system.id}/expediente/aisia`}
+                className={aisia.status === 'draft'
+                  ? 'inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors shrink-0'
+                  : 'inline-flex items-center gap-2 px-4 py-2 rounded-[8px] border border-ltb bg-ltcard2 text-ltt font-plex text-[13px] font-medium hover:bg-ltcard transition-colors shrink-0'}
+              >
+                {aisia.status === 'draft' ? 'Continuar en el expediente →' : 'Ver en el expediente →'}
+              </Link>
             </div>
+          )}
 
-            {/* Barra de progreso de secciones */}
-            {sectionProgress && (
-              <div className="mt-4 grid grid-cols-6 gap-1.5">
-                {aisia.sections.map((section) => (
-                  <div key={section.section_code} className="text-center">
-                    <div
-                      className={`h-1.5 rounded-full mb-1 ${
-                        section.status === 'complete'
-                          ? 'bg-gr'
-                          : section.status === 'in_progress'
-                          ? 'bg-or'
-                          : 'bg-ltb'
-                      }`}
-                    />
-                    <div className="font-plex text-[9.5px] text-lttm">{section.section_code}</div>
-                    <div className="font-plex text-[9px] text-lttm leading-tight hidden sm:block">
-                      {AISIA_SECTION_LABELS[section.section_code]?.split(' ').slice(0, 2).join(' ')}
-                    </div>
-                  </div>
-                ))}
+          {!aisia && hasLegacyData && (
+            <div className="mt-5 pt-5 border-t border-ltb flex items-start gap-3">
+              <div className="w-8 h-8 rounded-[8px] bg-ordim border border-orb flex items-center justify-center text-or text-[13px] shrink-0">
+                !
               </div>
-            )}
-
-            {aisia.status === 'rejected' && (
-              <div className="mt-4 pt-4 border-t border-ltb space-y-3">
-                {aisia.rejection_reason && (
-                  <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-[7px] bg-red-dim border border-reb flex items-center justify-center text-re text-[12px] shrink-0">✕</div>
-                    <div>
-                      <div className="font-plex text-[12px] font-semibold text-re mb-0.5">Motivo del rechazo</div>
-                      <div className="text-[12px] text-lttm">{aisia.rejection_reason}</div>
-                    </div>
-                  </div>
-                )}
-                {aisiaReopenError && (
-                  <div className="px-3 py-2 rounded-[7px] bg-red-dim border border-reb text-re font-plex text-[12px]">
-                    {aisiaReopenError}
-                  </div>
-                )}
-                <button
-                  onClick={() => onReopenAisia(aisia.id)}
-                  disabled={isReopeningAisia}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[#004aad] text-white font-plex text-[13px] font-medium hover:bg-[#0057cc] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isReopeningAisia ? 'Creando nueva versión…' : '✎ Corregir y reenviar'}
-                </button>
-                <p className="font-plex text-[11px] text-lttm">
-                  Se creará una nueva versión borrador con los datos actuales para que puedas corregirlos.
-                  La versión rechazada se conserva como registro de auditoría.
-                </p>
-              </div>
-            )}
-
-            {/* ── Panel de aprobación (solo cuando submitted) ── */}
-            {aisia.status === 'submitted' && (
-              <div className="mt-4 pt-4 border-t border-ltb space-y-3">
-                {/* Banner de estado */}
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[8px] bg-ordim border border-orb">
-                  <span className="w-2 h-2 rounded-full bg-or shrink-0" />
-                  <span className="font-plex text-[12px] text-or font-medium flex-1">
-                    Evaluación enviada — pendiente de aprobación por el comité
-                  </span>
+              <div>
+                <div className="font-plex text-[12px] font-semibold text-or mb-0.5">
+                  Score legacy disponible
                 </div>
-
-                {/* La decisión se toma siempre en la bandeja (B11g) */}
-                {aisia.in_approval_circuit ? (
-                  <p className="font-sora text-[12px] text-ltt2">
-                    La decisión se toma en{' '}
-                    <Link href="/aprobaciones" className="text-brand-cyan hover:underline">Aprobaciones</Link>,
-                    con la política de aprobación de la organización.
-                  </p>
-                ) : (
-                  <p className="font-sora text-[12px] text-lttm">
-                    Sin solicitud de aprobación abierta. Pide que la cancelen o revisa las políticas en Ajustes › Aprobaciones.
-                  </p>
-                )}
+                <div className="text-[12px] text-lttm leading-relaxed">
+                  Este sistema tiene un score ISO anterior del{' '}
+                  <span className="font-medium">{system.iso_42001_score}%</span> (calculado
+                  con el modelo de 10 checks). Ese dato se conserva pero ya no se actualiza.
+                  Inicia una AISIA para obtener la evaluación formal por cláusulas.
+                </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Controles Anexo A — nivel sistema ── */}
@@ -1556,7 +1423,7 @@ export function SystemDetailClient({
   failureModes: SystemFailureModeEntry[];
   systemGraph: import('@/lib/causal-graph/system-graph').SystemCausalGraph;
   treatmentPlanData: TreatmentPlanData | null;
-  aisia: AisiaAssessmentEntry | null;
+  aisia: AisiaDocumentEntry | null;
   soaControls: SoaControlState[];
   isInSoaScope: boolean;
   soaScopeSystemTags: string[];
@@ -1693,34 +1560,6 @@ export function SystemDetailClient({
     setExclusionJustification('');
     showToast('Obligación excluida y registrada en el historial de auditoría');
   };
-  const [isInitingAisia, startAisiaTransition] = useTransition();
-  const [aisiaError, setAisiaError] = useState<string | null>(null);
-
-  const handleInitAisia = () => {
-    startAisiaTransition(async () => {
-      setAisiaError(null);
-      const result = await initAisia(system.id);
-      if ('error' in result && result.error) {
-        setAisiaError(result.error);
-      }
-    });
-  };
-
-  const [isReopeningAisia, startReopenAisiaTransition] = useTransition();
-  const [aisiaReopenError, setAisiaReopenError] = useState<string | null>(null);
-
-  const handleReopenAisia = (assessmentId: string) => {
-    startReopenAisiaTransition(async () => {
-      setAisiaReopenError(null);
-      const result = await reopenAisia(assessmentId);
-      if ('error' in result && result.error) {
-        setAisiaReopenError(result.error);
-      } else if ('assessmentId' in result && result.assessmentId) {
-        router.push(`/inventario/${system.id}/aisia/${result.assessmentId}`);
-      }
-    });
-  };
-
   const [failureModeError, setFailureModeError] = useState<string | null>(null);
   const [isActivatingFailureModes, startFailureModeTransition] = useTransition();
   const [failureModeDimensionFilter, setFailureModeDimensionFilter] = useState('all');
@@ -3234,12 +3073,6 @@ export function SystemDetailClient({
                   soaControls={soaControls}
                   isInSoaScope={isInSoaScope}
                   soaScopeSystemTags={soaScopeSystemTags}
-                  onInitAisia={handleInitAisia}
-                  isInitingAisia={isInitingAisia}
-                  aisiaError={aisiaError}
-                  onReopenAisia={handleReopenAisia}
-                  isReopeningAisia={isReopeningAisia}
-                  aisiaReopenError={aisiaReopenError}
                 />
               )}
 

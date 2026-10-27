@@ -14,7 +14,7 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/obligaciones/actions.ts
   - apps/web/app/(app)/inventario/[id]/modos-de-fallo/actions.ts
   - apps/web/app/(app)/inventario/[id]/evidencias/actions.ts
-  - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
+  - apps/web/lib/documents/compose.ts
   - apps/web/app/(app)/inventario/actions/classification.ts
   - apps/web/app/(app)/evidencias/actions.ts
   - apps/web/components/classification/ReconciliationPanel.tsx
@@ -202,7 +202,7 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 |---|---|
 | Alcance SoA | Si el sistema está dentro del alcance de la [Declaración de Aplicabilidad](../glosario.md#declaración-de-aplicabilidad-iso-42001), según sus etiquetas |
 | **Controles SoA org vinculados** | Controles de la Declaración vinculados al sistema, con **Ver SoA →** |
-| **Evaluación de Impacto (AISIA)** | Estado (Borrador, Enviada, Aprobada, Rechazada, Sin iniciar), versión y progreso por secciones S1 a S6 ([AISIA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia)) |
+| **Evaluación de Impacto (AISIA)** | Estado de su documento del expediente (Borrador, En revisión, Aprobada, Sin iniciar), versión y porcentaje de apartados obligatorios cubiertos con sus huecos, o la fecha de aprobación ([AISIA](aisia.md), B15) |
 | **Controles Anexo A — nivel sistema** | Controles A.4 a A.9 agrupados por dominio, con su estado en la Declaración |
 
 ### Pestaña Historial
@@ -287,9 +287,7 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **Excluir** | Todos | `excludeSystemObligation`, con justificación obligatoria | Historial «Obligación excluida» |
 | **Resolver →** › **Guardar obligación** | Todos | `resolveSystemObligation` | Actualiza la obligación y sus evidencias vinculadas. Historial «Obligación resuelta» o «Obligación actualizada» |
 | **✏ Editar ficha** | Todos | Navega a [Edición de la ficha](ficha-sistema-edicion.md) | — |
-| **Iniciar evaluación AISIA** | Todos | `initAisia`: crea la AISIA con sus seis secciones | Historial «Evaluación AISIA iniciada» |
-| **Continuar evaluación →** / **Ver evaluación →** | Todos | Navega a la [AISIA](aisia.md) | — |
-| **✎ Corregir y reenviar** | Todos | `reopenAisia`: nueva versión en borrador | Navega a ella |
+| **Iniciar evaluación AISIA** / **Continuar en el expediente →** / **Ver en el expediente →** | Todos | Navega a la [AISIA](aisia.md) del expediente, que se crea al abrirla por primera vez | — |
 | **+ Añadir evidencia** / **Nueva evidencia** | Todos | `createSystemEvidence` | Historial «Evidencia registrada» |
 | Editar / eliminar evidencia | Todos | `updateSystemEvidence`, `deleteSystemEvidence` | Guarda una versión; si cambia el contenido de una evidencia ya enviada, vuelve a borrador. Historial «Evidencia actualizada» o «Evidencia eliminada». Los errores se muestran en la evidencia |
 | **Enviar a revisión** · **Reabrir** | Todos | Ciclo de revisión de la evidencia ([estado de la evidencia](../glosario.md#estado-de-la-evidencia)). **Enviar a revisión** abre la solicitud de aprobación y exige una política activa para las evidencias | Historial del evento correspondiente |
@@ -303,9 +301,10 @@ Incluye el botón **Gestionar plan**. Si no hay plan: «No hay un plan activo» 
 | **Promover varios** | Todos | Promueve en bloque modos descartados por cuota, con justificación común | — |
 | **Gestionar plan** | Todos | Navega al [plan de tratamiento](plan-de-tratamiento.md) | — |
 
-**AISIA en revisión.** En la pestaña ISO 42001, con la AISIA enviada, la ficha muestra «La decisión se toma
+**AISIA en revisión.** En la pestaña ISO 42001, con la AISIA en revisión, la ficha muestra «La decisión se toma
 en Aprobaciones, con la política de aprobación de la organización.» o, si no hay solicitud pendiente, «Sin
-solicitud de aprobación abierta. Pide que la cancelen o revisa las políticas en Ajustes › Aprobaciones.».
+solicitud de aprobación abierta. Devuélvela a borrador desde el expediente o revisa las políticas en Ajustes ›
+Aprobaciones.».
 No hay botones de aprobar ni rechazar. Ver [AISIA](aisia.md).
 
 > **Pendiente de implementar.** **Refinar mediante IA** en Modos de fallo: aparece deshabilitado como
@@ -335,7 +334,6 @@ motor dijera otra cosa, y la cabecera muestra la divergencia.
 | Evidencia de otro sistema | «Alguna de las evidencias seleccionadas no pertenece a este sistema.» |
 | Evidencia sin título o URL | «Faltan datos obligatorios para registrar la evidencia.» / «La URL de la evidencia no es válida.» |
 | Evidencia fuera de borrador sin fichero ni URL | «Una evidencia que no está en borrador necesita un fichero adjunto o una URL.» |
-| AISIA ya activa | «Ya existe una evaluación AISIA activa para este sistema.» |
 | Enviar una evidencia a revisión sin política de aprobación activa | «No hay ninguna política de aprobación activa para las evidencias. Configúrala en Ajustes › Aprobaciones.» La evidencia vuelve a su estado anterior |
 | Modos ya activados | «Los modos de fallo ya fueron activados previamente para este sistema.» |
 | Promover con justificación corta | «La justificación debe tener al menos 30 caracteres.» |
@@ -366,8 +364,9 @@ stateDiagram-v2
 ```
 
 La clasificación sigue el ciclo de la [reclasificación](../glosario.md#reclasificación): pendiente de
-conciliar, conciliada y sustituida. La AISIA sigue el suyo: borrador, enviada, aprobada o rechazada; la
-aprobación y el rechazo se deciden en [Aprobaciones](aprobaciones.md).
+conciliar, conciliada y sustituida. La AISIA sigue el del
+[expediente documental](expediente-documental.md#estados); la aprobación y el rechazo se deciden en
+[Aprobaciones](aprobaciones.md).
 
 ## Vistas relacionadas
 

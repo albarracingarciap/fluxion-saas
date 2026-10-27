@@ -2,14 +2,14 @@ import { notFound, redirect } from 'next/navigation';
 
 import { computeCausalDegrees } from '@/lib/causal-graph/propagation';
 import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
+import { composeDocument } from '@/lib/documents/compose';
 import { createComplianceClient } from '@/lib/supabase/compliance';
 import { createFluxionClient, createAdminFluxionClient } from '@/lib/supabase/fluxion';
 import { createClient } from '@/lib/supabase/server';
 
 import {
   SystemDetailClient,
-  type AisiaAssessmentEntry,
-  type AisiaSectionEntry,
+  type AisiaDocumentEntry,
   type SoaControlState,
   type SystemDetailData,
   type SystemEvidenceEntry,
@@ -554,85 +554,36 @@ export default async function SystemDetailPage({ params }: { params: { id: strin
     };
   });
 
-  // ── AISIA — evaluación activa del sistema (draft o submitted primero; si no, la última aprobada) ──
-  let aisia: AisiaAssessmentEntry | null = null;
+  // ── AISIA: documento vivo del expediente (B15) ──
+  let aisia: AisiaDocumentEntry | null = null;
 
-  const { data: aisiaRow } = await fluxion
-    .from('aisia_assessments')
-    .select(`
-      id,
-      ai_system_id,
-      status,
-      version,
-      title,
-      created_by,
-      submitted_by,
-      submitted_at,
-      approved_at,
-      rejected_at,
-      rejection_reason,
-      created_at,
-      updated_at,
-      aisia_sections (
-        id,
-        assessment_id,
-        section_code,
-        data,
-        status,
-        last_generated_at,
-        created_at,
-        updated_at
-      )
-    `)
+  const { data: aisiaDoc } = await fluxion
+    .from('documents')
+    .select('id, status, version, title, approved_at')
     .eq('ai_system_id', params.id)
-    .order('version', { ascending: false })
-    .limit(1)
+    .eq('template_key', 'aisia')
+    .neq('status', 'superseded')
     .maybeSingle();
 
-  if (aisiaRow) {
-    // Resolver el nombre de quien lo creó
-    let createdByName: string | null = null;
-    if (aisiaRow.created_by) {
-      const { data: creator } = await fluxion
-        .from('profiles')
-        .select('full_name, display_name')
-        .eq('id', aisiaRow.created_by)
-        .single();
-      if (creator) {
-        createdByName = (creator.display_name || creator.full_name || '').trim() || 'Usuario';
-      }
-    }
-
-    // ¿Se decide en Flujos de aprobación? (B11a)
+  if (aisiaDoc) {
+    const composed = await composeDocument(aisiaDoc.id as string);
     const { data: solicitudViva } = await fluxion
       .from('approval_requests')
       .select('id')
-      .eq('object_type', 'aisia_assessment')
-      .eq('object_id', aisiaRow.id)
+      .eq('object_type', 'document')
+      .eq('object_id', aisiaDoc.id)
       .eq('status', 'pending')
       .maybeSingle();
-    const aisiaEnCircuito = Boolean(solicitudViva);
-
-    const sections: AisiaSectionEntry[] = ((aisiaRow.aisia_sections as AisiaSectionEntry[]) ?? [])
-      .sort((a, b) => a.section_code.localeCompare(b.section_code));
 
     aisia = {
-      id:               aisiaRow.id,
-      ai_system_id:     aisiaRow.ai_system_id,
-      status:           aisiaRow.status,
-      version:          aisiaRow.version,
-      title:            aisiaRow.title ?? null,
-      created_by:       aisiaRow.created_by,
-      created_by_name:  createdByName,
-      submitted_by:     (aisiaRow.submitted_by as string | null) ?? null,
-      in_approval_circuit: aisiaEnCircuito,
-      submitted_at:     aisiaRow.submitted_at ?? null,
-      approved_at:      aisiaRow.approved_at ?? null,
-      rejected_at:      aisiaRow.rejected_at ?? null,
-      rejection_reason: aisiaRow.rejection_reason ?? null,
-      created_at:       aisiaRow.created_at,
-      updated_at:       aisiaRow.updated_at,
-      sections,
+      id: aisiaDoc.id as string,
+      status: aisiaDoc.status as string,
+      version: Number(aisiaDoc.version ?? 1),
+      title: aisiaDoc.title as string,
+      approved_at: (aisiaDoc.approved_at as string | null) ?? null,
+      completeness: composed?.completeness ?? 0,
+      gaps: composed?.gaps.length ?? 0,
+      in_approval_circuit: Boolean(solicitudViva),
     };
   }
 

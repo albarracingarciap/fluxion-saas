@@ -33,7 +33,7 @@ fuente:
   - apps/web/lib/fmea/treatment-plan.ts
   - apps/web/lib/approvals/effects.ts
   - apps/web/app/(app)/aprobaciones/actions.ts
-  - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
+  - apps/web/lib/documents/derive-aisia.ts
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/actions.ts
   - apps/web/app/(app)/inventario/[id]/technical-dossier/actions.ts
   - apps/web/app/(app)/evidencias/actions.ts
@@ -173,7 +173,7 @@ flowchart TD
 | AISIA aprobada | **Analizar AISIA** en la Declaración | ⛔ Al menos una AISIA aprobada de un sistema en alcance |
 | Expediente sin huecos | **Enviar a revisión** (se aprueba en Aprobaciones) | ⛔ Apartados obligatorios cubiertos |
 | Controles aplicables justificados | **Enviar a revisión** de la Declaración (se aprueba en Aprobaciones) | ⛔ Todos los aplicables con justificación |
-| Política de aprobación activa | **Enviar para aprobación →** de la AISIA, **Enviar a revisión** de la Declaración y de las evidencias | ⛔ Sin política activa para su tipo de objeto no se envían (B11g) |
+| Política de aprobación activa | **Enviar a revisión** de la AISIA y del resto del expediente, **Enviar a revisión** de la Declaración y de las evidencias | ⛔ Sin política activa para su tipo de objeto no se envían (B11g) |
 
 Todo lo demás se puede hacer en cualquier orden o dejar a medias. El orden de este documento es el que
 evita rehacer trabajo.

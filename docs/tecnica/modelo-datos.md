@@ -31,6 +31,7 @@ fuente:
   - supabase/migrations/20261027100000_fmea_plan_parcial.sql
   - supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
+  - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -302,7 +303,7 @@ erDiagram
 | `fluxion.gap_dispositions` | [Disposición de la brecha](../glosario.md#disposición-de-la-brecha) | `gap_key` único por organización, `gap_layer` ([tipo de brecha](../glosario.md#tipo-de-brecha)), `disposition`, `rationale`, `status` (`active`, o `pending` mientras espera aprobación) | `00000000000001`, `20261020170100` |
 | `fluxion.task_gap_links` | — | Vínculo entre tarea y `gap_key` | `00000000000001` |
 | `fluxion.organization_soa_controls`, `organization_soa_metadata`, `organization_soa_system_links`, `soa_lifecycle_log` | [Declaración de Aplicabilidad ISO 42001](../glosario.md#declaración-de-aplicabilidad-iso-42001) | `control_code` único por organización (el catálogo de 38 controles está en `apps/web/lib/templates/iso42001-catalog.ts`), `is_applicable`, `lifecycle_status` | `00000000000001` |
-| `fluxion.aisia_assessments`, `aisia_sections` | [AISIA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia) | `version` única por sistema, `status`; secciones S1-S6 con `data jsonb` | `00000000000001` |
+| `fluxion.aisia_assessments`, `aisia_sections` | [AISIA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia) del asistente retirado | Sin uso para escribir desde B15b: la AISIA es el documento `aisia` del expediente. Se conservan hasta validar la migración (`20261027130000`); la Declaración aún cuenta sus AISIA aprobadas. Se borrarán en B15c | `00000000000001` |
 | `fluxion.preliminary_questionnaires` | [Cuestionario preliminar](../glosario.md#cuestionario-preliminar) | `status` ∈ `borrador`, `completado`; `answers jsonb`; `classification jsonb` (B13b): copia de la clasificación preliminar al completar, con `result` (resultado del motor único, con fundamento, avisos y `rulesVersion`), `obligations` (`[{code, label}]`) y `computed_at`. Es `null` en los borradores y en los cuestionarios completados antes de B13b. `ai_system_id` → `ai_systems` (`ON DELETE SET NULL`): sistema registrado desde el cuestionario (B13c), con índice único parcial `uq_preliminary_questionnaires_ai_system` (un cuestionario de origen por sistema). Mientras está vinculado, el trigger `trg_preliminary_questionnaire_locked` rechaza cambios de `answers` y `status` | `20260915090000`, `20261022100000`, `20261022110000` |
 
 Las [brechas](../glosario.md#brecha) no se guardan: se calculan en `apps/web/lib/gaps/data.ts`. Solo
@@ -337,7 +338,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15a, inactiva hasta B15b); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
+| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
 | `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |
 | `fluxion.system_report_snapshots` | [Instantánea](../glosario.md#instantánea) de [informes del sistema](../glosario.md#informes-del-sistema) | `report_type`, `payload jsonb` | `00000000000001` |

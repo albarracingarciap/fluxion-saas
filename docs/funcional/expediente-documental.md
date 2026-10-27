@@ -24,12 +24,13 @@ fuente:
   - apps/web/lib/approvals/open.ts
   - apps/web/lib/documents/derive-aisia.ts
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
+  - supabase/migrations/20261027130000_aisia_al_expediente.sql
 ---
 
 # Expediente documental
 
 El [expediente documental](../glosario.md#expediente-documental) es la vista donde se redactan, aprueban
-y exportan a PDF los documentos regulatorios de un sistema de IA. Hay cuatro plantillas:
+y exportan a PDF los documentos regulatorios de un sistema de IA. Hay cinco plantillas:
 
 | Documento | Clave | Normativa |
 |---|---|---|
@@ -38,11 +39,7 @@ y exportan a PDF los documentos regulatorios de un sistema de IA. Hay cuatro pla
 | DPIA | `dpia` | RGPD, Art. 35 |
 | Ficha del modelo | `model_card` | AI Act, Anexo XII |
 
-> **Pendiente de implementar.** La plantilla **AISIA** (`aisia`, ISO/IEC 42001, §6.1.4) ya está definida
-> (B15a), pero inactiva: aparecerá en el expediente cuando se migren las AISIA del asistente (B15b). Sus
-> apartados S1, S2 y S5.a se derivan de la ficha; S3 y S4, de la evaluación de riesgos vigente y de su plan
-> (`lib/documents/derive-aisia.ts`); el resto se redacta. Su política por defecto es la de la AISIA (Comité
-> de IA con consulta al DPO) y, al aprobarse, actualiza los controles A.5.2 a A.5.5 de la Declaración.
+| AISIA | `aisia` | ISO/IEC 42001, §6.1.4 y A.5.2 a A.5.5 (B15). Ver [AISIA](aisia.md) |
 
 ## Propósito
 
@@ -52,7 +49,7 @@ entregables PDF inmutables que se registran como evidencia.
 
 ## Acceso y permisos
 
-- **Ruta:** `/inventario/[id]/expediente/[key]`, con `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`.
+- **Ruta:** `/inventario/[id]/expediente/[key]`, con `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `aisia`.
   Cualquier otra clave devuelve «no encontrado».
 - **Navegación:**
   - **Acciones rápidas** de la [Ficha del sistema](ficha-sistema.md), tarjeta **Anexo IV**;

@@ -4,132 +4,119 @@ titulo: Evaluación de impacto del sistema de IA (AISIA)
 tipo: funcional
 modulo: evaluacion-de-impacto
 audiencia: tecnica
-version: 0.1
+version: 0.2
 fuente:
+  - apps/web/lib/documents/derive-aisia.ts
+  - apps/web/lib/documents/compose.ts
+  - apps/web/lib/documents/templates.ts
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/page.tsx
+  - apps/web/app/(app)/inventario/[id]/expediente/[key]/actions.ts
   - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/page.tsx
-  - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
-  - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
+  - apps/web/app/(app)/inventario/[id]/page.tsx
   - apps/web/app/(app)/inventario/[id]/system-detail-client.tsx
-  - apps/web/lib/aisia/prefill.ts
   - apps/web/lib/aisia/soa-sync.ts
-  - apps/web/lib/auth/roles-flujo.ts
-  - apps/web/lib/approvals/open.ts
   - apps/web/lib/approvals/effects.ts
-  - supabase/migrations/00000000000001_schema.sql
-  - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - apps/web/lib/templates/data.ts
+  - apps/web/app/(app)/plantillas/soa-iso42001/actions.ts
+  - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
+  - supabase/migrations/20261027130000_aisia_al_expediente.sql
 ---
 
 # Evaluación de impacto del sistema de IA (AISIA)
 
-Asistente de seis secciones para completar la
-[evaluación de impacto del sistema de IA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia)
-de un sistema y enviarla a aprobación.
+La [evaluación de impacto del sistema de IA](../glosario.md#evaluación-de-impacto-del-sistema-de-ia-aisia)
+es una plantilla del [Expediente documental](expediente-documental.md) (`aisia`, B15). Tiene el mismo
+ciclo, la misma aprobación, el mismo PDF y la misma evidencia que el resto del expediente; este documento
+describe solo lo propio de la AISIA.
 
 ## Propósito
 
-Documentar las consecuencias del sistema sobre personas, grupos y sociedad, reutilizando el análisis de
-modos de fallo y el plan de tratamiento. Las AISIA aprobadas alimentan la
+Documentar las consecuencias del sistema sobre personas, grupos y sociedad, reutilizando la ficha, el
+análisis de modos de fallo y el plan de tratamiento. Las AISIA aprobadas alimentan la
 [Declaración de Aplicabilidad](declaracion-aplicabilidad.md).
 
 ## Acceso y permisos
 
-- **Ruta:** `/inventario/[id]/aisia/[assessmentId]`
-- **Navegación:** pestaña **ISO 42001** de la [Ficha del sistema](ficha-sistema.md), **Continuar
-  evaluación →** o **Ver evaluación →**.
-- **Disponibilidad:** módulo Evaluación de impacto.
+- **Ruta:** `/inventario/[id]/expediente/aisia`. La ruta antigua del asistente
+  (`/inventario/[id]/aisia/[assessmentId]`) redirige aquí.
+- **Navegación:**
+  - pestaña **ISO 42001** de la [Ficha del sistema](ficha-sistema.md): **Iniciar evaluación AISIA**,
+    **Continuar en el expediente →** o **Ver en el expediente →**;
+  - pestaña **AISIA** del expediente del sistema.
+- **Disponibilidad:** Core (DP-04).
+- **Permisos:** los del [Expediente documental](expediente-documental.md#acceso-y-permisos).
 
-| Rol | Ver | Acciones permitidas |
-|---|---|---|
-| Todos los roles | Sí | Editar y enviar mientras está en borrador |
-| Decisores de la política de aprobación de la AISIA | Ídem | Aprobar o rechazar, solo en [Aprobaciones](aprobaciones.md) |
-
-La AISIA se aprueba o rechaza **solo** en [Flujos de aprobación](../glosario.md#flujos-de-aprobación) (B11g):
-ni este asistente ni la ficha del sistema tienen botones para decidirla. Por defecto (DP-01) la aprueba el
-Comité de IA, con dictamen previo (consulta) del DPO. Quien creó la evaluación y quien la envió no pueden
-decidirla: la solicitud lleva en su contexto `prepared_by` con los dos.
-
-La evaluación solo se puede editar en borrador. En el resto de estados se muestra en solo lectura.
+**Aprobación.** Política por defecto «Expediente · AISIA (DP-01)»: dictamen (consulta) del DPO y
+aprobación del Comité de IA, con el Responsable del SGAI si no hay comité. Quien redactó algún apartado no
+puede decidir. Al introducir la plantilla, cada organización recibió una copia, con sus pasos, de sus
+políticas activas de la AISIA anterior.
 
 ## Campos
 
-La vista tiene una barra lateral con las seis secciones (Sistema, Datos, Riesgos, Tratamiento, Personas,
-Social), su marca de completada y el progreso «N de 6 completadas».
+| Apartado | Origen | Obligatorio | Contenido |
+|---|---|---|---|
+| **S1 · Descripción del sistema** · Finalidad, usos y funcionamiento (`AISIA.S1.a`) | Ficha | Sí | Nombre y versión, finalidad prevista, usos prohibidos declarados, descripción técnica, tipos de salida, automatización completa, interacción con personas y usuarios destinatarios |
+| S1 · Contexto de despliegue y tecnología (`AISIA.S1.b`) | Redacción | No | — |
+| **S2 · Datos** · Datos personales y categorías (`AISIA.S2.a`) | Ficha | Sí | Datos personales, categorías, categorías especiales, volumen, conservación y estado de la DPIA |
+| S2 · Fuentes y calidad de los datos (`AISIA.S2.b`) | Redacción | No | — |
+| **S3 · Riesgos** · Modos de fallo evaluados (`AISIA.S3.a`) | Evaluación de riesgos vigente | Sí | Versión y estado de la evaluación, zona, modos evaluados sobre el total, modos de la segunda ronda si el plan es parcial y lista de modos con severidad actual 7 o más (código, nombre, severidad actual y por defecto), de mayor a menor |
+| S3 · Resumen y riesgos adicionales (`AISIA.S3.b`) | Redacción | No | — |
+| **S4 · Tratamiento** · Plan de tratamiento (`AISIA.S4.a`) | Plan de la evaluación vigente | Sí | Código, estado, fecha límite, acciones totales y por opción (sin las canceladas), completadas, riesgos aceptados y notas de riesgo residual |
+| S4 · Riesgo residual y seguimiento (`AISIA.S4.b`) | Redacción | No | — |
+| **S5 · Impacto en las personas** · Personas y colectivos afectados (`AISIA.S5.a`) | Ficha y redacción | Sí | Si afecta a personas; colectivos vulnerables y menores solo cuando la ficha los marca |
+| S5 · Derechos afectados, Gravedad y probabilidad del impacto, Salvaguardas (`S5.b` a `S5.d`) | Redacción | Sí | — |
+| **S6 · Impacto social** · Impacto social y riesgo de sesgo (`S6.a`), Conclusión (`S6.d`) | Redacción | Sí | — |
+| S6 · Consideraciones ambientales (`S6.b`), Implicaciones sociales amplias y consulta a partes interesadas (`S6.c`) | Redacción | No | — |
 
-Todo se guarda en `aisia_sections.data`. No hay campos obligatorios.
-
-| Sección | Campos |
-|---|---|
-| **S1 · Descripción del sistema** | **Nombre del sistema**, **Versión**, **Uso previsto**, **Usos prohibidos**, **Descripción técnica** y los interruptores **Sistema completamente automatizado** e **Interactúa directamente con personas**, precargados desde la ficha. También **Contexto de despliegue** y **Stack tecnológico relevante** |
-| **S2 · Datos e información** | **El sistema procesa datos personales**, **Categorías de datos tratados**, **Categorías especiales (Art. 9 RGPD)**, **Volumen de datos**, **Retención de datos** y **DPIA realizada** (Sí, En proceso, Parcial, No realizada), precargados desde la ficha. También **Descripción de las fuentes de datos**, **Medidas de calidad del dato** y **Notas sobre la DPIA / bases legales** |
-| **S3 · Modos de fallo identificados** | Selección de los [modos de fallo](../glosario.md#modo-de-fallo) activados del sistema, con su dimensión y nivel; **Resumen de riesgos identificados**; **Riesgos adicionales no cubiertos por FMEA** |
-| **S4 · Acciones de tratamiento** | Selección del [plan de tratamiento](../glosario.md#plan-de-tratamiento) de referencia (entre los tres más recientes); **Resumen de medidas de tratamiento**; **Riesgos residuales tras el tratamiento**; **Plan de monitoreo continuo** |
-| **S5 · Impacto en personas** | **Personas y grupos directamente afectados**; **Afecta a colectivos vulnerables** (con descripción si se activa); **Derechos fundamentales potencialmente afectados**; **Severidad del impacto potencial** (Bajo, Medio, Alto, Crítico); **Probabilidad de materialización** (Baja, Media, Alta); **Descripción detallada del impacto**; **Salvaguardias y medidas de protección** |
-| **S6 · Impacto social** | **Descripción del impacto social**, **Evaluación del riesgo de sesgo y discriminación**, **Consideraciones medioambientales**, **Implicaciones sociales más amplias**, **Consulta a partes interesadas** y **Conclusión y valoración global** |
-
-**Precarga.** Al crear la AISIA, S1 y S2 se guardan con los datos de la ficha (nombre, versión, usos,
-descripción técnica, automatización, interacción con personas, datos personales, categorías, volumen,
-retención y estado de la DPIA). Si la ficha no tiene un dato, el campo queda vacío.
-
-> TODO: confirmar varios datos de las secciones.
-> - **S3:** cada modo muestra su origen de activación (`rule`, `ai`, `manual`) en lugar de su nombre.
-> - **S3 y S4:** el nivel del modo y el estado del plan aparecen sin traducir.
+Lo derivado se recalcula en cada lectura (`lib/documents/derive-aisia.ts`); si el dato no existe, el
+apartado obligatorio queda como hueco y el documento no se puede enviar. La evaluación de referencia es la
+vigente o, si no hay ninguna aprobada, la última versión (la misma regla que el Anexo IV).
 
 ## Acciones
 
-| Acción | Quién | Qué hace | Efectos |
-|---|---|---|---|
-| **Siguiente →** / **← Anterior** / barra lateral | Todos | Guarda la sección actual como «en curso» y cambia de sección | — |
-| **✓ Marcar completa** | Todos | Guarda la sección como completa | — |
-| **Enviar para aprobación →** (en S6) | Todos | Guarda S6, abre la solicitud de aprobación (`submitAisia`) y envía la evaluación. Exige una política de aprobación activa para la AISIA | Estado «En revisión». Historial «AISIA enviada para aprobación». Vuelve a la ficha |
-| **✎ Corregir y reenviar** (en la ficha) | Todos | Crea una versión nueva en borrador con los datos de la rechazada | Historial «AISIA reabierta para corrección» |
+Las del [Expediente documental](expediente-documental.md#acciones): redactar apartados, enviar a
+aprobación, volver a borrador, generar el PDF y abrir una versión nueva desde la aprobada.
 
-> **Pendiente de implementar.** Nueva versión a partir de una AISIA aprobada: llega con su paso a plantilla
-> del expediente (B15, DP-05), que ya tiene versiones.
+**Efectos de la aprobación** (además de los del expediente):
+- si la Declaración de Aplicabilidad está en borrador, los controles A.5.2 a A.5.5 pasan a implantados
+  cuando todos sus sistemas tienen AISIA aprobada (`syncAisiaSoaControls`); si no lo está, se aplica al
+  iniciar su siguiente revisión y la aprobación lo avisa;
+- la insignia de AISIA de cada sistema en la Declaración y **Analizar AISIA** leen el documento.
 
-> **Pendiente de implementar.** Propuesta de contenido por IA para las secciones.
+## Migración desde el asistente (B15b)
 
-**Decisión en Aprobaciones.** Con la evaluación en revisión, la ficha del sistema muestra «La decisión se
-toma en Aprobaciones, con la política de aprobación de la organización.» o, si no hay solicitud pendiente,
-«Sin solicitud de aprobación abierta. Pide que la cancelen o revisa las políticas en Ajustes ›
-Aprobaciones.». Los efectos de aprobar o rechazar se describen en [Aprobaciones](aprobaciones.md): al
-aprobarse, si la Declaración de Aplicabilidad está en borrador, los controles A.5.2 a A.5.5 pasan a
-implantados cuando todos sus sistemas tienen AISIA aprobada; si no lo está, se aplica al iniciar su
-siguiente revisión.
+El asistente de seis secciones se retiró. La migración `20261027130000_aisia_al_expediente.sql` pasó al
+expediente la última versión de la AISIA de cada sistema:
+- aprobada → documento aprobado, con quién y cuándo; cualquier otro estado → borrador;
+- el texto redactado de cada sección → el apartado equivalente, con su autor;
+- lo que ahora se deriva no se copia, salvo los textos de S1 editados en el asistente que ya no coinciden
+  con la ficha;
+- los modos de fallo y el plan elegidos a mano en S3 y S4 no se copian: el documento cita la evaluación
+  vigente.
 
-En la base de datos, el disparador `trg_aisia_lifecycle_rules` impide que una sesión de usuario pase la
-evaluación a «Aprobada» o «Rechazada» («La AISIA se aprueba o rechaza en Aprobaciones.»): solo lo hace el
-efecto de la aprobación.
+Cada sistema migrado tiene el evento de historial «AISIA trasladada al expediente». Las tablas
+`aisia_assessments` y `aisia_sections` se conservan hasta validar la migración; mientras tanto, la
+Declaración sigue contando las AISIA aprobadas con el asistente.
+
+> **Pendiente de implementar.** Borrar las tablas `aisia_*` y el código que aún las lee (B15c), cuando el
+> responsable valide la migración.
+
+> **Pendiente de implementar.** Propuesta de contenido por IA para los apartados redactados.
 
 ## Validaciones
 
-| Situación | Mensaje |
-|---|---|
-| Editar fuera de borrador | «Solo se puede editar una evaluación en borrador.» |
-| Enviar fuera de borrador | «Solo se puede enviar una evaluación en borrador.» |
-| Enviar sin política de aprobación activa | «No hay ninguna política de aprobación activa para la AISIA. Configúrala en Ajustes › Aprobaciones antes de enviarla.» |
-| Aprobar o rechazar fuera de Aprobaciones (base de datos) | «La AISIA se aprueba o rechaza en Aprobaciones.» |
-| Reabrir con otra activa | «Ya existe una evaluación activa para este sistema. Complétala primero.» |
-| Iniciar con otra activa | «Ya existe una evaluación AISIA activa para este sistema.» |
-
-No se exige que las secciones estén completas para enviar.
+Las del [Expediente documental](expediente-documental.md#validaciones).
 
 ## Estados
 
-```mermaid
-stateDiagram-v2
-  [*] --> Borrador: iniciar
-  Borrador --> En_revisión: enviar
-  En_revisión --> Aprobada: aprobar (en Aprobaciones)
-  En_revisión --> Rechazada: rechazar (en Aprobaciones)
-  Rechazada --> [*]: corregir y reenviar (nueva versión en borrador)
-```
-
-Cada sección pasa de «Pendiente» a «En curso» y a «Completa».
+Los del [Expediente documental](expediente-documental.md#estados): Borrador, En revisión, Aprobado y
+Sustituido.
 
 ## Vistas relacionadas
 
-- [Ficha del sistema](ficha-sistema.md): inicio, estado y corrección tras un rechazo.
-- [Aprobaciones](aprobaciones.md): decisión de la evaluación.
+- [Expediente documental](expediente-documental.md).
+- [Ficha del sistema](ficha-sistema.md): estado de la AISIA en la pestaña **ISO 42001**.
+- [Aprobaciones](aprobaciones.md): decisión.
 - [Evaluación FMEA](fmea-evaluacion.md) y [Plan de tratamiento](plan-de-tratamiento.md): base de S3 y S4.
 - [Declaración de Aplicabilidad ISO 42001](declaracion-aplicabilidad.md).
 - Negocio: [Evaluación de impacto](../negocio/evaluacion-de-impacto.md).

@@ -6,8 +6,9 @@ modulo: evaluacion-de-impacto
 audiencia: comercial
 version: 0.2
 fuente:
-  - apps/web/app/(app)/inventario/[id]/aisia/actions.ts
-  - apps/web/app/(app)/inventario/[id]/aisia/[assessmentId]/aisia-wizard-client.tsx
+  - apps/web/lib/documents/derive-aisia.ts
+  - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
+  - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - apps/web/app/(app)/inventario/[id]/riesgos-negocio/actions.ts
   - apps/web/app/(app)/inventario/[id]/riesgos-negocio/riesgos-client.tsx
   - apps/web/app/(app)/cuestionario-preliminar/actions.ts
@@ -75,41 +76,42 @@ Quien prepara la AISIA no la aprueba: ni quien la creó ni quien la envió puede
 
 ### Evaluación de impacto del sistema de IA (AISIA)
 
+La AISIA es un documento más del [expediente documental](documentacion-del-sistema.md) del sistema, con
+su ciclo, su aprobación, su PDF y su evidencia.
+
 ```mermaid
 stateDiagram-v2
   [*] --> Borrador
-  Borrador --> Enviada: enviar
-  Enviada --> Aprobada: aprobar (Flujos de aprobación)
-  Enviada --> Rechazada: rechazar con motivo (Flujos de aprobación)
-  Rechazada --> Borrador: reabrir (nueva versión)
+  Borrador --> En_revisión: enviar
+  En_revisión --> Aprobada: aprobar (Flujos de aprobación)
+  En_revisión --> Borrador: rechazar con motivo o volver a borrador
+  Aprobada --> Sustituida: nueva versión
 ```
 
-1. **Inicio.** Se abre desde la ficha del sistema. Solo puede haber una AISIA activa (en borrador o
-   enviada) por sistema.
-2. **Secciones.** Seis secciones, cada una con su estado (pendiente, en curso, completa):
+1. **Inicio.** Se abre desde la ficha del sistema. Hay una AISIA viva por sistema.
+2. **Apartados.** Seis secciones. Lo que Fluxion ya sabe se rellena solo y se mantiene al día; el resto lo
+   redacta la organización:
 
-   | Sección | Contenido | Se apoya en |
+   | Sección | Se rellena con | Se redacta |
    |---|---|---|
-   | S1 · Descripción del sistema | Qué es y para qué sirve | Ficha del sistema, con datos precargados y ajustables |
-   | S2 · Datos e información | Datos tratados y estado de la DPIA | Datos del sistema |
-   | S3 · Modos de fallo identificados | Modos de fallo relevantes para el impacto | [Análisis de modos de fallo](analisis-modos-de-fallo.md) |
-   | S4 · Acciones de tratamiento | Medidas adoptadas | [Plan de tratamiento](plan-de-tratamiento.md) |
-   | S5 · Impacto en personas | Efectos sobre individuos y grupos | — |
-   | S6 · Impacto social | Efectos sobre la sociedad | — |
+   | S1 · Descripción del sistema | La ficha del sistema | Contexto de despliegue y tecnología |
+   | S2 · Datos | La ficha del sistema | Fuentes y calidad de los datos |
+   | S3 · Riesgos | El [análisis de modos de fallo](analisis-modos-de-fallo.md) vigente: zona y modos más graves | Resumen y riesgos adicionales |
+   | S4 · Tratamiento | El [plan de tratamiento](plan-de-tratamiento.md) vigente | Riesgo residual y seguimiento |
+   | S5 · Impacto en las personas | Si afecta a personas, colectivos vulnerables o menores, según la ficha | Derechos afectados, gravedad y probabilidad, salvaguardas |
+   | S6 · Impacto social | — | Impacto social y sesgo, medio ambiente, consulta a partes interesadas y conclusión |
 
-   Conviene hacer la AISIA después del análisis de modos de fallo y del plan de tratamiento, porque las
-   secciones 3 y 4 los usan.
-3. **Envío y decisión.** La AISIA se envía a aprobación y la decisión se toma siempre en los
-   [Flujos de aprobación](flujos-de-aprobacion.md), nunca en la propia evaluación. Por defecto, el DPO
-   emite su dictamen y el Comité de IA la aprueba o la rechaza con un motivo. Para enviarla, la
-   organización debe tener activa una política de aprobación para la AISIA. Una AISIA rechazada se reabre
-   como nueva versión; las anteriores se conservan.
+   Conviene hacer la AISIA después del análisis de modos de fallo y del plan de tratamiento: si no existen,
+   S3 y S4 quedan como huecos y el documento no se puede enviar.
+3. **Envío y decisión.** La decisión se toma siempre en los
+   [Flujos de aprobación](flujos-de-aprobacion.md). Por defecto, el DPO emite su dictamen y el Comité de IA
+   la aprueba o la rechaza con un motivo. Una AISIA aprobada se actualiza abriendo una versión nueva; las
+   anteriores se conservan.
+4. **Uso posterior.** Las AISIA aprobadas cumplen los controles A.5.2 a A.5.5 de la Declaración de
+   Aplicabilidad ISO 42001 y alimentan su propuesta de aplicabilidad.
 
-   > TODO: confirmar dos puntos de la AISIA.
-   > - **Actualización:** no hay forma de actualizar una AISIA ya aprobada.
-   > - **Datos precargados de la ficha:** solo se guardan si se modifican.
-4. **Uso posterior.** Las AISIA aprobadas alimentan la propuesta de aplicabilidad de la Declaración de
-   Aplicabilidad ISO 42001.
+Las AISIA hechas con el asistente anterior se trasladaron al expediente: la aprobada como documento
+aprobado y el resto como borrador, con todo lo que se había redactado.
 
 ### Riesgos de negocio
 
