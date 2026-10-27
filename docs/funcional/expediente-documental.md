@@ -32,6 +32,7 @@ fuente:
   - supabase/migrations/20261027170000_expediente_notificaciones_fria.sql
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-tabs.tsx
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
+  - apps/web/lib/evaluation-status/reevaluation.ts
 ---
 
 # Expediente documental
@@ -277,6 +278,12 @@ envíalo de nuevo.».
 
 Cada cambio de estado queda en el historial del sistema. Fuera de estas transiciones, la base de datos lo
 rechaza; las actas de aprobación, que genera el sistema, nacen aprobadas.
+
+**Revisión anual de la FRIA y la AISIA** (B21b). En la FRIA y la AISIA aprobadas, junto a «aprobado el …»
+aparece «· revisión anual antes del …» (12 meses después de la aprobación), o en rojo «· revisión anual vencida
+desde el …». Al vencer, el cron diario abre un [disparador de reevaluación](flujo-completo-evaluacion.md#disparadores-de-reevaluación)
+(«Revisión anual de la FRIA» o «… de la AISIA») que se cierra al aprobarse una versión nueva: **Reabrir** y
+volver a aprobar.
 
 ## Vistas relacionadas
 

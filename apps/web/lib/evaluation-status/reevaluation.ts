@@ -7,10 +7,15 @@
  *     lo que pide después de detectarse;
  *   - un disparador abierto quita la condición «Vigente».
  *
+ * B21b: revisión anual de la FRIA y la AISIA aprobadas (informe del flujo de
+ * trabajo, 3.4).
+ *
  * Módulo puro.
  */
 
-export type ReevaluationKey = 'incidente_grave' | 'supuestos_aiact' | 'revision_fmea' | 'catalogo'
+export type ReevaluationKey =
+  | 'incidente_grave' | 'supuestos_aiact' | 'revision_fmea' | 'catalogo'
+  | 'revision_fria' | 'revision_aisia'
 export type ReevaluationScope = 'fmea' | 'fria' | 'aisia' | 'clasificacion'
 
 /** Valor de `fluxion.reevaluation_trigger_type` de cada disparador. */
@@ -19,6 +24,8 @@ export const REEVALUATION_TYPE: Record<ReevaluationKey, 'incidente' | 'cambio_si
   supuestos_aiact: 'cambio_sistema',
   revision_fmea: 'periodico',
   catalogo: 'regulatorio',
+  revision_fria: 'periodico',
+  revision_aisia: 'periodico',
 }
 
 export const REEVALUATION_KEY_LABEL: Record<ReevaluationKey, string> = {
@@ -26,6 +33,8 @@ export const REEVALUATION_KEY_LABEL: Record<ReevaluationKey, string> = {
   supuestos_aiact: 'Cambio de supuestos AI Act',
   revision_fmea: 'Revisión de la evaluación de riesgos vencida',
   catalogo: 'Reglas de clasificación actualizadas',
+  revision_fria: 'Revisión anual de la FRIA',
+  revision_aisia: 'Revisión anual de la AISIA',
 }
 
 export const REEVALUATION_SCOPE_LABEL: Record<ReevaluationScope, string> = {
@@ -56,7 +65,24 @@ export function reevaluationScope(
       return ['fmea']
     case 'catalogo':
       return ['clasificacion']
+    case 'revision_fria':
+      return ['fria']
+    case 'revision_aisia':
+      return ['aisia']
   }
+}
+
+/** Meses tras la aprobación de la FRIA o la AISIA en que toca revisarla (B21b). */
+export const DOCUMENT_REVIEW_MONTHS = 12
+
+/** Documentos del expediente con revisión anual. */
+export const ANNUAL_REVIEW_TEMPLATES = ['fria', 'aisia'] as const
+
+/** Fecha (AAAA-MM-DD) en que toca revisar un documento aprobado en `approvedAt`. */
+export function documentReviewDueOn(approvedAt: string): string {
+  const d = new Date(approvedAt)
+  d.setUTCMonth(d.getUTCMonth() + DOCUMENT_REVIEW_MONTHS)
+  return d.toISOString().slice(0, 10)
 }
 
 /** Lo aprobado de cada sistema que puede resolver un disparador. */

@@ -1,5 +1,6 @@
 'use client'
 
+
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -17,6 +18,7 @@ import type { DocumentAction } from '@/lib/documents/lifecycle-rules'
 import type { TemplateOption } from '@/lib/documents/templates'
 import { ExpedienteTabs } from './expediente-tabs'
 import { NotificationPanel } from './notification-panel'
+import { ANNUAL_REVIEW_TEMPLATES, documentReviewDueOn } from '@/lib/evaluation-status/reevaluation'
 
 const SOURCE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   'derived:system':  { label: 'Ficha del sistema',  icon: <Database size={11} /> },
@@ -289,6 +291,16 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
                 ? ` · aprobado el ${new Date(doc.document.approved_at).toLocaleDateString('es-ES')}`
                 : ''}
             </span>
+            {/* Revisión anual de la FRIA y la AISIA (B21b). */}
+            {status === 'approved' && doc.document.approved_at && (ANNUAL_REVIEW_TEMPLATES as readonly string[]).includes(templateKey) && (() => {
+              const revision = documentReviewDueOn(doc.document.approved_at)
+              const vencida = revision < new Date().toISOString().slice(0, 10)
+              return (
+                <span className={`font-plex text-[10.5px] ${vencida ? 'text-re' : 'text-lttm'}`}>
+                  · {vencida ? 'revisión anual vencida desde el' : 'revisión anual antes del'} {new Date(revision).toLocaleDateString('es-ES')}
+                </span>
+              )
+            })()}
           </div>
 
           <div className="flex gap-2 flex-wrap">
