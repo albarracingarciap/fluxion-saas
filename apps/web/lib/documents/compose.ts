@@ -2,6 +2,8 @@ import 'server-only'
 import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 
 import { deriveAisiaFromFmea, deriveAisiaFromSystem, type AisiaFmeaItem, type AisiaPlanAction } from './derive-aisia'
+import { deriveEuRegistry, euRegistrySectionFilter, type EuRegistryContext } from './derive-eu-registry'
+import { applicabilityFacts, documentApplicability } from './applicability'
 
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createComplianceClient } from '@/lib/supabase/compliance'
@@ -358,7 +360,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
 
   if (!template) return null
 
-  const sectionsDef = (template.sections ?? []) as TemplateSection[]
+  let sectionsDef = (template.sections ?? []) as TemplateSection[]
   const content = (doc.content ?? {}) as Record<string, { text?: string }>
 
   // El contexto derivable se pide entero de una vez: son cuatro consultas fijas,
@@ -368,6 +370,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   let plan: Record<string, unknown> | null = null
   let history: Array<Record<string, unknown>> = []
   let hitl: Record<string, unknown> | null = null
+  let euRegistry: EuRegistryContext | null = null
   let aisiaItems: AisiaFmeaItem[] = []
   let aisiaActions: AisiaPlanAction[] = []
 
@@ -432,6 +435,31 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       .limit(15)
     history = events ?? []
 
+    // Registro UE (B16b): datos de la organización y la entrada del proveedor.
+    if (doc.template_key === 'eu_registry' && system) {
+      const [{ data: org }, { data: registros }] = await Promise.all([
+        fluxion.from('organizations')
+          .select('name, legal_name, tax_id, registered_address, country, website')
+          .eq('id', system.organization_id as string)
+          .maybeSingle(),
+        fluxion.from('system_evidences')
+          .select('external_url')
+          .eq('ai_system_id', doc.ai_system_id)
+          .contains('tags', ['doc-proveedor-tipo-registro'])
+          .not('external_url', 'is', null),
+      ])
+      euRegistry = {
+        system,
+        organization: (org as Record<string, unknown> | null) ?? null,
+        providerRegistryUrls: ((registros ?? []) as Array<{ external_url: string }>).map((r) => r.external_url),
+      }
+      // Solo la sección del Anexo VIII que corresponde al sistema (DP-11); si el
+      // registro ya no aplica, la de proveedor.
+      const seccion = documentApplicability('eu_registry', applicabilityFacts(system)).euRegistrySection ?? 'A'
+      const enSeccion = euRegistrySectionFilter(seccion)
+      sectionsDef = sectionsDef.filter((d) => enSeccion(d.ref))
+    }
+
     // AISIA (B15): S3 y S4 citan los modos y las acciones, no solo los recuentos.
     if (doc.template_key === 'aisia' && evalRow) {
       const { data: itemRows } = await fluxion
@@ -470,7 +498,9 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   const sections: ComposedSection[] = sectionsDef.map((def) => {
     let derived: string | null = null
     const esAisia = def.ref.startsWith('AISIA.')
-    if (def.source === 'derived:system' && system) {
+    if (def.source === 'derived:system' && euRegistry) {
+      derived = deriveEuRegistry(def.ref, euRegistry)
+    } else if (def.source === 'derived:system' && system) {
       derived = esAisia ? deriveAisiaFromSystem(def.ref, system) : deriveFromSystem(def.ref, system)
     } else if (def.source === 'derived:fmea') {
       derived = esAisia

@@ -22,7 +22,8 @@ fuente:
 Los [informes del sistema](../glosario.md#informes-del-sistema) son tres documentos que Fluxion compone
 automáticamente con los datos de un [sistema de IA](../glosario.md#sistema-de-ia):
 - el **dossier técnico**;
-- la **[ficha para el registro UE](../glosario.md#ficha-para-el-registro-ue)**;
+- la **[ficha para el registro UE](../glosario.md#ficha-para-el-registro-ue)**, que desde B16b es un documento
+  del expediente (ver más abajo);
 - el **informe de brechas del sistema**.
 
 No se redactan: reflejan en cada momento lo registrado en la plataforma y se pueden congelar como
@@ -68,22 +69,22 @@ Los tres informes se abren desde la ficha del sistema.
 | Informe | Contenido |
 |---|---|
 | Dossier técnico | Identificación y propósito · Arquitectura y tecnología · Datos y tratamiento · Gobierno y responsabilidades · Controles y cumplimiento · Cobertura de obligaciones · Planes de tratamiento de riesgo · Cadenas causales activas · Evidencias del sistema, con resúmenes de ISO 42001 y del análisis de modos de fallo |
-| Ficha para el registro UE | Identificación del sistema · Clasificación AI Act · Propósito y descripción · Documentación técnica · Controles mínimos de riesgo · Gobierno de datos · Responsables y revisión · Evidencias de soporte · Proveedor y modelo |
 | Informe de brechas del sistema | Resumen ejecutivo · Prioridades inmediatas · Obligaciones AI Act pendientes · Brechas ISO 42001 · Situación de evidencias · Modos de fallo activados · Planes de tratamiento |
 
 1. **Consulta.** El informe se genera al abrirlo, con los datos actuales.
 2. **Impresión.** Se puede imprimir o guardar en PDF desde el navegador.
 3. **Instantánea y evidencia.** Al guardarlo, Fluxion crea una instantánea inmutable con la fecha y la
    registra como evidencia del sistema. Las instantáneas anteriores se pueden consultar.
-4. **Registro UE.** La ficha reúne los datos que la organización debe presentar para registrar un
-   sistema de alto riesgo. La presentación en la base de datos de la UE la hace la organización, de
-   forma manual.
+4. **Registro UE.** La ficha para el registro UE ya no es un informe: es un documento de la
+   [Documentación del sistema](documentacion-del-sistema.md) con los datos del Anexo VIII, que se redacta,
+   se aprueba y se entrega en PDF. Solo aparece cuando la organización tiene que registrar el sistema: si es
+   su proveedora y el sistema es de alto riesgo o aplica la excepción del Art. 6.3, o si lo despliega como
+   organismo público. La presentación en la base de datos de la UE la hace la organización, de forma
+   manual.
 
 La documentación técnica formal del Anexo IV, con redacción y aprobación, pertenece al módulo
 [Documentación del sistema](../glosario.md#documentación-del-sistema).
 
-> TODO: confirmar si la ficha para el registro UE se ofrece también para sistemas que no son de alto
-> riesgo. La aplicación la muestra en cualquier sistema.
 
 ## Relación normativa
 
@@ -93,8 +94,8 @@ La documentación técnica formal del Anexo IV, con redacción y aprobación, pe
 | AI Act | Art. 11 | Información de base para la documentación técnica (el documento formal es del módulo Documentación del sistema) |
 | ISO/IEC 42001 | §7.5 | Información documentada y conservación de versiones |
 
-> TODO: confirmar que el contenido de la ficha para el registro UE cubre los campos del Anexo VIII del
-> AI Act. No se ha contrastado campo por campo.
+> TODO: confirmar con la revisión jurídica la lectura del Anexo VIII que sigue la ficha para el registro UE
+> (DP-11).
 
 ## Módulos relacionados
 

@@ -142,7 +142,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-EVIDENCIA-DETALLE | `docs/funcional/evidencia-detalle.md` | funcional | tecnica | biblioteca-evidencias | `(app)/evidencias/[id]/*`, `lib/evidences/{detail,versions}.ts` | borrador |
 | FUN-SOA | `docs/funcional/declaracion-aplicabilidad.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/soa-iso42001/*` | borrador |
 | FUN-DOSSIER | `docs/funcional/dossier-tecnico.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/technical-dossier/**`, `lib/ai-systems/technical-dossier.ts` | borrador |
-| FUN-REGISTRO-UE | `docs/funcional/registro-ue.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/eu-registry/**`, `lib/ai-systems/eu-registry.ts` | borrador |
+| FUN-REGISTRO-UE | `docs/funcional/registro-ue.md` | funcional | tecnica | documentacion-del-sistema | `lib/documents/derive-eu-registry.ts`, `lib/documents/applicability.ts`, `(app)/inventario/[id]/expediente/[key]/*` | borrador |
 | FUN-INFORME-BRECHAS | `docs/funcional/informe-brechas-sistema.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/gap-report/**`, `lib/ai-systems/gap-report.ts` | borrador |
 | FUN-EXPEDIENTE | `docs/funcional/expediente-documental.md` | funcional | tecnica | documentacion-del-sistema | `(app)/inventario/[id]/expediente/[key]/*`, `lib/documents/*` | borrador |
 | FUN-AISIA | `docs/funcional/aisia.md` | funcional | tecnica | evaluacion-de-impacto | `lib/documents/derive-aisia.ts`, `(app)/inventario/[id]/expediente/[key]/*`, `lib/aisia/soa-sync.ts` | borrador |

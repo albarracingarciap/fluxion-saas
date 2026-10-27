@@ -4050,7 +4050,7 @@ export function SystemDetailClient({
                   { icon: <FileText className="w-4 h-4 text-brand-cyan" />, label: 'Anexo IV', sub: 'Art. 11 · Expediente', href: `/inventario/${system.id}/expediente/annex_iv` },
                   { icon: <FileText className="w-4 h-4 text-lttm" />, label: 'Dossier técnico', sub: 'Vista e instantánea', href: `/inventario/${system.id}/technical-dossier` },
                   { icon: <ShieldAlert className="w-4 h-4 text-re" />, label: 'Eval. riesgos', sub: 'Art. 9 · FMEA', href: `/inventario/${system.id}/fmea` },
-                  { icon: <ArrowUpRight className="w-4 h-4 text-brand-blue" />, label: 'Registro EU', sub: 'Art. 71 · Form.', href: `/inventario/${system.id}/eu-registry` },
+                  { icon: <ArrowUpRight className="w-4 h-4 text-brand-blue" />, label: 'Ficha registro UE', sub: 'Art. 49 · Anexo VIII', href: `/inventario/${system.id}/expediente/eu_registry` },
                   { icon: <Download className="w-4 h-4 text-lttm" />, label: 'Gap report', sub: 'Exportar en PDF', href: `/inventario/${system.id}/gap-report` },
                 ].map((action, index) => {
                   const cardClasses = 'bg-ltcard border border-ltb rounded-[8px] p-3 text-left hover:bg-ltcard2 hover:border-cyan-border transition-all cursor-pointer group block';

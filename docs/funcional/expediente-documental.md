@@ -25,6 +25,7 @@ fuente:
   - apps/web/lib/documents/derive-aisia.ts
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
+  - supabase/migrations/20261027150000_expediente_registro_ue.sql
   - apps/web/lib/documents/applicability.ts
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/expediente-tabs.tsx
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
@@ -33,7 +34,7 @@ fuente:
 # Expediente documental
 
 El [expediente documental](../glosario.md#expediente-documental) es la vista donde se redactan, aprueban
-y exportan a PDF los documentos regulatorios de un sistema de IA. Hay cinco plantillas:
+y exportan a PDF los documentos regulatorios de un sistema de IA. Hay seis plantillas:
 
 | Documento | Clave | Normativa |
 |---|---|---|
@@ -41,6 +42,7 @@ y exportan a PDF los documentos regulatorios de un sistema de IA. Hay cinco plan
 | FRIA | `fria` | AI Act, Art. 27 |
 | DPIA | `dpia` | RGPD, Art. 35 |
 | Ficha del modelo | `model_card` | AI Act, Anexo XII |
+| Ficha para el registro UE | `eu_registry` | AI Act, Art. 49 y Anexo VIII (B16b). Ver [Ficha para el registro UE](registro-ue.md) |
 
 | AISIA | `aisia` | ISO/IEC 42001, §6.1.4 y A.5.2 a A.5.5 (B15). Ver [AISIA](aisia.md) |
 
@@ -52,7 +54,7 @@ entregables PDF inmutables que se registran como evidencia.
 
 ## Acceso y permisos
 
-- **Ruta:** `/inventario/[id]/expediente/[key]`, con `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `aisia`.
+- **Ruta:** `/inventario/[id]/expediente/[key]`, con `key` ∈ `annex_iv`, `eu_registry`, `fria`, `dpia`, `model_card`, `aisia`.
   Cualquier otra clave devuelve «no encontrado».
 - **Navegación:**
   - **Acciones rápidas** de la [Ficha del sistema](ficha-sistema.md), tarjeta **Anexo IV**;
@@ -82,6 +84,7 @@ Cada plantilla aplica a un sistema según el rol de la organización en su caden
 | Plantilla | Redactar | Documentación del proveedor | No aplica |
 |---|---|---|---|
 | Anexo IV | Proveedor y alto riesgo | Alto riesgo sin ser proveedor | Resto, también con la clasificación pendiente |
+| Ficha para el registro UE | Proveedor de alto riesgo (sección A), proveedor con la excepción del Art. 6.3 (sección B) o responsable del despliegue que es organismo público (sección C). Ver [Ficha para el registro UE](registro-ue.md) | Alto riesgo sin ser proveedor | Resto e infraestructura crítica (registro nacional) |
 | FRIA | Responsable del despliegue de alto riesgo del Anexo III (salvo solo el punto 2) que es organismo público o presta servicios públicos (`aiact_inputs.publicBody`), o con los puntos 5b o 5c: la misma regla que la obligación del Art. 27 | — | Resto |
 | Ficha del modelo | Proveedor de un modelo GPAI (`aiact_result.gpai.modelProvider`) | — | Resto |
 | DPIA | La ficha marca que trata datos personales | — | Resto, también sin respuesta |

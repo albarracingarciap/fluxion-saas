@@ -33,6 +33,7 @@ fuente:
   - supabase/migrations/20261027120000_expediente_plantilla_aisia.sql
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - supabase/migrations/20261027140000_aisia_retirar_tablas.sql
+  - supabase/migrations/20261027150000_expediente_registro_ue.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -336,7 +337,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `aisia` (B15; la AISIA es este documento desde que se retiraron las tablas `aisia_*`, `20261027140000`); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000` |
+| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `eu_registry` (B16b, Anexo VIII), `aisia` (B15; la AISIA es este documento desde que se retiraron las tablas `aisia_*`, `20261027140000`); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000`, `20261027150000` |
 | `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |
 | `fluxion.system_report_snapshots` | [Instantánea](../glosario.md#instantánea) de [informes del sistema](../glosario.md#informes-del-sistema) | `report_type`, `payload jsonb` | `00000000000001` |

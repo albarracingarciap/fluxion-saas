@@ -38,6 +38,7 @@ test('las políticas por defecto cubren las plantillas del expediente (B11f; AIS
     doc({ template_key: ['dpia'] }),
     doc({ template_key: ['model_card'] }),
     doc({ template_key: ['aisia'] }),
+    doc({ template_key: ['eu_registry'] }),
   ]), [])
   assert.deepEqual(documentTemplatesWithoutPolicy([doc({})]), [])
 })
@@ -47,5 +48,5 @@ test('una plantilla sin política activa queda al descubierto', () => {
     doc({ template_key: ['annex_iv', 'fria'] }),
     doc({ template_key: ['dpia'] }, false),
     plan({}),
-  ]), ['dpia', 'model_card', 'aisia'])
+  ]), ['eu_registry', 'dpia', 'model_card', 'aisia'])
 })
