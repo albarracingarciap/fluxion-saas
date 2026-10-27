@@ -6,6 +6,8 @@ import { applicabilityFacts, documentApplicability } from '@/lib/documents/appli
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
 
 import {
+  ANNUAL_REVIEW_TEMPLATES,
+  DOCUMENT_REVIEW_MONTHS,
   REEVALUATION_KEY_LABEL,
   REEVALUATION_SCOPE_LABEL,
   REEVALUATION_TYPE,
@@ -227,8 +229,9 @@ export async function closeReevaluationTask(admin: FluxionClient, organizationId
 }
 
 /**
- * Detección periódica (cron diario): revisión del FMEA vencida y reglas de
- * clasificación actualizadas. Devuelve las organizaciones afectadas.
+ * Detección periódica (cron diario): revisión del FMEA vencida, reglas de
+ * clasificación actualizadas y revisión anual de la FRIA y la AISIA (B21b).
+ * Devuelve las organizaciones afectadas.
  */
 export async function detectPeriodicReevaluations(): Promise<{ registered: number; organizations: string[] }> {
   const admin = createAdminFluxionClient()
@@ -270,5 +273,27 @@ export async function detectPeriodicReevaluations(): Promise<{ registered: numbe
     if (nuevo) registered++
     orgs.add(s.organization_id)
   }
+  // B21b: FRIA y AISIA vigentes aprobadas hace más de 12 meses.
+  const limite = new Date()
+  limite.setUTCMonth(limite.getUTCMonth() - DOCUMENT_REVIEW_MONTHS)
+  const { data: documentos } = await admin
+    .from('documents')
+    .select('id, organization_id, ai_system_id, template_key, version, approved_at')
+    .eq('status', 'approved')
+    .in('template_key', [...ANNUAL_REVIEW_TEMPLATES])
+    .not('ai_system_id', 'is', null)
+    .lt('approved_at', limite.toISOString())
+  for (const d of (documentos ?? []) as Array<{ id: string; organization_id: string; ai_system_id: string; template_key: 'fria' | 'aisia'; version: number; approved_at: string }>) {
+    const nuevo = await registerReevaluation({
+      organizationId: d.organization_id,
+      systemId: d.ai_system_id,
+      key: d.template_key === 'fria' ? 'revision_fria' : 'revision_aisia',
+      sourceRef: d.id,
+      detail: `la ${d.template_key === 'fria' ? 'FRIA' : 'AISIA'} v${d.version} se aprobó el ${new Date(d.approved_at).toLocaleDateString('es-ES')} y toca revisarla cada ${DOCUMENT_REVIEW_MONTHS} meses.`,
+    })
+    if (nuevo) registered++
+    orgs.add(d.organization_id)
+  }
+
   return { registered, organizations: Array.from(orgs) }
 }

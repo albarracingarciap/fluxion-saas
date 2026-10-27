@@ -958,6 +958,7 @@ crea o reutiliza su tarea **Reevaluar sistema** y queda en la tarjeta **Reevalua
 | Cambio de supuestos AI Act | Al guardar la ficha con supuestos distintos de los que tenía (la primera vez que se rellenan no cuenta) | Ídem |
 | Revisión de la evaluación de riesgos vencida | Cada día, si la fecha de próxima revisión de la evaluación aprobada ya pasó | Evaluación de riesgos |
 | Reglas de clasificación actualizadas | Cada día, si la clasificación se hizo con una versión de las reglas anterior a la vigente | Clasificación AI Act |
+| Revisión anual de la FRIA o de la AISIA (B21b) | Cada día, si la FRIA o la AISIA vigente se aprobó hace más de 12 meses | La FRIA o la AISIA |
 
 - **Una tarea por sistema:** mientras haya una tarea «Reevaluar sistema» abierta, los disparadores nuevos se
   añaden a su descripción. Se asigna al Responsable del sistema.

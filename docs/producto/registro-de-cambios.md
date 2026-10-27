@@ -2520,3 +2520,26 @@ datos. No se ha probado en el navegador.
 **Documentación.** `funcional/flujo-completo-evaluacion.md`, `funcional/ficha-sistema.md`,
 `funcional/incidente-detalle.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
 `tecnica/modelo-datos.md`, `infra/schedules/README.md`, `_pendientes.md` (296: glosario; 297: inventario).
+
+## B21b · Revisión anual de la FRIA y la AISIA
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b21b-revision-anual-documentos` · **Migración:** no
+
+**Problema** (informe del flujo de trabajo, 3.4): la FRIA y la AISIA no tenían fecha de revisión. La extensión de
+los disparadores de incidente grave y de cambio de supuestos a la FRIA y la AISIA ya quedó en B21a.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Reglas (`lib/evaluation-status/reevaluation.ts`) | Disparadores «Revisión anual de la FRIA» y «… de la AISIA» (12 meses tras la aprobación); `documentReviewDueOn` |
+| Cron `reevaluation-triggers` | Detecta la FRIA y la AISIA vigentes aprobadas hace más de 12 meses |
+| Expediente | «· revisión anual antes del …» o «· revisión anual vencida desde el …» en la FRIA y la AISIA aprobadas |
+
+**Verificación.** `npm test` 190/190 (un test nuevo), `tsc --noEmit` y `next lint` correctos. No se ha probado en el
+navegador.
+
+**Despliegue.** Solo web, sin migración. Usa el cron `reevaluation-triggers` ya instalado.
+
+**Documentación.** `funcional/expediente-documental.md`, `funcional/flujo-completo-evaluacion.md`, `_pendientes.md`
+(298: glosario).
