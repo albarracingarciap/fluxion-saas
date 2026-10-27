@@ -133,7 +133,7 @@ Los artículos del AI Act se citan según su texto oficial en español. Las clá
 - > TODO: confirmar la lista cerrada de marcos aplicables y dónde se seleccionan en la interfaz.
 
 ### Rol en la cadena de valor
-- **Definición:** papel que tiene la organización respecto a un sistema de IA según el AI Act. Determina qué obligaciones le aplican. Un sistema puede tener varios.
+- **Definición:** papel que tiene la organización respecto a un sistema de IA según el AI Act. Determina qué obligaciones le aplican y qué documentos del expediente se redactan ([aplicabilidad de un documento](#aplicabilidad-de-un-documento), DP-11). Un sistema puede tener varios. Es proveedora quien lo declara, también por el Art. 25 (marca propia, modificación sustancial o cambio de finalidad); sin roles declarados, la organización no se considera proveedora. Se ve en la ficha del sistema y se cambia al editarlo («Tu papel frente a este sistema»).
 - **No usar:** «tipo de operador», «rol AI Act».
 - **En el código:** enum `fluxion.value_chain_role`; `ai_systems.value_chain_roles`; `compliance.obligations.applies_to_roles`.
 - **Normativa:** AI Act, Art. 3.8 (operador).
@@ -584,9 +584,26 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 | Ficha del modelo (model card) | `model_card` | — |
 
 ### Expediente documental
-- **Definición:** vista de la ficha del sistema donde se redactan y generan los documentos de Documentación del sistema.
-- **No usar:** «expediente técnico» (se confunde con el dossier técnico).
+- **Definición:** vista de la ficha del sistema donde se redactan y generan los documentos de Documentación del sistema. Cada sistema ve solo los documentos que le aplican según su [aplicabilidad](#aplicabilidad-de-un-documento) (DP-11).
+- **No usar:** «expediente técnico» (se confunde con el dossier técnico, ya retirado).
 - **En el código:** vista `/inventario/[id]/expediente/[key]`.
+
+### Aplicabilidad de un documento
+- **Definición:** si un documento del expediente se exige a un sistema y cómo, según el [rol en la cadena de valor](#rol-en-la-cadena-de-valor) de la organización y la clasificación AI Act del sistema (DP-11). Tiene tres modos:
+  - **Se redacta:** Fluxion compone el documento y la organización lo completa, lo aprueba y lo entrega en PDF.
+  - **[Documentación del proveedor](#documentación-del-proveedor):** el documento no se redacta; se adjunta lo que entrega el proveedor.
+  - **No aplica:** el documento no se exige a ese sistema y no se muestra, salvo que ya estuviera redactado.
+
+  Por ejemplo, el Anexo IV se redacta si la organización es proveedora de un sistema de alto riesgo, es documentación del proveedor si el sistema es de alto riesgo y no lo es, y no aplica en el resto. La AISIA se redacta siempre.
+- **No usar:** «obligatoriedad», «documento requerido».
+- **En el código:** `documentApplicability` en `lib/documents/applicability.ts` (`redactar`, `proveedor`, `no_aplica`).
+- **Normativa:** lectura del AI Act pendiente de revisión jurídica (DP-11).
+
+### Documentación del proveedor
+- **Definición:** documentos que entrega el proveedor de un sistema de IA de alto riesgo a la organización que no es su proveedora y que esta adjunta como evidencias del sistema en lugar de redactar el Anexo IV o la ficha para el registro UE: instrucciones de uso, declaración UE de conformidad, número de registro en la base de datos de la UE u otra documentación técnica. Siguen la revisión habitual de las evidencias.
+- **No usar:** «documentación de terceros», «Anexo IV del proveedor».
+- **En el código:** vista `/inventario/[id]/expediente/[key]` en modo `proveedor`; evidencias con las etiquetas `documentacion-proveedor` y `doc-proveedor-<plantilla>`; `PROVIDER_DOC_TYPES` en `lib/documents/applicability.ts`.
+- **Normativa:** AI Act, Art. 13 (instrucciones de uso), Art. 47 (declaración UE de conformidad) y Art. 49 (registro).
 
 ### Informes del sistema
 - **Definición:** informes que Fluxion componía con los datos de un sistema de IA: el dossier técnico, la ficha para el registro UE y el informe de brechas del sistema. Desde B16 (DP-06) se consolidan: el dossier técnico se retira (su contenido está en la ficha del sistema y en el Anexo IV), la [ficha para el registro UE](#ficha-para-el-registro-ue) es un documento del [expediente documental](#expediente-documental) y el informe de brechas es el análisis de brechas filtrado por el sistema, con su [instantánea](#instantánea). Las instantáneas guardadas antes se conservan.

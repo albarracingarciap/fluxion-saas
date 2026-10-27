@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.6** | **2026-10-27** | **Revisado** por Pedro Albarracín | AISIA como plantilla del expediente (B15, DP-04 y DP-05): el asistente y las tablas `aisia_*` se retiran; la ruta antigua redirige al expediente. Ver §2, §4, §10.2, §11.3 y §12 |
+| **1.7** | **2026-10-27** | **Revisado** por Pedro Albarracín | Informes del sistema consolidados (B16, DP-06) y aplicabilidad del expediente por rol y nivel (DP-11): rutas de dossier técnico, registro UE e informe de brechas redirigidas; ficha para el registro UE como plantilla `eu_registry`. Ver §2.2, §10.2 y §13.1 |
+| 1.6 | 2026-10-27 | Revisado por Pedro Albarracín | AISIA como plantilla del expediente (B15, DP-04 y DP-05): el asistente y las tablas `aisia_*` se retiran; la ruta antigua redirige al expediente. Ver §2, §4, §10.2, §11.3 y §12 |
 | 1.5 | 2026-10-26 | Revisado por Pedro Albarracín | Catálogos `/datos/*`: solo la administración de la plataforma (`platform_admin`) los modifica; §7.2 resuelto y decisión 39 corregida. Ver §2.6, §7 y §14.1 |
 | 1.4 | 2026-10-14 | Revisado por Pedro Albarracín | Modelo del catálogo de tablas básicas: catálogo estándar de Fluxion, copia por organización y actualizaciones ofrecidas al `org_admin`. Ver §14.1 |
 | 1.3 | 2026-10-13 | Revisado por Pedro Albarracín | Catálogo de tablas básicas mantenido por el `org_admin` de cada cliente; Flujos de aprobación pasa al Core (corrige v1.2); niveles de aprobación pendientes de definir. Ver §14 |
@@ -115,11 +116,11 @@ Columna Control:
 | `/inventario/[id]/clasificacion` | Clasificación AI Act con el motor de reglas (ruta «heredada») | MW · [!] huérfana |
 | `/inventario/[id]/riesgos-negocio` | Registro de riesgos de negocio | MW |
 | `/inventario/[id]/aisia/[assessmentId]` | v1.6: redirección a `expediente/aisia` (el asistente de la AISIA se retiró en B15) | AUTH |
-| `/inventario/[id]/expediente/[key]` | Documento regulatorio: `annex_iv`, `fria`, `dpia`, `model_card` y, desde v1.6, `aisia` | MW |
+| `/inventario/[id]/expediente/[key]` | Documento regulatorio: `annex_iv`, `fria`, `dpia`, `model_card` y, desde v1.6, `aisia`; desde v1.7, `eu_registry`. v1.7: cada sistema ve solo los que le aplican según su rol y su clasificación (DP-11), y en modo «documentación del proveedor» se adjuntan los documentos del proveedor | MW |
 | `/inventario/[id]/anexo-iv` | Redirección antigua a `expediente/annex_iv` | — |
-| `/inventario/[id]/technical-dossier` (+ `snapshots/[id]`) | Dossier técnico y sus versiones | AUTH, MW |
-| `/inventario/[id]/eu-registry` (+ `snapshots/[id]`) | Ficha para el registro UE (Art. 71) | AUTH, MW |
-| `/inventario/[id]/gap-report` (+ `snapshots/[id]`) | Informe de brechas del sistema | AUTH, MW |
+| `/inventario/[id]/technical-dossier` (+ `snapshots/[id]`) | v1.7: redirige a la ficha (dossier técnico retirado, B16c); `snapshots/[id]` muestra las instantáneas anteriores | AUTH, MW |
+| `/inventario/[id]/eu-registry` (+ `snapshots/[id]`) | v1.7: redirige a `expediente/eu_registry` (B16b); `snapshots/[id]` muestra las instantáneas anteriores | AUTH, MW |
+| `/inventario/[id]/gap-report` (+ `snapshots/[id]`) | v1.7: redirige a `/gaps?system_id=…`, el análisis de brechas filtrado por sistema con su instantánea (B16c); `snapshots/[id]` muestra las instantáneas anteriores | AUTH, MW |
 | `/inventario/[id]/fmea` | Crea o abre la evaluación FMEA y redirige | MW |
 | `…/fmea/[evaluationId]/evaluar` | Evaluación FMEA (O/D, estimación por familia causal, grafo) | FMEA |
 | `…/fmea/[evaluationId]/comparar` | Comparativa entre versiones de la FMEA | FMEA |
@@ -581,7 +582,7 @@ Salen del Core: AISIA, Riesgos de negocio y Cuestionario preliminar (pasan a «E
 | **Supervisión post-comercialización**: Supervisión humana (Art. 14) y, más adelante, deriva y equidad | `hitl` + `drift-monitor` | 25 · fusión | `hitl` implementado; `drift-monitor` no existe |
 | **Integración ITSM** (Jira, ServiceNow) | `itsm` | 26 · los incidentes quedan en el Core | No existe |
 | ~~Flujos de aprobación~~ → **pasa al Core** (v1.3). Absorbe la aprobación del plan de tratamiento | `approvals` + aprobación propia del plan | 27 · integración; v1.3 · Core | Dos mecanismos separados; hoy es módulo opcional |
-| **Documentación del sistema** (Anexo IV, FRIA, DPIA, Model card) | `doc-engine` | 28 · separación | Implementado (redacción humana + PDF) |
+| **Documentación del sistema** (Anexo IV, FRIA, DPIA, Model card) | `doc-engine` | 28 · separación | Implementado (redacción humana + PDF). v1.7: también la ficha para el registro UE (Anexo VIII) y la AISIA; aplicabilidad por rol y nivel (DP-11). Los informes del sistema se consolidaron (B16, DP-06): el dossier técnico se retira y el informe de brechas es `/gaps` filtrado por sistema |
 | **Actas y paquetes de auditoría** | `doc-engine` (`approval_minutes`, «paquetes de auditoría») | 28 · separación | Plantilla de actas sí; paquetes no |
 | **Evaluación de impacto**: AISIA, Riesgos de negocio, Cuestionario preliminar | Core | 29 · sale del Core | Implementado. v1.6: la AISIA queda en el Core (DP-04) y se redacta como plantilla del expediente (DP-05, B15) |
 | Linaje de datos y modelos, AI Gateway | `lineage`, `ai-gateway` | Sin cambios | No existen. Se documentan como próximas funcionalidades (52) |
@@ -669,7 +670,7 @@ Se documentan como «pendiente de implementar». No se describen como existentes
 ## 13. Respuestas de la revisión v1.2 (2026-10-13)
 
 ### 13.1 Puntos 72 y 73
-- **72, registro UE (Art. 71):** el envío es **manual**. Fluxion genera la ficha (`/inventario/[id]/eu-registry`) y la organización la presenta. Se documenta así; no hay integración que implementar.
+- **72, registro UE (Art. 71):** el envío es **manual**. Fluxion genera la ficha (v1.7: plantilla `eu_registry` del expediente, `/inventario/[id]/expediente/eu_registry`, con la sección del Anexo VIII que corresponde) y la organización la presenta. Se documenta así; no hay integración que implementar.
 - **73, avatar:** la imagen **debe persistirse**. Hoy no se guarda (§4.4). Pasa a §12.
 
 ### 13.2 Catálogo de tablas básicas (`/datos`)
