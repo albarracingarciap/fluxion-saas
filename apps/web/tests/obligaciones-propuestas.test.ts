@@ -59,3 +59,9 @@ test('Art. 26.2 con la supervisión humana documentada (B24)', () => {
   assert.match(obligationProposal('AI-ACT-ART26-6', 'pending', { ...nada, logsComplete: true })!.reason, /Registro de logs completo/)
   assert.equal(obligationProposal('AI-ACT-ART26-6', 'pending', nada), null)
 })
+
+test('Art. 72 con el plan de vigilancia poscomercialización aprobado (B26)', () => {
+  const conPlan: ProposalFacts = { ...nada, approvedDocuments: { post_market_plan: { version: 1, approvedAt: '2026-10-28T10:00:00Z', notified: false } } }
+  assert.match(obligationProposal('AI-ACT-ART72', 'pending', conPlan)!.reason, /Plan de vigilancia poscomercialización v1 aprobado/)
+  assert.equal(obligationProposal('AI-ACT-ART72', 'pending', nada), null)
+})

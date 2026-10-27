@@ -6,7 +6,7 @@
  * constante o un validador síncrono rompen el build.
  */
 
-export const TEMPLATE_KEYS = ['annex_iv', 'eu_registry', 'fria', 'dpia', 'model_card', 'aisia'] as const
+export const TEMPLATE_KEYS = ['annex_iv', 'eu_registry', 'post_market_plan', 'fria', 'dpia', 'model_card', 'aisia'] as const
 
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
 
@@ -25,6 +25,8 @@ export const TEMPLATE_META: Record<TemplateKey, { label: string; legalRef: strin
   model_card: { label: 'Ficha del modelo',  legalRef: 'Reglamento (UE) 2024/1689 · Artículo 53.1.b · Anexo XII',       slug: 'ficha-modelo' },
   // B16b: el registro en la base de datos de la UE (DP-06), con la sección del Anexo VIII que toque (DP-11).
   eu_registry: { label: 'Ficha para el registro UE', legalRef: 'Reglamento (UE) 2024/1689 · Artículo 49 · Anexo VIII',          slug: 'registro-ue' },
+  // B26: plan de vigilancia poscomercialización del proveedor de alto riesgo (Art. 72, DP-11).
+  post_market_plan: { label: 'Plan de vigilancia poscomercialización', legalRef: 'Reglamento (UE) 2024/1689 · Artículo 72 · Anexo IV, punto 9', slug: 'plan-vigilancia-poscomercializacion' },
   // B15: la AISIA es una plantilla más del expediente (DP-05).
   aisia:      { label: 'AISIA',             legalRef: 'ISO/IEC 42001 · §6.1.4 · Anexo A.5',                             slug: 'aisia' },
 }

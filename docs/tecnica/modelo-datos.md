@@ -349,7 +349,7 @@ erDiagram
 
 | Tabla | Término | Campos clave | Migración |
 |---|---|---|---|
-| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `eu_registry` (B16b, Anexo VIII), `aisia` (B15; la AISIA es este documento desde que se retiraron las tablas `aisia_*`, `20261027140000`); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000`, `20261027150000` |
+| `fluxion.document_templates` | [Documentación del sistema](../glosario.md#documentación-del-sistema) | `key` ∈ `annex_iv`, `fria`, `dpia`, `model_card`, `approval_minutes`, `eu_registry` (B16b, Anexo VIII), `post_market_plan` (B26, Art. 72), `aisia` (B15; la AISIA es este documento desde que se retiraron las tablas `aisia_*`, `20261027140000`); `organization_id` nulo significa plantilla de Fluxion | `20260819200000`, `20261027120000`, `20261027150000`, `20261028160000` |
 | `fluxion.document_notifications` | — | Notificación de un documento aprobado a una autoridad o presentación en un registro (FRIA, Art. 27.3; ficha para el registro UE, Art. 49): `authority`, `notified_at`, `reference`, `notes`. Solo inserción, y solo de documentos aprobados de la organización (RLS) | `20261027170000` |
 | `fluxion.documents` | — | `template_key`, `template_version`, `status` ∈ `draft`, `in_review`, `approved`, `superseded`, `content jsonb` (con `author_id` por apartado), `version`, `previous_id`. Un solo documento no sustituido por sistema y plantilla | `20260819210000`, `20261020120000` |
 | `fluxion.document_renders` | — | PDF generado, inmutable (trigger); `storage_*`, `checksum_sha256`, `content_sha256` | `20260819230000` |

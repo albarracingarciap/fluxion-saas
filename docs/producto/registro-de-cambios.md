@@ -2571,3 +2571,34 @@ uso en diferido ni recordaba el informe.
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
 `tecnica/modelo-datos.md`, `_pendientes.md` (299: fecha del informe; 300: condición de la obligación; 301: glosario).
+
+## B26 · Plan de vigilancia poscomercialización
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b26-plan-vigilancia-poscomercializacion` ·
+**Migración:** **sí**, `supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 3.7): el proveedor de un sistema de alto
+riesgo debe establecer y documentar un sistema de vigilancia poscomercialización basado en un plan (AI Act, Art. 72),
+que forma parte de la documentación técnica (Anexo IV, punto 9). Solo existía la obligación del catálogo.
+
+**Se aprovecha lo existente:** el expediente (plantillas, aprobación por el circuito, versiones, PDF), la regla de
+aplicabilidad de DP-11, las propuestas de estado de las obligaciones y la etapa de evaluación.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | Plantilla `post_market_plan` con seis apartados; política de aprobación por defecto (Responsable del SGAI) para las organizaciones nuevas y las existentes sin cobertura |
+| Aplicabilidad (DP-11) | Se redacta si la organización es proveedora de un sistema de alto riesgo; en el resto, no aplica |
+| Etapa y obligaciones | Cuenta para **Evaluado** cuando aplica; aprobado, el Art. 72 propone «Resuelta» |
+| Ficha | Acción rápida **Vigilancia poscom.** |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas: una plantilla y una política por
+organización). `npm test` 194/194 (dos tests nuevos y dos actualizados en la cobertura de políticas), `tsc --noEmit`,
+`next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/expediente-documental.md`, `funcional/ficha-sistema.md`,
+`funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`, `_pendientes.md` (302: glosario; 303: modelo de
+la Comisión).

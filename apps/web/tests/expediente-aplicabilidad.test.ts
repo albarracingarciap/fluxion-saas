@@ -84,3 +84,9 @@ test('etiquetas de la documentación del proveedor', () => {
   assert.deepEqual(providerDocTags('anexo-iv', 'instrucciones'),
     ['documentacion-proveedor', 'doc-proveedor-anexo-iv', 'doc-proveedor-tipo-instrucciones'])
 })
+
+test('Plan de vigilancia poscomercialización: solo el proveedor de alto riesgo lo redacta (B26)', () => {
+  assert.equal(modo('post_market_plan', f({ ...altoAnexoIII(['4a']), valueChainRoles: ['provider'] })), 'redactar')
+  assert.equal(modo('post_market_plan', f({ ...altoAnexoIII(['4a']), valueChainRoles: ['deployer'] })), 'no_aplica')
+  assert.equal(modo('post_market_plan', f({ valueChainRoles: ['provider'], level: 'limited' })), 'no_aplica')
+})
