@@ -355,6 +355,7 @@ Las obligaciones salen del catálogo (`compliance.obligations`), cruzando su alc
 | **RN-O05** | Prohibición | Nivel **Práctica prohibida**: se sugiere el Art. 5 y ninguna otra; el resultado indica la retirada o el rediseño | Implementado (motor, B13a; vista, B13d) |
 | **RN-O06** | Art. 27 (FRIA) | Responsable del despliegue de alto riesgo del Anexo III (salvo el punto 2) que es organismo de derecho público o entidad privada que presta servicios públicos, o que despliega sistemas de los puntos 5.b o 5.c (Art. 27.1). Requiere la pregunta de Q-10 | Implementado (motor, B13a; descripción del catálogo y vista, B13d) |
 | **RN-O07** | Art. 6.4 y 49.2 | Excepción del Art. 6.3 válida y rol Proveedor | Implementado (motor, B13a; obligación `AI-ACT-ART6-4` y vista, B13d) |
+| **RN-O08** | Art. 26 por apartados | Responsable del despliegue de alto riesgo: 26.1, 26.2, 26.4, 26.5, 26.6, 26.9 y 26.12 siempre (como RN-O02); 26.7 solo con empleo (Anexo III, punto 4); 26.8 solo si es organismo público (Q-10) y Anexo III salvo el punto 2; 26.10 solo con identificación biométrica remota (punto 1.a); 26.11 solo con Anexo III salvo el punto 2 | Implementado (motor, catálogo y vista, B17a, `20261027160000_ai_act_art26_apartados.sql`). Origen: [informe del flujo de trabajo](informe-flujo-trabajo-ia.md) |
 
 **Decidido (DP-10, 2026-10-20).** Cambios del catálogo de obligaciones, a aplicar en B13:
 - el Art. 50 se divide en 50.1 a 50.4 (RN-O03);

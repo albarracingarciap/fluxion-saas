@@ -885,6 +885,9 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
     cubierta.
   - Brechas de tipo **Control de la Declaración sin implantar**.
   - Exclusión de brechas según F-14.
+- **Ampliación** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 2026-10-27): B17a, el Art. 26 por
+  apartados (RN-O08) y la fecha de exigibilidad de cada obligación; B17b, notificación de la FRIA (Art. 27.3) y su
+  vínculo con la DPIA; B17c, el alcance original.
 - **Depende de:** B07, B11, B12.
 - **Talla:** L.
 

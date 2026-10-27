@@ -78,6 +78,8 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B16b · Ficha para el registro UE en el expediente (Anexo VIII) | Integrado en `main` | `fase3/b16b-registro-ue` | 2026-10-27 | **Sí** · `20261027150000_expediente_registro_ue.sql` |
 | B16c · Brechas por sistema; dossier técnico e informe de brechas retirados; glosario | Integrado en `main` | `fase3/b16c-informes` | 2026-10-27 | No |
 | Glosario e inventario v1.7 tras B16 (TODO 284 y 287) | Integrado en `main` | `docs/glosario-inventario-b16` | 2026-10-27 | No |
+| Informe del flujo de trabajo de sistemas de IA | Integrado en `main` | `docs/informe-flujo-trabajo` | 2026-10-27 | No |
+| B17a · Art. 26 por apartados y fecha de exigibilidad | Integrado en `main` | `fase3/b17a-art26` | 2026-10-27 | **Sí** · `20261027160000_ai_act_art26_apartados.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1983,4 +1985,39 @@ A petición del responsable:
   es proveedora, dónde se ve y se cambia) y **Expediente documental** actualizadas.
 - `_inventario.md` v1.7: rutas del dossier técnico, del registro UE y del informe de brechas como redirecciones (§2.2),
   `eu_registry` y aplicabilidad en el expediente, Documentación del sistema en §10.2 y respuesta 72 (§13.1).
+
+---
+
+## B17a · Art. 26 por apartados y fecha de exigibilidad
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b17a-art26` ·
+**Migración:** **sí**, `supabase/migrations/20261027160000_ai_act_art26_apartados.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md)): el catálogo trataba el Art. 26 como una sola
+obligación genérica, así que las obligaciones concretas del responsable del despliegue (uso conforme a las
+instrucciones, supervisión competente, datos de entrada, vigilancia, registros, trabajadores, personas afectadas,
+cooperación…) no se veían ni se podían seguir por separado.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Catálogo (migración) | Once obligaciones nuevas, `AI-ACT-ART26-1` a `-12` (sin el 26.3), para el responsable del despliegue de alto riesgo; se copian los tipos de evidencia del Art. 26, que queda retirado |
+| Motor y vista (RN-O08) | 26.7 solo con empleo (Anexo III, punto 4); 26.8 solo si es organismo público y Anexo III salvo el punto 2; 26.10 solo con identificación biométrica remota (punto 1.a); 26.11 solo con Anexo III salvo el punto 2. El resto, como cualquier obligación de alto riesgo. `v_system_obligations` replica la regla |
+| Sistemas existentes | Sus sugerencias guardadas cambian la etiqueta del Art. 26 por las de los apartados que les aplican |
+| Fecha de exigibilidad | `compliance.obligations.applies_from`, editable en el catálogo («Exigible desde»); vacía hasta la revisión jurídica (decisión 3 del informe) |
+| Corrección | `catalogCodeFromRef` convertía «Art. 50.1 — …» en `AI-ACT-ART50` (y ahora haría lo mismo con «Art. 26.1»): al aceptar sugerencias, los apartados se fundían en una obligación. Ahora cada apartado es su propio código |
+
+**Nota.** Si alguna organización aceptó apartados del Art. 50 entre B13d y hoy, quedaron guardados con el código del
+Art. 50 retirado; la ficha los volverá a ofrecer como sugerencia de su apartado.
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; sistema de prueba con el Art. 26 sugerido).
+Cruce motor-vista en 25 casos de la especificación, tres nuevos del Art. 26, sin diferencias. `npm test` 130/130 (tres
+tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración y desplegar web y agents a la vez (el servicio de agentes lee las etiquetas del
+catálogo).
+
+**Documentación.** `negocio/obligaciones.md`, `funcional/catalogo-obligaciones.md`, `tecnica/modelo-datos.md`,
+`producto/cuestionario-preliminar-reglas.md` (RN-O08), `producto/informe-flujo-trabajo-ia.md`, `producto/plan-resolucion-gaps.md`.
 

@@ -34,6 +34,7 @@ fuente:
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - supabase/migrations/20261027140000_aisia_retirar_tablas.sql
   - supabase/migrations/20261027150000_expediente_registro_ue.sql
+  - supabase/migrations/20261027160000_ai_act_art26_apartados.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -141,7 +142,7 @@ erDiagram
 | `fluxion.ai_system_history` | [Historial del sistema](../glosario.md#historial-del-sistema) | `event_type`, `payload`, `actor_user_id` → `auth.users` | `00000000000001` |
 | `fluxion.classification_events` | [Clasificación AI Act](../glosario.md#clasificación-ai-act) | `version`, `method`, `risk_level` (admite nulo y `pending`; `gpai` solo para el histórico), `obligations_set` (códigos del catálogo), `status`. Solo un `pending_reconciliation` por sistema | `00000000000001`, `20261022090000` |
 | `fluxion.classification_diffs` | [Reclasificación](../glosario.md#reclasificación) | `diff_type` ∈ `added`, `removed`, `unchanged`; `resolution` | `00000000000001` |
-| `compliance.obligations` | [Obligación](../glosario.md#obligación) (catálogo) | `code` único, `framework`, `article`, `scope` (`all`, `high_risk`, `transparency`, `gpai` o nulo), `applies_to_roles`, `retired_at` (B13d: obligación retirada, no se sugiere y se conserva para las ya registradas) | `00000000000005`, `20260904090000`, `20260911090000`, `20261026090000` |
+| `compliance.obligations` | [Obligación](../glosario.md#obligación) (catálogo) | `code` único, `framework`, `article`, `scope` (`all`, `high_risk`, `transparency`, `gpai` o nulo), `applies_to_roles`, `retired_at` (B13d: obligación retirada, no se sugiere y se conserva para las ya registradas), `applies_from` (B17a: fecha de exigibilidad, nula hasta la revisión jurídica). El Art. 26 se divide en `AI-ACT-ART26-1` a `-12` (B17a, RN-O08) | `00000000000005`, `20260904090000`, `20260911090000`, `20261026090000`, `20261027160000` |
 | `fluxion.system_obligations` | [Obligación](../glosario.md#obligación) (por sistema) | `obligation_code`, `status`, `priority`, `owner_user_id` → `auth.users` | `00000000000001` |
 | `fluxion.discovered_assets` | [Sistema detectado pendiente de alta](../glosario.md#sistema-detectado-pendiente-de-alta) | `source_module`, `external_id` (único por organización y fuente), `status`, `linked_system_id` | `20260818140000` |
 | `fluxion.shadow_ai_findings` | [Hallazgo de IA no declarada](../glosario.md#hallazgo-de-ia-no-declarada) | `finding_type`, `category`, `file_path`, `severity`, `resolved_at` | `20260827090000` |
