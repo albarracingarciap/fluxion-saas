@@ -2324,3 +2324,35 @@ registra su formación, no la de otro; el Administrador, la de cualquiera). `npm
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/usuarios.md`, `tecnica/modelo-datos.md`,
 `_pendientes.md` (290: glosario).
+
+## B25a · Uso suspendido y avisos a terceros
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b25a-uso-suspendido` ·
+**Migración:** **sí**, `supabase/migrations/20261028100000_uso_suspendido_avisos.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 3.1): el responsable del despliegue que
+detecta que el uso puede dar lugar a un riesgo debe informar sin demora al proveedor o distribuidor y a la autoridad
+de vigilancia del mercado y suspender el uso (AI Act, Art. 26.5). No había forma de registrarlo.
+
+**Decisiones del responsable (2026-10-28):** la suspensión es una marca aparte (el sistema conserva su estado); los
+avisos son una lista por destinatario con fecha, referencia y evidencia, que también usarán los incidentes (B25b).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `system_use_suspensions` (una activa por sistema) y `external_notices` (avisos de una suspensión o de un incidente), con RLS |
+| Reglas (`lib/ai-systems/notices.ts`, nuevo, puro) | Destinatarios y avisos exigidos por una suspensión: proveedor o distribuidor, y autoridad |
+| Ficha | Tarjeta **Uso del sistema** en el panel derecho: suspender, registrar avisos y reanudar; etiqueta «Uso suspendido desde el …» en la cabecera; filtro **Uso** en el historial |
+| Inventario | Etiqueta **Suspendido** junto al estado |
+| Auditoría | Suspensión, reanudación y avisos; también las medidas de vigilancia de la supervisión documentada, que no se auditaban (B24) |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas) y políticas RLS comprobadas (el Lector
+no suspende; una sola suspensión activa; el Responsable del sistema no registra avisos de incidentes y el Analista de
+riesgos no registra avisos de suspensiones). `npm test` 173/173 (dos tests nuevos), `tsc --noEmit`, `next lint` y
+`check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/inventario.md`, `tecnica/modelo-datos.md`,
+`_pendientes.md` (291: glosario).

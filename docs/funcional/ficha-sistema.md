@@ -37,6 +37,10 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/oversight-actions.ts
   - apps/web/lib/governance/oversight.ts
   - supabase/migrations/20261028090000_supervision_humana_documentada.sql
+  - apps/web/app/(app)/inventario/[id]/use-suspension-card.tsx
+  - apps/web/app/(app)/inventario/[id]/suspension-actions.ts
+  - apps/web/lib/ai-systems/notices.ts
+  - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
 ---
 
 # Ficha del sistema
@@ -78,12 +82,12 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | Elemento | Contenido |
 |---|---|
 | Identidad | Nombre, versión, código interno y emoji del dominio |
-| Etiquetas | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai) (si la tiene), estado, origen, dominio, fecha de próxima auditoría |
+| Etiquetas | Nivel de riesgo AI Act, [categoría GPAI](../glosario.md#categoría-gpai) (si la tiene), estado, «Uso suspendido desde el …» (si lo está, B25a), origen, dominio, fecha de próxima auditoría |
 | **Compliance** | % de obligaciones resueltas sobre las no excluidas, y «N pendientes críticas» (pendientes más bloqueadas) |
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Etapa de evaluación**, **Responsables**, **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -112,6 +116,21 @@ punto con su enlace.
 Pasar a Producción sin completarlo avisa, no bloquea (decisión 2); el aviso queda en el historial con el
 evento **Despliegue**. El plan no cambia la etapa.
 
+**Uso del sistema** (B25a, AI Act, Art. 26.5). Si el uso conforme a las instrucciones puede dar lugar a un
+riesgo, el responsable del despliegue suspende el uso e informa sin demora al proveedor o distribuidor y a la
+autoridad de vigilancia del mercado. La suspensión es una marca aparte: el sistema conserva su estado (Producción,
+Piloto…). La gestionan el Administrador, el Responsable del SGAI y el Responsable del sistema. Fluxion no envía los
+avisos: deja constancia de que se hicieron.
+
+| Acción | Campos | Resultado |
+|---|---|---|
+| **Suspender el uso** | Fecha (no futura), **Motivo** (obligatorio) e incidente que la motiva (opcional, entre los incidentes del sistema) | La tarjeta pasa a **Uso suspendido** y la cabecera muestra «Uso suspendido desde el …». Historial «Uso suspendido». Solo puede haber una suspensión activa |
+| **Registrar aviso** | **Destinatario** (Proveedor, Importador, Distribuidor o Autoridad de vigilancia del mercado), nombre, fecha (no anterior a la suspensión), canal, referencia y evidencia de la biblioteca (del sistema o de la organización), opcionales salvo destinatario y fecha | Se añade a la lista de avisos. Historial «Aviso de la suspensión del uso» |
+| **Reanudar uso** | Fecha (no anterior a la suspensión) y **Por qué se puede reanudar** (obligatorio) | La suspensión se cierra y pasa a **Ver suspensiones anteriores**. Historial «Uso reanudado». Si faltan avisos, se avisa («Falta: …»), no se bloquea |
+
+Mientras está suspendido, la tarjeta muestra los avisos exigidos con su marca: **Aviso al proveedor o
+distribuidor** y **Aviso a la autoridad de vigilancia del mercado**. Las tres acciones quedan en la auditoría.
+
 **Etapa de evaluación** (B18a, DP-02). La etapa alcanzada (Sin clasificar, Clasificado, Evaluado, Tratado,
 o Retirada o rediseño en una práctica prohibida), **Siguiente:** con lo primero que falta y la lista de
 requisitos por etapa y de vigencia, cada uno con su enlace. Al pie, el requisito de la organización: si la
@@ -139,7 +158,7 @@ de supervisión humana y el suplente, y las medidas del sistema. La editan los m
 
 Está **Completa** cuando hay responsable con competencia, autoridad y una formación válida, y medidas descritas;
 el suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la
-del anterior se conserva.
+del anterior se conserva. Guardar la documentación de una persona o las medidas queda en la auditoría.
 
 **Acciones rápidas:**
 
@@ -269,7 +288,8 @@ Son los campos del [Alta de sistema](inventario-alta.md#campos). Se editan con *
 
 - **Eventos:** cronología del [historial del sistema](../glosario.md#historial-del-sistema), agrupada
   por fecha (Hoy, Ayer, Esta semana…).
-- **Filtros:** Todos, AI Act, Obligaciones, Edición, ISO 42001, FMEA y Evidencias.
+- **Filtros:** Todos, AI Act, Obligaciones, Edición, Uso, ISO 42001, FMEA y Evidencias. **Uso** (B25a)
+  agrupa la suspensión, sus avisos y la reanudación.
 - **Contenido de cada evento:** título, fecha, actor y, en las clasificaciones, el cambio de nivel. Los
   eventos anteriores a B13d con el nivel `gpai` se señalan como de nivel antiguo: en la pestaña Historial,
   «GPAI (nivel antiguo)» si el evento no guarda la etiqueta del nivel; en las tarjetas del **Historial de

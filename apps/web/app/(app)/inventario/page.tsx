@@ -22,6 +22,8 @@ type AiSystem = {
   created_at: string
   output_type: string | null
   is_ai_system: boolean | null
+  /** Uso suspendido (B25a, Art. 26.5). */
+  use_suspended?: boolean
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -81,7 +83,14 @@ export default async function InventarioPage() {
       `)
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-    systems = data ?? []
+    // Uso suspendido (B25a): marca aparte del estado.
+    const { data: suspensiones } = await fluxion
+      .from('system_use_suspensions')
+      .select('ai_system_id')
+      .eq('organization_id', orgId)
+      .is('resumed_at', null)
+    const suspendidos = new Set((suspensiones ?? []).map((r: { ai_system_id: string }) => r.ai_system_id))
+    systems = (data ?? []).map((s: AiSystem) => ({ ...s, use_suspended: suspendidos.has(s.id) }))
     error = sysError
   }
 

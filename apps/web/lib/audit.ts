@@ -32,6 +32,9 @@ export type AuditAction =
   | 'org.governance_designation_changed'
   | 'system.responsibles_changed'
   | 'system.oversight_documented'
+  | 'system.use_suspended'
+  | 'system.use_resumed'
+  | 'system.notice_recorded'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

@@ -61,7 +61,7 @@ Orden: de más reciente a más antiguo. Sin paginación.
 | **Sistema** | Nombre; debajo, versión y responsable | `ai_systems.name`, `version`, `ai_owner` |
 | **Dominio** | Finanzas y Banca, Seguros, Crédito y Scoring, Salud y Medicina, RRHH y Empleo, Educación, Seguridad Pública, Justicia y Legal, Migración, Infraestructura Crítica, Marketing, Operaciones, Atención al Cliente, Cumplimiento, Otro | `ai_systems.domain` |
 | **Clasificación AI Act** | Prohibido · Alto Riesgo · Riesgo Limitado · Riesgo Mínimo · Pendiente · Fuera del ámbito · No es un sistema de IA. El [ámbito del AI Act](../glosario.md#ámbito-del-ai-act) manda sobre el nivel: si el sistema está fuera del ámbito o no es un sistema de IA, se muestra eso y no el nivel. Si la organización es proveedora de un modelo GPAI (categoría GPAI), se añade la etiqueta **GPAI** (texto de ayuda: «Proveedor de modelo de IA de uso general») | `ai_systems.aiact_scope` y `aiact_risk_level` ([nivel de riesgo AI Act](../glosario.md#nivel-de-riesgo-ai-act)); la etiqueta, `ai_systems.is_gpai` ([categoría GPAI](../glosario.md#categoría-gpai)) |
-| **Estado** | Producción · Desarrollo · Piloto · Deprecado · Retirado | `ai_systems.status` |
+| **Estado** | Producción · Desarrollo · Piloto · Deprecado · Retirado. Si el uso está suspendido, se añade la etiqueta **Suspendido** (B25a, AI Act, Art. 26.5) | `ai_systems.status`; la etiqueta, una fila activa de `system_use_suspensions` |
 | **ISO 42001** | Porcentaje con barra, o «—» | `ai_systems.iso_42001_score` |
 
 GPAI no es un nivel de riesgo: es una categoría aparte, que se suma al nivel. Los sistemas que tenían
@@ -96,7 +96,8 @@ No aplica.
 ## Estados
 
 El sistema tiene cinco estados (Desarrollo, Piloto, Producción, Deprecado, Retirado), que se cambian
-desde la [Edición de la ficha](ficha-sistema-edicion.md). Esta vista solo los muestra.
+desde la [Edición de la ficha](ficha-sistema-edicion.md). Esta vista solo los muestra. La suspensión del uso no es
+un estado: se gestiona en la tarjeta **Uso del sistema** de la [ficha](ficha-sistema.md) y el filtro **Estado** no la tiene en cuenta.
 
 Mensajes cuando no hay nada que mostrar:
 - **Sin sistemas:** «Sin sistemas registrados», con un botón para registrar el primero.

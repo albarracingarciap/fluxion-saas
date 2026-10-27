@@ -19,6 +19,8 @@ export type AiSystemRow = {
   is_gpai: boolean | null
   iso_42001_score: number | null
   ai_owner: string | null
+  /** Uso suspendido (B25a, Art. 26.5). */
+  use_suspended?: boolean
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -126,6 +128,11 @@ function SystemRow({ sys }: { sys: AiSystemRow }) {
       <div className="flex items-center gap-1.5">
         <span className={`w-[6px] h-[6px] rounded-full shrink-0 ${status.dot}`} />
         <span className="font-sora text-[12.5px] text-ltt2">{status.label}</span>
+        {sys.use_suspended && (
+          <span title="Uso suspendido (AI Act, Art. 26.5)" className="px-1.5 py-0.5 rounded-[5px] font-plex text-[10px] bg-red-dim text-re border border-reb">
+            Suspendido
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
