@@ -2,6 +2,7 @@ import 'server-only'
 
 import { applicabilityFacts, documentApplicability } from '@/lib/documents/applicability'
 import { createComplianceClient } from '@/lib/supabase/compliance'
+import { loadLogRetentionStatus } from '@/lib/governance/logs-server'
 import { loadOversightStatus } from '@/lib/governance/oversight-server'
 import type { ApprovedDocumentFact, LinkedEvidenceFact, ProposalFacts } from './proposals'
 
@@ -64,10 +65,13 @@ export async function loadProposalFacts(fluxion: FluxionClient, aiSystemId: stri
   // Supervisión humana documentada (B24): propone el Art. 26.2.
   const orgId = (sistema as { organization_id?: string } | null)?.organization_id
   const supervision = orgId ? (await loadOversightStatus(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
+  // Registro de logs (B25c): propone el Art. 26.6.
+  const logs = orgId ? (await loadLogRetentionStatus(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
 
   const e = (evaluaciones ?? [])[0] as { version: number; approved_at: string | null } | undefined
   return {
     oversightDocumented: supervision?.documented ?? false,
+    logsComplete: logs?.complete ?? false,
     mandatoryEvidenceTypes,
     approvedEvaluation: e ? { version: Number(e.version), approvedAt: e.approved_at ?? new Date().toISOString() } : null,
     approvedDocuments,

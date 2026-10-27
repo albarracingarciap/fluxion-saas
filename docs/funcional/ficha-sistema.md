@@ -41,6 +41,10 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/suspension-actions.ts
   - apps/web/lib/ai-systems/notices.ts
   - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
+  - apps/web/app/(app)/inventario/[id]/logs-card.tsx
+  - apps/web/app/(app)/inventario/[id]/logs-actions.ts
+  - apps/web/lib/governance/logs.ts
+  - supabase/migrations/20261028110000_registro_logs_sistema.sql
 ---
 
 # Ficha del sistema
@@ -87,7 +91,7 @@ Si el sistema no existe o es de otra organización, la vista devuelve «no encon
 | **Obligaciones** | Total y desglose: resueltas, en curso, pendientes |
 | **Próx. hito** | Próxima auditoría y estado de certificación |
 | **Responsable** | Responsable y equipo |
-| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Acciones rápidas** y dependencias externas |
+| Panel derecho | Anillo de cumplimiento AI Act, cobertura de evidencias, **Uso del sistema**, **Etapa de evaluación**, **Responsables**, **Registro de logs** (si aplica), **Acciones rápidas** y dependencias externas |
 
 **Etiqueta de categoría GPAI** (B13d). Va junto al nivel de riesgo, porque GPAI no es un nivel sino una
 categoría aparte:
@@ -160,6 +164,28 @@ Está **Completa** cuando hay responsable con competencia, autoridad y una forma
 el suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la
 del anterior se conserva. Guardar la documentación de una persona o las medidas queda en la auditoría.
 
+**Registro de logs** (B25c, AI Act, Art. 26.6; decisión 5). Solo en los sistemas de alto riesgo en los que la
+organización es responsable del despliegue. Es declarativo: Fluxion no se conecta a las fuentes de los registros.
+Lo editan el Administrador, el Responsable del SGAI y el Responsable del sistema, y se guarda con **Guardar registro
+de logs**:
+
+| Campo | Descripción | Origen (`system_log_retention.`) |
+|---|---|---|
+| **Quién controla los registros** | La organización · El proveedor · Ambos | `controlled_by` |
+| **Dónde se guardan** | Plataforma, servicio o repositorio | `storage_location` |
+| **Conservación (meses)** | Entero mayor que cero. Si los controla la organización o ambos y es menor de 6: «Por debajo del mínimo de 6 meses. Se puede guardar, pero el Art. 26.6 no se dará por cumplido.» | `retention_months` |
+| **Evidencia de la conservación** | Evidencia del sistema o de la organización; las no validadas se marcan «(no validada)» | `evidence_id` |
+| **Última verificación** | Fecha no futura. Debajo, «Vuelve a verificarse antes del …» o «Verificación vencida el …» | `verified_at` |
+| **Notas** | Por ejemplo, otro plazo exigido por el Derecho nacional o de la Unión | `notes` |
+
+Está **Completo** con: dónde se guardan, conservación de al menos 6 meses (o «Conservación a cargo del
+proveedor» si los controla el proveedor), evidencia en estado Válida y verificación de los últimos 12 meses. Al
+guardar queda en el historial («Registro de logs actualizado», etiqueta **Logs**, filtro **Edición**) y en la
+auditoría.
+
+> **Pendiente de definir.** El plazo de 12 meses para volver a verificar lo ha fijado el desarrollo; la decisión 5
+> pide verificarlo periódicamente sin indicar cada cuánto.
+
 **Acciones rápidas:**
 
 | Acción | Destino |
@@ -228,6 +254,7 @@ volver a comprobar la propuesta en el servidor, y añade a sus notas de resoluci
 | Art. 49 · Registro en la base de datos de la UE | Hay una ficha para el registro UE aprobada y consta su presentación |
 | Art. 6.4 · Documentar la excepción del Art. 6.3 | Lo mismo, si la ficha es de la sección B |
 | Art. 26.2 · Supervisión humana por personas competentes | La supervisión documentada del sistema está completa (B24) |
+| Art. 26.6 · Conservación de los registros generados automáticamente | El **Registro de logs** está completo (B25c) |
 | Cualquiera con tipos de evidencia obligatorios en el catálogo | Tiene vinculadas evidencias válidas de todos esos tipos (B17e1) |
 
 **Resolver obligación** (modal):
