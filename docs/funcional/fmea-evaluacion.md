@@ -156,7 +156,7 @@ Volver a aplicar los mismos valores no añade entradas.
   referencia).
 - **Con familias:** Ajustes manuales (modos de alguna familia ajustados a mano) y Sin familia (si los hay).
 - **[Dimensión](../glosario.md#dimensión-de-riesgo).**
-- **Familia causal**, en el orden del panel.
+- **[Familia de activación](../glosario.md#familia-de-activación)** («Por familia»), en el orden del panel.
 - **Búsqueda:** por código o nombre.
 
 **Ordenar por:**
@@ -267,7 +267,7 @@ sola evaluación de riesgos y se aprueban juntos (DP-03, bloque B07).
 Decisión DP-08 (B14b). La evaluación se puede enviar sin evaluar todos los modos cuando:
 - están evaluados todos los modos **críticos**: severidad por defecto 8 o más, o confirmados con 8 o más
   (`isCriticalForPartial`; bajar un modo al evaluarlo no lo saca del primer envío);
-- están evaluados todos los modos de las familias causales que contienen algún modo crítico;
+- están evaluados todos los modos de las [familias de activación](../glosario.md#familia-de-activación) que contienen algún modo crítico;
 - no quedan segundas revisiones ni justificaciones obligatorias pendientes en los modos evaluados.
 
 Los modos pendientes o pospuestos que no se exigen quedan para la **segunda ronda**

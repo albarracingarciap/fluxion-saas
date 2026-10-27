@@ -67,6 +67,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Inventario v1.5 y glosario: administración de la plataforma | Integrado en `main` | `docs/inventario-glosario-plataforma` | 2026-10-26 | No |
 | B14a · FMEA por familias y priorizado | Integrado en `main` | `fase3/b14a-fmea-familias` | 2026-10-27 | **Sí** · `20261027090000_fmea_familias_trazabilidad.sql` |
 | B14b · Plan parcial sobre los modos críticos (DP-08) | Integrado en `main` | `fase3/b14b-plan-parcial` | 2026-10-27 | **Sí** · `20261027100000_fmea_plan_parcial.sql` |
+| Glosario tras B14 | Integrado en `main` | `docs/glosario-b14` | 2026-10-27 | No |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1718,4 +1719,22 @@ web.
 **Documentación.** `funcional/fmea-evaluacion.md` (apartado Plan parcial), `funcional/plan-de-tratamiento.md`,
 `negocio/analisis-modos-de-fallo.md`, `funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`. TODO 281
 (glosario: «Plan parcial», «Segunda ronda») y 282 (fecha de la segunda ronda) abiertos.
+
+---
+
+## Glosario tras B14
+
+**Fecha:** 2026-10-27 · **Rama:** `docs/glosario-b14` · **Migración:** no
+
+A petición del responsable (TODO 279, 280 y 281):
+- **Familia de activación** (nueva): las familias de la estimación por familia son las del motor de activación
+  (`FAILURE_MODE_ACTIVATION_FAMILIES`: veinte definidas; cada sistema activa las que le aplican, diez en el sistema de
+  prueba), no las ocho familias causales A-H del grafo causal. **Familia causal** remite a ella para no confundirlas.
+- **Estimación por familia**: forma de evaluar por defecto, orden por criticidad, valor más alto ante varias
+  familias e historial por modo.
+- Entradas nuevas **Ajuste manual**, **Severidad de referencia**, **Plan parcial** y **Segunda ronda**.
+- Coherencia: el filtro de la evaluación pasa de «Por familia causal» a «Por familia», y
+  `funcional/fmea-evaluacion.md` y `negocio/analisis-modos-de-fallo.md` enlazan a «Familia de activación».
+
+Sigue abierto el TODO 282 (fecha de la segunda ronda).
 

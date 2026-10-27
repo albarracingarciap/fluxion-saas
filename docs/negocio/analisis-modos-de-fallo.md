@@ -103,7 +103,7 @@ flowchart LR
    Al entrar, la evaluación indica cuántos modos hay que evaluar y cuántos tienen severidad 8 o más, y
    ordena el trabajo por criticidad: primero lo más severo. Hay tres formas de trabajar:
    - **[Estimación por familia](../glosario.md#estimación-por-familia)**, la forma por defecto: una
-     valoración común para todos los modos de una familia causal, con una justificación de al menos 50
+     valoración común para todos los modos de una [familia de activación](../glosario.md#familia-de-activación), con una justificación de al menos 50
      caracteres. Las familias con modos más severos aparecen primero. Así, unas pocas estimaciones
      pueden cubrir la mayoría de los modos de un sistema.
    - **Modo a modo**, para las excepciones: un modo que se ajusta a mano queda marcado como ajuste
