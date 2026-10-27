@@ -19,6 +19,8 @@ fuente:
   - apps/web/lib/types/auth.ts
   - apps/web/lib/auth/role-labels.ts
   - apps/web/lib/governance/functions.ts
+  - apps/web/lib/governance/oversight.ts
+  - supabase/migrations/20261028090000_supervision_humana_documentada.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -674,10 +676,16 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Normativa:** AI Act, Art. 14.
 
 ### Responsable de supervisión humana
-- **Definición:** miembro designado en cada sistema de IA como la persona competente que puede intervenir en su funcionamiento o detenerlo. Puede tener un suplente. Es obligatorio en los sistemas de alto riesgo para enviar su evaluación de riesgos.
+- **Definición:** miembro designado en cada sistema de IA como la persona competente que puede intervenir en su funcionamiento o detenerlo. Puede tener un suplente. Es obligatorio en los sistemas de alto riesgo para enviar su evaluación de riesgos. Además de designarlo, su supervisión se documenta (ver [Supervisión documentada](#supervisión-documentada)).
 - **No usar:** «supervisor del sistema», «operador humano».
 - **En el código:** `ai_systems.human_oversight_owner_id` y `human_oversight_backup_id` (`profiles.id`).
 - **Normativa:** AI Act, Art. 14 y Art. 26.2.
+
+### Supervisión documentada
+- **Definición:** constancia de que la supervisión humana de un sistema de IA está encomendada a una persona capaz de ejercerla. Está **completa** cuando el responsable de supervisión humana tiene anotada su competencia para supervisar ese sistema, tiene confirmada la autoridad para no usar, anular o revertir la salida y detener el sistema, tiene una [formación](#formación) válida (alfabetización en IA o supervisión de ese sistema), y el sistema tiene descritas sus **medidas de vigilancia** (qué se revisa, cuándo y cómo se interviene). El suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la del anterior se conserva. No es la [Supervisión humana](#supervisión-humana), que mide cómo se usan las recomendaciones del sistema.
+- **No usar:** «supervisión acreditada», «supervisión validada».
+- **En el código:** `fluxion.system_oversight_documentation` (`competence`, `authority_confirmed`, `authority_notes`; clave `ai_system_id` + `profile_id`); `ai_systems.oversight_measures`; `lib/governance/oversight.ts` (`oversightDocumentation`).
+- **Normativa:** AI Act, Art. 26.2 y Art. 14.4.
 
 ### Supervisión post-comercialización
 - **Definición:** módulo que agrupa la vigilancia de los sistemas de IA en producción. Hoy contiene la Supervisión humana y, en el futuro, la deriva y la equidad.
@@ -738,6 +746,25 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** persona que pertenece a una organización con uno o varios roles.
 - **No usar:** «usuario» cuando se habla de la pertenencia a la organización (usuario es la cuenta de acceso), «empleado».
 - **En el código:** `fluxion.profiles`.
+
+### Formación
+- **Definición:** formación que ha recibido un miembro, registrada en su ficha de Usuarios con su fecha de realización y, si la tiene, de caducidad. Es de dos tipos: [alfabetización en IA](#alfabetización-en-ia) o supervisión de un sistema de IA concreto. La acredita un registro de formación de la biblioteca de evidencias. La registran la propia persona, el Administrador o el Responsable del SGAI.
+
+| Estado | Valor | Significado |
+|---|---|---|
+| Válida | `valida` | No ha caducado y su registro de formación está validado |
+| Caducada | `caducada` | Ha pasado su fecha de caducidad |
+| Sin acreditar | `sin_acreditar` | No tiene registro de formación o aún no está validado |
+
+- **No usar:** «certificación», «curso» como término general.
+- **En el código:** `fluxion.member_trainings` (`kind` ∈ `ai_literacy`, `system_oversight`); el estado se calcula en `lib/governance/oversight.ts` (`trainingStatus`), no se guarda. El registro de formación es el tipo de evidencia EVT-PRO-02.
+- **Normativa:** AI Act, Art. 4 y Art. 26.2.
+
+### Alfabetización en IA
+- **Definición:** nivel suficiente de conocimientos sobre IA del personal que usa o supervisa sistemas de IA, que la organización debe garantizar. Se acredita con una [formación](#formación) de ese tipo. Usuarios muestra qué miembros activos la tienen válida y cuántos son, como indicador: no bloquea nada.
+- **No usar:** «AI literacy», «cultura de IA».
+- **En el código:** `member_trainings.kind` = `ai_literacy`; `lib/governance/oversight.ts` (`hasValidLiteracy`).
+- **Normativa:** AI Act, Art. 4.
 
 ### Rol
 - **Definición:** perfil de permisos de un miembro dentro de su organización. Un miembro puede tener varios roles, y sus permisos son la suma de todos. Puede haber varios Administradores, y la organización conserva siempre al menos uno. DPO y Responsable del SGAI no pueden recaer en la misma persona (RGPD, Art. 38.6).
