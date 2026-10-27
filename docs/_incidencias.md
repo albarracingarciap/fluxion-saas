@@ -141,7 +141,7 @@ Corregir cada patrón resuelve muchas incidencias a la vez.
 | R3 | Ninguna evaluación FMEA llega a «Aprobada» ni a «Sustituida»: la comparativa es inalcanzable | Error | Alta | Análisis | 31, 100 |
 | R4 | **✔ Resuelta en B05.** Guardar, también el guardado automático, devuelve a borrador una evaluación enviada y cambia el evaluador | Error | Alta | Análisis | 98 |
 | R5 | **✔ Resuelta en B05.** El guardado automático pone O = 3 y D = 3 en los ítems pendientes, y esos valores aparecen en informes | Error | Media | Análisis | 99, 96 |
-| R6 | **✔ Resuelta en B05.** La estimación por familia sobrescribe los ajustes manuales | Error | Media | Análisis | 97 |
+| R6 | **✔ Resuelta en B05 (y en B14, también para lo que guarda el guardado automático).** La estimación por familia sobrescribe los ajustes manuales | Error | Media | Análisis | 97 |
 | R7 | **✔ Resuelta en B05.** **Guardar borrador** del plan no guarda las decisiones, aunque la vista las marca como guardadas | Error | Alta | Análisis | 105 |
 | R8 | **✔ Resuelta en B05.** «Diferir» no guarda fecha de revisión: esas acciones nunca entran en Revisiones pendientes | Error | Media | Análisis | 103, 109 |
 | R9 | **✔ Resuelta en B02** (requiere la migración `20261019090000`). Sin control en el catálogo, no se puede mitigar | Carencia | Media | Análisis | 102 |

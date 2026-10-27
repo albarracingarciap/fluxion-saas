@@ -10,7 +10,10 @@ export type FmeaItemHistoryEntry = {
   id: string;
   actor_user_id: string | null;
   actor_name: string | null;
-  event_type: 'evaluated' | 'skipped' | 'second_review_approved' | 'second_review_rejected';
+  event_type:
+    | 'evaluated' | 'skipped' | 'second_review_approved' | 'second_review_rejected'
+    // Estimación por familia (B14).
+    | 'family_estimated' | 'family_withdrawn' | 'family_exception';
   prev_o: number | null;
   new_o: number | null;
   prev_d: number | null;
@@ -43,6 +46,9 @@ export type FmeaEvaluationItemRecord = {
   skipped_at: string | null;
   created_at: string;
   updated_at: string;
+  /** `family`: hereda de una estimación por familia; `manual`: ajuste individual (B14). */
+  estimate_source: 'family' | 'manual' | null;
+  estimate_families: string[] | null;
   failure_mode_code: string;
   failure_mode_name: string;
   failure_mode_description: string;
@@ -181,6 +187,7 @@ type PreviousItemValues = {
   second_reviewed_at: string | null;
   second_review_notes: string | null;
   estimate_source: string | null;
+  estimate_families: string[] | null;
 };
 
 /**
@@ -368,7 +375,7 @@ export async function createFmeaEvaluationVersion(params: {
   if (copyFromEvaluationId) {
     const { data: previousItems } = await fluxion
       .from('fmea_items')
-      .select('failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, narrative_justification, status, requires_second_review, second_review_status, second_reviewed_by, second_reviewed_at, second_review_notes, estimate_source')
+      .select('failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, narrative_justification, status, requires_second_review, second_review_status, second_reviewed_by, second_reviewed_at, second_review_notes, estimate_source, estimate_families')
       .eq('evaluation_id', copyFromEvaluationId)
       .eq('status', 'evaluated');
     for (const row of (previousItems ?? []) as PreviousItemValues[]) {
@@ -400,6 +407,7 @@ export async function createFmeaEvaluationVersion(params: {
           second_reviewed_at: previous.second_reviewed_at,
           second_review_notes: previous.second_review_notes,
           estimate_source: previous.estimate_source,
+          estimate_families: previous.estimate_families ?? null,
         };
       }
       return {
@@ -419,6 +427,7 @@ export async function createFmeaEvaluationVersion(params: {
         second_reviewed_at: null,
         second_review_notes: null,
         estimate_source: null,
+        estimate_families: null,
       };
     });
 
@@ -546,7 +555,7 @@ export async function buildFmeaEvaluationData(params: {
 
   const { data: fmeaItems } = await fluxion
     .from('fmea_items')
-    .select('id, evaluation_id, failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, narrative_justification, status, requires_second_review, second_review_status, second_reviewed_by, second_reviewed_at, second_review_notes, skipped_at, created_at, updated_at')
+    .select('id, evaluation_id, failure_mode_id, s_default_frozen, o_value, d_real_value, s_actual, narrative_justification, status, requires_second_review, second_review_status, second_reviewed_by, second_reviewed_at, second_review_notes, skipped_at, created_at, updated_at, estimate_source, estimate_families')
     .eq('evaluation_id', evaluationId)
     .order('created_at', { ascending: true });
 
@@ -778,6 +787,8 @@ export async function buildFmeaEvaluationData(params: {
         skipped_at: item.skipped_at,
         created_at: item.created_at,
         updated_at: item.updated_at,
+        estimate_source: (item.estimate_source ?? null) as FmeaEvaluationItemRecord['estimate_source'],
+        estimate_families: item.estimate_families ?? null,
         failure_mode_code: catalog.code,
         failure_mode_name: catalog.name,
         failure_mode_description: catalog.description,

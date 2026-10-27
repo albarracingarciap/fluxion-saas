@@ -27,6 +27,7 @@ fuente:
   - supabase/migrations/20260831090000_approvals_core.sql
   - supabase/migrations/20261020170100_aprobaciones_consultas_condiciones.sql
   - supabase/migrations/20260908090000_fmea_estimacion_por_familia.sql
+  - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
   - supabase/migrations/20260911090000_rol_cadena_de_valor.sql
   - supabase/migrations/20260913090000_registro_riesgos_negocio.sql
   - supabase/migrations/20260914090000_outbox.sql
@@ -256,7 +257,8 @@ erDiagram
 | `compliance.control_templates`, `failure_mode_control_refs` | [Plantilla de control](../glosario.md#plantilla-de-control) | CTL-001 a CTL-059; vínculo entre modo de fallo y control | `00000000000005` |
 | `fluxion.system_failure_modes` | [Activación](../glosario.md#activación-de-modos-de-fallo) y [priorización](../glosario.md#priorización) | Único por (sistema, modo); `activation_source`, `priority_status`, `priority_score` | `00000000000001` |
 | `fluxion.fmea_evaluations` | [Análisis de modos de fallo (FMEA)](../glosario.md#análisis-de-modos-de-fallo-fmea) | `state`, `version`, `cached_zone` ([zona de riesgo](../glosario.md#zona-de-riesgo)), `approver_id`, `approved_at`, `next_review_at`. `approved` = vigente; las versiones anteriores pasan a `superseded` al aprobarse una nueva | `00000000000001`, `20261020100000` |
-| `fluxion.fmea_items` | — | `o_value` ([O](../glosario.md#ocurrencia-o)), `d_real_value` ([D_real](../glosario.md#detectabilidad-real-d_real)), `s_default_frozen`, `s_actual`, `s_residual`, `second_review_status`. Sin `organization_id`: hereda la organización de la evaluación | `00000000000001` |
+| `fluxion.fmea_items` | — | `o_value` ([O](../glosario.md#ocurrencia-o)), `d_real_value` ([D_real](../glosario.md#detectabilidad-real-d_real)), `s_default_frozen`, `s_actual`, `s_residual`, `second_review_status`, `estimate_source` (`family` o `manual`: el ajuste manual no lo sobrescribe la familia) y `estimate_families`. Sin `organization_id`: hereda la organización de la evaluación | `00000000000001`, `20260908090000` |
+| `fluxion.fmea_item_history` | — | Historial por ítem: valores anteriores y nuevos de O, D, S y estado. `event_type` ∈ `evaluated`, `skipped`, `second_review_approved`, `second_review_rejected`, `family_estimated`, `family_withdrawn`, `family_exception` | `00000000000001`, `20261027090000` |
 | `fluxion.fmea_family_estimates` | [Estimación por familia](../glosario.md#estimación-por-familia) | Único por (`evaluation_id`, `family_label`); justificación de al menos 50 caracteres | `20260908090000` |
 | `fluxion.treatment_plans` | [Plan de tratamiento](../glosario.md#plan-de-tratamiento) | Uno por evaluación, también sin acciones; `status`, `zone_at_creation`, `zone_target`, `ai_act_floor`, `approval_level`, `deadline`. `in_progress` y `closed` los mantiene `trg_treatment_action_plan_status` | `00000000000001`, `20261020100000` |
 | `fluxion.treatment_actions` | [Acción de tratamiento](../glosario.md#acción-de-tratamiento) | Única por (plan, ítem); `option` ([opción de tratamiento](../glosario.md#opción-de-tratamiento)), `status`. CHECK: aceptar exige 100 caracteres de justificación y no se admite con severidad 9 | `00000000000001` |

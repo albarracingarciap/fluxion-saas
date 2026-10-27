@@ -65,6 +65,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | Control de rol de Datos (fuera del plan, §7.2) | Integrado en `main` | `fase2/datos-control-rol` | 2026-10-26 | No (asignar `platform_admin` con SQL) |
 | Varios tipos de output por sistema (fuera del plan, TODO 78) | Integrado en `main` | `fase2/tipos-output` | 2026-10-26 | **Sí** · `20261026100000_inventario_tipos_output.sql` |
 | Inventario v1.5 y glosario: administración de la plataforma | Integrado en `main` | `docs/inventario-glosario-plataforma` | 2026-10-26 | No |
+| B14a · FMEA por familias y priorizado | Integrado en `main` | `fase3/b14a-fmea-familias` | 2026-10-27 | **Sí** · `20261027090000_fmea_familias_trazabilidad.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1643,3 +1644,42 @@ A petición del responsable (TODO 277 y 278):
 - `glosario.md`: entrada nueva **Administración de la plataforma**; **Catálogo estándar de Fluxion** y **Catálogo de
   tablas básicas** la mencionan.
 
+---
+
+## B14a · FMEA por familias y priorizado
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b14a-fmea-familias` ·
+**Migración:** **sí**, `supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql`
+
+**Problema** (F-05): en el sistema de prueba de `circuito.md`, 119 modos priorizados que se evaluaban uno a uno
+(unas seis horas). La estimación por familia existía, pero no era la forma de trabajo por defecto, no se decía al
+entrar cuántos modos había ni cuáles importaban, la lista no seguía la criticidad, y un retoque guardado solo por el
+guardado automático no se marcaba como manual: la siguiente estimación de familia lo pisaba. Además, la estimación
+no dejaba rastro en el historial de cada modo.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Lógica (`lib/fmea/families.ts`, nuevo) | Severidad de referencia (actual si está confirmado; si no, por defecto), orden por criticidad, tramos de severidad, recálculo de las familias (antes dentro de la acción), regla de excepción y resúmenes. Módulo puro con tests |
+| Al entrar | Recuadro «N modos priorizados · M con severidad 8 o más», cuántas familias están estimadas y cuántos modos cubren, ajustes manuales y modos sin familia |
+| Estimación por familia | Forma de evaluar por defecto. Familias ordenadas por criticidad (primero las que tienen modos de severidad 8 o más), con recuento de críticos y severidad máxima; la lista de modos de cada familia indica su severidad |
+| Lista de modos | **Ordenar por** Criticidad (por defecto, agrupada por tramos) o Dimensión. Filtros nuevos **Ajustes manuales** y **Sin familia**; **S ≥ 8** usa la severidad de referencia. Etiquetas **Por familia** y **Ajuste manual** |
+| Excepciones | El guardado automático marca como ajuste manual un modo de familia retocado (`draftMakesManual`). **Volver a la estimación de familia** (`restoreFamilyEstimateForItems`) lo devuelve a su familia |
+| Trazabilidad | Historial del modo: «Estimado por familia», «Estimación de familia retirada» y «Ajuste manual sobre la familia», con las familias en la nota. Una nueva versión copia también `estimate_families` |
+| Datos (migración) | `fmea_item_history.event_type` admite `family_estimated`, `family_withdrawn` y `family_exception` |
+| Corrección | El filtro por familia causal no se recalculaba al cargar las familias (dependencia que faltaba) |
+
+**Despliegue.** Aplicar la migración antes de desplegar la web: sin ella, las entradas de historial de la
+estimación por familia se rechazan (la estimación se aplica igual, pero sin rastro).
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 102/102 (diez tests
+nuevos en `tests/fmea-familias.test.ts`), `tsc --noEmit` sin errores, `next lint` sin avisos y
+`check-server-actions.sh` correcto. No se ha probado en el navegador ni con el sistema de prueba de `circuito.md`:
+el criterio de aceptación (unas 10 estimaciones de familia y sus excepciones) queda por comprobar con datos reales.
+
+**Pendiente:** B14b, el plan parcial sobre los modos de las familias con severidad 8 o más (DP-08).
+
+**Documentación.** `funcional/fmea-evaluacion.md`, `negocio/analisis-modos-de-fallo.md`,
+`funcional/flujo-completo-evaluacion.md`, `tecnica/modelo-datos.md`, `_incidencias.md` (R6). TODO 279 (glosario) y
+280 (número de familias) abiertos.
