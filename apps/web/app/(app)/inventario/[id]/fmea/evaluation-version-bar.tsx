@@ -40,6 +40,10 @@ export function EvaluationVersionBar({
 
   const isOpen = versions.state === 'draft' || versions.state === 'in_review';
   const deferred = versions.deferred_items_count;
+  const secondRound = formatDate(versions.second_round_due_date);
+  // Vencida mientras nadie la haya abierto: con la versión nueva en curso ya está en marcha.
+  const secondRoundOverdue =
+    !!versions.second_round_due_date && !versions.open_version && new Date(versions.second_round_due_date) < new Date();
   // El plan parcial se muestra siempre, también en la primera evaluación: el
   // aprobador tiene que saber que aprueba solo los modos críticos (DP-08).
   if (isOpen && !versions.current_version && deferred === 0) return null;
@@ -105,6 +109,12 @@ export function EvaluationVersionBar({
             title="Se envió con los modos de severidad 8 o más y los de sus familias evaluados"
           >
             Plan parcial · {deferred} {deferred === 1 ? 'modo' : 'modos'} para la segunda ronda
+          </span>
+        )}
+        {deferred > 0 && secondRound && (
+          <span className={`font-sora text-[12.5px] ${secondRoundOverdue ? 'text-re font-medium' : 'text-ltt2'}`}>
+            {secondRoundOverdue ? 'Segunda ronda vencida desde el ' : 'Segunda ronda antes del '}
+            {secondRound}
           </span>
         )}
         {deferred > 0 && versions.state === 'in_review' && (

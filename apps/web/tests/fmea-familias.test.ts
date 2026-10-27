@@ -13,6 +13,7 @@ import {
   isNoopFamilyUpdate,
   partialSubmission,
   referenceSeverity,
+  secondRoundDateError,
   resolveFamilyEstimates,
   severityBand,
   summarizeFamilies,
@@ -189,4 +190,11 @@ test('zona del envío parcial: los modos de la segunda ronda cuentan con su seve
   assert.equal(a.s_actual, 5)
   assert.equal(b.status, 'evaluated')
   assert.equal(b.s_actual, 7)
+})
+
+test('fecha de la segunda ronda: obligatoria y posterior a hoy (TODO 282)', () => {
+  assert.match(secondRoundDateError(null, '2026-10-27')!, /Indica la fecha/)
+  assert.match(secondRoundDateError('27/11/2026', '2026-10-27')!, /Indica la fecha/)
+  assert.match(secondRoundDateError('2026-10-27', '2026-10-27')!, /posterior a hoy/)
+  assert.equal(secondRoundDateError('2026-11-27', '2026-10-27'), null)
 })

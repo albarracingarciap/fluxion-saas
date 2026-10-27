@@ -25,6 +25,7 @@ fuente:
   - supabase/migrations/20261020100000_fmea_ciclo_evaluacion.sql
   - supabase/migrations/20261027090000_fmea_familias_trazabilidad.sql
   - supabase/migrations/20261027100000_fmea_plan_parcial.sql
+  - supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql
 ---
 
 # Evaluación FMEA
@@ -239,7 +240,7 @@ Solo la puede resolver un usuario distinto del evaluador.
 | **Volver a la estimación de familia** | Ídem | `restoreFamilyEstimateForItems`, en el editor de un modo con ajuste manual de una familia estimada. Deshabilitado con cambios sin guardar | El modo toma los valores de su familia. Historial «Estimado por familia». Recarga la página |
 | **Posponer seleccionados** / **Restablecer a pendiente** | Ídem | Acciones en bloque, sin confirmación | Posponer borra también la justificación |
 | **Enviar a revisión** / **Enviar a alta dirección** (si hay severidad 9) | Ídem | `submitFmeaForReview`. Con severidad 9 pide confirmación | Ver abajo |
-| **Enviar plan parcial** | Ídem | Solo cuando el [plan parcial](#plan-parcial) está disponible y no quedan segundas revisiones. `submitFmeaForReview` con `partial`. Pide confirmación con el número de modos diferidos y la zona del envío | Como el envío completo; además guarda `deferred_items_count` |
+| **Enviar plan parcial** | Ídem | Solo cuando el [plan parcial](#plan-parcial) está disponible y no quedan segundas revisiones. `submitFmeaForReview` con `partial`. Pide confirmación con el número de modos diferidos, la fecha de la segunda ronda y la zona del envío | Como el envío completo; además guarda `deferred_items_count` y `second_round_due_date` |
 | **Exportar PDF** · **Comparar versiones** | Todos | Abren la exportación y la [Comparativa FMEA](fmea-comparativa.md) (desde la versión 2) | — |
 | **Nueva versión** | Analista de riesgos, Responsable del sistema | `startFmeaReevaluationAction`, con confirmación. Solo en la versión vigente y si no hay otra en curso | Ver [Versiones](#versiones) |
 
@@ -280,11 +281,9 @@ Los modos pendientes o pospuestos que no se exigen quedan para la **segunda rond
 | Prioridades residuales | Solo se recalculan las de los modos evaluados; los diferidos siguen priorizados |
 | Registro | `fmea_evaluations.deferred_items_count` y el historial «Evaluación FMEA enviada a revisión» con «Plan parcial: N modos quedan para la segunda ronda» |
 | Barra de versiones | «Plan parcial · N modos para la segunda ronda», también en la primera evaluación y en el plan. En revisión: «Se aprueban los modos críticos; los demás se evalúan en la versión siguiente». Aprobada: «Abre una nueva versión para evaluar la segunda ronda» |
-| Segunda ronda | **Nueva versión**: los modos evaluados se copian y los diferidos arrancan pendientes |
-
-> TODO: confirmar si el plan parcial debe acortar la próxima revisión o avisar de la segunda ronda con una
-> fecha. Hoy la próxima revisión sigue la cadencia de la zona y la segunda ronda depende de que alguien abra
-> la versión nueva.
+| Fecha de la segunda ronda | **Segunda ronda antes del**, obligatoria y posterior a hoy; por defecto, el plazo del plan para la zona del envío (30, 90, 180 o 365 días). Se guarda en `second_round_due_date` |
+| Próxima revisión | Al aprobarse, la de la cadencia de la zona o la fecha de la segunda ronda, la anterior (`fmea_aplicar_aprobacion_plan`) |
+| Segunda ronda | **Nueva versión**: los modos evaluados se copian y los diferidos arrancan pendientes. La barra indica «Segunda ronda antes del …», en rojo si ha vencido y no hay versión nueva en curso |
 
 **Cambios tras el envío.** Una evaluación enviada se puede retocar mientras su plan siga en borrador:
 vuelve a «Borrador» para reenviarla, sin cambiar el evaluador. Con el plan en aprobación o aprobado, la
@@ -327,6 +326,8 @@ su plan, si seguía abierto, también, y sus acciones abiertas se cancelan con s
 | Falta justificación | «La justificación es obligatoria y debe tener al menos 50 caracteres.» |
 | Envío con ítems sin resolver | «La evaluación todavía no puede enviarse: quedan N pendiente(s) y M pospuesto(s) por resolver.» |
 | Plan parcial con críticos sin evaluar | «El plan parcial todavía no puede enviarse: quedan N modo(s) de severidad 8 o más o de sus familias por evaluar.» |
+| Plan parcial sin fecha de la segunda ronda | «Indica la fecha límite de la segunda ronda del plan parcial.» |
+| Fecha de la segunda ronda no posterior a hoy | «La fecha de la segunda ronda tiene que ser posterior a hoy.» |
 | Plan parcial sin modos críticos | «No hay modos de severidad 8 o más: el plan parcial no aplica y hay que evaluar todos los modos.» |
 | Envío con justificaciones pendientes | «Hay ítems que requieren justificación obligatoria antes de enviarse a revisión.» |
 | Envío con segundas revisiones pendientes | «Quedan N modo(s) pendientes de 2ª revisión antes del envío.» |

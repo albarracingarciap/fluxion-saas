@@ -68,6 +68,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B14a · FMEA por familias y priorizado | Integrado en `main` | `fase3/b14a-fmea-familias` | 2026-10-27 | **Sí** · `20261027090000_fmea_familias_trazabilidad.sql` |
 | B14b · Plan parcial sobre los modos críticos (DP-08) | Integrado en `main` | `fase3/b14b-plan-parcial` | 2026-10-27 | **Sí** · `20261027100000_fmea_plan_parcial.sql` |
 | Glosario tras B14 | Integrado en `main` | `docs/glosario-b14` | 2026-10-27 | No |
+| B14c · Fecha de la segunda ronda (TODO 282) | Integrado en `main` | `fase3/b14c-segunda-ronda` | 2026-10-27 | **Sí** · `20261027110000_fmea_segunda_ronda_fecha.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -1737,4 +1738,30 @@ A petición del responsable (TODO 279, 280 y 281):
   `funcional/fmea-evaluacion.md` y `negocio/analisis-modos-de-fallo.md` enlazan a «Familia de activación».
 
 Sigue abierto el TODO 282 (fecha de la segunda ronda).
+
+---
+
+## B14c · Fecha de la segunda ronda del plan parcial (TODO 282)
+
+**Fecha:** 2026-10-27 · **Rama:** `fase3/b14c-segunda-ronda` ·
+**Migración:** **sí**, `supabase/migrations/20261027110000_fmea_segunda_ronda_fecha.sql`
+
+**Decisión del responsable:** un plan parcial aprobado fija una fecha para la segunda ronda.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Evaluación | Campo **Segunda ronda antes del** junto al aviso del plan parcial; por defecto, el plazo del plan para la zona del envío. La confirmación lo indica |
+| Envío | `secondRoundDueDate` obligatoria y posterior a hoy (`secondRoundDateError`, comprobada también en el servidor); se guarda en `fmea_evaluations.second_round_due_date` y en el historial |
+| Aprobación | `fmea_aplicar_aprobacion_plan`: la próxima revisión es la de la cadencia o la fecha de la segunda ronda, la anterior |
+| Barra de versiones | «Segunda ronda antes del …», en rojo si ha vencido y no hay versión nueva en curso |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; `LEAST` con fechas nulas). `npm test`
+107/107, `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/fmea-evaluacion.md`, `negocio/analisis-modos-de-fallo.md`, `tecnica/modelo-datos.md`,
+`glosario.md` (Segunda ronda, a petición del responsable). TODO 282 resuelto.
 
