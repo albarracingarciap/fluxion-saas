@@ -2417,3 +2417,39 @@ en propuestas), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correcto
 
 **Documentación.** `funcional/ficha-sistema.md`, `tecnica/modelo-datos.md`, `_pendientes.md` (292: glosario; 293:
 plazo de verificación).
+
+## B25d · Requerimientos de la autoridad
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b25d-requerimientos` ·
+**Migración:** **sí**, `supabase/migrations/20261028120000_requerimientos_autoridad.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 3.6 y fase 4): una autoridad puede pedir
+información o exigir medidas correctoras con un plazo (AI Act, Art. 26.12). No había dónde dejar constancia de qué
+se pidió, para cuándo, qué se respondió y con qué evidencias.
+
+**Decisiones del responsable:** objeto propio «Requerimiento» (decisión 4); en una pestaña de Incidentes, con los
+mismos roles de gobierno (2026-10-28).
+
+**Se aprovecha lo existente:** el patrón de los incidentes (referencia automática, sistemas afectados, tareas como
+acciones, roles de gobierno), las tareas con su fecha límite como recordatorio, la biblioteca de evidencias y el
+historial del sistema.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `authority_requests` (referencia REQ-AAAA-NNN y cierre por trigger), `authority_request_systems`, `authority_request_evidences`, con RLS; origen de tarea `authority_request` |
+| Reglas (`lib/governance/authority-requests.ts`, nuevo, puro) | Etiquetas de tipo y estado; plazo: sin plazo, en plazo, próximo (5 días o menos), vencido, respondido |
+| Incidentes | Pestañas **Incidentes** y **Requerimientos** (`?tab=requerimientos`), con contador de abiertos; lista y **Registrar requerimiento**; detalle `/incidentes/requerimientos/{id}` con gestión, respuesta, evidencias y tareas |
+| Tareas | Origen «Requerimiento de la autoridad»; al registrar, tarea «Responder…» con el plazo. El detalle de la tarea enlaza al requerimiento y, ya de paso, al incidente en las acciones correctivas |
+| Ficha | Tarjeta **Requerimientos de la autoridad** (si los hay); historial **Requerimiento** al recibirlo y al responderlo |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas): el Lector no crea, la referencia se
+numera sola, Respondido exige fecha, el cierre se fecha solo y las tareas admiten el origen nuevo. Corregido en la
+prueba un trigger que leía una columna inexistente. `npm test` 184/184 (tres tests nuevos), `tsc --noEmit`,
+`next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/incidentes.md`, `funcional/tareas.md`, `funcional/ficha-sistema.md`,
+`tecnica/modelo-datos.md`, `_pendientes.md` (294: glosario; 295: avisos de plazo).

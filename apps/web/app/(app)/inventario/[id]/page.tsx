@@ -5,6 +5,7 @@ import { buildSystemCausalGraph } from '@/lib/causal-graph/system-graph';
 import { composeDocument } from '@/lib/documents/compose';
 import { loadLinkedEvidenceFacts, loadProposalFacts } from '@/lib/obligations/proposal-facts';
 import { loadEvidenceCatalogTypes } from '@/lib/evidences/catalog-type-server';
+import type { SystemAuthorityRequest } from './authority-requests-card';
 import { loadSystemStages } from '@/lib/evaluation-status/load';
 import { obligationProposal, type ObligationProposal } from '@/lib/obligations/proposals';
 import { createComplianceClient } from '@/lib/supabase/compliance';
@@ -696,6 +697,16 @@ export default async function SystemDetailPage({
     .eq('ai_system_id', params.id)
     .is('resumed_at', null)
     .maybeSingle();
+  // Requerimientos de la autoridad que afectan al sistema (B25d).
+  const { data: vinculosRequerimiento } = await fluxion
+    .from('authority_request_systems')
+    .select('authority_requests(id, reference, authority, title, status, due_at, received_at)')
+    .eq('organization_id', membership.organization_id)
+    .eq('ai_system_id', params.id);
+  const authorityRequests = ((vinculosRequerimiento ?? []) as unknown as Array<{ authority_requests: (SystemAuthorityRequest & { received_at: string }) | null }>)
+    .map((v) => v.authority_requests)
+    .filter((r): r is SystemAuthorityRequest & { received_at: string } => Boolean(r))
+    .sort((a, b) => b.received_at.localeCompare(a.received_at));
   const stageOrganization = {
     soaApproved: soaMetadata?.lifecycle_status === 'approved',
     inScope: soaScopeSystemTags.length === 0 || isInSoaScope,
@@ -709,6 +720,7 @@ export default async function SystemDetailPage({
       deployment={stageRow?.deployment ?? null}
       suspendedSince={suspensionActiva?.suspended_at ?? null}
       suspendFromIncidentId={searchParams?.suspender ?? null}
+      authorityRequests={authorityRequests}
       history={history}
       classificationEvents={classificationEvents}
       evidences={evidences}

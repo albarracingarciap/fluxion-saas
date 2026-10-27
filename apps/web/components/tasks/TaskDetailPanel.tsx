@@ -68,6 +68,11 @@ function getSourceHref(task: TaskRow): string | null {
     return `/gaps?focus=${task.source_id}`
   if (task.source_type === 'gap_group')
     return '/gaps'
+  if (task.source_type === 'incident' && task.source_id)
+    return `/incidentes/${task.source_id}`
+  // Requerimientos de la autoridad (B25d).
+  if (task.source_type === 'authority_request' && task.source_id)
+    return `/incidentes/requerimientos/${task.source_id}`
   return null
 }
 
