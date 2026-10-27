@@ -11,6 +11,7 @@ import {
   updateSystemResponsibles,
   type SystemResponsibles,
 } from './responsables-actions';
+import { OversightCard } from './oversight-card';
 
 const selectCls =
   'w-full bg-ltcard border border-ltb rounded-[8px] px-2.5 py-2 text-[12.5px] text-ltt font-sora outline-none focus:border-brand-cyan disabled:opacity-60';
@@ -117,6 +118,8 @@ export function ResponsablesCard({ systemId }: { systemId: string }) {
         </div>
         {error && <p className="font-sora text-[11.5px] text-re">{error}</p>}
       </div>
+      {/* Supervisión documentada (B24): se vuelve a montar al cambiar quién supervisa. */}
+      <OversightCard key={`${data.humanOversightOwnerId ?? ''}:${data.humanOversightBackupId ?? ''}`} systemId={systemId} />
     </div>
   );
 }

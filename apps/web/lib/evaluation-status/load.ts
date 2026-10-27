@@ -4,7 +4,8 @@ import { applicabilityFacts, documentApplicability } from '@/lib/documents/appli
 import { TEMPLATE_META } from '@/lib/documents/templates'
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createComplianceClient } from '@/lib/supabase/compliance'
-import { deploymentPlan, type DeploymentObligation, type DeploymentPlan } from './deployment'
+import { deploymentPlan, deploymentPlanApplies, type DeploymentObligation, type DeploymentPlan } from './deployment'
+import { loadOversightStatus } from '@/lib/governance/oversight-server'
 import { systemStage, type RequiredDocumentFact, type SystemStage } from './stages'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +124,11 @@ export async function loadSystemStages(
       : { data: [] },
     createComplianceClient().from('evidence_types').select('id, code').in('code', [TIPO_INSTRUCCIONES, TIPO_DECLARACION]),
   ])
+  // Supervisión humana documentada (B24): solo hace falta en los sistemas con plan de despliegue.
+  const conPlan = sistemas
+    .filter((s) => deploymentPlanApplies(s.aiact_result?.level ?? s.aiact_risk_level ?? null, applicabilityFacts(s).valueChainRoles))
+    .map((s) => s.id)
+  const supervision = await loadOversightStatus(fluxion, organizationId, conPlan)
   const friaNotificada = new Set(((notificacionesR.data ?? []) as Array<{ document_id: string }>).map((n) => n.document_id))
   const tipoId = new Map(((tiposR.data ?? []) as Array<{ id: string; code: string }>).map((t) => [t.code, t.id]))
 
@@ -193,7 +199,7 @@ export async function loadSystemStages(
       valueChainRoles: facts.valueChainRoles,
       providerInstructions: docProveedor('doc-proveedor-tipo-instrucciones', TIPO_INSTRUCCIONES),
       providerDeclaration: docProveedor('doc-proveedor-tipo-declaracion', TIPO_DECLARACION),
-      oversightDesignated: Boolean(s.human_oversight_owner_id),
+      oversightDocumented: supervision.get(s.id)?.documented ?? false,
       fria: friaAplica ? { approved: friaDocs.length > 0, notified: friaDocs.some((d) => friaNotificada.has(d.id)) } : null,
       inputData: obligacion('AI-ACT-ART26-4'),
       workersInformed: obligacion('AI-ACT-ART26-7'),

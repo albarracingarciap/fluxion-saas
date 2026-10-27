@@ -33,6 +33,10 @@ fuente:
   - apps/web/lib/approvals/open.ts
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
   - supabase/migrations/20261026090000_ai_act_gpai_catalogo.sql
+  - apps/web/app/(app)/inventario/[id]/oversight-card.tsx
+  - apps/web/app/(app)/inventario/[id]/oversight-actions.ts
+  - apps/web/lib/governance/oversight.ts
+  - supabase/migrations/20261028090000_supervision_humana_documentada.sql
 ---
 
 # Ficha del sistema
@@ -101,7 +105,7 @@ punto con su enlace.
 |---|---|
 | Instrucciones de uso del proveedor verificadas (AI Act, Art. 13 y 26.1) | Documentación del proveedor de tipo instrucciones, o evidencia de tipo EVT-DOC-04, en estado Válida |
 | Declaración UE de conformidad del proveedor verificada: marcado CE (Art. 47 y 48) | Documentación del proveedor de tipo declaración, o evidencia EVT-DOC-03, Válida. Acredita el marcado CE; no hay campo propio |
-| Supervisión humana asignada (Art. 26.2) | Responsable de supervisión humana designado |
+| Supervisión humana documentada: competencia, formación y autoridad (Art. 26.2) | La supervisión documentada del sistema está completa (B24, ver **Supervisión documentada**) |
 | FRIA aprobada y notificada a la autoridad (Art. 27) | Solo si la FRIA aplica (DP-11): aprobada y con su notificación registrada |
 | Datos de entrada (Art. 26.4), trabajadores informados (26.7), personas afectadas informadas (26.11) | Solo si el sistema tiene la obligación y no está excluida: resuelta |
 
@@ -122,6 +126,20 @@ o un Responsable del sistema:
 | **Responsable del sistema** | Miembro con el rol Responsable del sistema. Si la ficha tenía un nombre en texto libre, se muestra como «Equipo indicado en la ficha» | `ai_systems.owner_profile_id` |
 | **Responsable de supervisión humana** | Cualquier miembro activo. Obligatorio en alto riesgo (AI Act, Art. 14 y 26.2): sin él no se puede enviar la evaluación de riesgos | `ai_systems.human_oversight_owner_id` |
 | **Suplente de supervisión humana** | Otra persona | `ai_systems.human_oversight_backup_id` |
+
+**Supervisión documentada** (B24, AI Act, Art. 26.2 y 14.4). Dentro de **Responsables**, para el responsable
+de supervisión humana y el suplente, y las medidas del sistema. La editan los mismos roles que los responsables:
+
+| Campo | Descripción | Origen |
+|---|---|---|
+| **Competencia** | Conocimiento del sistema, del ámbito en el que decide y de sus límites | `system_oversight_documentation.competence` (por sistema y persona) |
+| **Autoridad** | Casilla «Tiene autoridad para no usar, anular o revertir la salida y detener el sistema (AI Act, Art. 14.4)» y dónde consta | `authority_confirmed`, `authority_notes` |
+| **Formación** | Formaciones de la persona que sirven para este sistema (alfabetización en IA o supervisión de este sistema) con su estado: Válida, Caducada o Sin acreditar. **Registrar formación en Usuarios** abre su ficha | `member_trainings` |
+| **Medidas de vigilancia** | Qué se revisa, cada cuánto y cómo se interviene o se detiene el sistema | `ai_systems.oversight_measures` |
+
+Está **Completa** cuando hay responsable con competencia, autoridad y una formación válida, y medidas descritas;
+el suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la
+del anterior se conserva.
 
 **Acciones rápidas:**
 
@@ -190,6 +208,7 @@ volver a comprobar la propuesta en el servidor, y añade a sus notas de resoluci
 | Art. 27 · FRIA | Hay una FRIA aprobada y consta su notificación a la autoridad |
 | Art. 49 · Registro en la base de datos de la UE | Hay una ficha para el registro UE aprobada y consta su presentación |
 | Art. 6.4 · Documentar la excepción del Art. 6.3 | Lo mismo, si la ficha es de la sección B |
+| Art. 26.2 · Supervisión humana por personas competentes | La supervisión documentada del sistema está completa (B24) |
 | Cualquiera con tipos de evidencia obligatorios en el catálogo | Tiene vinculadas evidencias válidas de todos esos tipos (B17e1) |
 
 **Resolver obligación** (modal):

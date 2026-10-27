@@ -28,7 +28,8 @@ export type DeploymentPlanFacts = {
   /** Documentación del proveedor válida, por tipo (B16a, B17e1). */
   providerInstructions: boolean
   providerDeclaration: boolean
-  oversightDesignated: boolean
+  /** Supervisión humana documentada: competencia, formación y autoridad (B24). */
+  oversightDocumented: boolean
   /** null si la FRIA no aplica (DP-11). */
   fria: { approved: boolean; notified: boolean } | null
   /** AI-ACT-ART26-4, 26-7 y 26-11. */
@@ -58,7 +59,7 @@ export function deploymentPlan(f: DeploymentPlanFacts): DeploymentPlan | null {
   const items: DeploymentItem[] = [
     { key: 'instrucciones', label: 'Instrucciones de uso del proveedor verificadas (Art. 13 y 26.1)', done: f.providerInstructions, href: proveedor },
     { key: 'declaracion', label: 'Declaración UE de conformidad del proveedor verificada: marcado CE (Art. 47 y 48)', done: f.providerDeclaration, href: proveedor },
-    { key: 'supervision', label: 'Supervisión humana asignada (Art. 26.2)', done: f.oversightDesignated, href: base },
+    { key: 'supervision', label: 'Supervisión humana documentada: competencia, formación y autoridad (Art. 26.2)', done: f.oversightDocumented, href: base },
   ]
   if (f.fria) {
     items.push({ key: 'fria', label: 'FRIA aprobada y notificada a la autoridad (Art. 27)', done: f.fria.approved && f.fria.notified, href: `${base}/expediente/fria` })

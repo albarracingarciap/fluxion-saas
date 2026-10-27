@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getMemberDetail } from '../actions';
 import { MemberAvatar, RoleBadge, ROLE_LABELS, formatDate } from './shared';
+import { TrainingsSection } from './trainings-section';
 
 type DetailData = Awaited<ReturnType<typeof getMemberDetail>> & { success: true }
 
@@ -46,9 +47,11 @@ const CHANGE_TYPE_CLS: Record<string, string> = {
 interface Props {
   memberId: string | null
   onClose: () => void
+  /** Al registrar o borrar una formación (indicador de alfabetización). */
+  onTrainingsChanged?: () => void
 }
 
-export function MemberDrawer({ memberId, onClose }: Props) {
+export function MemberDrawer({ memberId, onClose, onTrainingsChanged }: Props) {
   const [data, setData]       = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
@@ -242,6 +245,11 @@ export function MemberDrawer({ memberId, onClose }: Props) {
                     ))}
                   </div>
                 )}
+              </Section>
+
+              {/* Formación (B24): alfabetización en IA y supervisión de sistemas */}
+              <Section title="Formación">
+                <TrainingsSection memberId={data.profile.id} onChanged={onTrainingsChanged} />
               </Section>
 
               {/* Role history */}
