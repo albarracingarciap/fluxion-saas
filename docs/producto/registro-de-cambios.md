@@ -2397,7 +2397,7 @@ conserva al menos seis meses los registros que el sistema genera automáticament
 Art. 26.6). Solo había retenciones de la organización en Ajustes, sin nada por sistema.
 
 **Decisiones del responsable:** registro declarativo por sistema (decisión 5); menos de seis meses avisa, no
-bloquea (2026-10-28). El plazo de 12 meses para volver a verificar lo ha fijado el desarrollo (pendiente de definir).
+bloquea (2026-10-28). La verificación vale 12 meses (propuesto en el desarrollo y aceptado el 2026-10-28).
 
 **Cambios:**
 

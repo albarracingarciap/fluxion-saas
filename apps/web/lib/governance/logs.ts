@@ -11,7 +11,7 @@
  */
 
 export const LOG_MIN_MONTHS = 6
-/** Cada cuánto se vuelve a comprobar que los registros se conservan como se declara. */
+/** Cada cuánto se vuelve a comprobar que los registros se conservan como se declara (decisión del 2026-10-28). */
 export const LOG_VERIFY_MONTHS = 12
 
 export type LogControl = 'organization' | 'provider' | 'shared'

@@ -22,6 +22,7 @@ fuente:
   - apps/web/lib/governance/oversight.ts
   - supabase/migrations/20261028090000_supervision_humana_documentada.sql
   - supabase/migrations/20261028100000_uso_suspendido_avisos.sql
+  - supabase/migrations/20261028110000_registro_logs_sistema.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -666,6 +667,12 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «notificación» para los avisos al proveedor, al importador o al distribuidor (la notificación es a la autoridad, Art. 73), «comunicación».
 - **En el código:** `fluxion.external_notices` (`recipient` ∈ `provider`, `importer`, `distributor`, `authority`; `suspension_id` o `incident_id`).
 - **Normativa:** AI Act, Art. 26.5.
+
+### Registro de logs
+- **Definición:** declaración, para cada sistema de IA de alto riesgo en el que la organización es responsable del despliegue, de dónde se guardan los registros que el sistema genera automáticamente, quién los controla (la organización, el proveedor o ambos) y cuántos meses se conservan, con una evidencia y una verificación periódica. Si los controla la organización, deben conservarse al menos 6 meses: una cifra menor se puede guardar, pero avisa y no da por cumplida la obligación. La verificación vale 12 meses. Está **completo** con la ubicación, la conservación mínima (o a cargo del proveedor), la evidencia válida y la verificación vigente. Es declarativo: Fluxion no se conecta a las fuentes de los registros.
+- **No usar:** «retención de logs» (la retención de Ajustes es la de los datos de Fluxion), «trazas» (son las de Coste y uso de IA).
+- **En el código:** `fluxion.system_log_retention` (`controlled_by` ∈ `organization`, `provider`, `shared`); `lib/governance/logs.ts` (`LOG_MIN_MONTHS`, `LOG_VERIFY_MONTHS`).
+- **Normativa:** AI Act, Art. 26.6.
 
 ### Señal de riesgo
 - **Definición:** observación que un módulo o una integración envía a Fluxion sobre un sistema de IA (por ejemplo, un modelo promocionado o un presupuesto superado). Según su gravedad, queda en el historial, genera un aviso o crea una tarea.
