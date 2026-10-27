@@ -89,6 +89,7 @@ resuelve. Se actualiza al cerrar cada bloque, antes de integrarlo en `main`.
 | B18a · Etapas de evaluación (DP-02) | Integrado en `main` | `fase3/b18a-etapas` | 2026-10-27 | No |
 | B18b · Plan de despliegue y práctica prohibida | Integrado en `main` | `fase3/b18b-plan-despliegue` | 2026-10-27 | No |
 | B18c · Onboarding en tres pasos y bienvenida | Integrado en `main` | `fase3/b18c-onboarding-gobernanza` | 2026-10-27 | No |
+| B24 · Supervisión humana documentada y formación | Integrado en `main` | `fase3/b24-supervision-humana` | 2026-10-28 | **Sí** · `20261028090000_supervision_humana_documentada.sql` |
 | B04 · Declaración de Aplicabilidad: rol y propietario | Integrado en `main` | `fase0/b04-declaracion-rol` | 2026-10-19 | No |
 | B02 · Controles sugeridos y control libre | Integrado en `main` | `fase0/b02-controles` | 2026-10-19 | **Sí** · `20261019090000_plan_control_libre.sql` |
 | B01 · Permisos del plan y del FMEA (DP-01) | Integrado en `main` | `fase0/b01-permisos-plan` | 2026-10-19 | No |
@@ -2291,3 +2292,35 @@ pendientes verán la bienvenida.
 
 **Documentación.** `funcional/onboarding.md` (reescrita), `funcional/organizacion.md`, `_incidencias.md` (A2
 resuelta), `_pendientes.md` (58 resuelto), `producto/plan-resolucion-gaps.md`.
+
+## B24 · Supervisión humana documentada y formación
+
+**Fecha:** 2026-10-28 · **Rama:** `fase3/b24-supervision-humana` ·
+**Migración:** **sí**, `supabase/migrations/20261028090000_supervision_humana_documentada.sql`
+
+**Problema** ([informe del flujo de trabajo](informe-flujo-trabajo-ia.md), 2.3): solo constaba quién supervisa cada
+sistema. El AI Act pide que sea una persona con competencia, formación y autoridad (Art. 26.2), capaz de anular la
+salida y detener el sistema (Art. 14.4), y que el personal tenga alfabetización en IA (Art. 4).
+
+**Decisiones del responsable (2026-10-27):** la formación se registra por persona con su registro de formación de la
+biblioteca; la supervisión está documentada con el responsable completo y las medidas del sistema (el suplente no
+cuenta); la alfabetización se muestra en Usuarios, sin bloquear.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `member_trainings` (formación por miembro), `system_oversight_documentation` (competencia y autoridad por sistema y persona) y `ai_systems.oversight_measures`, con RLS |
+| Reglas (`lib/governance/oversight.ts`, nuevo, puro) | Formación válida (sin caducar y con registro validado); supervisión documentada |
+| Ficha | **Supervisión documentada** dentro de Responsables: competencia, autoridad y formación de responsable y suplente, y medidas de vigilancia |
+| Usuarios | Sección **Formación** en el detalle del miembro; etiqueta y contador de alfabetización en IA; `?member=` abre el detalle |
+| Conexiones | El punto de supervisión del plan de despliegue exige la supervisión documentada; el Art. 26.2 propone «Resuelta» con ella; auditoría de la documentación y de las formaciones |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas) y políticas RLS comprobadas (cada uno
+registra su formación, no la de otro; el Administrador, la de cualquiera). `npm test` 171/171 (cuatro tests nuevos),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/ficha-sistema.md`, `funcional/usuarios.md`, `tecnica/modelo-datos.md`,
+`_pendientes.md` (290: glosario).

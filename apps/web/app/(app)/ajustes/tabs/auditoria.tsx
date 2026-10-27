@@ -33,6 +33,9 @@ const ACTION_CONFIG: Record<string, {
   'org.committee_member_removed': { label: 'Miembro quitado de comité',   icon: <UserMinus size={12} />, color: 'text-lttm', group: 'Organización' },
   'org.governance_designation_changed': { label: 'Función de gobierno designada', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
   'system.responsibles_changed':        { label: 'Responsables del sistema cambiados', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
+  'system.oversight_documented':        { label: 'Supervisión humana documentada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
+  'member.training_added':              { label: 'Formación registrada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
+  'member.training_removed':            { label: 'Formación eliminada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
   'session.revoked':       { label: 'Sesión revocada',          icon: <LogOut    size={12} />, color: 'text-ye',         group: 'Seguridad' },
   'session.all_revoked':   { label: 'Todas las sesiones cerradas', icon: <LogOut size={12} />, color: 'text-re',         group: 'Seguridad' },
 }

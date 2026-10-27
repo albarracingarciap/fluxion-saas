@@ -18,6 +18,9 @@ fuente:
   - supabase/migrations/20260829090000_onboarding_nombre_y_modulos.sql
   - apps/web/app/(app)/usuarios/mapa-actions.ts
   - apps/web/lib/governance/approval-map.ts
+  - apps/web/app/(app)/usuarios/trainings-actions.ts
+  - apps/web/app/(app)/usuarios/tabs/trainings-section.tsx
+  - apps/web/lib/governance/oversight.ts
 ---
 
 # Usuarios
@@ -78,6 +81,9 @@ El usuario se registra con un enlace de invitación.
   Puede editar también los suyos. Un miembro puede tener varios roles y puede haber varios
   Administradores (B23a).
 - **Desactivados:** sección aparte con los miembros desactivados (`profiles.is_active = false`).
+- **Alfabetización en IA** (B24, AI Act, Art. 4): cada miembro activo lleva la etiqueta «Alfabetización IA» o
+  «Sin alfabetización IA», y encima de la lista se muestra «N de M miembros activos con formación válida». No
+  bloquea nada.
 
 > TODO: confirmar por qué la vista no muestra los correos de los miembros. Se piden a la API de
 > administración de usuarios sin las credenciales necesarias, así que la columna de correo sale vacía y
@@ -115,7 +121,25 @@ Panel lateral en solo lectura:
 - miembro desde, último acceso y estado de MFA;
 - sistemas asignados (con la marca «Principal» si es responsable principal);
 - comités y su papel en cada uno;
+- **Formación** (B24): alfabetizaciones en IA y formaciones de supervisión de un sistema, con su estado;
 - últimos 20 cambios de rol.
+
+`/usuarios?member={id}` abre el detalle de ese miembro (enlace desde la supervisión documentada de la ficha).
+
+**Formación** (`member_trainings`). La registra la propia persona, el Administrador o el Responsable del SGAI:
+
+| Campo | Tipo | Obligatorio | Descripción y valores |
+|---|---|---|---|
+| Tipo | selector | Sí | Alfabetización en IA (Art. 4) · Supervisión de un sistema (Art. 26.2) |
+| Sistema | selector | Si es de supervisión | El sistema que supervisa |
+| Nombre de la formación | texto | Sí | — |
+| Entidad que la imparte | texto | No | — |
+| Realizada | fecha | Sí | — |
+| Caduca | fecha | No | No puede ser anterior a la realización |
+| Registro de formación | selector | No | Evidencias de la biblioteca con el tipo «Registro de formación» (EVT-PRO-02) |
+
+Una formación es **Válida** si no ha caducado y su registro de formación está validado en la biblioteca;
+**Caducada** si pasó su fecha; **Sin acreditar** si no tiene registro o aún no está validado.
 
 ## Acciones
 

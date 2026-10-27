@@ -20,9 +20,11 @@ interface Props {
   onDeactivate: (memberId: string) => Promise<void>
   onReactivate: (memberId: string) => Promise<void>
   onSelectMember: (memberId: string) => void
+  /** Alfabetización en IA válida por miembro (B24); null mientras carga. */
+  literacy?: Record<string, boolean> | null
 }
 
-export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRolesChange, onDeactivate, onReactivate, onSelectMember }: Props) {
+export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, onRolesChange, onDeactivate, onReactivate, onSelectMember, literacy = null }: Props) {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -186,6 +188,14 @@ export function MiembrosTab({ members, inactiveMembers, currentUserId, isAdmin, 
                       {member.user_id === currentUserId && (
                         <span className="bg-ltb px-1.5 py-0.5 rounded text-[9.5px] text-lttm font-plex uppercase tracking-wider">
                           Tú
+                        </span>
+                      )}
+                      {literacy && member.id in literacy && (
+                        <span
+                          title="Alfabetización en IA (AI Act, Art. 4)"
+                          className={`px-1.5 py-0.5 rounded border text-[9.5px] font-plex ${literacy[member.id] ? 'bg-grdim border-grb text-gr' : 'bg-ordim border-orb text-or'}`}
+                        >
+                          {literacy[member.id] ? 'Alfabetización IA' : 'Sin alfabetización IA'}
                         </span>
                       )}
                     </p>

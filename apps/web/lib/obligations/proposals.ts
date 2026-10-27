@@ -11,6 +11,7 @@
  * | FRIA aprobada y notificada a la autoridad | Art. 27 resuelta |
  * | Ficha para el registro UE aprobada y presentada | Art. 49 resuelta; Art. 6.4 si la ficha es de la sección B |
  * | Evidencias válidas vinculadas de todos los tipos obligatorios del catálogo | Obligación resuelta (B17e1) |
+ * | Supervisión humana documentada: competencia, formación, autoridad y medidas | Art. 26.2 resuelta (B24) |
  *
  * Módulo puro.
  */
@@ -29,6 +30,8 @@ export type ProposalFacts = {
   approvedDocuments: Partial<Record<'annex_iv' | 'fria' | 'eu_registry', ApprovedDocumentFact>>
   /** Sección del Anexo VIII de la ficha para el registro UE (DP-11). */
   euRegistrySection: 'A' | 'B' | 'C' | null
+  /** Supervisión humana documentada (B24). */
+  oversightDocumented?: boolean
   /** Tipos de evidencia obligatorios del catálogo, por código de obligación (B17e1). */
   mandatoryEvidenceTypes?: Record<string, Array<{ id: string; name: string }>>
 }
@@ -88,6 +91,10 @@ function proposalFromApprovals(code: string, facts: ProposalFacts): ObligationPr
         ? { status: 'resolved', reason: `FRIA v${d.version} aprobada el ${fecha(d.approvedAt)} y notificada a la autoridad.` }
         : null
     }
+    case 'AI-ACT-ART26-2':
+      return facts.oversightDocumented
+        ? { status: 'resolved', reason: 'Supervisión humana documentada: responsable con competencia, formación válida y autoridad para intervenir y detener el sistema, y medidas de vigilancia descritas.' }
+        : null
     case 'AI-ACT-ART49':
     case 'AI-ACT-ART6-4': {
       const d = doc.eu_registry

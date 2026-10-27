@@ -18,6 +18,7 @@ import {
   reactivateMember,
   cancelInvitation,
 } from './actions';
+import { getLiteracySummary } from './trainings-actions';
 import { MiembrosTab }    from './tabs/miembros';
 import { InvitacionesTab } from './tabs/invitaciones';
 import { RolesTab }       from './tabs/roles';
@@ -71,13 +72,27 @@ export default function UsersPage() {
   const [createLoading, setCreateLoading] = useState(false)
   const [createResult, setCreateResult] = useState<{ ok?: string; warning?: string; error?: string } | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  // Alfabetización en IA de cada miembro activo (B24, AI Act, Art. 4).
+  const [literacy, setLiteracy] = useState<{ byProfile: Record<string, boolean>; trained: number; total: number } | null>(null)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // `?member=<id>` abre la ficha del miembro (enlace desde la supervisión de un sistema).
+  useEffect(() => {
+    const member = new URLSearchParams(window.location.search).get('member')
+    if (member) setSelectedMemberId(member)
+  }, [])
+
+  async function loadLiteracy() {
+    const res = await getLiteracySummary()
+    if (!('error' in res)) setLiteracy(res)
+  }
 
   async function loadData() {
     setLoading(true)
     setPageError(null)
     const result = await getOrganizationMembersAndInvitations()
+    void loadLiteracy()
     if ('success' in result && result.success) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setMembers((result as any).members)
@@ -593,8 +608,14 @@ export default function UsersPage() {
           {/* Content */}
           <div className="min-w-0">
 
+            {activeTab === 'miembros' && literacy && (
+              <p className="font-sora text-[12px] text-ltt2 mb-3">
+                Alfabetización en IA (AI Act, Art. 4): <strong className={literacy.trained === literacy.total ? 'text-gr' : 'text-or'}>{literacy.trained} de {literacy.total}</strong> miembros activos con formación válida. Se registra en la ficha de cada miembro.
+              </p>
+            )}
             {activeTab === 'miembros' && (
               <MiembrosTab
+                literacy={literacy?.byProfile ?? null}
                 members={members}
                 inactiveMembers={inactiveMembers}
                 currentUserId={currentUserId}
@@ -628,6 +649,7 @@ export default function UsersPage() {
       <MemberDrawer
         memberId={selectedMemberId}
         onClose={() => setSelectedMemberId(null)}
+        onTrainingsChanged={() => { void loadLiteracy() }}
       />
     </div>
   )

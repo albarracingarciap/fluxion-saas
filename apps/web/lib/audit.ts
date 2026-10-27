@@ -31,6 +31,9 @@ export type AuditAction =
   | 'org.module_revoked'
   | 'org.governance_designation_changed'
   | 'system.responsibles_changed'
+  | 'system.oversight_documented'
+  | 'member.training_added'
+  | 'member.training_removed'
   // Sesiones
   | 'session.revoked'
   | 'session.all_revoked'

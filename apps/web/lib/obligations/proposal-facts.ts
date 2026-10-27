@@ -2,6 +2,7 @@ import 'server-only'
 
 import { applicabilityFacts, documentApplicability } from '@/lib/documents/applicability'
 import { createComplianceClient } from '@/lib/supabase/compliance'
+import { loadOversightStatus } from '@/lib/governance/oversight-server'
 import type { ApprovedDocumentFact, LinkedEvidenceFact, ProposalFacts } from './proposals'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,7 +22,7 @@ export async function loadProposalFacts(fluxion: FluxionClient, aiSystemId: stri
       .eq('ai_system_id', aiSystemId).eq('status', 'approved')
       .in('template_key', PLANTILLAS as unknown as string[]),
     fluxion.from('ai_systems')
-      .select('value_chain_roles, aiact_result, aiact_risk_level, aiact_inputs, is_gpai, manages_critical_infra, processes_personal_data')
+      .select('organization_id, value_chain_roles, aiact_result, aiact_risk_level, aiact_inputs, is_gpai, manages_critical_infra, processes_personal_data')
       .eq('id', aiSystemId).maybeSingle(),
   ])
 
@@ -60,8 +61,13 @@ export async function loadProposalFacts(fluxion: FluxionClient, aiSystemId: stri
     ;(mandatoryEvidenceTypes[o.code] ??= []).push(t)
   }
 
+  // Supervisión humana documentada (B24): propone el Art. 26.2.
+  const orgId = (sistema as { organization_id?: string } | null)?.organization_id
+  const supervision = orgId ? (await loadOversightStatus(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
+
   const e = (evaluaciones ?? [])[0] as { version: number; approved_at: string | null } | undefined
   return {
+    oversightDocumented: supervision?.documented ?? false,
     mandatoryEvidenceTypes,
     approvedEvaluation: e ? { version: Number(e.version), approvedAt: e.approved_at ?? new Date().toISOString() } : null,
     approvedDocuments,

@@ -15,7 +15,7 @@ const completo: DeploymentPlanFacts = {
   valueChainRoles: ['deployer'],
   providerInstructions: true,
   providerDeclaration: true,
-  oversightDesignated: true,
+  oversightDocumented: true,
   fria: { approved: true, notified: true },
   inputData: 'resolved',
   workersInformed: 'resolved',
@@ -51,7 +51,7 @@ test('la FRIA y las obligaciones que no aplican no entran en el plan', () => {
 })
 
 test('el aviso enumera lo que falta', () => {
-  const aviso = deploymentWarning(deploymentPlan(con({ oversightDesignated: false, providerInstructions: false })))
+  const aviso = deploymentWarning(deploymentPlan(con({ oversightDocumented: false, providerInstructions: false })))
   assert.match(aviso!, /sin completar el plan de despliegue/)
   assert.match(aviso!, /Instrucciones de uso/)
   assert.match(aviso!, /Supervisión humana/)
