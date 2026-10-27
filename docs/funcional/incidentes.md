@@ -19,6 +19,9 @@ fuente:
   - apps/web/app/(app)/incidentes/requerimientos/[id]/requerimiento-detalle.tsx
   - apps/web/lib/governance/authority-requests.ts
   - supabase/migrations/20261028120000_requerimientos_autoridad.sql
+  - apps/web/app/api/cron/authority-request-deadlines/route.ts
+  - supabase/migrations/20261028130000_requerimientos_avisos_plazo.sql
+  - apps/web/app/(app)/ajustes/tabs/canales.tsx
 ---
 
 # Incidentes
@@ -169,8 +172,16 @@ Otros errores: «Indica la autoridad que lo emite.», «Indica qué se pide.», 
 recepción.», «La respuesta no puede ser anterior a la recepción.», «Solo los roles de gobierno pueden gestionar los
 requerimientos de la autoridad.».
 
-> TODO: confirmar si los requerimientos necesitan avisos de plazo propios. Hoy el recordatorio es el de la tarea
-> «Responder…», con el plazo como fecha límite; no hay avisos como los del reloj del Art. 73.
+**Avisos de plazo** (B25e). Además de la tarea «Responder…», cada día Fluxion avisa en la app al responsable y a
+los roles de gobierno, y a Slack o Teams, de los requerimientos Recibidos o En preparación:
+
+| Umbral | Aviso |
+|---|---|
+| 5 días o menos | «Plazo próximo · {ref}» |
+| Plazo vencido | «Plazo VENCIDO · {ref}» |
+
+Cada umbral se avisa una vez por plazo: si se cambia el plazo, se vuelve a avisar. Los canales pueden suscribirse a
+«Requerimiento de la autoridad: plazo próximo» y «… plazo vencido» en **Ajustes › Canales**.
 
 ## Validaciones
 

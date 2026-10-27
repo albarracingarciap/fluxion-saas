@@ -19,6 +19,7 @@ cosas que vivían fuera del código y que un cambio de plataforma se llevó por 
 | `GET /api/cron/incident-deadlines` | **Cada hora**, minuto 17 | Plazos del art. 73 al 50 %, al 80 % y vencidos → campana y canales |
 | `GET /api/cron/cost-budgets` | **Cada hora**, minuto 40 | Presupuestos de gasto en IA al cruzar cada umbral → señal y canales |
 | `GET /api/cron/hitl-discordance` | Diario, 06:30 UTC | Sistemas cuya discordancia humana sube sobre su línea base → señal y canales |
+| `GET /api/cron/authority-request-deadlines` | Diario, 07:20 UTC | Requerimientos de la autoridad con 5 días o menos de plazo y vencidos → campana y canales (B25e) |
 
 ### Por qué el de presupuestos también es horario
 
