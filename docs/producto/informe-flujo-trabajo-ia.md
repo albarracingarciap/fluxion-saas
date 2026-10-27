@@ -116,8 +116,8 @@ según F-14) y B17e (cobertura por tipos de evidencia y controles de la Declarac
 | 1 | Norma de la Declaración de Aplicabilidad | **Decidida (2026-10-27):** de momento, ISO/IEC 42001 |
 | 2 | Pasar a producción un sistema de alto riesgo sin completar el plan de despliegue | **Decidida (2026-10-27):** de momento, se avisa (no se bloquea) |
 | 3 | Fechas de aplicación de las obligaciones | **Decidida (2026-10-27):** de momento, pendientes de revisión jurídica |
-| 4 | Cómo registrar los requerimientos de la autoridad | Pendiente. Opciones abajo |
-| 5 | Cómo controlar la conservación de registros (logs) | Pendiente. Opciones abajo |
+| 4 | Cómo registrar los requerimientos de la autoridad | **Decidida (2026-10-27):** objeto propio «Requerimiento» (en B25) |
+| 5 | Cómo controlar la conservación de registros (logs) | **Decidida (2026-10-27):** registro declarativo por sistema (en B25); la integración con las fuentes queda para más adelante |
 
 **Decisión 4 · Requerimientos de la autoridad.** Una autoridad de vigilancia del mercado puede pedir información
 sobre un sistema o exigir medidas correctoras con un plazo (Art. 26.12, fase 4). Hay que dejar constancia de qué se
