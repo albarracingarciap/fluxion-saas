@@ -109,6 +109,20 @@ export async function buildSoAData(organizationId: string) {
     }
   }
 
+  // AISIA del expediente (B15): el documento vivo manda sobre la evaluación del
+  // asistente. Sus estados se traducen a los de la insignia.
+  const { data: aisiaDocs } = await fluxion
+    .from('documents')
+    .select('ai_system_id, status')
+    .eq('organization_id', organizationId)
+    .eq('template_key', 'aisia')
+    .neq('status', 'superseded')
+  const DOC_TO_AISIA: Record<string, string> = { approved: 'approved', in_review: 'submitted', draft: 'draft' }
+  for (const row of aisiaDocs ?? []) {
+    const status = DOC_TO_AISIA[row.status as string]
+    if (status) aisiaStatusMap[row.ai_system_id as string] = status
+  }
+
   // 2.f Compute available tags + in-scope systems from aiSystems (already fetched with tags)
   const scopeTags: string[] = metadata?.scope_system_tags ?? []
 

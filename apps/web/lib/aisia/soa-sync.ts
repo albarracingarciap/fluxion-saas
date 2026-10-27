@@ -9,6 +9,10 @@ import 'server-only';
  * (GAP-22). Ahora solo se aplica con la Declaración en borrador; si no lo está,
  * no se toca y se aplica al iniciar su siguiente revisión
  * (`transitionSoAStatus('draft')`).
+ *
+ * Desde B15 la AISIA es una plantilla del expediente (`documents.template_key =
+ * 'aisia'`): cuenta un documento aprobado (o aprobado y después sustituido por
+ * una versión nueva) igual que una evaluación AISIA aprobada del asistente.
  */
 
 const AISIA_SATISFIES_SOA = ['A.5.2', 'A.5.3', 'A.5.4', 'A.5.5'] as const;
@@ -66,7 +70,18 @@ export async function syncAisiaSoaControls(
       .eq('status', 'approved')
       .in('ai_system_id', linkedSystemIds);
 
-    const approvedSet = new Set(((approvedRows ?? []) as Array<{ ai_system_id: string }>).map((r) => r.ai_system_id));
+    const { data: approvedDocs } = await fluxion
+      .from('documents')
+      .select('ai_system_id')
+      .eq('organization_id', organizationId)
+      .eq('template_key', 'aisia')
+      .in('status', ['approved', 'superseded'])
+      .not('approved_at', 'is', null)
+      .in('ai_system_id', linkedSystemIds);
+
+    const approvedSet = new Set(
+      ([...(approvedRows ?? []), ...(approvedDocs ?? [])] as Array<{ ai_system_id: string }>).map((r) => r.ai_system_id)
+    );
     if (!linkedSystemIds.every((id) => approvedSet.has(id))) continue;
 
     const { error } = await fluxion

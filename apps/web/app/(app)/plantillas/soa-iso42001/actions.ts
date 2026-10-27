@@ -9,6 +9,7 @@ import { ISO_42001_CONTROLS } from '@/lib/templates/iso42001-catalog'
 import { insertAiSystemHistoryEvents } from '@/lib/ai-systems/history'
 import { hasAnyRole } from '@/lib/auth/roles'
 import { syncAisiaSoaControls } from '@/lib/aisia/soa-sync'
+import { composeDocument } from '@/lib/documents/compose'
 import { cancelLiveApprovalRequest, hasApprovalPolicy, openApprovalRequest } from '@/lib/approvals/open'
 
 export async function initializeSoA(_formData: FormData) {
@@ -395,15 +396,35 @@ export async function analyzeSoAFromAisia() {
     .eq('status', 'approved')
     .in('ai_system_id', inScopeIds)
 
-  if (!assessments || assessments.length === 0) {
+  // 3 bis. AISIA del expediente (B15): la versión aprobada vigente de cada sistema.
+  const { data: aisiaDocs } = await fluxion
+    .from('documents')
+    .select('id, ai_system_id')
+    .eq('organization_id', membership.organization_id)
+    .eq('template_key', 'aisia')
+    .eq('status', 'approved')
+    .in('ai_system_id', inScopeIds)
+
+  if ((!assessments || assessments.length === 0) && (!aisiaDocs || aisiaDocs.length === 0)) {
     return { error: 'No hay evaluaciones AISIA aprobadas para los sistemas en alcance. Aprueba al menos una AISIA antes de usar esta función.' }
   }
 
   // 4. Build compact context per system
   const nameMap = new Map(inScopeSystems.map((s) => [s.id as string, s.name as string]))
+
+  // Cada apartado del documento, con lo derivado y lo redactado.
+  const documentContexts: string[] = []
+  for (const d of aisiaDocs ?? []) {
+    const composed = await composeDocument(d.id as string)
+    if (!composed) continue
+    const lines = composed.sections
+      .filter((sec) => sec.kind === 'field' && (sec.derived || sec.manual))
+      .map((sec) => `${sec.title}: ${[sec.derived, sec.manual].filter(Boolean).join('\n')}`)
+    documentContexts.push([`SISTEMA: ${nameMap.get(d.ai_system_id as string) ?? '—'}`, ...lines].join('\n'))
+  }
   const b = (v: unknown) => (v === true ? 'Sí' : v === false ? 'No' : '—')
 
-  const systemContexts = assessments.map((a) => {
+  const systemContexts = [...(assessments ?? []).map((a) => {
     const sections = (a.aisia_sections as { section_code: string; data: Record<string, unknown> }[]) ?? []
     const s = (code: string) => sections.find((x) => x.section_code === code)?.data ?? {}
     const s1 = s('S1'), s2 = s('S2'), s3 = s('S3'), s4 = s('S4'), s5 = s('S5'), s6 = s('S6')
@@ -430,7 +451,7 @@ export async function analyzeSoAFromAisia() {
       `Impacto social: ${s6.social_impact_description ?? '—'}`,
       `Consideraciones ambientales: ${s6.environmental_consideration ?? '—'}`,
     ].join('\n')
-  }).join('\n\n---\n\n')
+  }), ...documentContexts].join('\n\n---\n\n')
 
   // 5. Build controls list
   const controlsList = ISO_42001_CONTROLS
@@ -476,7 +497,7 @@ Reglas:
     const suggestions: { control_code: string; applicable: boolean; reason: string }[] =
       Array.isArray(parsed) ? parsed : (parsed.suggestions ?? [])
 
-    return { suggestions, systemCount: assessments.length }
+    return { suggestions, systemCount: (assessments?.length ?? 0) + documentContexts.length }
   } catch (err) {
     console.error('AISIA analysis error:', err)
     return { error: 'No se pudo completar el análisis. Inténtalo de nuevo.' }

@@ -1,7 +1,10 @@
 import 'server-only'
 import { deriveFromApproval, type ApprovalContext } from './derive-approval'
 
+import { deriveAisiaFromFmea, deriveAisiaFromSystem, type AisiaFmeaItem, type AisiaPlanAction } from './derive-aisia'
+
 import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
+import { createComplianceClient } from '@/lib/supabase/compliance'
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 import { formatOutputTypes } from '@/lib/ai-systems/output-types'
 
@@ -365,6 +368,8 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
   let plan: Record<string, unknown> | null = null
   let history: Array<Record<string, unknown>> = []
   let hitl: Record<string, unknown> | null = null
+  let aisiaItems: AisiaFmeaItem[] = []
+  let aisiaActions: AisiaPlanAction[] = []
 
   if (doc.ai_system_id) {
     const { data: sys } = await fluxion
@@ -378,7 +383,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
     // la última versión. Una reevaluación en curso no entra en el documento.
     const { data: evalRows } = await fluxion
       .from('fmea_evaluations')
-      .select('id, state, version, cached_zone, approved_at, next_review_at')
+      .select('id, state, version, cached_zone, approved_at, next_review_at, deferred_items_count')
       .eq('system_id', doc.ai_system_id)
     const evalRow = pickReferenceEvaluation((evalRows ?? []) as Array<{ id: string; state: string; version: number }>)
     evaluation = evalRow ?? null
@@ -388,7 +393,7 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       ? await fluxion
           .from('treatment_plans')
           .select(
-            'code, status, modes_count_total, modes_count_zone_i, modes_count_zone_ii, actions_total, actions_completed, accepted_risk_count, residual_risk_notes',
+            'id, code, status, deadline, modes_count_total, modes_count_zone_i, modes_count_zone_ii, actions_total, actions_completed, accepted_risk_count, residual_risk_notes',
           )
           .eq('system_id', doc.ai_system_id)
           .eq('evaluation_id', evalRow.id)
@@ -426,6 +431,33 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
       .order('created_at', { ascending: false })
       .limit(15)
     history = events ?? []
+
+    // AISIA (B15): S3 y S4 citan los modos y las acciones, no solo los recuentos.
+    if (doc.template_key === 'aisia' && evalRow) {
+      const { data: itemRows } = await fluxion
+        .from('fmea_items')
+        .select('failure_mode_id, status, s_default_frozen, s_actual')
+        .eq('evaluation_id', evalRow.id)
+      const modeIds = (itemRows ?? []).map((i) => i.failure_mode_id as string)
+      const { data: modes } = modeIds.length
+        ? await createComplianceClient().from('failure_modes').select('id, code, name').in('id', modeIds)
+        : { data: [] }
+      const modeById = new Map(((modes ?? []) as Array<{ id: string; code: string; name: string }>).map((m) => [m.id, m]))
+      aisiaItems = (itemRows ?? []).map((i) => ({
+        code: modeById.get(i.failure_mode_id as string)?.code ?? '—',
+        name: modeById.get(i.failure_mode_id as string)?.name ?? 'Modo de fallo',
+        status: String(i.status),
+        s_default_frozen: Number(i.s_default_frozen),
+        s_actual: (i.s_actual as number | null) ?? null,
+      }))
+      if (plan?.id) {
+        const { data: actionRows } = await fluxion
+          .from('treatment_actions')
+          .select('option, status')
+          .eq('plan_id', plan.id as string)
+        aisiaActions = (actionRows ?? []) as AisiaPlanAction[]
+      }
+    }
   }
 
   // Contexto del acta. Solo se pide si el documento sale de una solicitud, que
@@ -437,8 +469,14 @@ export async function composeDocument(documentId: string): Promise<ComposedDocum
 
   const sections: ComposedSection[] = sectionsDef.map((def) => {
     let derived: string | null = null
-    if (def.source === 'derived:system' && system) derived = deriveFromSystem(def.ref, system)
-    else if (def.source === 'derived:fmea') derived = deriveFromFmea(def.ref, evaluation, plan)
+    const esAisia = def.ref.startsWith('AISIA.')
+    if (def.source === 'derived:system' && system) {
+      derived = esAisia ? deriveAisiaFromSystem(def.ref, system) : deriveFromSystem(def.ref, system)
+    } else if (def.source === 'derived:fmea') {
+      derived = esAisia
+        ? deriveAisiaFromFmea(def.ref, evaluation, plan, aisiaItems, aisiaActions)
+        : deriveFromFmea(def.ref, evaluation, plan)
+    }
     else if (def.source === 'derived:history') derived = deriveFromHistory(def.ref, history)
     else if (def.source === 'derived:approval') derived = deriveFromApproval(def.ref, aprobacion)
 
