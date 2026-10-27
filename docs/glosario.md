@@ -28,6 +28,7 @@ fuente:
   - apps/web/lib/evaluation-status/reevaluation.ts
   - supabase/migrations/20261028150000_biometria_remota_diferido.sql
   - supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql
+  - supabase/migrations/20261028170000_cese_uso_clasificacion_proveedor.sql
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -680,6 +681,18 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «requerimiento» a secas cuando pueda confundirse con un requisito, «solicitud de la autoridad», «inspección» como término general.
 - **En el código:** `fluxion.authority_requests`, `authority_request_systems`, `authority_request_evidences`; origen de tarea `authority_request`.
 - **Normativa:** AI Act, Art. 26.12.
+
+### Clasificación del proveedor
+- **Definición:** nivel AI Act que el proveedor declara para un sistema de IA que la organización usa sin ser su proveedora: práctica prohibida, alto riesgo, no de alto riesgo por la excepción del Art. 6.3, riesgo limitado o riesgo mínimo. Se compara con la [clasificación AI Act](#clasificación-ai-act) de la organización. Si no coinciden hay **discrepancia**: se registra su motivo y, si se comunicó, cuándo se comunicó al proveedor. Que el proveedor aplique la excepción del Art. 6.3 a un sistema que la organización clasifica de alto riesgo es una discrepancia.
+- **No usar:** «clasificación externa», «desacuerdo» como término.
+- **En el código:** `ai_systems.provider_declared_level` (`prohibited`, `high`, `high_art63`, `limited`, `minimal`), `provider_disagreement_reason`, `provider_disagreement_notified_at`; `lib/ai-act/provider-classification.ts`.
+- **Normativa:** AI Act, Art. 6.3.
+
+### Cesar el uso
+- **Definición:** tarea que se abre sola cuando un sistema de IA queda clasificado como práctica prohibida y no está Retirado: hay que cesar su uso y retirarlo, o rediseñarlo y volver a clasificarlo. Tiene prioridad crítica y se asigna al Responsable del sistema. Se completa sola al pasar el sistema a Retirado o si deja de ser una práctica prohibida.
+- **No usar:** «tarea de baja», «desactivar».
+- **En el código:** tarea con origen `cease_use`; `lib/ai-act/cease-use-server.ts`.
+- **Normativa:** AI Act, Art. 5.
 
 ### Disparador de reevaluación
 - **Definición:** hecho que obliga a revisar la evaluación de un sistema de IA. Hay seis: un **incidente grave** del sistema, un **cambio de supuestos AI Act** en su ficha, la **revisión de la evaluación de riesgos vencida**, la **actualización de las reglas de clasificación** y la **revisión anual de la FRIA** o **de la AISIA** (12 meses después de aprobarse). Cada uno pide reevaluar algo concreto: los dos primeros, la evaluación de riesgos y, si aplican y ya hay una aprobada, la FRIA y la AISIA; la revisión vencida, la evaluación de riesgos; las reglas actualizadas, la clasificación AI Act; la revisión anual, ese documento. Se cierra solo cuando se aprueba lo que pide después de producirse; el Administrador y el Responsable del SGAI pueden descartarlo con un motivo. Mientras esté abierto, el sistema no está **Vigente** ([etapa de evaluación](#etapa-de-evaluación)) y tiene una tarea **Reevaluar sistema**: una sola abierta por sistema, a la que se suman los disparadores nuevos, asignada al Responsable del sistema y que se completa al cerrarse todos.
