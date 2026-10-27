@@ -38,7 +38,7 @@ export default async function GapAnalysisSnapshotPage({
     .from('system_report_snapshots')
     .select('id, ai_system_id, title, payload, created_at')
     .eq('organization_id', membership.organization_id)
-    .is('ai_system_id', null)
+    // También las de un sistema (B16c): el mismo análisis filtrado por sistema.
     .eq('id', params.snapshotId)
     .eq('report_type', 'gap_analysis')
     .single()

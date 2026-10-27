@@ -8,6 +8,7 @@ version: 0.1
 fuente:
   - apps/web/app/(app)/gaps/page.tsx
   - apps/web/app/(app)/gaps/actions.ts
+  - apps/web/lib/gaps/by-system.ts
   - apps/web/app/(app)/gaps/gap-card.tsx
   - apps/web/app/(app)/gaps/gap-assignment-panel.tsx
   - apps/web/app/(app)/gaps/gap-disposition-modal.tsx
@@ -46,7 +47,9 @@ existe una tabla de brechas.
   `no_due_date`, `due_soon`, `mine`, `view` (`hybrid` por defecto, `groups`, `detail`), `page` y `focus`.
 - **Navegación:**
   - **Principal › Sistemas › Análisis de Gaps**;
-  - desde una tarea originada en una brecha (`/gaps?focus=…`).
+  - desde una tarea originada en una brecha (`/gaps?focus=…`);
+  - **Acciones rápidas › Gaps del sistema** de la [Ficha del sistema](ficha-sistema.md) (`/gaps?system_id=…`), que
+    sustituye al informe de brechas del sistema (B16c); `/inventario/[id]/gap-report` también redirige aquí.
 - **Disponibilidad:** Core.
 
 | Rol | Ver | Acciones permitidas |
@@ -157,7 +160,8 @@ Las mismas evidencias aparecen también en la cola, que es donde se pueden selec
 | **Excluir** | Roles con permiso | Modal de [disposición](../glosario.md#disposición-de-la-brecha) | La brecha sale de la cola y pasa a [Brechas excluidas](brechas-excluidas.md). Si una política de aprobación gobierna su capa (por defecto, Riesgo sin tratar y Obligación sin cubrir, DP-07), la exclusión queda pendiente y abre una solicitud en [Aprobaciones](aprobaciones.md): la brecha sigue en la cola con **Exclusión pendiente de aprobación** (enlace a Brechas excluidas) en lugar de **Excluir** (B11d) |
 | Selección múltiple › **Asignar** / **Crear tareas** / **Excluir** / **Exportar** | Según la acción | Acciones en bloque sobre las brechas seleccionadas de la página visible | FMEA queda excluida de la asignación y de las tareas |
 | **Exportar CSV** | Todos | Descarga las brechas filtradas | Columnas: Clave, Capa, Severidad, Sistema (código), Sistema, Título, Responsable, Fecha límite, Vencido, Días hasta vencimiento, Contexto, Origen |
-| **Guardar snapshot** | Todos | `saveGapAnalysisSnapshot` | Crea una [instantánea](../glosario.md#instantánea) y navega a ella |
+| **Guardar snapshot** | Todos | `saveGapAnalysisSnapshot` | Crea una [instantánea](../glosario.md#instantánea) de la organización y navega a ella |
+| **Guardar instantánea del sistema** (con el filtro de un sistema, B16c) | Todos | `saveGapAnalysisSnapshot({ systemId })`: el análisis reducido a ese sistema, con sus resúmenes recalculados (`filterGapsDataBySystem`) | Instantánea del sistema (`system_report_snapshots.ai_system_id`) y evidencia del sistema en revisión («Análisis de gaps · {sistema} · {fecha}», tipo informe, etiqueta `analisis-gaps`), que abre su solicitud en [Aprobaciones](aprobaciones.md). Historial «Análisis de gaps guardado como evidencia». Navega a la instantánea. No aparece en el historial de instantáneas de la organización, que solo compara las de toda la organización |
 | **Exportar / Imprimir** | Todos | Imprime la página desde el navegador | — |
 | **Ver snapshots** · **Excluidos** · **Ver inventario** | Todos | Navegan a [Instantáneas de brechas](brechas-instantaneas.md), [Brechas excluidas](brechas-excluidas.md) e [Inventario](inventario.md) | — |
 

@@ -107,10 +107,10 @@ o un Responsable del sistema:
 | Acción | Destino |
 |---|---|
 | Anexo IV | [Expediente documental](expediente-documental.md) |
-| Dossier técnico | [Dossier técnico](dossier-tecnico.md) |
+| AISIA | [AISIA](aisia.md) del expediente |
 | Eval. riesgos | [Análisis de modos de fallo](../glosario.md#análisis-de-modos-de-fallo-fmea) del sistema |
 | Ficha registro UE | [Ficha para el registro UE](registro-ue.md), plantilla del expediente (B16b) |
-| Gap report | [Informe de brechas del sistema](informe-brechas-sistema.md) |
+| Gaps del sistema | [Análisis de brechas](brechas.md) filtrado por el sistema, con su instantánea (B16c) |
 
 > TODO: confirmar los botones **Exportar PDF** y **Abrir agente** de la cabecera, que no hacen nada.
 

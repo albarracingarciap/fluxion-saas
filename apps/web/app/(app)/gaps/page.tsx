@@ -332,7 +332,7 @@ export default async function GapsPage({ searchParams }: GapsPageProps) {
               )}
             </Link>
             <ExportCsvButton gaps={filteredGaps} />
-            <SaveGapAnalysisSnapshotButton />
+            <SaveGapAnalysisSnapshotButton systemId={systemFilter} />
             <GapAnalysisPrintButton />
             <Link
               href="/inventario"
