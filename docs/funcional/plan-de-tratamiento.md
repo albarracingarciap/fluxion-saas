@@ -112,7 +112,7 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen (`tabla.columna`) |
 |---|---|---|---|---|
 | **Decisión de tratamiento** | 5 botones | Sí | Mitigar · Aceptar (no disponible con severidad 9) · Transferir · Evitar · Diferir | `option` |
-| **Controles sugeridos** | lista | Sí, en Mitigar (uno de los sugeridos o un control propio) | [Plantillas de control](../glosario.md#plantilla-de-control) asociadas al modo. Indica si el control ya existe en el sistema o se creará | `control_id` |
+| **Controles sugeridos** | lista | Sí, en Mitigar (uno de los sugeridos o un control propio) | [Plantillas de control](../glosario.md#plantilla-de-control) asociadas al modo. Cada tarjeta indica «Nuevo en este sistema» o «Ya en este sistema · {estado}»; la elegida se marca con «✓ Seleccionado» y explica qué hará **Guardar decisión** (crear el control en estado Planificado o vincular el existente) | `control_id` |
 | **Control propio** | título y descripción | Título de 5 caracteres o más, si se elige | Control que no está en el catálogo. Se crea para el sistema al guardar la decisión; si la acción ya tenía uno, se actualiza | `controls.title`, `controls.description` (sin `template_id`) |
 | **S residual objetivo** | deslizador | Sí, en Mitigar | De 1 a la severidad actual − 1. Por defecto, la actual − 2 | `s_residual_target` |
 | **Justificación y trazabilidad** | texto largo | Sí, salvo en Mitigar | Aceptar: 100 caracteres mínimo. Transferir, Evitar y Diferir: 50. Diferir más de 90 días: 100 | `justification` |
@@ -148,6 +148,10 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 Cada acción, salvo las aceptadas, tiene su [tarea](../glosario.md#tarea): la base de datos la crea al
 decidir la opción, con el responsable y la fecha de la acción, y las mantiene sincronizadas (requiere la
 migración `20261019100000`).
+
+Si después cambia la opción, la tarea la sigue: con otra opción se actualiza su título («Transferir: …»); al pasar a
+Aceptar se cancela (aceptar un riesgo va por la aceptación y sus revisiones), y si se vuelve a otra opción se
+reabre la misma tarea con el estado de la acción (`20261028250000`).
 
 **Guardar borrador** guarda las notas del riesgo residual y las acciones modificadas, igual que el
 guardado automático. Los controles nuevos (de plantilla o propios) se crean con **Guardar decisión**.

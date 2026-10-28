@@ -1,13 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { ListTodo, Loader2, Save } from 'lucide-react'
+import { Check, ListTodo, Loader2, Save } from 'lucide-react'
 import type { TreatmentOption, TreatmentPlanMember } from '@/lib/fmea/treatment-plan'
 import type { TaskStatus } from '@/lib/tasks/types'
 import { getDaysFromToday, type EditableTreatmentAction } from '@/lib/fmea/treatment-plan-utils'
 import { OPTION_META } from './treatment-plan-ui-constants'
 import { TaskStatusChip } from './task-status-chip'
 import { EvidenceSection } from './evidence-section'
+
+/** Estados de un control del sistema. */
+const CONTROL_STATUS_LABEL: Record<string, string> = {
+  planned: 'Planificado',
+  partial: 'Parcial',
+  implemented: 'Implementado',
+  excluded: 'Excluido',
+}
 
 type Props = {
   action: EditableTreatmentAction
@@ -201,26 +209,25 @@ export function ActionDetailPanel({
                       </p>
                     )}
                   </div>
-                  {control.existing_control_status && (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-[6px] border border-ltb bg-ltcard font-plex text-[10px] uppercase tracking-[1px] text-lttm shrink-0">
-                      {control.existing_control_status}
+                  {/* Selección: la tarjeta entera es el botón; esto solo indica cuál está elegida. */}
+                  {action.control_template_id === control.control_template_id && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] border border-cyan-border bg-ltcard font-plex text-[10px] uppercase tracking-[1px] text-brand-cyan shrink-0">
+                      <Check size={11} /> Seleccionado
                     </span>
                   )}
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-[6px] border font-plex text-[10px] uppercase tracking-[1px] shrink-0 ${
-                      control.existing_control_id
-                        ? 'border-grb bg-grdim text-gr'
-                        : 'border-cyan-border bg-cyan-dim text-brand-cyan'
-                    }`}
-                  >
-                    {control.existing_control_id ? 'Ya existe' : 'Se creará'}
-                  </span>
                 </div>
+                <p className="mt-2 font-sora text-[11.5px] text-lttm">
+                  {control.existing_control_id
+                    ? `Ya en este sistema · ${CONTROL_STATUS_LABEL[control.existing_control_status ?? ''] ?? control.existing_control_status ?? 'sin estado'}`
+                    : 'Nuevo en este sistema'}
+                </p>
                 {action.control_template_id === control.control_template_id && (
-                  <p className="mt-2 font-sora text-[12px] text-ltt2">
-                    {control.existing_control_id
-                      ? 'Al confirmar esta mitigación se vinculará el control existente al tratamiento.'
-                      : 'Al confirmar esta mitigación se instanciará un nuevo control para este sistema.'}
+                  <p className="mt-1 font-sora text-[12px] text-ltt2">
+                    {control.existing_control_id && action.control_id === control.existing_control_id
+                      ? 'Control vinculado a esta acción. Se implanta con la tarea y se cierra con la evidencia.'
+                      : control.existing_control_id
+                        ? 'Al pulsar «Guardar decisión» se vinculará el control existente a esta acción.'
+                        : 'Al pulsar «Guardar decisión» se creará el control en este sistema, en estado Planificado, y se vinculará a esta acción.'}
                   </p>
                 )}
               </button>
