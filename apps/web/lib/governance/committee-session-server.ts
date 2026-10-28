@@ -67,7 +67,7 @@ export async function generateSessionMinutesEvidence(params: {
     const filasPerfil = (perfiles ?? []) as Array<{ id: string; user_id: string; full_name: string | null; display_name: string | null }>
     const nombre = (p?: { full_name: string | null; display_name: string | null }) => (p ? p.display_name || p.full_name || 'Usuario' : null)
     const porPerfil = new Map(filasPerfil.map((p) => [p.id, p]))
-    const cerradoPor = nombre(filasPerfil.find((p) => p.user_id === s.minutes_locked_by)) ?? '—'
+    const cerradoPor = nombre(filasPerfil.find((p) => p.id === s.minutes_locked_by)) ?? '—'
 
     const tipo = s.session_type as SessionType
     const etiqueta = sessionLabel(s.session_number, tipo)

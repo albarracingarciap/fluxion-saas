@@ -2780,3 +2780,7 @@ correctos. No se ha probado en el navegador.
 
 **Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-05), `tecnica/modelo-datos.md`,
 `producto/plan-resolucion-gaps.md` (DP-09), `_pendientes.md` (308: mapa; 309: glosario; 310: inventario).
+
+**Corrección (2026-10-28).** Convocar una sesión fallaba con `committee_sessions_created_by_fkey`: `created_by`
+y `minutes_locked_by` apuntan a `profiles.id` y se guardaba el `auth.users.id`. Ahora se guarda el id del perfil
+(sin migración). Comprobado en el Postgres local con los dos valores.

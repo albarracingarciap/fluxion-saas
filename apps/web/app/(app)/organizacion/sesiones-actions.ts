@@ -136,7 +136,8 @@ export async function scheduleCommitteeSession(input: {
       scheduled_at: new Date(input.scheduledAt).toISOString(),
       location: input.location.trim() || null,
       attendees,
-      created_by: c.userId,
+      // profiles.id: así lo exige la clave ajena de committee_sessions.
+      created_by: c.profile.id,
     })
     .select('id, session_number')
     .single()
@@ -382,7 +383,7 @@ export async function closeCommitteeSession(id: string, input: CommitteeSessionI
       quorum_met: quorum.met,
       minutes_locked: true,
       minutes_locked_at: ahora,
-      minutes_locked_by: c.userId,
+      minutes_locked_by: c.profile.id,
     })
     .eq('id', id)
   if (error) return { error: 'No se pudo cerrar la sesión: ' + error.message }
