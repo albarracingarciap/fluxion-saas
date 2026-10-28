@@ -131,7 +131,7 @@ punto con su enlace.
 | Declaración UE de conformidad del proveedor verificada: marcado CE (Art. 47 y 48) | Documentación del proveedor de tipo declaración, o evidencia EVT-DOC-03, Válida. Acredita el marcado CE; no hay campo propio |
 | Supervisión humana documentada: competencia, formación y autoridad (Art. 26.2) | La supervisión documentada del sistema está completa (B24, ver **Supervisión documentada**) |
 | FRIA aprobada y notificada a la autoridad (Art. 27) | Solo si la FRIA aplica (DP-11): aprobada y con su notificación registrada |
-| Sistema registrado por el proveedor en la base de datos de la UE (Art. 49) | B27. Solo si la organización no es la proveedora y el sistema es del Anexo III fuera de la infraestructura crítica: documentación del proveedor de tipo registro, en estado Válida. Si la organización es autoridad pública, el punto añade «sin registro no se puede usar» (Art. 26.8) |
+| Sistema registrado por el proveedor en la base de datos de la UE (Art. 49) | B27. Solo si la organización no es la proveedora y el sistema es del Anexo III fuera de la infraestructura crítica: número o URL del registro del proveedor indicados en la ficha para el registro UE, o documentación del proveedor de tipo registro en estado Válida. Si la organización es autoridad pública, el punto añade «sin registro no se puede usar» (Art. 26.8) |
 | Datos de entrada (Art. 26.4), trabajadores informados (26.7), personas afectadas informadas (26.11) | Solo si el sistema tiene la obligación y no está excluida: resuelta |
 
 Pasar a Producción sin completarlo avisa, no bloquea (decisión 2); el aviso queda en el historial con el

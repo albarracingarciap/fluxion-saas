@@ -34,6 +34,8 @@ fuente:
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/provider-docs-client.tsx
   - apps/web/lib/evaluation-status/reevaluation.ts
   - supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql
+  - apps/web/lib/documents/derive-eu-registry.ts
+  - supabase/migrations/20261028180000_registro_ue_del_proveedor.sql
 ---
 
 # Expediente documental
@@ -140,17 +142,31 @@ FRIA ya creadas con la v1:
 Cuando la organización no es proveedora de un sistema de alto riesgo, el Anexo IV no se redacta: la vista
 **Documentación del proveedor** permite adjuntar lo que entrega el proveedor como evidencias del sistema.
 
+**También en los sistemas que no son de alto riesgo** (2026-10-28). Si la organización no es la proveedora, en
+el **Anexo IV** y la **Ficha para el registro UE** la vista muestra «Este documento no aplica a este sistema» con
+su motivo y, debajo, «Como la organización no es la proveedora, puedes adjuntar igualmente la documentación que te
+entregue el proveedor. Es opcional.», con el mismo formulario. Su pestaña dice «· del proveedor (opcional)». Si el
+sistema ya tenía el documento redactado, se muestra el documento.
+
 | Campo | Tipo | Obligatorio | Descripción y valores | Origen |
 |---|---|---|---|---|
 | **Tipo** | selector | Sí | Instrucciones de uso (Art. 13) · Declaración UE de conformidad (Art. 47) · Número o ficha de registro en la base de datos de la UE (Art. 49) · Documentación técnica facilitada por el proveedor · Otro documento del proveedor | `system_evidences.evidence_type` (`technical_doc`, `certification`, `record`, `other`) y etiqueta `doc-proveedor-tipo-*` |
 | **Título** | texto | Sí | — | `title` |
-| **Fichero** o **Enlace** | fichero o URL | Sí | El fichero se sube al almacenamiento de evidencias | `storage_path` o `external_url` |
+| **Fichero** y **URL** | fichero, URL o los dos | Al menos uno | «Adjunta el fichero, indica la URL o las dos cosas.» El fichero se sube al almacenamiento de evidencias | `storage_path` y `external_url` |
 
 - **Añadir como evidencia** crea la evidencia en borrador, con las etiquetas `documentacion-proveedor` y
   `doc-proveedor-<plantilla>`, y el evento de historial «Documentación del proveedor añadida». Sigue la revisión
   habitual de las [evidencias](evidencias.md).
 - **Documentos aportados:** título, tipo y estado de la evidencia, con **Abrir** (enlace) y **Ver evidencia →**.
 - Si el sistema ya tenía el documento redactado, el aviso enlaza a él (`?vista=documento`).
+
+**Registro del proveedor en la base de datos de la UE** (2026-10-28). Solo en la **Ficha para el registro UE**,
+encima de los documentos aportados: **Número de registro UE** y **URL de la entrada**, juntos o por separado, con
+**Guardar registro** («Registro del proveedor guardado.»; «La URL no es válida.»). Se guardan en el sistema
+(`ai_systems.provider_eu_registry_number`, `provider_eu_registry_url`) y quedan en el historial («Registro UE del
+proveedor actualizado»). Cuentan para el punto del plan de despliegue «Sistema registrado por el proveedor en la
+base de datos de la UE» y, si la organización es autoridad pública, se vuelcan en el apartado C.3 de su ficha para
+el registro UE.
 
 ## Campos
 

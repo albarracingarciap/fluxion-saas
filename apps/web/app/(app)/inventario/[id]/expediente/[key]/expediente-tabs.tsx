@@ -27,7 +27,8 @@ export function ExpedienteTabs({ templates, templateKey, aiSystemId }: {
         >
           {t.title.split('·')[0]!.trim()}
           {t.mode === 'proveedor' && <span className="ml-1.5 text-lttm">· del proveedor</span>}
-          {t.mode === 'no_aplica' && <span className="ml-1.5 text-lttm">· no aplica</span>}
+          {t.mode === 'no_aplica' && !(t.optionalProviderDocs && !t.hasDocument) && <span className="ml-1.5 text-lttm">· no aplica</span>}
+          {t.mode === 'no_aplica' && t.optionalProviderDocs && !t.hasDocument && <span className="ml-1.5 text-lttm">· del proveedor (opcional)</span>}
           {t.hasDocument && t.key !== templateKey && <span className="ml-1.5 text-gr">•</span>}
         </Link>
       ))}

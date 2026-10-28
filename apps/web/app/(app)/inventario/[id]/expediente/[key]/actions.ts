@@ -77,6 +77,27 @@ export async function templateApplicability(aiSystemId: string, templateKey: str
   return documentApplicability(templateKey, applicabilityFacts(system as Record<string, unknown>))
 }
 
+/** Plantillas en las que se puede adjuntar la documentación del proveedor aunque no apliquen. */
+const DOC_PROVEEDOR_OPCIONAL = ['annex_iv', 'eu_registry']
+
+/**
+ * Documentación del proveedor de una plantilla: `obligatoria` si el sistema es
+ * de alto riesgo y la organización no es la proveedora (DP-11); `opcional` si
+ * el documento no aplica pero la organización no es la proveedora y la
+ * plantilla es el Anexo IV o el registro UE (2026-10-28); null en el resto.
+ */
+export async function providerDocsAvailability(aiSystemId: string, templateKey: string): Promise<'obligatoria' | 'opcional' | null> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return null
+  const { data: system } = await fluxion.from('ai_systems').select(APPLICABILITY_COLUMNS).eq('id', aiSystemId).maybeSingle()
+  if (!system) return null
+  const facts = applicabilityFacts(system as Record<string, unknown>)
+  const modo = documentApplicability(templateKey, facts).mode
+  if (modo === 'proveedor') return 'obligatoria'
+  if (modo === 'no_aplica' && DOC_PROVEEDOR_OPCIONAL.includes(templateKey) && !facts.valueChainRoles.includes('provider')) return 'opcional'
+  return null
+}
+
 /**
  * Las plantillas del catálogo que aplican al sistema (DP-11) y si ya tiene
  * expediente de cada una. Una que no aplica se sigue mostrando si el sistema ya
@@ -129,9 +150,11 @@ export async function listTemplatesForSystem(aiSystemId: string): Promise<Templa
         hasDocument: existentes.has(String(t.key)),
         mode: a.mode,
         reason: a.reason,
+        optionalProviderDocs: a.mode === 'no_aplica' && DOC_PROVEEDOR_OPCIONAL.includes(String(t.key))
+          && Boolean(facts) && !facts!.valueChainRoles.includes('provider'),
       }
     })
-    .filter((t) => t.mode !== 'no_aplica' || t.hasDocument)
+    .filter((t) => t.mode !== 'no_aplica' || t.hasDocument || t.optionalProviderDocs)
 }
 
 export async function getOrCreateDocument(
@@ -641,8 +664,7 @@ export async function addProviderDocument(input: {
   if (error || !profile) return { error: error ?? 'No autenticado' }
   if (!isTemplateKey(input.templateKey)) return { error: 'Plantilla desconocida.' }
 
-  const aplicabilidad = await templateApplicability(input.aiSystemId, input.templateKey)
-  if (aplicabilidad.mode !== 'proveedor') {
+  if (!(await providerDocsAvailability(input.aiSystemId, input.templateKey))) {
     return { error: 'Este documento no se adjunta como documentación del proveedor para este sistema.' }
   }
 
@@ -693,6 +715,57 @@ export async function addProviderDocument(input: {
 
   revalidatePath(`/inventario/${input.aiSystemId}/expediente/${input.templateKey}`)
   return { id: String(data.id) }
+}
+
+
+// ── Registro UE del proveedor: número y URL ─────────────────────────────────
+
+export type ProviderRegistry = { number: string; url: string }
+
+export async function getProviderRegistry(aiSystemId: string): Promise<ProviderRegistry | null> {
+  const { profile, fluxion } = await ctx()
+  if (!profile) return null
+  const { data } = await fluxion
+    .from('ai_systems').select('provider_eu_registry_number, provider_eu_registry_url').eq('id', aiSystemId).maybeSingle()
+  if (!data) return null
+  return { number: data.provider_eu_registry_number ?? '', url: data.provider_eu_registry_url ?? '' }
+}
+
+/** Número y URL del registro del proveedor en la base de datos de la UE, juntos o por separado. */
+export async function saveProviderRegistry(input: { aiSystemId: string; number: string; url: string }): Promise<{ ok: true } | { error: string }> {
+  const { error, profile, fluxion } = await ctx()
+  if (error || !profile) return { error: error ?? 'No autenticado' }
+  if (!(await providerDocsAvailability(input.aiSystemId, 'eu_registry'))) {
+    return { error: 'La organización es la proveedora de este sistema: el registro se redacta en la ficha para el registro UE.' }
+  }
+  const url = input.url.trim()
+  if (url) {
+    try { new URL(url) } catch { return { error: 'La URL no es válida.' } }
+  }
+  const numero = input.number.trim()
+
+  const { data: system, error: updErr } = await fluxion
+    .from('ai_systems')
+    .update({ provider_eu_registry_number: numero || null, provider_eu_registry_url: url || null })
+    .eq('id', input.aiSystemId)
+    .select('id, organization_id')
+    .maybeSingle()
+  if (updErr) return { error: dbError(updErr, 'No se pudo guardar el registro del proveedor.') }
+  if (!system) return { error: 'No tienes permisos para modificar este sistema.' }
+
+  await insertAiSystemHistoryEvents(fluxion, [{
+    ai_system_id: system.id,
+    organization_id: system.organization_id,
+    event_type: 'provider_document_added',
+    event_title: 'Registro UE del proveedor actualizado',
+    event_summary: [numero && `Número: ${numero}.`, url && `URL: ${url}.`].filter(Boolean).join(' ') || 'Sin número ni URL.',
+    actor_user_id: profile.user_id,
+    payload: { template_key: 'eu_registry', number: numero || null, url: url || null },
+  }])
+
+  revalidatePath(`/inventario/${input.aiSystemId}/expediente/eu_registry`)
+  revalidatePath(`/inventario/${input.aiSystemId}`)
+  return { ok: true }
 }
 
 

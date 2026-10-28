@@ -57,7 +57,7 @@ export async function loadSystemStages(
 
   const [sistemasR, obligacionesR, evaluacionesR, planesR, documentosR, evidenciasR] = await Promise.all([
     filtrar(fluxion.from('ai_systems')
-      .select('id, name, status, aiact_result, aiact_risk_level, aiact_review_pending, aiact_obligations, aiact_inputs, value_chain_roles, is_gpai, manages_critical_infra, processes_personal_data, human_oversight_owner_id')
+      .select('id, name, status, aiact_result, aiact_risk_level, aiact_review_pending, aiact_obligations, aiact_inputs, value_chain_roles, is_gpai, manages_critical_infra, processes_personal_data, human_oversight_owner_id, provider_eu_registry_number, provider_eu_registry_url')
       .eq('organization_id', organizationId), 'id'),
     filtrar(fluxion.from('system_obligations')
       .select('ai_system_id, status, obligation_code')
@@ -204,7 +204,9 @@ export async function loadSystemStages(
     // sistema es del Anexo III fuera de la infraestructura crítica (registro nacional).
     const puntosIII = facts.highRiskRoute?.annex === 'III' ? facts.highRiskRoute.points : []
     const registroExigido = !facts.valueChainRoles.includes('provider') && puntosIII.some((p) => p !== '2')
-    const registroProveedor = evid.some((e) => e.status === 'valid' && (e.tags ?? []).includes('doc-proveedor-tipo-registro'))
+    // Cuenta el número o la URL del registro (2026-10-28) o la documentación de tipo registro válida.
+    const registroProveedor = Boolean(String(s.provider_eu_registry_number ?? '').trim() || String(s.provider_eu_registry_url ?? '').trim())
+      || evid.some((e) => e.status === 'valid' && (e.tags ?? []).includes('doc-proveedor-tipo-registro'))
     const friaDocs = (docsPorSistema.get(s.id) ?? []).filter((d) => d.template_key === 'fria')
     const deployment = deploymentPlan({
       systemId: s.id,

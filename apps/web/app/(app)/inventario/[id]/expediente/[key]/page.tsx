@@ -5,6 +5,7 @@ import { AlertCircle } from 'lucide-react'
 import {
   getOrCreateDocument, listDocumentRenders, listTemplatesForSystem,
   listDocumentNotifications, listGeneratedDocuments, listProviderDocuments, templateApplicability,
+  getProviderRegistry, providerDocsAvailability,
 } from './actions'
 import { liveApprovalRequest } from '@/lib/approvals/open'
 import { isTemplateKey } from '@/lib/documents/templates'
@@ -35,7 +36,10 @@ export default async function ExpedientePage({
 
   // DP-11: si la organización no es proveedora, se adjunta la documentación del
   // proveedor en lugar de redactar. Lo que ya estuviera redactado se puede ver.
-  if (aplicabilidad.mode === 'proveedor' && searchParams?.vista !== 'documento') {
+  // Desde 2026-10-28, en el Anexo IV y el registro UE también es opcional
+  // cuando el documento no aplica y la organización no es la proveedora.
+  const docProveedor = await providerDocsAvailability(params.id, params.key)
+  if (docProveedor && searchParams?.vista !== 'documento' && !(docProveedor === 'opcional' && tieneDocumento)) {
     const { data: system } = await createFluxionClient()
       .from('ai_systems').select('name, organization_id').eq('id', params.id).maybeSingle()
     if (!system) notFound()
@@ -49,6 +53,8 @@ export default async function ExpedientePage({
         reason={aplicabilidad.reason}
         documents={await listProviderDocuments(params.id, params.key)}
         hasDraftedDocument={tieneDocumento}
+        optional={docProveedor === 'opcional'}
+        registry={params.key === 'eu_registry' ? await getProviderRegistry(params.id) : null}
       />
     )
   }
