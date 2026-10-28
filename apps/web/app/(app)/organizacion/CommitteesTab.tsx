@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bot, ShieldAlert, Users2, Wrench, Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, X, UserPlus, Building2 } from 'lucide-react';
 import { getCommittees, upsertCommittee, addCommitteeMember, removeCommitteeMember } from './actions';
+import { CommitteeSessions } from './CommitteeSessions';
 import { hasAnyRole } from '@/lib/auth/roles';
 import {
   COMMITTEE_TIE_BREAK_LABELS,
@@ -620,6 +621,11 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
           )}
         </div>
       )}
+
+      {/* Sesiones con orden del día y acta (B20b) */}
+      {committee && (
+        <CommitteeSessions committeeId={committee.id} committeeType={committee.type} isActive={committee.is_active} />
+      )}
     </div>
   );
 }
@@ -673,7 +679,7 @@ export function CommitteesTab() {
     <div className="flex flex-col gap-5">
       <div className="mb-1">
         <p className="font-sora text-[13px] text-ltt2 leading-relaxed">
-          Gestiona los órganos de gobernanza del SGAI (el comité técnico es opcional). Cada tipo de comité puede constituirse una sola vez por organización y admite miembros internos y externos (auditores, directivos externos, etc.). Los asesores tienen voz pero no voto: así participan el DPO y el auditor externo.
+          Gestiona los órganos de gobernanza del SGAI (el comité técnico es opcional). Cada tipo de comité puede constituirse una sola vez por organización y admite miembros internos y externos (auditores, directivos externos, etc.). Los asesores tienen voz pero no voto: así participan el DPO y el auditor externo. Cada comité convoca sus sesiones y, al cerrarlas, el acta queda como evidencia.
         </p>
       </div>
 

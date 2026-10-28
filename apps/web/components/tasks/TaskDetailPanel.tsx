@@ -76,6 +76,9 @@ function getSourceHref(task: TaskRow): string | null {
   // Reevaluación (B21a), informe anual del Art. 26.10 (B21c) y cese del uso (B27): source_id es el sistema.
   if ((task.source_type === 'reevaluation' || task.source_type === 'annual_report' || task.source_type === 'cease_use') && task.source_id)
     return `/inventario/${task.source_id}`
+  // Acuerdos de una sesión de comité (B20b): source_id es la sesión.
+  if (task.source_type === 'committee_session' && task.source_id)
+    return `/organizacion/sesiones/${task.source_id}`
   return null
 }
 

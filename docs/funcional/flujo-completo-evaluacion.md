@@ -59,6 +59,9 @@ fuente:
   - apps/web/lib/iso/management-system.ts
   - apps/web/lib/iso/management-system-server.ts
   - supabase/migrations/20261028190000_sgai_obligaciones_organizacion.sql
+  - supabase/migrations/20261028200000_comites_sesiones_acta.sql
+  - apps/web/lib/governance/committee-sessions.ts
+  - apps/web/app/(app)/organizacion/sesiones-actions.ts
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -331,10 +334,17 @@ flowchart LR
 > miembros ni a roles, y ninguna otra parte de la aplicación los usa: no deciden quién aprueba ni
 > aparecen en los documentos (`A11`).
 
-> **⚠ GAP-05 · Comités sin sesiones.** Un comité puede votar en una solicitud, pero no hay sesiones, orden
-> del día ni actas de sesión. La Revisión por la Dirección (ISO/IEC 42001, §9.3) no tiene flujo propio.
+> **⚠ GAP-05 · Comités sin sesiones.** ✔ Resuelto en B20b (DP-09, decisión 62): cada comité de
+> **Organización › Comités** convoca sesiones (ordinaria o extraordinaria) con fecha, lugar y orden del día, que
+> puede incluir las solicitudes de aprobación pendientes del comité. En la sesión
+> (`/organizacion/sesiones/[id]`) se marcan los asistentes (con el quórum del comité), se redacta el acta y se
+> registran los acuerdos, con responsable y fecha límite opcionales. Al **cerrar la sesión** el acta queda
+> bloqueada, los acuerdos con responsable crean una tarea («Acuerdo de comité») y el PDF del acta se registra
+> como evidencia válida de la organización. Los votos de las solicitudes siguen en Aprobaciones. Las gestionan el
+> Administrador, el Responsable del SGAI, el CAIO y el presidente o el secretario del comité.
 >
-> **Pendiente de implementar.** Sesiones de comité y actas (`_inventario.md` §12, decisión 62).
+> **Pendiente de implementar.** La revisión por la dirección como sesión propia, con el orden del día de
+> ISO/IEC 42001, §9.3.2, y su recordatorio anual (B20c).
 
 ### 3.3 Ajustes › Aprobaciones
 
@@ -1076,7 +1086,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-02 | 0 | El onboarding no prepara el gobierno | Fricción | — |
 | GAP-03 | 0 | Onboarding de invitados no guarda datos | Fricción | `A2` |
 | GAP-04 | 1 | Gobernanza en texto libre, sin uso | Fricción | `A11` |
-| GAP-05 | 1 | Comités sin sesiones ni actas | Fricción | — |
+| GAP-05 | 1 | Comités sin sesiones ni actas (✔ B20b) | Fricción | — |
 | GAP-07 | 2 | ✔ Resuelto en B13b y B13c: cuestionario preliminar desconectado del alta | — | `E20` |
 | GAP-08 | 2 | Alta desde sistema detectado: ✔ clasifica desde B13a; sin obligaciones sugeridas ni historial | Fricción | `I20` |
 | GAP-16 | 5 | ✔ Resuelto en B05: «Guardar borrador» no guardaba decisiones | — | `R7` |

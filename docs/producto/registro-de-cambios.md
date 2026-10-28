@@ -2746,3 +2746,37 @@ nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No s
 
 **Documentación.** `producto/plan-resolucion-gaps.md` (DP-09), `funcional/flujo-completo-evaluacion.md` (GAP-12),
 `tecnica/modelo-datos.md`, `_pendientes.md` (305: mapa; 306: glosario; 307: inventario).
+
+## B20b · Sesiones de comité con acta
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b20b-sesiones-comite` ·
+**Migración:** **sí**, `supabase/migrations/20261028200000_comites_sesiones_acta.sql`
+
+**Problema** (GAP-05; DP-09, decisión 62): un comité podía votar en una solicitud, pero no había sesiones, orden
+del día ni actas. La tabla `committee_sessions` existía sin uso.
+
+**Decisiones del responsable (2026-10-28):** sesiones con acta en PDF como evidencia; los votos siguen en
+Aprobaciones. La revisión por la dirección queda para B20c.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `committee_sessions`: `minutes_evidence_id`, `cancelled_reason`, `quorum_met`; `session_type` ∈ `ordinary`, `extraordinary`, `management_review` (este solo en el comité de Revisión por la Dirección); RLS por organización (antes `auth_user_org_id()`); escriben Administrador, Responsable del SGAI, CAIO y presidente o secretario del comité; trigger: con el acta bloqueada solo cambia el enlace a la evidencia y una sesión celebrada no se borra; origen de tarea `committee_session` |
+| Reglas (`lib/governance/committee-sessions.ts`, nuevo, puro) | Tipos y estados, asistentes desde los miembros, quórum de la sesión, qué falta para cerrar |
+| Acta (`lib/governance/committee-session-html.ts` y `-server.ts`, nuevos) | PDF del acta (orden del día con las solicitudes tratadas, asistentes y quórum, acta, acuerdos) en el bucket de documentos y evidencia válida de la organización; la de una revisión por la dirección lleva el tipo «Acta de revisión por dirección» (EVT-PRO-01) |
+| Organización › Comités | Cada comité lista sus sesiones y **Convocar sesión** (tipo, fecha y hora, lugar) |
+| Sesión (`/organizacion/sesiones/[id]`, nueva) | Convocatoria, orden del día (con **Incluir en el orden del día** para las solicitudes pendientes del comité), asistentes e invitados con el quórum, acta y acuerdos con responsable y fecha; **Iniciar la sesión**, **Cerrar la sesión y generar el acta** y **Cancelar la sesión**; con el acta cerrada, enlace a la evidencia o **Generar el PDF del acta** si falló |
+| Tareas | Los acuerdos con responsable crean una tarea «Acuerdo de comité» que enlaza con la sesión |
+| Auditoría | `org.committee_session_scheduled`, `_updated`, `_closed`, `_cancelled` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas) y RLS y trigger comprobados: el
+Lector no convoca; el secretario convoca en su comité y no en otro; la revisión por la dirección solo en su comité;
+el acta cerrada no se modifica ni se borra, salvo el enlace a la evidencia; no se bloquea el acta de una sesión sin
+celebrar. `npm test` 210/210 (seis tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-05), `tecnica/modelo-datos.md`,
+`producto/plan-resolucion-gaps.md` (DP-09), `_pendientes.md` (308: mapa; 309: glosario; 310: inventario).

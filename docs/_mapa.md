@@ -141,6 +141,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-EVIDENCIAS | `docs/funcional/evidencias.md` | funcional | tecnica | biblioteca-evidencias | `(app)/evidencias/{page.tsx,evidences-library-client.tsx,expiry-alerts-client.tsx,actions.ts}`, `lib/evidences/*` | borrador |
 | FUN-EVIDENCIA-DETALLE | `docs/funcional/evidencia-detalle.md` | funcional | tecnica | biblioteca-evidencias | `(app)/evidencias/[id]/*`, `lib/evidences/{detail,versions}.ts` | borrador |
 | FUN-SOA | `docs/funcional/declaracion-aplicabilidad.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/soa-iso42001/*` | borrador |
+| FUN-SGAI | `docs/funcional/sistema-gestion.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/sgai-iso42001/*`, `lib/iso/management-system*.ts` | pendiente |
 | FUN-DOSSIER | `docs/funcional/dossier-tecnico.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/technical-dossier/**`, `lib/ai-systems/technical-dossier.ts` | borrador |
 | FUN-REGISTRO-UE | `docs/funcional/registro-ue.md` | funcional | tecnica | documentacion-del-sistema | `lib/documents/derive-eu-registry.ts`, `lib/documents/applicability.ts`, `(app)/inventario/[id]/expediente/[key]/*` | borrador |
 | FUN-INFORME-BRECHAS | `docs/funcional/informe-brechas-sistema.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/gap-report/**`, `lib/ai-systems/gap-report.ts` | borrador |

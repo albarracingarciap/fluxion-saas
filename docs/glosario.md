@@ -29,6 +29,8 @@ fuente:
   - supabase/migrations/20261028150000_biometria_remota_diferido.sql
   - supabase/migrations/20261028160000_expediente_plan_vigilancia_poscomercializacion.sql
   - supabase/migrations/20261028170000_cese_uso_clasificacion_proveedor.sql
+  - supabase/migrations/20261028190000_sgai_obligaciones_organizacion.sql
+  - apps/web/lib/iso/management-system.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -138,8 +140,14 @@ Los artículos del AI Act se citan según su texto oficial en español. Las clá
 ### SGAI (Sistema de gestión de la IA)
 - **Definición:** conjunto de políticas, procesos y responsabilidades con que la organización gobierna sus sistemas de IA. Fluxion es la herramienta que lo soporta.
 - **No usar:** «AIMS» (salvo entre paréntesis), «sistema de gestión IA» sin artículo.
-- **En el código:** rol `sgai_manager`; Asistente SGAI.
+- **En el código:** rol `sgai_manager`; Asistente SGAI; vista **ISO 42001 › Sistema de gestión** (`/plantillas/sgai-iso42001`), donde se siguen sus [cláusulas](#cláusula-del-sistema-de-gestión).
 - **Normativa:** ISO/IEC 42001, §4.4.
+
+### Cláusula del sistema de gestión
+- **Definición:** obligación de ISO/IEC 42001 que se cumple a nivel de organización, no de cada sistema: objetivos (§6.2), evaluación de impacto (§6.1.4), recursos (§7.1), competencia (§7.2), planificación y control operacional (§8.1), evaluación de riesgos (§8.2), seguimiento y medición (§9.1), auditoría interna (§9.2), revisión por la dirección (§9.3) y acción correctiva (§10.2). Cada una tiene estado (**Pendiente**, **En curso** o **Resuelta**), responsable, fecha límite y evidencias; para resolverla hay que explicar cómo se cumple. No se excluye, porque es un requisito de la norma. Fluxion propone resolverla cuando los datos de la aplicación lo acreditan (por ejemplo, §8.2 con la evaluación de riesgos aprobada en todos los sistemas del alcance de la [Declaración de Aplicabilidad](#declaración-de-aplicabilidad-iso-42001)) o cuando tiene evidencias válidas de los tipos que pide el catálogo. Se gestiona en **ISO 42001 › Sistema de gestión**.
+- **No usar:** «control» (reservado para los del Anexo A), «obligación ISO» a secas.
+- **En el código:** catálogo `compliance.obligations` (códigos `ISO42001-6.2`…`ISO42001-10.2`); por organización, `fluxion.organization_obligations` con `status` ∈ `pending`, `in_progress`, `resolved`, y `organization_obligation_evidences`.
+- **Normativa:** ISO/IEC 42001, cláusulas 6 a 10.
 
 ### Marco aplicable
 - **Definición:** cada marco normativo que la organización ha declarado aplicable: AI Act, ISO/IEC 42001, RGPD, DORA, etc.
