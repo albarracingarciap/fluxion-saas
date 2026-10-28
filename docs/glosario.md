@@ -34,6 +34,8 @@ fuente:
   - supabase/migrations/20261028200000_comites_sesiones_acta.sql
   - apps/web/lib/governance/committee-sessions.ts
   - apps/web/lib/iso/management-review.ts
+  - supabase/migrations/20261028220000_datos_entrada_vigilancia.sql
+  - apps/web/lib/governance/operation.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -754,6 +756,32 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **No usar:** «retención de logs» (la retención de Ajustes es la de los datos de Fluxion), «trazas» (son las de Coste y uso de IA).
 - **En el código:** `fluxion.system_log_retention` (`controlled_by` ∈ `organization`, `provider`, `shared`); `lib/governance/logs.ts` (`LOG_MIN_MONTHS`, `LOG_VERIFY_MONTHS`).
 - **Normativa:** AI Act, Art. 26.6.
+
+### Datos de entrada
+- **Definición:** declaración, para cada sistema de IA, de quién controla los datos con los que se alimenta (la organización, el proveedor o ambos), qué datos espera el sistema (tipo, formato, rangos, población o casos previstos) y, si los controla la organización, de dónde vienen y qué controles de calidad y representatividad se aplican. Se comprueba con [verificaciones de los datos de entrada](#verificación-de-los-datos-de-entrada) periódicas, cada 6 meses por defecto. Si solo los controla el proveedor, basta con declararlo. Es obligatoria en alto riesgo cuando la organización es responsable del despliegue y opcional en el resto.
+- **No usar:** «dataset» (no se sube el conjunto de datos), «datos de entrenamiento» (son del proveedor, Art. 10).
+- **En el código:** `fluxion.system_input_data`; `lib/governance/operation.ts` (`INPUT_DATA_VERIFY_MONTHS`).
+- **Normativa:** AI Act, Art. 26.4.
+
+### Verificación de los datos de entrada
+- **Definición:** comprobación periódica de que los [datos de entrada](#datos-de-entrada) siguen siendo pertinentes y suficientemente representativos para la finalidad prevista. Lleva fecha, resultado (**Conforme**, **Con desviaciones** o **No conforme**), qué se ha comprobado, medidas adoptadas si no es conforme y, como evidencia, un **informe de calidad de datos de entrada** (informe de calidad o perfilado, o muestra anonimizada; nunca el dataset en bruto). Cuenta cuando su evidencia está validada. No se modifica una vez registrada.
+- **No usar:** «auditoría de datos».
+- **En el código:** `fluxion.system_operation_checks` con `kind = 'input_data'`; tipo de evidencia `EVT-TEC-06`.
+- **Normativa:** AI Act, Art. 26.4.
+
+### Plan de vigilancia del funcionamiento
+- **Definición:** qué se vigila de un sistema de IA en uso: indicadores (por ejemplo, tasa de error, deriva, discordancia de la supervisión humana o uso fuera de la finalidad prevista), con su umbral y su fuente (manual, [señales](#señal-de-riesgo), telemetría o supervisión humana), la frecuencia de la [revisión del funcionamiento](#revisión-del-funcionamiento) (trimestral por defecto) y su responsable. Es obligatorio en alto riesgo cuando la organización es responsable del despliegue y opcional en el resto. Es distinto del [plan de vigilancia poscomercialización](#plan-de-vigilancia-poscomercialización), que es del proveedor.
+- **No usar:** «plan de monitorización» a secas, «observabilidad» (es la vista de coste y uso).
+- **En el código:** `fluxion.system_monitoring_plan` (`indicators`, `review_months`, `owner_profile_id`).
+- **Normativa:** AI Act, Art. 26.5.
+
+### Revisión del funcionamiento
+- **Definición:** revisión periódica de un sistema de IA con su [plan de vigilancia del funcionamiento](#plan-de-vigilancia-del-funcionamiento). Cubre un periodo y lleva resultado (**Conforme**, **Con desviaciones** o **No conforme**), lo comprobado, las medidas adoptadas y evidencias (registro de monitorización). Guarda los datos de la aplicación del periodo: señales, decisiones de supervisión humana, telemetría, incidentes, suspensiones y avisos. Si el sistema puede presentar un riesgo, se suspende el uso y se avisa al proveedor, o se da parte de un incidente. No se modifica una vez registrada.
+- **No usar:** «revisión periódica» (es la de las aceptaciones de riesgo), «auditoría».
+- **En el código:** `fluxion.system_operation_checks` con `kind = 'monitoring'`.
+- **Normativa:** AI Act, Art. 26.5.
+
+**Condición de Vigente (B28):** donde son obligatorios, una verificación de los datos de entrada o una revisión del funcionamiento vencida quita la condición «Vigente» de la [etapa de evaluación](#etapa-de-evaluación). Quince días antes del vencimiento se crea la tarea **Verificar los datos de entrada** o **Revisar el funcionamiento**.
 
 ### Señal de riesgo
 - **Definición:** observación que un módulo o una integración envía a Fluxion sobre un sistema de IA (por ejemplo, un modelo promocionado o un presupuesto superado). Según su gravedad, queda en el historial, genera un aviso o crea una tarea.
