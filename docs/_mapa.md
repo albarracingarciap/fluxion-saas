@@ -117,6 +117,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-INVENTARIO | `docs/funcional/inventario.md` | funcional | tecnica | inventario | `(app)/inventario/{page.tsx,systems-table-client.tsx}` | borrador |
 | FUN-INVENTARIO-ALTA | `docs/funcional/inventario-alta.md` | funcional | tecnica | inventario | `(app)/inventario/nuevo/*`, `components/inventory/SystemWizard.jsx`, `components/questionnaire/*`, `lib/preliminary-questionnaire/to-wizard.ts` | borrador |
 | FUN-FICHA-SISTEMA | `docs/funcional/ficha-sistema.md` | funcional | tecnica | inventario | `(app)/inventario/[id]/{page.tsx,system-detail-client.tsx,causal-map-canvas.tsx}`, `(app)/inventario/[id]/{obligaciones,modos-de-fallo,evidencias}/actions.ts`, `components/classification/*` | borrador |
+| FUN-OPERACION | `docs/funcional/datos-entrada-vigilancia.md` | funcional | tecnica | inventario | `(app)/inventario/[id]/operacion/*`, `(app)/inventario/[id]/operation-card.tsx`, `lib/governance/operation*.ts` | pendiente |
 | FUN-FICHA-EDICION | `docs/funcional/ficha-sistema-edicion.md` | funcional | tecnica | inventario | `(app)/inventario/[id]/editar/*` | borrador |
 | FUN-DESCUBRIMIENTOS | `docs/funcional/descubrimientos.md` | funcional | tecnica | descubrimiento-inventario | `(app)/inventario/descubrimientos/*` | borrador |
 

@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.11** | **2026-10-28** | **Revisado** por Pedro Albarracín | Revisión por la dirección (B20c): el cron `reevaluation-triggers` crea y completa la tarea anual; origen de tarea `management_review`. Ver §4.5 y §12 |
+| **1.12** | **2026-10-28** | **Revisado** por Pedro Albarracín | Datos de entrada y vigilancia del funcionamiento (B28, DP-12): ruta `/inventario/[id]/operacion`, cuatro tablas nuevas, tipo de evidencia `EVT-TEC-06`, origen de tarea `operation_check` y tareas de verificación en el cron `reevaluation-triggers`. Ver §2.2, §3.2, §4.5 y §12 |
+| 1.11 | 2026-10-28 | Revisado por Pedro Albarracín | Revisión por la dirección (B20c): el cron `reevaluation-triggers` crea y completa la tarea anual; origen de tarea `management_review`. Ver §4.5 y §12 |
 | 1.10 | 2026-10-28 | Revisado por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
 | 1.9 | 2026-10-28 | Revisado por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
 | 1.8 | 2026-10-28 | Revisado por Pedro Albarracín | Disparadores de reevaluación implementados (decisión 63, B21a): `reevaluation_triggers` deja de ser una tabla sin uso. Ver §3, §11 y §12 |
@@ -117,6 +118,7 @@ Columna Control:
 | `/inventario/descubrimientos` | Cola de descubrimientos (conectores y Shadow AI): vincular, ignorar o crear sistema | MW |
 | `/inventario/[id]` | Ficha del sistema. Pestañas: Obligaciones AI Act, Ficha técnica, ISO 42001, Historial, Evidencias, Modos de fallo, Plan de tratamiento | AUTH, MW |
 | `/inventario/[id]/editar` | Edición del sistema | AUTH, MW |
+| `/inventario/[id]/operacion` | Datos de entrada y vigilancia del funcionamiento: fichas declarativas y registro de verificaciones y revisiones (v1.12, B28) | AUTH, MW |
 | `/inventario/[id]/clasificacion` | Clasificación AI Act con el motor de reglas (ruta «heredada») | MW · [!] huérfana |
 | `/inventario/[id]/riesgos-negocio` | Registro de riesgos de negocio | MW |
 | `/inventario/[id]/aisia/[assessmentId]` | v1.6: redirección a `expediente/aisia` (el asistente de la AISIA se retiró en B15) | AUTH |
@@ -229,6 +231,7 @@ El inventario de abril (`recursos/docs/db_inventory_2026-04-28.md`) está parcia
 | Plan de tratamiento | `treatment_plans`, `treatment_actions`, `treatment_action_events`, `treatment_action_reviews`, `treatment_plan_snapshots`, `controls`, `evidence_controls` y dos tablas `*_legacy_20260417` |
 | Gaps | `gaps` (parece muerta), `gap_dispositions`, `task_gap_links`. Las brechas se calculan en `apps/web/lib/gaps/data.ts` |
 | Evidencias | `system_evidences`, `system_evidence_versions`, `system_obligation_evidences`, `system_failure_mode_evidences`, `evidence_expiry_alerts`, `evidences` (segundo modelo) |
+| Operación del despliegue | v1.12 (B28): `system_input_data`, `system_monitoring_plan`, `system_operation_checks` (no se modifican) y `system_operation_check_evidences`. Tipo de evidencia `compliance.evidence_types` `EVT-TEC-06` (Informe de calidad de datos de entrada) |
 | SoA ISO 42001 | `organization_soa_controls`, `organization_soa_metadata`, `organization_soa_system_links`, `soa_controls_log`, `soa_lifecycle_log`. El catálogo de controles está en `apps/web/lib/templates/iso42001-catalog.ts` |
 | AISIA | v1.6: documento del expediente (`documents.template_key = 'aisia'`). Las tablas del asistente (`aisia_assessments`, `aisia_sections`, `aisia_ai_generations`) se retiraron en B15c |
 | Riesgos de negocio | `business_risk_assessments` (exposición calculada como probabilidad × impacto) |
@@ -342,7 +345,7 @@ Diferencias con el contrato `docs/ingesta.md`:
 | `cost-budgets` | `40 * * * *` | Umbrales de presupuesto: señal y aviso por canal |
 | `hitl-discordance` | `30 6 * * *` | Picos de discordancia HITL: señal y aviso por canal |
 | `outbox` | `*/5 * * * *` | Entrega de webhooks salientes |
-| `reevaluation-triggers` | `45 6 * * *` | Disparadores de reevaluación (B21), informe anual del Art. 26.10 (B21c), cese del uso (B27) y tarea anual «Celebrar la revisión por la dirección» (origen `management_review`, B20c). v1.11 |
+| `reevaluation-triggers` | `45 6 * * *` | Disparadores de reevaluación (B21), informe anual del Art. 26.10 (B21c), cese del uso (B27) y tarea anual «Celebrar la revisión por la dirección» (origen `management_review`, B20c). v1.11. Tareas «Verificar los datos de entrada» y «Revisar el funcionamiento» (origen `operation_check`, B28). v1.12 |
 
 [!] `infra/schedules/README.md` está desactualizado: habla de 4 trabajos y dice que sin secreto el endpoint queda abierto.
 [!] Las señales que generan los crons no pasan por `dispatchSignal`, así que no crean historial, aviso in-app ni tarea.
@@ -671,6 +674,7 @@ Se documentan como «pendiente de implementar». No se describen como existentes
 | — | Catálogo de tablas básicas por organización: cada `org_admin` mantiene el suyo sin afectar a otros clientes (v1.3, §14.1) | Hoy el esquema `compliance` es global, sin `organization_id` |
 | — | Copia del catálogo estándar al crear una organización (v1.4, §14.1) | Trigger de alta de organización (`grant_trial_modules` como precedente) |
 | — | Oferta de actualizaciones del catálogo estándar al `org_admin`, que las acepta o rechaza (v1.4, §14.1) | Ninguna |
+| — | Datos de entrada y vigilancia del funcionamiento (Art. 26.4 y 26.5; DP-12) | v1.12: implementado en B28. Pendiente: que las señales de los monitores cuenten como verificación automática |
 | — | Modelo LLM configurable por organización (v1.2) | Hoy fijo por entorno: `FLUXION_*_MODEL` en agents y `gpt-5.4` en código en SoA |
 | — | Configuración de los planes `starter`/`pro`/`enterprise` (v1.2: pendiente de configuración) | `organizations.plan` |
 
