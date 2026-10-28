@@ -2,6 +2,8 @@ import 'server-only'
 
 import { createFluxionClient } from '@/lib/supabase/fluxion'
 
+import { isReviewMode, type ReviewMode } from './review-mode'
+
 /**
  * Panel de supervisión humana.
  *
@@ -85,9 +87,10 @@ export function detectarSesgo(o: HitlOverview): AvisoSesgo[] {
     }))
 }
 
-export async function getHitlOverview(days = 90): Promise<HitlOverview> {
+/** Resumen de la organización o, con `systemId`, de un sistema (B30a). */
+export async function getHitlOverview(days = 90, systemId: string | null = null): Promise<HitlOverview> {
   const fluxion = createFluxionClient()
-  const { data, error } = await fluxion.rpc('hitl_overview', { p_days: days })
+  const { data, error } = await fluxion.rpc('hitl_overview', { p_days: days, p_system_id: systemId })
 
   if (error) {
     console.error('getHitlOverview:', error)
@@ -110,4 +113,17 @@ export async function getHitlOverview(days = 90): Promise<HitlOverview> {
     ...o,
     totales: { ...vacio.totales, ...(o.totales ?? {}) },
   }
+}
+
+export type HitlSystem = { id: string; name: string; mode: ReviewMode | null; level: string | null }
+
+/** Sistemas de la organización (sin los retirados) con su modalidad de supervisión (B30a). */
+export async function getHitlSystems(): Promise<HitlSystem[]> {
+  const { data } = await createFluxionClient()
+    .from('ai_systems')
+    .select('id, name, status, oversight_review_mode, aiact_risk_level')
+    .neq('status', 'retirado')
+    .order('name')
+  return ((data ?? []) as Array<{ id: string; name: string; oversight_review_mode: string | null; aiact_risk_level: string | null }>)
+    .map((s) => ({ id: s.id, name: s.name, mode: isReviewMode(s.oversight_review_mode) ? s.oversight_review_mode : null, level: s.aiact_risk_level }))
 }

@@ -123,6 +123,7 @@ apartado 4. La fase 4 añade funcionalidad.
 | **DP-10** | Términos y modelo de datos pendientes de la especificación del cuestionario (`_pendientes.md` 236 a 242) | B13 | **Decidida** (2026-10-20): ver la [especificación](cuestionario-preliminar-reglas.md), «Decisiones del 2026-10-20» |
 | **DP-11** | Aplicabilidad de los documentos del expediente según el rol en la cadena de valor y el nivel de riesgo | B16 | **Decidida** (2026-10-27). Ver §5 |
 | **DP-12** | Datos de entrada (Art. 26.4), vigilancia del funcionamiento (Art. 26.5) y FRIA cuando no aplica | B28, B29 | **Decidida** (2026-10-28): fichas declarativas con verificaciones periódicas y evidencias (informe de calidad o perfilado y/o muestra anonimizada; nunca el dataset en bruto); revisión del funcionamiento trimestral y verificación de los datos de entrada semestral, modificables por sistema; obligatorias en alto riesgo con la organización como responsable del despliegue y opcionales en el resto; tipo de evidencia «Registro de monitorización» asociado al Art. 26.5 y nuevo «Informe de calidad de datos de entrada» para el Art. 26.4; señales automáticas como verificación, más adelante. FRIA: si no aplica, la pestaña explica el motivo (o pide la respuesta que falta) y se puede redactar como buena práctica, sin que cuente como obligación |
+| **DP-13** | Supervisión humana de decisiones (menú «Supervisión humana») | B30 | **Decidida** (2026-10-28): dos entregas. B30a: pantalla vacía con los pasos y los identificadores, filtro por sistema, resumen en la ficha y modalidad de supervisión por sistema (por caso, por muestreo o solo vigilancia del funcionamiento), con aviso de los sistemas por caso sin decisiones en 30 días. B30b: importar decisiones desde CSV con las mismas comprobaciones que la API, e informe de supervisión humana en PDF como evidencia (tipo «Acta de supervisión humana»), a demanda y adjunto a cada revisión del funcionamiento (B28) |
 
 ## 5. Decisiones tomadas
 
@@ -979,6 +980,13 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   Ambas afectan a Vigente y proponen resolver su obligación.
 - **Talla:** M + M.
 - **Estado (2026-10-28):** B28a y B28b integrados juntos (una migración); B29 integrado.
+
+### B30 · Supervisión humana de decisiones
+
+- **Alcance.** DP-13. B30a: modalidad de supervisión por sistema, filtro por sistema, aviso de sistemas por caso
+  sin decisiones, pantalla vacía útil y resumen en la ficha. B30b: importación CSV e informe PDF como evidencia.
+- **Talla:** S + M.
+- **Estado (2026-10-28):** B30a integrado.
 
 ### B29 · FRIA visible y voluntaria
 

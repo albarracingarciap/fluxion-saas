@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { AlertTriangle, Eye, Gauge, ShieldCheck, Timer, Users } from 'lucide-react'
 
-import { getHitlOverview, detectarSesgo, SESGO } from '@/lib/hitl/data'
+import { getHitlOverview, getHitlSystems, detectarSesgo, SESGO } from '@/lib/hitl/data'
+import { HITL_SILENCE_DAYS, REVIEW_MODE_LABEL, silentPerCaseSystems } from '@/lib/hitl/review-mode'
+
+import { FiltroSistema } from './filtro-sistema'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Supervisión humana · CompaaS IA' }
@@ -42,10 +45,19 @@ function Kpi({ icon, label, value, hint, tone = 'normal' }: {
 export default async function SupervisionPage({
   searchParams,
 }: {
-  searchParams: { dias?: string }
+  searchParams: { dias?: string; sistema?: string }
 }) {
   const dias = RANGOS.includes(Number(searchParams.dias)) ? Number(searchParams.dias) : 90
-  const o = await getHitlOverview(dias)
+  const systems = await getHitlSystems()
+  // B30a: filtro por sistema; solo se acepta un sistema de la organización.
+  const sistema = systems.find((x) => x.id === searchParams.sistema) ?? null
+  const [o, recientes] = await Promise.all([
+    getHitlOverview(dias, sistema?.id ?? null),
+    getHitlOverview(HITL_SILENCE_DAYS),
+  ])
+  const conDecisiones = new Set(recientes.por_sistema.map((x) => x.system_id))
+  const silencios = silentPerCaseSystems(systems, conDecisiones).filter((x) => !sistema || x.id === sistema.id)
+  const qs = sistema ? `&sistema=${sistema.id}` : ''
   const t = o.totales
   const sesgo = detectarSesgo(o)
 
@@ -66,10 +78,11 @@ export default async function SupervisionPage({
             ha estado en desacuerdo con la máquina.
           </p>
         </div>
-        <div className="flex gap-1.5 shrink-0">
+        <div className="flex gap-1.5 shrink-0 flex-wrap items-center">
+          <FiltroSistema systems={systems} actual={sistema?.id ?? null} dias={dias} />
           {RANGOS.map((r) => (
             <Link
-              key={r} href={`/supervision?dias=${r}`}
+              key={r} href={`/supervision?dias=${r}${qs}`}
               className={`px-3 py-1.5 rounded-[7px] font-sora text-[12.5px] border transition-colors ${
                 r === dias ? 'border-brand-cyan text-brand-cyan bg-ltcard' : 'border-ltb text-lttm hover:text-ltt'
               }`}
@@ -80,16 +93,90 @@ export default async function SupervisionPage({
         </div>
       </div>
 
-      {t.decisiones === 0 ? (
-        <div className="border border-dashed border-ltb rounded-[12px] p-10 text-center">
-          <p className="font-sora text-[13.5px] text-ltt">Todavía no hay decisiones registradas.</p>
-          <p className="font-sora text-[12.5px] text-lttm mt-2 max-w-lg mx-auto">
-            Cada vez que una persona confirme, modifique o rechace una sugerencia de IA,
-            envíala a <code className="font-plex">/api/ingest/v1/hitl-decisions</code> con
-            una clave que tenga el permiso <strong>Registrar decisiones humanas</strong>.
-            Solo referencias seudonimizadas: nunca el contenido del caso.
+      {/* B30a: sistemas que deberían enviar decisiones y no lo hacen. */}
+      {silencios.length > 0 && (
+        <div className="border border-orb bg-[var(--or-dim,#fff8ef)] rounded-[12px] p-4">
+          <p className="font-sora text-[13px] text-or font-semibold flex items-center gap-1.5">
+            <AlertTriangle size={14} /> Sistemas con supervisión por caso sin decisiones en {HITL_SILENCE_DAYS} días
           </p>
+          <p className="font-sora text-[12.5px] text-ltt mt-1.5">
+            Su supervisión documentada dice que cada resultado lo revisa una persona, pero no llega ninguna decisión.
+            O no se están enviando o la modalidad indicada no es la real.
+          </p>
+          <div className="mt-2 flex flex-col gap-1">
+            {silencios.map((x) => (
+              <Link key={x.id} href={`/inventario/${x.id}`} className="font-sora text-[12.5px] text-brand-cyan hover:underline w-fit">{x.name}</Link>
+            ))}
+          </div>
         </div>
+      )}
+
+      {t.decisiones === 0 ? (
+        sistema ? (
+          <div className="border border-dashed border-ltb rounded-[12px] p-10 text-center">
+            <p className="font-sora text-[13.5px] text-ltt">{sistema.name} no tiene decisiones registradas en los últimos {dias} días.</p>
+            <p className="font-sora text-[12.5px] text-lttm mt-2">
+              Modalidad de supervisión: {sistema.mode ? REVIEW_MODE_LABEL[sistema.mode] : 'sin indicar (en la ficha del sistema, Supervisión documentada)'}.
+            </p>
+          </div>
+        ) : (
+          <div className="border border-dashed border-ltb rounded-[12px] p-8 flex flex-col gap-4">
+            <div>
+              <p className="font-sora text-[14px] text-ltt font-semibold">Todavía no hay decisiones registradas</p>
+              <p className="font-sora text-[12.5px] text-lttm mt-1 max-w-3xl">
+                Esta pantalla muestra cada vez que una persona confirma, modifica o rechaza un resultado de un sistema de IA.
+                Las decisiones las envía la aplicación donde se revisan los resultados. Solo referencias seudonimizadas:
+                nunca el contenido del caso.
+              </p>
+            </div>
+            <ol className="flex flex-col gap-3 font-sora text-[12.5px] text-ltt2 list-decimal pl-5">
+              <li>
+                Indica en la ficha de cada sistema, en <strong>Supervisión documentada</strong>, su modalidad de supervisión.
+                Solo los sistemas <em>por caso</em> o <em>por muestreo</em> envían decisiones.
+              </li>
+              <li>
+                Crea una clave en{' '}
+                <Link href="/ajustes?tab=api" className="text-brand-cyan hover:underline">Ajustes › API y desarrolladores</Link>{' '}
+                con el permiso <strong>Registrar decisiones humanas</strong>.
+              </li>
+              <li>
+                Envía cada decisión a <code className="font-plex">POST /api/ingest/v1/hitl-decisions</code> (hasta 100 por
+                envío), con el identificador del sistema:
+                <pre className="mt-2 bg-ltcard border border-ltb rounded-[8px] p-3 font-plex text-[11.5px] text-ltt overflow-x-auto">{`{
+  "system_id": "<identificador del sistema>",
+  "case_ref": "CASO-2026-00123",
+  "ai_suggestion": "aprobar",
+  "decision": "overridden",
+  "human_outcome": "denegar",
+  "reason_code": "datos_incompletos",
+  "reviewer_ref": "REV-07",
+  "decided_in_ms": 48000
+}`}</pre>
+                <span className="block mt-1 text-lttm">
+                  <code className="font-plex">decision</code>: <code className="font-plex">accepted</code> (confirma),{' '}
+                  <code className="font-plex">modified</code>, <code className="font-plex">overridden</code> (lo cambia) o{' '}
+                  <code className="font-plex">not_used</code> (no usa el resultado).
+                </span>
+              </li>
+            </ol>
+            {systems.length > 0 && (
+              <div>
+                <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm mb-2">Identificadores de los sistemas</p>
+                <table className="w-full font-sora text-[12px]">
+                  <tbody>
+                    {systems.map((x) => (
+                      <tr key={x.id} className="border-t border-ltb">
+                        <td className="py-1.5 text-ltt">{x.name}</td>
+                        <td className="py-1.5 text-lttm">{x.mode ? REVIEW_MODE_LABEL[x.mode] : 'Modalidad sin indicar'}</td>
+                        <td className="py-1.5 font-plex text-[11px] text-ltt2 select-all">{x.id}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <>
           {/* Sesgo de automatización — lo primero, porque es lo que nadie mira */}
@@ -173,7 +260,7 @@ export default async function SupervisionPage({
               <div className="flex flex-col gap-2.5">
                 {o.por_sistema.map((s) => (
                   <div key={s.system_id} className="flex items-baseline justify-between gap-3">
-                    <Link href={`/inventario/${s.system_id}`}
+                    <Link href={`/supervision?dias=${dias}&sistema=${s.system_id}`}
                           className="font-sora text-[13px] text-ltt hover:text-brand-cyan truncate">
                       {s.system_name ?? 'Sistema'}
                     </Link>

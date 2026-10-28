@@ -13,6 +13,9 @@ fuente:
   - supabase/migrations/20260825090000_hitl_decisions.sql
   - supabase/migrations/20260825120000_hitl_overview.sql
   - supabase/migrations/20260826090000_hitl_discordance_spikes.sql
+  - supabase/migrations/20261028230000_supervision_modalidad_filtro.sql
+  - apps/web/lib/hitl/review-mode.ts
+  - apps/web/app/(app)/supervision/filtro-sistema.tsx
 ---
 
 # Supervisión humana
@@ -41,6 +44,9 @@ máquina.» (AI Act, Art. 14).
 ## Campos
 
 **Periodo:** **30 días**, **90 días** (por defecto) o **180 días**.
+
+**Sistema** (B30a): **Todos los sistemas** o uno (`?sistema=`). Los indicadores, las listas y el gráfico se
+filtran por él; el nombre de cada sistema en la lista por sistema lleva a la vista filtrada.
 
 | Bloque | Contenido |
 |---|---|
@@ -80,7 +86,16 @@ decisiones, al menos 98 % de concordancia y mediana por debajo de 5 segundos. «
 - Se envían con una [clave API](../glosario.md#clave-api) con el permiso **Registrar decisiones humanas**.
 - Solo se admiten referencias seudonimizadas. Se rechazan los metadatos que parecen contenido del caso.
 
-Si no hay datos: «Todavía no hay decisiones registradas.», con las instrucciones de envío.
+**Sistemas por caso sin decisiones** (B30a): aviso con los sistemas cuya
+[modalidad de supervisión](../glosario.md#modalidad-de-supervisión) es **Por caso** y no tienen decisiones en los
+últimos 30 días, con enlace a su ficha. La modalidad se indica en la ficha del sistema, en **Supervisión
+documentada**.
+
+Si no hay datos:
+- **Sin filtro:** «Todavía no hay decisiones registradas», con tres pasos (indicar la modalidad de cada sistema;
+  crear una clave en **Ajustes › API y desarrolladores**, enlace con `?tab=api`; enviar las decisiones a
+  `POST /api/ingest/v1/hitl-decisions`, con un ejemplo), y los identificadores de los sistemas con su modalidad.
+- **Con un sistema:** «{sistema} no tiene decisiones registradas en los últimos N días», con su modalidad.
 
 **Alerta de discordancia:** cada día se comparan los últimos 7 días de cada sistema con los 60 anteriores.
 Si la discordancia sube al menos 8 puntos, con un mínimo de 30 decisiones recientes y 50 de referencia:
@@ -105,6 +120,7 @@ Si la discordancia sube al menos 8 puntos, con un mínimo de 30 decisiones recie
 | Acción | Quién | Qué hace | Efectos |
 |---|---|---|---|
 | **30 días** / **90 días** / **180 días** | Todos | Cambia el periodo | — |
+| Selector de sistema | Todos | Filtra el panel por un sistema (B30a) | — |
 
 ## Validaciones
 

@@ -104,6 +104,12 @@ function parseNotifPrefs(raw: unknown): NotificationPrefs {
 export default function AjustesPage() {
   const { profile, organization, loadUserData } = useAuthStore()
   const [activeTab, setActiveTab]         = useState<TabKey>('mi-cuenta')
+
+  // ?tab=api: enlace directo a una pestaña (B30a, desde Supervisión humana).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab && [...PERSONAL_TABS, ...WORKSPACE_TABS].some((t) => t.key === tab)) setActiveTab(tab as TabKey)
+  }, [])
   const [accountPrefs, setAccountPrefs]   = useState<AccountPrefs>(DEFAULT_ACCOUNT_PREFS)
   const [notifPrefs, setNotifPrefs]       = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS)
   const [prefsLoaded, setPrefsLoaded]     = useState(false)

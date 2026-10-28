@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 
 import { logAuditEvent } from '@/lib/audit';
 import { hasAnyRole } from '@/lib/auth/roles';
+import { getHitlOverview } from '@/lib/hitl/data';
+import { isReviewMode, type ReviewMode } from '@/lib/hitl/review-mode';
 import {
   TRAINING_KIND_LABEL,
   TRAINING_STATUS_LABEL,
@@ -40,6 +42,10 @@ export type OversightPerson = {
 export type SystemOversight = {
   canEdit: boolean;
   measures: string;
+  /** Modalidad de supervisión (B30a). */
+  reviewMode: ReviewMode | null;
+  /** Decisiones registradas en Supervisión humana en los últimos 90 días (B30a). */
+  hitl: { decisions: number; agreements: number; medianMs: number | null };
   people: OversightPerson[];
   documented: boolean;
   checks: OversightCheck[];
@@ -66,7 +72,7 @@ export async function getSystemOversight(systemId: string): Promise<SystemOversi
 
   const { data: system } = await fluxion
     .from('ai_systems')
-    .select('id, human_oversight_owner_id, human_oversight_backup_id, oversight_measures')
+    .select('id, human_oversight_owner_id, human_oversight_backup_id, oversight_measures, oversight_review_mode')
     .eq('id', systemId)
     .eq('organization_id', orgId)
     .maybeSingle();
@@ -121,9 +127,12 @@ export async function getSystemOversight(systemId: string): Promise<SystemOversi
     measures: (system.oversight_measures as string | null) ?? null,
   });
 
+  const hitl = await getHitlOverview(90, systemId);
   return {
     canEdit: hasAnyRole(profile, EDIT_ROLES),
     measures: (system.oversight_measures as string | null) ?? '',
+    reviewMode: isReviewMode(system.oversight_review_mode) ? system.oversight_review_mode : null,
+    hitl: { decisions: hitl.totales.decisiones, agreements: hitl.totales.conformes, medianMs: hitl.totales.mediana_ms },
     people,
     documented: estado.documented,
     checks: estado.checks,
@@ -186,7 +195,7 @@ export async function saveOversightPerson(input: {
   return { ok: true };
 }
 
-export async function saveOversightMeasures(input: { systemId: string; measures: string }): Promise<{ ok: true } | { error: string }> {
+export async function saveOversightMeasures(input: { systemId: string; measures: string; reviewMode?: ReviewMode | null }): Promise<{ ok: true } | { error: string }> {
   const c = await ctx();
   if (!c) return { error: 'No autenticado.' };
   const { fluxion, profile } = c;
@@ -194,9 +203,15 @@ export async function saveOversightMeasures(input: { systemId: string; measures:
     return { error: 'Solo el Administrador, el Responsable del SGAI o el Responsable del sistema documentan la supervisión.' };
   }
 
+  if (input.reviewMode != null && !isReviewMode(input.reviewMode)) return { error: 'Modalidad de supervisión no válida.' };
+
   const { data: updated, error } = await fluxion
     .from('ai_systems')
-    .update({ oversight_measures: input.measures.trim() || null })
+    .update({
+      oversight_measures: input.measures.trim() || null,
+      // B30a: modalidad de supervisión; `undefined` la deja como está.
+      ...(input.reviewMode !== undefined ? { oversight_review_mode: input.reviewMode } : {}),
+    })
     .eq('id', input.systemId)
     .eq('organization_id', profile.organization_id)
     .select('id, name');
@@ -212,7 +227,7 @@ export async function saveOversightMeasures(input: { systemId: string; measures:
     target_type: 'organization',
     target_id: input.systemId,
     target_label: String((updated[0] as { name: string }).name),
-    metadata: { field: 'oversight_measures' },
+    metadata: { field: 'oversight_measures', review_mode: input.reviewMode ?? null },
   });
 
   revalidatePath(`/inventario/${input.systemId}`);

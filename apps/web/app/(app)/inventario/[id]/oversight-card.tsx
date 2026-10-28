@@ -3,7 +3,9 @@
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Circle, Loader2, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, Loader2, ShieldCheck } from 'lucide-react';
+
+import { REVIEW_MODES, REVIEW_MODE_HINT, REVIEW_MODE_LABEL, type ReviewMode } from '@/lib/hitl/review-mode';
 
 import {
   getSystemOversight,
@@ -26,13 +28,14 @@ export function OversightCard({ systemId }: { systemId: string }) {
   const [data, setData] = useState<SystemOversight | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [measures, setMeasures] = useState('');
+  const [mode, setMode] = useState<ReviewMode | ''>('');
   const [saving, startSaving] = useTransition();
   const router = useRouter();
 
   async function cargar() {
     const res = await getSystemOversight(systemId);
     if ('error' in res) setError(res.error);
-    else { setData(res); setMeasures(res.measures); }
+    else { setData(res); setMeasures(res.measures); setMode(res.reviewMode ?? ''); }
   }
 
   useEffect(() => { void cargar(); }, [systemId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -40,7 +43,7 @@ export function OversightCard({ systemId }: { systemId: string }) {
   function guardarMedidas() {
     setError(null);
     startSaving(async () => {
-      const res = await saveOversightMeasures({ systemId, measures });
+      const res = await saveOversightMeasures({ systemId, measures, reviewMode: mode || null });
       if ('error' in res) setError(res.error);
       await cargar();
       router.refresh();
@@ -73,10 +76,34 @@ export function OversightCard({ systemId }: { systemId: string }) {
         onChange={(e) => setMeasures(e.target.value)}
         placeholder="Qué se revisa, cada cuánto y cómo se interviene o se detiene el sistema."
       />
-      {data.canEdit && measures !== data.measures && (
+      <label className="block font-sora text-[11.5px] text-ltt2 mt-2 mb-1">Modalidad de supervisión</label>
+      <select
+        className={inputCls}
+        disabled={!data.canEdit || saving}
+        value={mode}
+        onChange={(e) => setMode(e.target.value as ReviewMode | '')}
+      >
+        <option value="">Sin indicar</option>
+        {REVIEW_MODES.map((m) => <option key={m} value={m}>{REVIEW_MODE_LABEL[m]}</option>)}
+      </select>
+      {mode && <p className="mt-1 font-sora text-[11px] text-lttm">{REVIEW_MODE_HINT[mode]}</p>}
+      {data.canEdit && (measures !== data.measures || (mode || null) !== data.reviewMode) && (
         <button type="button" onClick={guardarMedidas} disabled={saving} className="mt-1 font-sora text-[11.5px] text-brand-cyan hover:underline">
           Guardar medidas
         </button>
+      )}
+
+      {/* B30a: decisiones registradas en Supervisión humana. */}
+      {(mode === 'per_case' || mode === 'sampling' || data.hitl.decisions > 0) && (
+        <p className="mt-2 font-sora text-[11.5px] text-ltt2 flex items-start gap-1.5">
+          <Eye className="w-3.5 h-3.5 text-lttm shrink-0 mt-px" />
+          <span>
+            {data.hitl.decisions > 0
+              ? `${data.hitl.decisions} decisiones en 90 días · ${Math.round((data.hitl.agreements / data.hitl.decisions) * 100)} % de concordancia con la IA. `
+              : 'Sin decisiones registradas en 90 días. '}
+            <Link href={`/supervision?sistema=${systemId}`} className="text-brand-cyan hover:underline">Ver en Supervisión humana</Link>
+          </span>
+        </p>
       )}
 
       <ul className="mt-3 flex flex-col gap-1">

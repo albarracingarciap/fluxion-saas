@@ -2890,3 +2890,35 @@ correctos. No se ha probado en el navegador.
 
 **Documentación.** `producto/plan-resolucion-gaps.md` (B28), `tecnica/modelo-datos.md`,
 `tecnica/tareas-programadas.md`, `_pendientes.md` (314: mapa; 315: glosario; 316: inventario).
+
+## B30a · Supervisión humana: modalidad por sistema y filtro
+
+**Fecha:** 2026-10-28 · **Rama:** `fase5/b30a-supervision-decisiones` ·
+**Migración:** **sí**, `supabase/migrations/20261028230000_supervision_modalidad_filtro.sql`
+
+**Problema:** el menú **Supervisión humana** solo se alimenta por la API de ingesta; sin integración la pantalla
+queda vacía y no orienta, no se puede filtrar por sistema, la ficha no muestra las decisiones del sistema y no se
+sabe qué sistemas deberían enviar decisiones.
+
+**Decisiones del responsable (2026-10-28, DP-13):** dos entregas; esta es la primera (a + b). Modalidades «Por caso»,
+«Por muestreo» y «Solo vigilancia del funcionamiento»; aviso a los 30 días sin decisiones en los sistemas por caso.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `ai_systems.oversight_review_mode` ∈ `per_case`, `sampling`, `monitoring_only`; `hitl_overview(p_days, p_system_id)` con filtro opcional por sistema |
+| Reglas (`lib/hitl/review-mode.ts`, nuevo, puro) | Modalidades, textos de ayuda y sistemas por caso sin decisiones recientes |
+| Supervisión humana | Selector de sistema; aviso «Sistemas con supervisión por caso sin decisiones en 30 días»; pantalla vacía con tres pasos, ejemplo de envío e identificadores de los sistemas |
+| Ficha · Supervisión documentada | Selector **Modalidad de supervisión** junto a las medidas; resumen de las decisiones del sistema en 90 días con enlace a la vista filtrada |
+| Ajustes | `?tab=` abre una pestaña (enlace a **API y desarrolladores**) |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas); con decisiones de dos sistemas, el
+resumen da 5 en total y 3 y 2 por sistema; una modalidad inválida se rechaza. `npm test` 224/224 (dos tests nuevos),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web: la función cambia de firma y la web nueva ya la
+llama con el sistema.
+
+**Documentación.** `funcional/supervision-humana.md`, `producto/plan-resolucion-gaps.md` (DP-13, B30),
+`_pendientes.md` (317: glosario; 318: inventario).
