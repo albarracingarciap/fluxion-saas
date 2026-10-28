@@ -2850,3 +2850,43 @@ correctos. No se ha probado en el navegador.
 **Despliegue.** Solo web, sin migración.
 
 **Documentación.** `producto/plan-resolucion-gaps.md` (DP-12, B28 y B29), `funcional/expediente-documental.md`.
+
+## B28 · Datos de entrada y vigilancia del funcionamiento
+
+**Fecha:** 2026-10-28 · **Rama:** `fase5/b28-datos-entrada-vigilancia` ·
+**Migración:** **sí**, `supabase/migrations/20261028220000_datos_entrada_vigilancia.sql`
+
+**Problema** (documento de comprobación): «verificar la idoneidad de los datos de entrada y los usos del sistema de
+IA y vigilar continuamente su funcionamiento». Las obligaciones del AI Act, Art. 26.4 y 26.5, se resolvían a mano:
+no había dónde declarar qué datos espera el sistema ni cómo se vigila, ni constancia de las comprobaciones.
+
+**Decisiones del responsable (2026-10-28, DP-12):** fichas declarativas con verificaciones periódicas y
+evidencias (informe de calidad o perfilado y/o muestra anonimizada, nunca el dataset en bruto); verificación de los
+datos de entrada semestral y revisión del funcionamiento trimestral, modificables por sistema; obligatorias en
+alto riesgo con la organización como responsable del despliegue y opcionales en el resto; «Registro de
+monitorización» para el Art. 26.5 y nuevo «Informe de calidad de datos de entrada» para el Art. 26.4; las señales
+automáticas como verificación, más adelante.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `system_input_data`, `system_monitoring_plan`, `system_operation_checks` (no se modifican ni se borran) y sus evidencias, con RLS (Administrador, Responsable del SGAI y Responsable del sistema); tipo de evidencia `EVT-TEC-06` y tipos recomendados de los Art. 26.4 y 26.5; origen de tarea `operation_check` |
+| Reglas (`lib/governance/operation.ts`, nuevo, puro) | Estado de cada ficha, vencimiento, aviso 15 días antes, indicadores sugeridos y resumen de datos del periodo. Si los datos de entrada solo los controla el proveedor, basta con declararlo |
+| Datos del periodo (`lib/governance/operation-server.ts`, nuevo) | Señales recibidas, decisiones de supervisión humana y discordancia, telemetría (llamadas y errores), incidentes, suspensiones y avisos del sistema |
+| Vista nueva | **Datos de entrada y vigilancia del funcionamiento** (`/inventario/[id]/operacion`): ficha de los datos de entrada, plan de vigilancia con indicadores, umbrales, fuente, frecuencia y responsable, y registro de verificaciones y revisiones con resultado, medidas y evidencias (subir un informe o una muestra, o vincular una existente). Con desviaciones, enlaza con **Uso del sistema** (suspender y avisar al proveedor) e **Incidentes** |
+| Ficha del sistema | Tarjeta **Datos de entrada y vigilancia** con el estado de cada parte y el enlace a la vista |
+| Etapa y plan de despliegue | Nuevo punto de Vigente «Datos de entrada y funcionamiento verificados en plazo» (solo donde aplica el Art. 26); nuevo punto del plan de despliegue «Funcionamiento vigilado según las instrucciones (Art. 26.5)» |
+| Obligaciones | Propuestas de «Resuelta» para los Art. 26.4 y 26.5 |
+| Cron `reevaluation-triggers` | Tarea **Verificar los datos de entrada · …** o **Revisar el funcionamiento · …** 15 días antes del vencimiento (o ya, si no hay ninguna); se completa al registrarla |
+| Auditoría | `system.input_data_updated`, `system.monitoring_plan_updated`, `system.operation_check_recorded` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas): el Lector no declara, las
+verificaciones no se modifican, el resumen es obligatorio, no se mezclan organizaciones, tipo `EVT-TEC-06` y tarea
+`operation_check`. `npm test` 222/222 (seis tests nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web; el cron ya está programado.
+
+**Documentación.** `producto/plan-resolucion-gaps.md` (B28), `tecnica/modelo-datos.md`,
+`tecnica/tareas-programadas.md`, `_pendientes.md` (314: mapa; 315: glosario; 316: inventario).

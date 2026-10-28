@@ -73,8 +73,9 @@ function getSourceHref(task: TaskRow): string | null {
   // Requerimientos de la autoridad (B25d).
   if (task.source_type === 'authority_request' && task.source_id)
     return `/incidentes/requerimientos/${task.source_id}`
-  // Reevaluación (B21a), informe anual del Art. 26.10 (B21c) y cese del uso (B27): source_id es el sistema.
-  if ((task.source_type === 'reevaluation' || task.source_type === 'annual_report' || task.source_type === 'cease_use') && task.source_id)
+  // Reevaluación (B21a), informe anual del Art. 26.10 (B21c), cese del uso (B27) y
+  // verificaciones de datos de entrada y funcionamiento (B28): source_id es el sistema.
+  if ((task.source_type === 'reevaluation' || task.source_type === 'annual_report' || task.source_type === 'cease_use' || task.source_type === 'operation_check') && task.source_id)
     return `/inventario/${task.source_id}`
   // Acuerdos de una sesión de comité (B20b): source_id es la sesión.
   if (task.source_type === 'committee_session' && task.source_id)

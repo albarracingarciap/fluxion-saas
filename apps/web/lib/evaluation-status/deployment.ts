@@ -42,8 +42,9 @@ export type DeploymentPlanFacts = {
   oversightDocumented: boolean
   /** null si la FRIA no aplica (DP-11). */
   fria: { approved: boolean; notified: boolean } | null
-  /** AI-ACT-ART26-4, 26-7 y 26-11. */
+  /** AI-ACT-ART26-4, 26-5 (B28), 26-7 y 26-11. */
   inputData: DeploymentObligation
+  monitoring?: DeploymentObligation
   workersInformed: DeploymentObligation
   affectedInformed: DeploymentObligation
 }
@@ -88,6 +89,7 @@ export function deploymentPlan(f: DeploymentPlanFacts): DeploymentPlan | null {
     if (estado) items.push({ key, label, done: estado === 'resolved', href: obligaciones })
   }
   obligacion('datos_entrada', 'Datos de entrada pertinentes y representativos (Art. 26.4)', f.inputData)
+  obligacion('vigilancia', 'Funcionamiento vigilado según las instrucciones (Art. 26.5)', f.monitoring ?? null)
   obligacion('trabajadores', 'Trabajadores y sus representantes informados (Art. 26.7)', f.workersInformed)
   obligacion('afectados', 'Personas afectadas informadas (Art. 26.11)', f.affectedInformed)
 

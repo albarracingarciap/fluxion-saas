@@ -6,6 +6,7 @@ import { pickReferenceEvaluation } from '@/lib/fmea/lifecycle-rules'
 import { createComplianceClient } from '@/lib/supabase/compliance'
 import { deploymentPlan, deploymentPlanApplies, type DeploymentObligation, type DeploymentPlan } from './deployment'
 import { loadOversightStatus } from '@/lib/governance/oversight-server'
+import { loadOperationStatuses } from '@/lib/governance/operation-server'
 import { pendingReevaluations } from './reevaluation'
 import { loadOpenTriggers, loadReevaluationFacts } from './reevaluation-server'
 import { systemStage, type RequiredDocumentFact, type SystemStage } from './stages'
@@ -131,6 +132,8 @@ export async function loadSystemStages(
     .filter((s) => deploymentPlanApplies(s.aiact_result?.level ?? s.aiact_risk_level ?? null, applicabilityFacts(s).valueChainRoles))
     .map((s) => s.id)
   const supervision = await loadOversightStatus(fluxion, organizationId, conPlan)
+  // B28: datos de entrada y vigilancia del funcionamiento (solo donde aplica el Art. 26).
+  const operacion = await loadOperationStatuses(fluxion, organizationId, conPlan)
   // Disparadores de reevaluación abiertos (B21a) y lo aprobado que los resuelve.
   const disparadores = await loadOpenTriggers(fluxion, organizationId, systemIds)
   const hechosReevaluacion = await loadReevaluationFacts(fluxion, organizationId, Array.from(disparadores.keys()))
@@ -189,6 +192,9 @@ export async function loadSystemStages(
       pendingReevaluations: hechosReevaluacion.has(s.id)
         ? pendingReevaluations(disparadores.get(s.id) ?? [], hechosReevaluacion.get(s.id)!)
         : 0,
+      overdueOperationChecks: operacion.has(s.id)
+        ? Number(operacion.get(s.id)!.inputData.overdue) + Number(operacion.get(s.id)!.monitoring.overdue)
+        : undefined,
     })
 
     // Documentación del proveedor válida: por su etiqueta o por su tipo del catálogo.
@@ -218,6 +224,7 @@ export async function loadSystemStages(
       oversightDocumented: supervision.get(s.id)?.documented ?? false,
       fria: friaAplica ? { approved: friaDocs.length > 0, notified: friaDocs.some((d) => friaNotificada.has(d.id)) } : null,
       inputData: obligacion('AI-ACT-ART26-4'),
+      monitoring: obligacion('AI-ACT-ART26-5'),
       workersInformed: obligacion('AI-ACT-ART26-7'),
       affectedInformed: obligacion('AI-ACT-ART26-11'),
     })

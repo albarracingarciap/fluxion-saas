@@ -57,6 +57,7 @@ import type { DeploymentPlan } from '@/lib/evaluation-status/deployment';
 import { ResponsablesCard } from './responsables-card';
 import { UseSuspensionCard } from './use-suspension-card';
 import { LogsCard } from './logs-card';
+import { OperationCard } from './operation-card';
 import { ReevaluationCard } from './reevaluation-card';
 import { BiometricCard } from './biometric-card';
 import { ProviderClassificationCard } from './provider-classification-card';
@@ -4162,6 +4163,8 @@ export function SystemDetailClient({
             <ResponsablesCard systemId={system.id} />
 
             <LogsCard systemId={system.id} />
+
+            <OperationCard systemId={system.id} />
 
             <BiometricCard systemId={system.id} />
 

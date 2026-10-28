@@ -4,6 +4,7 @@ import { applicabilityFacts, documentApplicability } from '@/lib/documents/appli
 import { createComplianceClient } from '@/lib/supabase/compliance'
 import { loadLogRetentionStatus } from '@/lib/governance/logs-server'
 import { loadOversightStatus } from '@/lib/governance/oversight-server'
+import { loadOperationStatuses } from '@/lib/governance/operation-server'
 import type { ApprovedDocumentFact, LinkedEvidenceFact, ProposalFacts } from './proposals'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,11 +68,15 @@ export async function loadProposalFacts(fluxion: FluxionClient, aiSystemId: stri
   const supervision = orgId ? (await loadOversightStatus(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
   // Registro de logs (B25c): propone el Art. 26.6.
   const logs = orgId ? (await loadLogRetentionStatus(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
+  // Datos de entrada y vigilancia del funcionamiento (B28): proponen los Art. 26.4 y 26.5.
+  const operacion = orgId ? (await loadOperationStatuses(fluxion, orgId, [aiSystemId])).get(aiSystemId) : undefined
 
   const e = (evaluaciones ?? [])[0] as { version: number; approved_at: string | null } | undefined
   return {
     oversightDocumented: supervision?.documented ?? false,
     logsComplete: logs?.complete ?? false,
+    inputDataComplete: Boolean(operacion?.declaredInput && operacion.inputData.complete),
+    monitoringComplete: Boolean(operacion?.declaredMonitoring && operacion.monitoring.complete),
     mandatoryEvidenceTypes,
     approvedEvaluation: e ? { version: Number(e.version), approvedAt: e.approved_at ?? new Date().toISOString() } : null,
     approvedDocuments,
