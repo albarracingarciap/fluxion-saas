@@ -128,10 +128,16 @@ export function deriveEuRegistry(ref: string, ctx: EuRegistryContext): string | 
       const art63 = (s.aiact_inputs as { art63?: { justification?: string | null } } | null)?.art63
       return line('Justificación registrada en la clasificación', art63?.justification?.trim() || null)
     }
-    case 'VIII.C.3':
-      return ctx.providerRegistryUrls.length
-        ? `Entrada del proveedor en la base de datos de la UE:\n${ctx.providerRegistryUrls.join('\n')}`
-        : null
+    case 'VIII.C.3': {
+      // Número y URL indicados en la documentación del proveedor (2026-10-28) y enlaces adjuntos.
+      const numero = String(ctx.system.provider_eu_registry_number ?? '').trim()
+      const urls = Array.from(new Set([String(ctx.system.provider_eu_registry_url ?? '').trim(), ...ctx.providerRegistryUrls].filter(Boolean)))
+      if (!numero && urls.length === 0) return null
+      return [
+        numero && `Número de registro del proveedor en la base de datos de la UE: ${numero}`,
+        urls.length > 0 && `Entrada del proveedor en la base de datos de la UE:\n${urls.join('\n')}`,
+      ].filter(Boolean).join('\n')
+    }
     default:
       return null
   }

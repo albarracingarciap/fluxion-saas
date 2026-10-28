@@ -82,4 +82,6 @@ export type TemplateOption = {
   /** Aplicabilidad al sistema (DP-11): redactar, documentación del proveedor o no aplica. */
   mode: 'redactar' | 'proveedor' | 'no_aplica'
   reason: string
+  /** No aplica, pero se puede adjuntar la documentación del proveedor (Anexo IV y registro UE). */
+  optionalProviderDocs?: boolean
 }

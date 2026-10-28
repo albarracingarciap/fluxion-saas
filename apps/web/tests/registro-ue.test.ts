@@ -48,3 +48,13 @@ test('el documento muestra solo su sección', () => {
   const enB = euRegistrySectionFilter('B')
   assert.deepEqual(['VIII.A', 'VIII.A.1', 'VIII.B', 'VIII.B.6', 'VIII.C.3'].filter(enB), ['VIII.B', 'VIII.B.6'])
 })
+
+test('C.3 con el número y la URL del registro del proveedor indicados en el sistema (2026-10-28)', () => {
+  const conRegistro = { ...ctx, system: { ...sistema, provider_eu_registry_number: 'EU-HR-0001', provider_eu_registry_url: 'https://ai-db.example/0001' } }
+  const texto = deriveEuRegistry('VIII.C.3', conRegistro)!
+  assert.match(texto, /EU-HR-0001/)
+  assert.match(texto, /ai-db\.example\/0001/)
+  // La misma URL adjunta como evidencia no se repite.
+  const repetida = deriveEuRegistry('VIII.C.3', { ...conRegistro, providerRegistryUrls: ['https://ai-db.example/0001'] })!
+  assert.equal(repetida.split('https://ai-db.example/0001').length, 2)
+})

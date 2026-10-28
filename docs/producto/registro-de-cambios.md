@@ -2663,3 +2663,29 @@ datos.
 
 **Documentación.** `funcional/plan-de-tratamiento.md`, `funcional/flujo-completo-evaluacion.md` (GAP-21 y GAP-27
 resueltos), `tecnica/eventos-y-avisos.md`, `tecnica/tareas-programadas.md`.
+
+## Documentación del proveedor: también opcional, fichero y URL, y número de registro UE
+
+**Fecha:** 2026-10-28 · **Rama:** `fix/documentacion-proveedor-opcional` ·
+**Migración:** **sí**, `supabase/migrations/20261028180000_registro_ue_del_proveedor.sql`
+
+**Problema** (petición del responsable): en un sistema que no es de alto riesgo y del que la organización no es
+proveedora, el Anexo IV y la ficha para el registro UE solo decían «no aplica», sin poder adjuntar la documentación
+del proveedor. Además, cada documento del proveedor admitía un fichero o un enlace, no los dos, y el registro UE no
+tenía campo para el número de registro.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Expediente | En el Anexo IV y el registro UE, si la organización no es la proveedora y el documento no aplica, el mensaje sigue y debajo se puede adjuntar la documentación del proveedor (opcional); pestaña «· del proveedor (opcional)» |
+| Documentación del proveedor | Fichero y URL a la vez, o uno de los dos |
+| Registro UE | **Número de registro UE** y **URL de la entrada**, juntos o por separado, guardados en el sistema |
+| Plan de despliegue y Anexo VIII C.3 | El número o la URL cuentan como registro del proveedor y se vuelcan en el apartado C.3 |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas). `npm test` 198/198 (un test nuevo),
+`tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `funcional/expediente-documental.md`, `funcional/ficha-sistema.md`, `tecnica/modelo-datos.md`.
