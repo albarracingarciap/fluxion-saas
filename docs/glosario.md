@@ -31,6 +31,8 @@ fuente:
   - supabase/migrations/20261028170000_cese_uso_clasificacion_proveedor.sql
   - supabase/migrations/20261028190000_sgai_obligaciones_organizacion.sql
   - apps/web/lib/iso/management-system.ts
+  - supabase/migrations/20261028200000_comites_sesiones_acta.sql
+  - apps/web/lib/governance/committee-sessions.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -501,6 +503,21 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** número de miembros con voto de un comité necesarios para decidir. Si no se fija, es la mayoría de los miembros con voto. Cada comité indica también cómo se resuelve un empate: voto del presidente o elevación al órgano superior.
 - **No usar:** «mínimo de votos».
 - **En el código:** `fluxion.committees.quorum` (nulo = mayoría) y `tie_break` (`chair`, `escalate`).
+
+### Sesión de comité
+- **Definición:** reunión de un [comité](#comité), que se convoca en **Organización › Comités** con fecha, lugar y orden del día. Es **Ordinaria**, **Extraordinaria** o, solo en el comité Revisión por la Dirección, **Revisión por la dirección**. Pasa por **Convocada**, **En curso** y **Celebrada**, o se **Cancela** con un motivo. El orden del día puede incluir las solicitudes de aprobación pendientes del comité: la sesión deja constancia de que se trataron, pero los votos se emiten en Flujos de aprobación. Se marcan los asistentes, con el [quórum](#quórum) del comité; los **invitados** son personas ajenas al comité que asisten sin voto (distintos del [asesor](#asesor-voz-sin-voto), que es miembro). La gestionan el Administrador, el Responsable del SGAI, el CAIO y el presidente o el secretario del comité.
+- **No usar:** «reunión» a secas, «junta».
+- **En el código:** `fluxion.committee_sessions` (`session_type` ∈ `ordinary`, `extraordinary`, `management_review`; `status` ∈ `scheduled`, `in_progress`, `completed`, `cancelled`).
+
+### Acta de la sesión
+- **Definición:** constancia escrita de una [sesión de comité](#sesión-de-comité): orden del día, asistentes y quórum, desarrollo y acuerdos. Al cerrar la sesión queda bloqueada y su PDF se registra como evidencia válida de la organización. Es distinta del [acta](#acta) de una decisión de aprobación.
+- **No usar:** «minuta».
+- **En el código:** `committee_sessions.minutes_text`, `minutes_locked`, `minutes_evidence_id`; `lib/governance/committee-session-server.ts`.
+
+### Acuerdo
+- **Definición:** decisión tomada en una [sesión de comité](#sesión-de-comité), que puede ir ligada a un punto del orden del día y llevar responsable y fecha límite. Al cerrar la sesión, cada acuerdo con responsable crea una tarea **Acuerdo de comité**.
+- **No usar:** «decisión» (reservado a los votos de Flujos de aprobación), «resolución».
+- **En el código:** `committee_sessions.decisions`; tareas con `source_type = 'committee_session'`.
 
 ---
 

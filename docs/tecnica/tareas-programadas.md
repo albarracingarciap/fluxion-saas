@@ -22,6 +22,7 @@ fuente:
   - apps/web/app/api/cron/authority-request-deadlines/route.ts
   - supabase/migrations/20261028130000_requerimientos_avisos_plazo.sql
   - apps/web/app/api/cron/reevaluation-triggers/route.ts
+  - apps/web/lib/iso/management-review-server.ts
 ---
 
 # Tareas programadas
@@ -37,7 +38,7 @@ Trabajos que Fluxion ejecuta periódicamente. Hay nueve:
 | `evidence-expiry` | Crontab → web | `0 7 * * *` (diaria, 07:00) | Alertas de caducidad de evidencias a 30 días, a 7 días y vencidas, con aviso en la app al responsable al entrar en cada ventana (B22). Marca como caducadas las válidas vencidas |
 | `review-reminders` | Crontab → web | `0 8 * * 1` (lunes, 08:00) | Aviso `review_due` a cada responsable de acciones aceptadas o diferidas con revisión en 30 días o vencida |
 | `incident-deadlines` | Crontab → web | `17 * * * *` (cada hora) | Avisos de plazo de los incidentes graves al 50 %, al 80 % y al vencer |
-| `reevaluation-triggers` | Crontab → web | `45 6 * * *` (diario) | Disparadores de reevaluación: revisión del FMEA vencida, reglas de clasificación actualizadas y revisión anual de la FRIA y la AISIA; cierra los resueltos (B21a, B21b). Tarea del informe anual del Art. 26.10 del año en curso (B21c). Abre o completa la tarea «Cesar el uso» de las prácticas prohibidas (B27) |
+| `reevaluation-triggers` | Crontab → web | `45 6 * * *` (diario) | Disparadores de reevaluación: revisión del FMEA vencida, reglas de clasificación actualizadas y revisión anual de la FRIA y la AISIA; cierra los resueltos (B21a, B21b). Tarea del informe anual del Art. 26.10 del año en curso (B21c). Abre o completa la tarea «Cesar el uso» de las prácticas prohibidas (B27). Abre la tarea «Celebrar la revisión por la dirección» 30 días antes de cumplirse 12 meses desde la última (o ya, si no hubo ninguna) en las organizaciones con ISO 42001 entre sus marcos aplicables o con el comité Revisión por la Dirección, y la completa si ya se celebró (B20c) |
 | `authority-request-deadlines` | Crontab → web | `20 7 * * *` (diario) | Avisos de plazo de los requerimientos de la autoridad: 5 días o menos y vencido (B25e) |
 | `cost-budgets` | Crontab → web | `40 * * * *` (cada hora) | Compara el gasto del mes con los presupuestos y avisa del umbral más alto nuevo |
 | `hitl-discordance` | Crontab → web | `30 6 * * *` (diaria, 06:30) | Detecta subidas de discordancia en la supervisión humana y avisa |
@@ -56,7 +57,7 @@ Las horas son las del servidor y las de pg_cron, que se espera estén en UTC.
 | `evidence-expiry` | `system_evidences` | `evidence_expiry_alerts`, `system_evidences.status` | `UNIQUE (evidence_id, alert_type)`, una alerta viva por evidencia | `{checked, upserted, superseded, cleared, notified, errors, statusSynced, runAt}` |
 | `review-reminders` | `treatment_actions`, `notifications` | `notifications` | Ventana de 6 días por destinatario | `{checkedAt, totalPending, totalOverdue, orgCount, notified, skipped, unassigned, orgs}` |
 | `approval-expiry` | `approval_requests` (`expires_at`) | `approval_requests`, el objeto, `notifications` | Solo solicitudes pendientes; al cancelarlas dejan de estarlo | `{cerradas, errores}` |
-| `reevaluation-triggers` | `fmea_evaluations`, `ai_systems`, `reevaluation_triggers`, `documents` | `reevaluation_triggers` (por `reevaluation_register`), `tasks`, `ai_system_history` | Índice único del disparador abierto `(system_id, trigger_key, source_ref)` | `{checkedAt, triggersRegistered, triggersResolved, organizations, annualReportTasks, ceaseUseTasks}` |
+| `reevaluation-triggers` | `fmea_evaluations`, `ai_systems`, `reevaluation_triggers`, `documents`, `organizations`, `committees`, `committee_sessions` | `reevaluation_triggers` (por `reevaluation_register`), `tasks`, `ai_system_history` | Índice único del disparador abierto `(system_id, trigger_key, source_ref)` | `{checkedAt, triggersRegistered, triggersResolved, organizations, annualReportTasks, ceaseUseTasks, managementReviewTasks}` |
 | `authority-request-deadlines` | `authority_requests` (Recibido o En preparación, con plazo), `authority_request_deadline_alerts` | `notifications`, `channel_deliveries`, `authority_request_deadline_alerts` | Clave `(request_id, threshold, due_at)`: si cambia el plazo, se vuelve a avisar. Si ya venció, solo se avisa del vencimiento | `{checkedAt, withOpenDeadline, thresholdsAlerted, notificationsSent, deliveriesRetried}` |
 | `incident-deadlines` | `ai_incidents`, `incident_deadline_alerts` | `notifications`, `channel_deliveries`, `incident_deadline_alerts` | Clave `(incident_id, threshold)` | `{checkedAt, withOpenDeadline, thresholdsAlerted, notificationsSent, deliveriesRetried}` |
 | `cost-budgets` | `telemetry.v_budget_status`, `cost_budget_alerts` | `cost_budget_alerts`, `signals`, `channel_deliveries` | Clave `(budget_id, period_key, threshold)` y `dedupe_key` de la señal | `{checkedAt, budgets, alerted, deliveriesRetried}` |

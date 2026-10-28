@@ -6,6 +6,7 @@ import { renderPdf } from '@/lib/documents/render'
 import { loadEvidenceCatalogTypes } from '@/lib/evidences/catalog-type-server'
 import { milestoneFooterHtml, type MilestoneCover } from '@/lib/milestones/milestone-html'
 import { BUCKET_DOCUMENTS, objectKey, putObject, s3Configured } from '@/lib/storage/objects'
+import { linkReviewMinutesToClause } from '@/lib/iso/management-review-server'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 
 import { sessionMinutesHtml } from './committee-session-html'
@@ -143,6 +144,8 @@ export async function generateSessionMinutesEvidence(params: {
     if (error || !evidencia) return { aviso: 'El PDF del acta se guardó, pero no se pudo registrar como evidencia.' }
 
     await admin.from('committee_sessions').update({ minutes_evidence_id: evidencia.id }).eq('id', s.id)
+    // El acta de la revisión por la dirección acredita la cláusula §9.3 (B20c).
+    if (revision) await linkReviewMinutesToClause(admin, s.organization_id, evidencia.id)
     return { evidenceId: evidencia.id }
   } catch (e) {
     console.error('[committee-sessions] PDF del acta:', e)

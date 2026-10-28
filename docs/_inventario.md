@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.9** | **2026-10-28** | **Revisado** por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
+| **1.10** | **2026-10-28** | **Revisado** por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
+| 1.9 | 2026-10-28 | Revisado por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
 | 1.8 | 2026-10-28 | Revisado por Pedro Albarracín | Disparadores de reevaluación implementados (decisión 63, B21a): `reevaluation_triggers` deja de ser una tabla sin uso. Ver §3, §11 y §12 |
 | 1.7 | 2026-10-27 | Revisado por Pedro Albarracín | Informes del sistema consolidados (B16, DP-06) y aplicabilidad del expediente por rol y nivel (DP-11): rutas de dossier técnico, registro UE e informe de brechas redirigidas; ficha para el registro UE como plantilla `eu_registry`. Ver §2.2, §10.2 y §13.1 |
 | 1.6 | 2026-10-27 | Revisado por Pedro Albarracín | AISIA como plantilla del expediente (B15, DP-04 y DP-05): el asistente y las tablas `aisia_*` se retiran; la ruta antigua redirige al expediente. Ver §2, §4, §10.2, §11.3 y §12 |
@@ -174,6 +175,7 @@ Columna Control:
 | Ruta | Pestañas | Quién edita |
 |---|---|---|
 | `/organizacion` | Identidad, Datos legales, Perfil regulatorio, Gobernanza, Operaciones, Comités, Plan (solo lectura), Módulos | `org_admin` (comités: también `sgai_manager` y `caio`) |
+| `/organizacion/sesiones/[id]` | Sesión de comité: convocatoria, orden del día, asistentes, acta y acuerdos (v1.10, B20b) | `org_admin`, `sgai_manager`, `caio` y presidente o secretario del comité |
 | `/usuarios` | Miembros (con drawer de detalle), Invitaciones, Roles y permisos (descriptiva), Auditoría | `org_admin` |
 | `/ajustes` | Personal: Mi cuenta, Notificaciones, Sesiones. Workspace: Auditoría, Seguridad, API, Webhooks, Conectores, Canales de aviso, Aprobaciones | Personal: todos. Workspace: `org_admin` |
 | `/perfil` | Información personal, Cuenta, Seguridad (contraseña y TOTP), Preferencias, Notificaciones, Apariencia | El propio usuario |
@@ -271,7 +273,7 @@ Hay muchos estados guardados como `text` con CHECK en vez de enum.
 - [!] `rag.search_chunks` es `SECURITY DEFINER` y acepta el `org_id` que le pase quien la llama.
 - [!] La dimensión de los embeddings no coincide: 1024 en `rag.chunks` y 1536 en `rag.organization_chunks`. El corpus por tenant no se usa en el código.
 - [!] Hay dos modelos de evidencia: `evidences`, usada por las acciones de tratamiento, y `system_evidences`, que usa todo lo demás.
-- [!] Tablas sin uso aparente en el código: `gaps`, `evidence_controls`, `causal_graph_instances`, `committee_sessions`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*` y las tablas `*_legacy_20260417`.
+- [!] Tablas sin uso aparente en el código: `gaps`, `evidence_controls`, `causal_graph_instances`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*` y las tablas `*_legacy_20260417`. (v1.10: `committee_sessions` ya se usa, B20b.)
 - [!] Hay FKs polimórficas o ausentes (`tasks.source_id`, `approval_requests.object_id`, `business_risk_assessments.failure_mode_id`, etc.). Las referencias a usuarios mezclan `auth.users` y `profiles`.
 - [!] `webhooks.secret` se guarda en claro, mientras que los canales usan Vault.
 - [!] `expire_invitations()` existe pero ningún cron la invoca.
@@ -532,7 +534,7 @@ Estado tras la revisión v1.1 (histórico):
 8. ¿Qué modelos LLM se usan en producción y qué proveedores de email (SMTP y Resend)?
 9. ¿Las rutas huérfanas (`/inventario/[id]/clasificacion`, `…/plan/summary`, `anexo-iv`) se documentan o se eliminan?
 10. ¿Qué es «Agente 3» (`organizacion/tabs/operaciones.tsx:210`)? En el código solo aparecen el Agente 1 (clasificación) y el Agente 4 (asistente).
-11. ¿Las tablas sin uso (`gaps`, `committee_sessions`, RAG por tenant…) son funcionalidad futura o deuda? (v1.8: `reevaluation_triggers` ya se usa, B21a.)
+11. ¿Las tablas sin uso (`gaps`, `committee_sessions`, RAG por tenant…) son funcionalidad futura o deuda? (v1.8: `reevaluation_triggers` ya se usa, B21a; v1.10: `committee_sessions`, B20b.)
 12. Hoja de ruta de `lineage`, `ai-gateway`, `drift-monitor` e `itsm`.
 
 ---
@@ -609,11 +611,11 @@ Salen del Core: AISIA, Riesgos de negocio y Cuestionario preliminar (pasan a «E
 > - `hasModule`/`requireModule` son código muerto hoy, pero el gating por módulo es necesario para la estructura de §10. Se registran como «muerto hoy, a implementar».
 
 ### 11.3 Base de datos sin uso o legacy (44-49)
-- **Tablas:** `fluxion.gaps`, `compliance.frameworks`, `compliance.requirements`, `compliance.requirement_control_mappings`, `compliance.failure_mode_causal_relations`, `evidence_controls`, `causal_graph_instances`, `committee_sessions`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*`, `treatment_plans_legacy_20260417` y `treatment_actions_legacy_20260417`.
+- **Tablas:** `fluxion.gaps`, `compliance.frameworks`, `compliance.requirements`, `compliance.requirement_control_mappings`, `compliance.failure_mode_causal_relations`, `evidence_controls`, `causal_graph_instances`, `aisia_ai_generations` (v1.6: retirada en B15c), `rag.ingestion_jobs`, `rag.organization_*`, `treatment_plans_legacy_20260417` y `treatment_actions_legacy_20260417`. (v1.10: `committee_sessions` sale de la lista, B20b.)
 - **Columnas:** `ai_systems.iso_42001_score` / `iso_42001_checks` (y la pestaña «ISO 42001» de la ficha) y `ai_systems.aiact_obligations`.
 - **Tipos y funciones:** el enum `treatment_action_type` y `fluxion.current_organization_id()`.
 
-> **Nota:** varias de estas tablas son la base de funcionalidades que la decisión 58-64 manda implementar: `committee_sessions` (62), `reevaluation_triggers` (63; v1.8: en uso desde B21a), `aisia_ai_generations` (61; v1.6: retirada en B15c, ver §12) y `rag.organization_*` (64). Las demás hoy no tienen uso, pero se podrían reutilizar.
+> **Nota:** varias de estas tablas son la base de funcionalidades que la decisión 58-64 manda implementar: `committee_sessions` (62; v1.10: en uso desde B20b), `reevaluation_triggers` (63; v1.8: en uso desde B21a), `aisia_ai_generations` (61; v1.6: retirada en B15c, ver §12) y `rag.organization_*` (64). Las demás hoy no tienen uso, pero se podrían reutilizar.
 
 ### 11.4 Herramientas internas, próximas funcionalidades y docs a actualizar
 - **Herramientas internas, se documentan como tales (50):** `apps/web/scripts/*` (`apply-metadata`, `check-evidences`, `check-soa-db`, `inspect-profiles`, `seed_causal_relations`, `seed_failure_modes`, `test-soa-insert`).
@@ -650,7 +652,7 @@ Se documentan como «pendiente de implementar». No se describen como existentes
 | 59 | Agente 2: revisión IA de la priorización de modos de fallo | `priority_source = 'agent'` |
 | 60 | Agente 3 · Generador de documentos | Plantillas, renderer, idioma y pie de página en Organización |
 | 61 | Generación IA en AISIA | v1.6: apartados redactados de la plantilla `aisia` del expediente; la tabla `aisia_ai_generations`, que nunca se usó, se retiró en B15c |
-| 62 | Sesiones de comité y actas | `committee_sessions`, plantilla `approval_minutes` |
+| 62 | Sesiones de comité y actas | `committee_sessions`, plantilla `approval_minutes`. v1.10: implementado en B20b (sesiones con orden del día, asistentes, acuerdos con tarea y acta en PDF como evidencia); la revisión por la dirección, en B20c |
 | 63 | Disparadores de reevaluación del FMEA | `reevaluation_triggers`. v1.8: implementado en B21a (incidente grave, cambio de supuestos AI Act, revisión del FMEA vencida y reglas de clasificación actualizadas; tarea «Reevaluar sistema»); B21b lo amplía a la FRIA y la AISIA |
 | 64 | RAG por organización (documentos propios del cliente) | `rag.organization_*` (vector 1536, a alinear con 1024) |
 | 65 | Ingestor del corpus normativo (utilidad independiente) | Requisitos en `recursos/baseline/rag_corpus.manifest.json` |

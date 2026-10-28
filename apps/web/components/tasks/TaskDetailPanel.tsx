@@ -79,6 +79,9 @@ function getSourceHref(task: TaskRow): string | null {
   // Acuerdos de una sesión de comité (B20b): source_id es la sesión.
   if (task.source_type === 'committee_session' && task.source_id)
     return `/organizacion/sesiones/${task.source_id}`
+  // Revisión por la dirección (B20c): se convoca en Organización › Comités.
+  if (task.source_type === 'management_review')
+    return '/organizacion?tab=comites'
   return null
 }
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   AlertCircle, ArrowLeft, CalendarClock, CheckCircle2, ClipboardList, FileCheck2, Gavel, Loader2,
-  Lock, Plus, Trash2, UserPlus, Users2,
+  Lock, Plus, RefreshCw, Trash2, UserPlus, Users2,
 } from 'lucide-react';
 
 import {
@@ -22,6 +22,7 @@ import {
 import {
   cancelCommitteeSession,
   closeCommitteeSession,
+  refreshReviewAgendaData,
   regenerateSessionMinutes,
   saveCommitteeSession,
   type CommitteeSessionDetail,
@@ -111,6 +112,17 @@ export function SesionClient({ session }: { session: CommitteeSessionDetail }) {
   function cerrar() {
     if (!window.confirm('Al cerrar la sesión el acta queda bloqueada y se guarda como PDF y como evidencia. Los acuerdos con responsable crean una tarea. ¿Cerrar la sesión?')) return;
     run(() => closeCommitteeSession(session.id, input()), 'Sesión cerrada. El acta se ha registrado como evidencia.');
+  }
+
+  // Revisión por la dirección (B20c): datos de la aplicación al día, sin tocar lo redactado.
+  function actualizarDatos() {
+    setMsg(null);
+    start(async () => {
+      const res = await refreshReviewAgendaData(session.id, agenda);
+      if (res.error || !res.agenda) return setMsg({ ok: false, text: res.error ?? 'No se pudieron actualizar los datos.' });
+      setAgenda(res.agenda);
+      setMsg({ ok: true, text: 'Datos actualizados. Guarda la sesión para conservarlos.' });
+    });
   }
 
   function cancelar() {
@@ -204,9 +216,16 @@ export function SesionClient({ session }: { session: CommitteeSessionDetail }) {
         icon={<ClipboardList size={12} />}
         title={`Orden del día (${agenda.length})`}
         action={editable ? (
-          <button onClick={() => setAgenda([...agenda, { id: nuevoId('p'), title: '', notes: '', approval_request_id: null }])} className="flex items-center gap-1 font-sora text-[12px] text-brand-cyan hover:underline">
-            <Plus size={12} /> Añadir punto
-          </button>
+          <span className="flex items-center gap-3">
+            {session.session_type === 'management_review' && (
+              <button onClick={actualizarDatos} disabled={pending} className="flex items-center gap-1 font-sora text-[12px] text-brand-cyan hover:underline disabled:opacity-50">
+                <RefreshCw size={12} /> Actualizar los datos
+              </button>
+            )}
+            <button onClick={() => setAgenda([...agenda, { id: nuevoId('p'), title: '', notes: '', approval_request_id: null }])} className="flex items-center gap-1 font-sora text-[12px] text-brand-cyan hover:underline">
+              <Plus size={12} /> Añadir punto
+            </button>
+          </span>
         ) : undefined}
       >
         {editable && pendientesSinTratar.length > 0 && (
@@ -240,6 +259,11 @@ export function SesionClient({ session }: { session: CommitteeSessionDetail }) {
                       <button onClick={() => setAgenda(agenda.filter((_, j) => j !== i))} className="p-1 text-lttm hover:text-re" title="Quitar punto"><Trash2 size={13} /></button>
                     )}
                   </div>
+                  {p.data_summary && (
+                    <p className="font-sora text-[12px] text-ltt2 bg-ltcard2 border border-ltb rounded-[8px] px-3 py-2 ml-7 whitespace-pre-line">
+                      {p.data_summary}
+                    </p>
+                  )}
                   {sol && (
                     <p className="font-sora text-[12px] text-ltt2 pl-7">
                       Solicitud de aprobación · {sol.status_label}

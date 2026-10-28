@@ -23,6 +23,8 @@ import {
   type SessionStatus,
   type SessionType,
 } from '@/lib/governance/committee-sessions'
+import { managementReviewAgenda, refreshManagementReviewAgenda } from '@/lib/iso/management-review'
+import { completeManagementReviewTasks, loadManagementReviewData } from '@/lib/iso/management-review-server'
 import { createAdminFluxionClient, createFluxionClient } from '@/lib/supabase/fluxion'
 import { createNoCacheAdminClient } from '@/lib/supabase/ingest'
 import { createClient } from '@/lib/supabase/server'
@@ -124,6 +126,12 @@ export async function scheduleCommitteeSession(input: {
     .select('id, committee_role, external_name, profiles!committee_members_profile_id_fkey(full_name)')
     .eq('committee_id', comite.id).eq('is_active', true)
   const attendees = mergeAttendees(miembrosDe(miembros), [])
+  // Revisión por la dirección (B20c): orden del día de §9.3.2 con los datos de
+  // la aplicación. Con el cliente de servicio: el permiso ya está comprobado y
+  // los datos son de toda la organización.
+  const agenda = input.sessionType === 'management_review'
+    ? managementReviewAgenda(await loadManagementReviewData(createAdminFluxionClient(), c.profile.organization_id, new Date().toISOString()))
+    : []
 
   const { data, error } = await c.fluxion
     .from('committee_sessions')
@@ -136,6 +144,7 @@ export async function scheduleCommitteeSession(input: {
       scheduled_at: new Date(input.scheduledAt).toISOString(),
       location: input.location.trim() || null,
       attendees,
+      agenda,
       // profiles.id: así lo exige la clave ajena de committee_sessions.
       created_by: c.profile.id,
     })
@@ -388,11 +397,29 @@ export async function closeCommitteeSession(id: string, input: CommitteeSessionI
     .eq('id', id)
   if (error) return { error: 'No se pudo cerrar la sesión: ' + error.message }
 
+  // La revisión por la dirección celebrada completa su tarea anual (B20c).
+  if (input.sessionType === 'management_review') await completeManagementReviewTasks(admin, c.profile.organization_id)
+
   auditar(c, 'org.committee_session_closed', id, etiqueta, { quorum_met: quorum.met, decisions: decisions.length })
   const { aviso } = await generateSessionMinutesEvidence({ sessionId: id, actorUserId: c.userId })
   revalidatePath(`/organizacion/sesiones/${id}`)
   revalidatePath('/organizacion')
   return { success: true, ...(aviso ? { aviso } : {}) }
+}
+
+/**
+ * Recalcula los datos de la aplicación de los puntos de §9.3.2 de una
+ * revisión por la dirección abierta, sin tocar lo redactado (B20c). No guarda:
+ * devuelve el orden del día para que se guarde con el resto.
+ */
+export async function refreshReviewAgendaData(id: string, agenda: AgendaItem[]): Promise<{ agenda?: AgendaItem[]; error?: string }> {
+  const c = await ctx()
+  if (!c) return { error: 'No autorizado' }
+  const r = await sesionAbierta(c, id)
+  if ('error' in r) return { error: r.error }
+  if (r.s.session_type !== 'management_review') return { error: 'Solo las revisiones por la dirección tienen datos de la aplicación.' }
+  const datos = await loadManagementReviewData(createAdminFluxionClient(), c.profile.organization_id, new Date().toISOString())
+  return { agenda: refreshManagementReviewAgenda(normalizeAgenda(agenda), datos) }
 }
 
 /** Reintenta el PDF del acta de una sesión cerrada que se quedó sin evidencia. */

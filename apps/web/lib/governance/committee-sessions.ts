@@ -52,6 +52,10 @@ export type AgendaItem = {
   notes: string
   /** Solicitud de aprobación pendiente del comité que se trata en este punto. */
   approval_request_id: string | null
+  /** Entrada de la revisión por la dirección (ISO/IEC 42001, §9.3.2) que cubre el punto (B20c). */
+  input_key?: string | null
+  /** Datos de la aplicación para el punto, generados y de solo lectura (B20c). */
+  data_summary?: string | null
 }
 
 export type Attendee = {
@@ -85,6 +89,8 @@ export function normalizeAgenda(raw: unknown): AgendaItem[] {
     title: texto(x.title),
     notes: texto(x.notes),
     approval_request_id: textoONull(x.approval_request_id),
+    input_key: textoONull(x.input_key),
+    data_summary: textoONull(x.data_summary),
   }))
 }
 

@@ -106,7 +106,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-NAVEGACION | `docs/funcional/navegacion.md` | funcional | tecnica | transversal | `components/layout/*`, `(app)/layout.tsx` | borrador |
 | FUN-NOTIFICACIONES | `docs/funcional/notificaciones.md` | funcional | tecnica | transversal | `(app)/notificaciones/*`, `components/notifications/NotificationsBell.tsx` | borrador |
 | FUN-PERFIL | `docs/funcional/perfil.md` | funcional | tecnica | transversal | `(app)/perfil/**`, `components/profile/*`, `api/user/upload-avatar/route.ts` | borrador |
-| FUN-ORGANIZACION | `docs/funcional/organizacion.md` | funcional | tecnica | transversal | `(app)/organizacion/**`, `components/organization/LogoUpload.tsx`, `api/organization/upload-logo/route.ts`, `lib/organization/options.ts` | borrador |
+| FUN-ORGANIZACION | `docs/funcional/organizacion.md` | funcional | tecnica | transversal | `(app)/organizacion/**`, `components/organization/LogoUpload.tsx`, `api/organization/upload-logo/route.ts`, `lib/organization/options.ts`, `(app)/organizacion/sesiones/**`, `organizacion/{CommitteeSessions.tsx,sesiones-actions.ts}`, `lib/governance/committee-session*.ts` | borrador |
 | FUN-USUARIOS | `docs/funcional/usuarios.md` | funcional | tecnica | transversal | `(app)/usuarios/**`, `lib/users/roles.ts` | borrador |
 | FUN-AJUSTES | `docs/funcional/ajustes.md` | funcional | tecnica | transversal | `(app)/ajustes/**`, `lib/channels/send.ts` | borrador |
 

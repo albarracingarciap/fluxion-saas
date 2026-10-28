@@ -106,7 +106,9 @@ export function CommitteeSessions({ committeeId, committeeType, isActive }: {
             </div>
           </div>
           <p className="font-sora text-[11.5px] text-lttm mt-3">
-            Después de convocarla podrás preparar el orden del día e incluir las solicitudes de aprobación pendientes del comité.
+            {form.sessionType === 'management_review'
+              ? 'El orden del día se rellena con las entradas de ISO/IEC 42001, §9.3.2 y los datos de la aplicación. Al cerrarla, su acta acredita la cláusula §9.3 del sistema de gestión.'
+              : 'Después de convocarla podrás preparar el orden del día e incluir las solicitudes de aprobación pendientes del comité.'}
           </p>
           <div className="flex items-center gap-2 mt-3">
             <button
