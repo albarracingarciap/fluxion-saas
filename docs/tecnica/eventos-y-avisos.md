@@ -23,6 +23,7 @@ fuente:
   - supabase/migrations/20260818190000_incidents_alerts_channels.sql
   - apps/web/app/api/cron/authority-request-deadlines/route.ts
   - supabase/migrations/20261028130000_requerimientos_avisos_plazo.sql
+  - apps/web/lib/treatment-plans/review-escalation.ts
 ---
 
 # Eventos y avisos
@@ -80,6 +81,8 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | `incident_deadline` | Umbrales del plazo del Art. 73 | No |
 | `authority_request_deadline` | Plazo de un requerimiento de la autoridad próximo o vencido (B25e) | No |
 | `review_due` | Revisiones de tratamiento próximas o vencidas | No |
+| `review_escalated` | Revisión de una aceptación escalada a comité, a quien aprobó el plan (B22) | No |
+| `evidence_expiring` | Evidencia que entra en la ventana de 30 días, de 7 días o caducada, a su responsable (B22) | No |
 | `signal_alert` | Señal alta o crítica | No |
 | `approval_pending`, `approval_closed` | Flujos de aprobación | No |
 
@@ -160,13 +163,14 @@ El correo solo se envía con Resend y si se cumplen todas estas condiciones:
 | Aprobación abierta o que avanza | — | `approval_pending` | — | `approval.pending` | `approval.pending` |
 | Aprobación aprobada o rechazada | — | `approval_closed` | — | — | `approval.approved` / `.rejected` |
 | Revisión de tratamiento próxima o vencida | — | `review_due` | — | — | — |
-| Evidencia próxima a caducar | — | — (banner) | — | — | — |
+| Evidencia próxima a caducar | — | `evidence_expiring` al responsable y banner (B22) | — | — | — |
+| Revisión de aceptación escalada | — | `review_escalated` | — | — | — |
 
 ### Tareas programadas que avisan
 
 | Tarea | Cuándo | Qué hace |
 |---|---|---|
-| `evidence-expiry` | Diaria, 07:00 UTC | Alertas a 30 días, a 7 días y vencida, en `evidence_expiry_alerts`, que alimentan el banner de evidencias. Marca como caducadas las evidencias vencidas |
+| `evidence-expiry` | Diaria, 07:00 UTC | Alertas a 30 días, a 7 días y vencida, en `evidence_expiry_alerts`, que alimentan el banner de evidencias. Al entrar en una ventana nueva, `evidence_expiring` al responsable (B22). Marca como caducadas las evidencias vencidas |
 | `review-reminders` | Lunes, 08:00 UTC | `review_due` a cada responsable de acciones aceptadas o diferidas con revisión en 30 días o vencida |
 | `incident-deadlines` | Cada hora | `incident_deadline` y canal en cada umbral, una sola vez |
 | `authority-request-deadlines` | Diario | `authority_request_deadline` y canal con 5 días o menos y al vencer, una vez por plazo |

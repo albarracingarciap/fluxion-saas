@@ -34,7 +34,7 @@ Trabajos que Fluxion ejecuta periódicamente. Hay nueve:
 
 | Tarea | Dónde corre | Programación | Qué hace |
 |---|---|---|---|
-| `evidence-expiry` | Crontab → web | `0 7 * * *` (diaria, 07:00) | Alertas de caducidad de evidencias a 30 días, a 7 días y vencidas. Marca como caducadas las válidas vencidas |
+| `evidence-expiry` | Crontab → web | `0 7 * * *` (diaria, 07:00) | Alertas de caducidad de evidencias a 30 días, a 7 días y vencidas, con aviso en la app al responsable al entrar en cada ventana (B22). Marca como caducadas las válidas vencidas |
 | `review-reminders` | Crontab → web | `0 8 * * 1` (lunes, 08:00) | Aviso `review_due` a cada responsable de acciones aceptadas o diferidas con revisión en 30 días o vencida |
 | `incident-deadlines` | Crontab → web | `17 * * * *` (cada hora) | Avisos de plazo de los incidentes graves al 50 %, al 80 % y al vencer |
 | `reevaluation-triggers` | Crontab → web | `45 6 * * *` (diario) | Disparadores de reevaluación: revisión del FMEA vencida, reglas de clasificación actualizadas y revisión anual de la FRIA y la AISIA; cierra los resueltos (B21a, B21b). Tarea del informe anual del Art. 26.10 del año en curso (B21c). Abre o completa la tarea «Cesar el uso» de las prácticas prohibidas (B27) |
@@ -53,7 +53,7 @@ Las horas son las del servidor y las de pg_cron, que se espera estén en UTC.
 
 | Tarea | Lee | Escribe | Evita repetir con | Respuesta |
 |---|---|---|---|---|
-| `evidence-expiry` | `system_evidences` | `evidence_expiry_alerts`, `system_evidences.status` | `UNIQUE (evidence_id, alert_type)`, una alerta viva por evidencia | `{checked, upserted, superseded, cleared, errors, statusSynced, runAt}` |
+| `evidence-expiry` | `system_evidences` | `evidence_expiry_alerts`, `system_evidences.status` | `UNIQUE (evidence_id, alert_type)`, una alerta viva por evidencia | `{checked, upserted, superseded, cleared, notified, errors, statusSynced, runAt}` |
 | `review-reminders` | `treatment_actions`, `notifications` | `notifications` | Ventana de 6 días por destinatario | `{checkedAt, totalPending, totalOverdue, orgCount, notified, skipped, unassigned, orgs}` |
 | `approval-expiry` | `approval_requests` (`expires_at`) | `approval_requests`, el objeto, `notifications` | Solo solicitudes pendientes; al cancelarlas dejan de estarlo | `{cerradas, errores}` |
 | `reevaluation-triggers` | `fmea_evaluations`, `ai_systems`, `reevaluation_triggers`, `documents` | `reevaluation_triggers` (por `reevaluation_register`), `tasks`, `ai_system_history` | Índice único del disparador abierto `(system_id, trigger_key, source_ref)` | `{checkedAt, triggersRegistered, triggersResolved, organizations, annualReportTasks, ceaseUseTasks}` |

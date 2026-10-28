@@ -28,6 +28,7 @@ fuente:
   - apps/web/lib/approvals/coverage.ts
   - supabase/migrations/20261021090000_plan_solo_circuito.sql
   - supabase/migrations/20261021120000_evidencias_biblioteca_unica.sql
+  - apps/web/lib/treatment-plans/review-escalation.ts
 ---
 
 # Plan de tratamiento
@@ -134,7 +135,7 @@ Filtros: **Vencidas**, **Vencen pronto**, **Slippage**.
 | Cambiar estado de la tarea | Todos | Actualiza la tarea vinculada | Al completarla, la acción pasa a «Completada» (también si se completa desde [Tareas](tareas.md)). En Mitigar abre **Registrar S residual alcanzado** |
 | **Cerrar acción** (S residual) | Todos, con el plan aprobado | Registra la severidad residual alcanzada, o marca que no se pudo medir. En una mitigación sin tarea vinculada aparece como botón en el detalle de la acción. Si la evidencia no está válida, el diálogo avisa de que la acción quedará «Evidencia pdte.» | Con evidencia **Válida**, cierra la acción y la severidad residual pasa al ítem del FMEA. Sin ella (B12), la acción queda «Evidencia pdte.» y se completa sola, trasladando la severidad, cuando la evidencia se aprueba. Cierra la tarea, si la hay |
 | Subir / vincular / desvincular evidencia | Todos | Gestiona la evidencia de la acción (`uploadEvidenceForActionAction`, `linkUrlEvidenceToActionAction`) | La crea en la biblioteca y abre su revisión (`openEvidenceReview`). Sin evento en el plan |
-| **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review». Si una aceptación pasa a tratarse, la acción vuelve a «Pendiente» y el plan se reabre |
+| **Revisar** (revisión periódica) | Todos | Decisión: Reafirmar aceptación (con nueva fecha) · Cambiar a Mitigar · Transferir · Evitar · Escalar a comité. Justificación de 80 caracteres | Registro en `treatment_action_reviews`. Evento «periodic_review». Si una aceptación pasa a tratarse, la acción vuelve a «Pendiente» y el plan se reabre. **Escalar a comité** avisa en la app a quien aprobó el plan en Flujos de aprobación o, si no consta, al Administrador y al Responsable del SGAI: «Revisión de aceptación escalada · {código del plan}» con el motivo (B22, decisión 70) |
 | **Reasignar** · **Due date** · **Cambiar opción** (en bloque) | Editor del plan | Sobre las acciones seleccionadas no cerradas. Mitigar no se admite en bloque | Eventos por acción e historial del cambio masivo |
 | **Exportar CSV** · **Imprimir PDF** | Todos | Descargan las acciones o imprimen la página | — |
 

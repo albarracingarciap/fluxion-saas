@@ -2636,3 +2636,30 @@ nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. El f
 
 **Documentación.** `funcional/ficha-sistema.md`, `funcional/tareas.md`, `tecnica/tareas-programadas.md`,
 `tecnica/modelo-datos.md`, `_pendientes.md` (304: glosario).
+
+## B22 · Avisos pendientes
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b22-avisos-pendientes` · **Migración:** no
+
+**Problema** (GAP-21, GAP-27): escalar a comité la revisión de una aceptación no avisaba a nadie (decisión 70) y el
+responsable de una evidencia no recibía aviso de su caducidad (decisión 71). El tercer punto del plan, el
+destinatario del recordatorio semanal (`R11`), ya quedó resuelto en el bloque P1.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Plan de tratamiento | **Escalar a comité** avisa en la app (`review_escalated`) a quien aprobó el plan en su última solicitud aprobada; si no consta, al Administrador y al Responsable del SGAI (`lib/treatment-plans/review-escalation.ts`) |
+| Cron `evidence-expiry` | Aviso en la app (`evidence_expiring`) al responsable de la evidencia cuando entra en una ventana nueva: 30 días, 7 días o caducada. Las alertas que ya existían no se repiten |
+
+**Límite.** Los avisos en la app no dependen de las preferencias, como el resto (TODO 61: Perfil y Ajustes guardan
+las preferencias en formatos distintos y el emisor de correo no lee ninguno).
+
+**Verificación.** `npm test` 197/197, `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. Sin tests
+nuevos: la lógica es de servidor (destinatarios y ventanas). No se ha probado en el navegador ni contra una base con
+datos.
+
+**Despliegue.** Solo web, sin migración.
+
+**Documentación.** `funcional/plan-de-tratamiento.md`, `funcional/flujo-completo-evaluacion.md` (GAP-21 y GAP-27
+resueltos), `tecnica/eventos-y-avisos.md`, `tecnica/tareas-programadas.md`.
