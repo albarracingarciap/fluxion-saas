@@ -32,6 +32,8 @@ fuente:
   - supabase/migrations/20261021090000_plan_solo_circuito.sql
   - supabase/migrations/20261021100000_expediente_solo_circuito.sql
   - supabase/migrations/20261021110000_aprobaciones_resto_solo_circuito.sql
+  - apps/web/lib/milestones/milestone-server.ts
+  - apps/web/lib/milestones/milestone-html.ts
 ---
 
 # Aprobaciones
@@ -178,6 +180,10 @@ Zona I.
    historial).
 2. **Acta:** se genera en todo cierre con decisión (aprobada o rechazada), no solo con comité (B11c), y va
    al expediente del sistema cuando el objeto tiene sistema. Las cancelaciones y caducidades no llevan acta.
+   **Hito (B19):** al aprobarse un plan de tratamiento (la evaluación de riesgos) o la Declaración de
+   Aplicabilidad, se genera además el PDF del estado aprobado y se registra como evidencia válida
+   (`generateMilestoneEvidence`). Si falla, la decisión sigue en pie y se muestra el aviso «El PDF del hito
+   no se generó: …».
 3. **Avisos:** el solicitante recibe un [aviso en la app](../glosario.md#aviso-en-la-app) y un correo
    «Aprobación {aprobada | rechazada | cancelada | caducada}», salvo que la cerrara él mismo.
 4. **Integración saliente:** se envía `approval.{estado}` a las

@@ -27,7 +27,8 @@ export type RenderResult =
   | { renderId: string; gaps: number; error?: never }
   | { renderId?: never; gaps?: never; error: string }
 
-async function renderPdf(html: string, footerHtml: string): Promise<Buffer> {
+/** HTML autocontenido → PDF con el renderizador. También lo usan los hitos (B19). */
+export async function renderPdf(html: string, footerHtml: string): Promise<Buffer> {
   const url = process.env.RENDERER_URL
   const secret = process.env.RENDERER_SECRET
 
