@@ -37,6 +37,8 @@ fuente:
   - supabase/migrations/20261028220000_datos_entrada_vigilancia.sql
   - apps/web/lib/governance/operation.ts
   - apps/web/lib/hitl/review-mode.ts
+  - apps/web/lib/hitl/report-server.ts
+  - apps/web/lib/hitl/csv.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -800,9 +802,15 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - > TODO: confirmar los nombres de negocio de las gravedades; en la interfaz no aparecen traducidos.
 
 ### Supervisión humana
-- **Definición:** medición de cómo las personas usan las recomendaciones de un sistema de IA: si las aceptan, las modifican, las anulan o no las usan, y por qué. Una subida de las anulaciones (discordancia) indica posible deterioro o sesgo.
+- **Definición:** medición de cómo las personas usan las recomendaciones de un sistema de IA: si las aceptan, las modifican, las anulan o no las usan, y por qué. Una subida de las anulaciones (discordancia) indica posible deterioro o sesgo. Las decisiones llegan por la API de ingesta o se importan desde un CSV con las mismas columnas y comprobaciones; nunca con el contenido del caso.
 - **No usar:** «HITL», «auditoría de discordancias», «human in the loop».
 - **En el código:** `fluxion.hitl_decisions` (`decision` ∈ `accepted`, `modified`, `overridden`, `not_used`); `fluxion.hitl_reason_codes`; vista `/supervision`.
+- **Normativa:** AI Act, Art. 14.
+
+### Informe de supervisión humana
+- **Definición:** PDF de un sistema de IA y un periodo con lo registrado en [Supervisión humana](#supervisión-humana): decisiones, concordancia con la IA, tiempo mediano, revisores (seudónimos), motivos de discordancia e indicios de sesgo de automatización. Se registra como evidencia válida del sistema, del tipo «Acta de supervisión humana». Se genera a demanda y se adjunta a cada [revisión del funcionamiento](#revisión-del-funcionamiento) del sistema si se supervisa por caso o por muestreo, o si hubo decisiones en el periodo.
+- **No usar:** «informe HITL», «auditoría de discordancias».
+- **En el código:** `lib/hitl/report-server.ts`; evidencia con la etiqueta `informe-supervision-humana` y el tipo `EVT-PRO-04`.
 - **Normativa:** AI Act, Art. 14.
 
 ### Responsable de supervisión humana

@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.13** | **2026-10-28** | **Revisado** por Pedro Albarracín | Supervisión humana (B30a, DP-13): columna `ai_systems.oversight_review_mode`, `hitl_overview(p_days, p_system_id)` con filtro por sistema, `/supervision?sistema=` y `/ajustes?tab=`. Ver §2, §3.2 y §3.4 |
+| **1.14** | **2026-10-28** | **Revisado** por Pedro Albarracín | Supervisión humana (B30b, DP-13): `hitl_overview(p_days, p_system_id, p_until)` con periodo cerrado; importación CSV de decisiones; ingesta compartida en `lib/hitl/ingest.ts`; informe de supervisión humana como evidencia. Ver §3.4 y §4 |
+| 1.13 | 2026-10-28 | Revisado por Pedro Albarracín | Supervisión humana (B30a, DP-13): columna `ai_systems.oversight_review_mode`, `hitl_overview(p_days, p_system_id)` con filtro por sistema, `/supervision?sistema=` y `/ajustes?tab=`. Ver §2, §3.2 y §3.4 |
 | 1.12 | 2026-10-28 | Revisado por Pedro Albarracín | Datos de entrada y vigilancia del funcionamiento (B28, DP-12): ruta `/inventario/[id]/operacion`, cuatro tablas nuevas, tipo de evidencia `EVT-TEC-06`, origen de tarea `operation_check` y tareas de verificación en el cron `reevaluation-triggers`. Ver §2.2, §3.2, §4.5 y §12 |
 | 1.11 | 2026-10-28 | Revisado por Pedro Albarracín | Revisión por la dirección (B20c): el cron `reevaluation-triggers` crea y completa la tarea anual; origen de tarea `management_review`. Ver §4.5 y §12 |
 | 1.10 | 2026-10-28 | Revisado por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
@@ -269,7 +270,7 @@ Hay muchos estados guardados como `text` con CHECK en vez de enum.
   - `organization_id IN (SELECT … FROM profiles WHERE user_id = auth.uid())`: soporta varias organizaciones por usuario.
   - `organization_id = fluxion.auth_user_org_id()`: usa LIMIT 1, así que ve una sola organización. [!]
 - **Escrituras solo con service role:** signals, discoveries, HITL, spans, outbox, notificaciones.
-- **Supervisión humana** (v1.13, B30a): `fluxion.hitl_overview(p_days, p_system_id)` agrega las decisiones de la organización o, con `p_system_id`, de un sistema; la RLS la aplica quien llama.
+- **Supervisión humana** (v1.13, B30a; v1.14, B30b): `fluxion.hitl_overview(p_days, p_system_id, p_until)` agrega las decisiones de la organización o, con `p_system_id`, de un sistema, de los `p_days` días que terminan en `p_until` (por omisión, ahora); la RLS la aplica quien llama.
 - **pg_cron:** `process-task-recurrences` (`5 * * * *`), `telemetry-rollup` (`25 * * * *`), `telemetry-partitions` (`0 3 1 * *`).
 - **Storage Supabase:** buckets `evidence-files` (legacy), `task-attachments`, `organization-logos` y `user-avatars`. Desde agosto los ficheros nuevos van a MinIO/S3.
 - **Semilla:** `00000000000005_seed_compliance.sql` (catálogo `compliance`), más plantillas documentales, códigos HITL y obligaciones del AI Act incluidos en migraciones.
@@ -359,6 +360,7 @@ Diferencias con el contrato `docs/ingesta.md`:
 - **Catálogos `/datos/*`:** CRUD de modos de fallo, medidas, obligaciones, tipos de evidencia, relaciones causales y mappings.
 - **Inventario:** alta, edición, clasificación, descubrimientos, obligaciones, modos de fallo, riesgos de negocio, AISIA, expediente documental (llama al renderer), guardar informes como evidencia.
 - **FMEA / Plan:** evaluar, estimar por familia, segunda revisión, plan de tratamiento, aprobación, evidencias, riesgo residual, acciones masivas.
+- **Supervisión humana** (`supervision/actions.ts`, v1.14, B30b): importación CSV de decisiones (sin clave API; `api_key_id` nulo y `metadata.source = 'csv_import'`) y generación del informe de supervisión humana como evidencia (`EVT-PRO-04`). La validación e inserción de decisiones es la misma que la de la API (`lib/hitl/ingest.ts`).
 - **Evidencias / Gaps:** CRUD y revisión de evidencias, subida en 3 pasos a S3, versiones; snapshots, asignaciones y disposiciones de gaps.
 - **SoA:** ciclo de vida y sugerencias IA. Llama directamente a OpenAI, no a agents.
 - **Incidentes, Observabilidad (tarifas y presupuestos), Tareas** (unas 50 acciones), **Notificaciones**, **Aprobaciones**, **Cuestionario preliminar**.
