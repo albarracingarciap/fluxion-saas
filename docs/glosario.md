@@ -36,6 +36,7 @@ fuente:
   - apps/web/lib/iso/management-review.ts
   - supabase/migrations/20261028220000_datos_entrada_vigilancia.sql
   - apps/web/lib/governance/operation.ts
+  - apps/web/lib/hitl/review-mode.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -811,10 +812,16 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Normativa:** AI Act, Art. 14 y Art. 26.2.
 
 ### Supervisión documentada
-- **Definición:** constancia de que la supervisión humana de un sistema de IA está encomendada a una persona capaz de ejercerla. Está **completa** cuando el responsable de supervisión humana tiene anotada su competencia para supervisar ese sistema, tiene confirmada la autoridad para no usar, anular o revertir la salida y detener el sistema, tiene una [formación](#formación) válida (alfabetización en IA o supervisión de ese sistema), y el sistema tiene descritas sus **medidas de vigilancia** (qué se revisa, cuándo y cómo se interviene). El suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la del anterior se conserva. No es la [Supervisión humana](#supervisión-humana), que mide cómo se usan las recomendaciones del sistema.
+- **Definición:** constancia de que la supervisión humana de un sistema de IA está encomendada a una persona capaz de ejercerla. Está **completa** cuando el responsable de supervisión humana tiene anotada su competencia para supervisar ese sistema, tiene confirmada la autoridad para no usar, anular o revertir la salida y detener el sistema, tiene una [formación](#formación) válida (alfabetización en IA o supervisión de ese sistema), y el sistema tiene descritas sus **medidas de vigilancia** (qué se revisa, cuándo y cómo se interviene). Junto a ellas se indica la [modalidad de supervisión](#modalidad-de-supervisión), que no cuenta para completarla. El suplente se documenta igual, pero no cuenta. La documentación va con la persona: si cambia el responsable, la del anterior se conserva. No es la [Supervisión humana](#supervisión-humana), que mide cómo se usan las recomendaciones del sistema.
 - **No usar:** «supervisión acreditada», «supervisión validada».
 - **En el código:** `fluxion.system_oversight_documentation` (`competence`, `authority_confirmed`, `authority_notes`; clave `ai_system_id` + `profile_id`); `ai_systems.oversight_measures`; `lib/governance/oversight.ts` (`oversightDocumentation`).
 - **Normativa:** AI Act, Art. 26.2 y Art. 14.4.
+
+### Modalidad de supervisión
+- **Definición:** cómo se supervisa un sistema de IA, indicada en su [supervisión documentada](#supervisión-documentada): **Por caso** (una persona revisa cada resultado antes de que surta efecto y cada decisión se registra en [Supervisión humana](#supervisión-humana)), **Por muestreo** (se revisa periódicamente una muestra y las revisiones se registran igual) o **Solo vigilancia del funcionamiento** (sin revisión caso a caso; se supervisa con el [plan de vigilancia del funcionamiento](#plan-de-vigilancia-del-funcionamiento)). Los sistemas por caso sin decisiones registradas en 30 días se avisan en Supervisión humana.
+- **No usar:** «tipo de HITL», «nivel de intervención».
+- **En el código:** `ai_systems.oversight_review_mode` ∈ `per_case`, `sampling`, `monitoring_only`; `lib/hitl/review-mode.ts`.
+- **Normativa:** AI Act, Art. 14.
 
 ### Plan de vigilancia poscomercialización
 - **Definición:** documento del expediente en el que el proveedor de un sistema de IA de alto riesgo establece cómo recopila, documenta y analiza de forma activa y sistemática los datos del funcionamiento del sistema durante toda su vida útil, también los que facilitan los responsables del despliegue, y qué hace con los resultados (gestión de riesgos, acciones correctoras, notificación de incidentes graves). Forma parte de la documentación técnica. Solo lo redacta la organización cuando es proveedora de un sistema de alto riesgo; el responsable del despliegue vigila el funcionamiento e informa al proveedor (Art. 26.5). Aprobado, la obligación del Art. 72 propone «Resuelta». No es el módulo [Supervisión post-comercialización](#supervisión-post-comercialización).

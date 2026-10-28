@@ -15,6 +15,11 @@ fuente:
   - supabase/migrations/20260826090000_hitl_discordance_spikes.sql
   - supabase/migrations/20261028230000_supervision_modalidad_filtro.sql
   - apps/web/lib/hitl/review-mode.ts
+  - apps/web/lib/hitl/csv.ts
+  - apps/web/lib/hitl/ingest.ts
+  - apps/web/lib/hitl/report-server.ts
+  - apps/web/app/(app)/supervision/actions.ts
+  - supabase/migrations/20261028240000_supervision_periodo_informe.sql
   - apps/web/app/(app)/supervision/filtro-sistema.tsx
 ---
 
@@ -121,6 +126,8 @@ Si la discordancia sube al menos 8 puntos, con un mínimo de 30 decisiones recie
 |---|---|---|---|
 | **30 días** / **90 días** / **180 días** | Todos | Cambia el periodo | — |
 | Selector de sistema | Todos | Filtra el panel por un sistema (B30a) | — |
+| **Importar** (Importar decisiones desde CSV) | Administrador, Responsable del SGAI, Responsable del sistema | Importa hasta 2.000 decisiones de un CSV con las columnas de la API (B30b). Obligatorias `case_ref`, `decision` y `occurred_at` (sin zona, UTC); `system_id` o el sistema elegido. Una columna no admitida rechaza el fichero. **Descargar plantilla** | Cada fila pasa las mismas comprobaciones que la API; las repetidas no se duplican (`dedupe_key` derivada); `metadata.source = 'csv_import'`. Resultado: importadas, ya estaban, rechazadas y errores por fila |
+| **Generar informe** (Informe como evidencia) | Los mismos, con un sistema elegido | PDF del sistema y el periodo: indicadores, revisores, motivos e indicios de sesgo (B30b) | Evidencia válida del sistema, tipo «Acta de supervisión humana» (`EVT-PRO-04`), etiqueta `informe-supervision-humana`; historial del sistema y auditoría |
 
 ## Validaciones
 

@@ -47,6 +47,8 @@ export type AuditAction =
   | 'system.input_data_updated'
   | 'system.monitoring_plan_updated'
   | 'system.operation_check_recorded'
+  | 'system.hitl_decisions_imported'
+  | 'system.hitl_report_generated'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

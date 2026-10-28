@@ -13,6 +13,7 @@ fuente:
   - apps/web/app/api/ingest/v1/connectors/config/route.ts
   - apps/web/app/api/ingest/v1/connectors/runs/route.ts
   - apps/web/app/api/ingest/v1/hitl-decisions/route.ts
+  - apps/web/lib/hitl/ingest.ts
   - apps/web/app/api/ingest/v1/shadow-ai/findings/route.ts
   - apps/web/lib/auth/api-key.ts
   - apps/web/lib/auth/scopes.ts
@@ -124,6 +125,10 @@ Siguen admitidos los scopes heredados:
 | `GET` | `/api/ingest/v1/connectors/config?type=` | `connectors:sync` | — | Conexiones y credenciales |
 | `POST` | `/api/ingest/v1/connectors/runs` | `connectors:sync` | 1 | `{ok, run_id}` |
 | `POST` | `/api/ingest/v1/hitl-decisions` | `hitl:write` | 1-100 | Por elemento |
+
+> Las mismas decisiones se pueden importar desde un CSV en **Supervisión humana** (B30b), sin clave API: la
+> validación y la inserción son las mismas (`lib/hitl/ingest.ts`), con `api_key_id` nulo y
+> `metadata.source = 'csv_import'`.
 | `POST` | `/api/ingest/v1/shadow-ai/findings` | `inventory:write` | 0-500 | Todo o nada |
 
 Los endpoints con lote aceptan un objeto o un array. `hitl-decisions` acepta además `{"decisions":[…]}`.

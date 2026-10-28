@@ -49,6 +49,8 @@ const ACTION_CONFIG: Record<string, {
   'system.input_data_updated':          { label: 'Datos de entrada actualizados', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
   'system.monitoring_plan_updated':     { label: 'Plan de vigilancia actualizado', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
   'system.operation_check_recorded':    { label: 'Verificación del funcionamiento registrada', icon: <Shield size={12} />, color: 'text-gr', group: 'Organización' },
+  'system.hitl_decisions_imported':     { label: 'Decisiones de supervisión humana importadas', icon: <Shield size={12} />, color: 'text-lttm', group: 'Organización' },
+  'system.hitl_report_generated':       { label: 'Informe de supervisión humana generado', icon: <Shield size={12} />, color: 'text-gr', group: 'Organización' },
   'member.training_added':              { label: 'Formación registrada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
   'member.training_removed':            { label: 'Formación eliminada', icon: <UserPlus size={12} />, color: 'text-lttm', group: 'Organización' },
   'session.revoked':       { label: 'Sesión revocada',          icon: <LogOut    size={12} />, color: 'text-ye',         group: 'Seguridad' },

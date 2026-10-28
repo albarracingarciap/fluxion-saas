@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.12** | **2026-10-28** | **Revisado** por Pedro Albarracín | Datos de entrada y vigilancia del funcionamiento (B28, DP-12): ruta `/inventario/[id]/operacion`, cuatro tablas nuevas, tipo de evidencia `EVT-TEC-06`, origen de tarea `operation_check` y tareas de verificación en el cron `reevaluation-triggers`. Ver §2.2, §3.2, §4.5 y §12 |
+| **1.13** | **2026-10-28** | **Revisado** por Pedro Albarracín | Supervisión humana (B30a, DP-13): columna `ai_systems.oversight_review_mode`, `hitl_overview(p_days, p_system_id)` con filtro por sistema, `/supervision?sistema=` y `/ajustes?tab=`. Ver §2, §3.2 y §3.4 |
+| 1.12 | 2026-10-28 | Revisado por Pedro Albarracín | Datos de entrada y vigilancia del funcionamiento (B28, DP-12): ruta `/inventario/[id]/operacion`, cuatro tablas nuevas, tipo de evidencia `EVT-TEC-06`, origen de tarea `operation_check` y tareas de verificación en el cron `reevaluation-triggers`. Ver §2.2, §3.2, §4.5 y §12 |
 | 1.11 | 2026-10-28 | Revisado por Pedro Albarracín | Revisión por la dirección (B20c): el cron `reevaluation-triggers` crea y completa la tarea anual; origen de tarea `management_review`. Ver §4.5 y §12 |
 | 1.10 | 2026-10-28 | Revisado por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
 | 1.9 | 2026-10-28 | Revisado por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
@@ -145,7 +146,7 @@ Columna Control:
 | `/planes` | Todos los planes de tratamiento | AUTH · [!] fuera de MW |
 | `/planes/revisiones-pendientes` | Acciones aceptadas o diferidas con revisión periódica | AUTH |
 | `/incidentes`, `/incidentes/[id]` | Incidentes de IA y plazos del Art. 73 | — · gobierno por rol en la UI |
-| `/supervision` | Supervisión humana (Art. 14): KPIs HITL | — |
+| `/supervision` | Supervisión humana (Art. 14): KPIs HITL. v1.13: filtro `?sistema=` y aviso de sistemas por caso sin decisiones (B30a) | — |
 | `/aprobaciones` | Mis aprobaciones pendientes y el histórico | — |
 | `/cuestionario-preliminar`, `/nuevo`, `/[id]` | Cuestionario previo al alta de un sistema | — |
 
@@ -180,7 +181,7 @@ Columna Control:
 | `/organizacion` | Identidad, Datos legales, Perfil regulatorio, Gobernanza, Operaciones, Comités, Plan (solo lectura), Módulos | `org_admin` (comités: también `sgai_manager` y `caio`) |
 | `/organizacion/sesiones/[id]` | Sesión de comité: convocatoria, orden del día, asistentes, acta y acuerdos (v1.10, B20b) | `org_admin`, `sgai_manager`, `caio` y presidente o secretario del comité |
 | `/usuarios` | Miembros (con drawer de detalle), Invitaciones, Roles y permisos (descriptiva), Auditoría | `org_admin` |
-| `/ajustes` | Personal: Mi cuenta, Notificaciones, Sesiones. Workspace: Auditoría, Seguridad, API, Webhooks, Conectores, Canales de aviso, Aprobaciones | Personal: todos. Workspace: `org_admin` |
+| `/ajustes` | Personal: Mi cuenta, Notificaciones, Sesiones. Workspace: Auditoría, Seguridad, API, Webhooks, Conectores, Canales de aviso, Aprobaciones. v1.13: `?tab=` abre una pestaña | Personal: todos. Workspace: `org_admin` |
 | `/perfil` | Información personal, Cuenta, Seguridad (contraseña y TOTP), Preferencias, Notificaciones, Apariencia | El propio usuario |
 
 ### 2.8 Navegación
@@ -223,7 +224,7 @@ El inventario de abril (`recursos/docs/db_inventory_2026-04-28.md`) está parcia
 |---|---|
 | Organización y usuarios | `organizations`, `profiles` (un usuario puede estar en N organizaciones), `invitations`, `member_role_changes`, `profile_systems`, `organization_modules` |
 | Comités | `committees`, `committee_members` (internos o externos), `committee_sessions` |
-| Inventario | `ai_systems` (más de 100 columnas), `ai_system_history`, `discovered_assets` |
+| Inventario | `ai_systems` (más de 100 columnas; v1.13: `oversight_review_mode`, modalidad de supervisión, B30a), `ai_system_history`, `discovered_assets` |
 | Clasificación AI Act | `classification_events`, `classification_diffs`, `ai_system_classification_reviews`, `agent_sessions`, `agent_messages`, `preliminary_questionnaires` |
 | Obligaciones | `compliance.obligations`, `compliance.evidence_types`, `compliance.obligation_evidence_types`, `compliance.control_templates`, `fluxion.system_obligations`, `fluxion.organization_obligations` y `organization_obligation_evidences` (cláusulas del sistema de gestión ISO/IEC 42001, códigos `ISO42001-6.2`…`ISO42001-10.2`; v1.9, B20a), `compliance.frameworks`, `compliance.requirements` y `compliance.requirement_control_mappings` (las tres últimas vacías) |
 | Modos de fallo (catálogo) | `compliance.risk_dimensions` (6), `failure_modes` (436), `failure_mode_norm_refs`, `failure_mode_control_refs`, `causal_families` (A a H), `causal_nodes`, `causal_relationships`, `causal_node_failure_mode_links`, `failure_mode_causal_relations` (vacía) |
@@ -268,6 +269,7 @@ Hay muchos estados guardados como `text` con CHECK en vez de enum.
   - `organization_id IN (SELECT … FROM profiles WHERE user_id = auth.uid())`: soporta varias organizaciones por usuario.
   - `organization_id = fluxion.auth_user_org_id()`: usa LIMIT 1, así que ve una sola organización. [!]
 - **Escrituras solo con service role:** signals, discoveries, HITL, spans, outbox, notificaciones.
+- **Supervisión humana** (v1.13, B30a): `fluxion.hitl_overview(p_days, p_system_id)` agrega las decisiones de la organización o, con `p_system_id`, de un sistema; la RLS la aplica quien llama.
 - **pg_cron:** `process-task-recurrences` (`5 * * * *`), `telemetry-rollup` (`25 * * * *`), `telemetry-partitions` (`0 3 1 * *`).
 - **Storage Supabase:** buckets `evidence-files` (legacy), `task-attachments`, `organization-logos` y `user-avatars`. Desde agosto los ficheros nuevos van a MinIO/S3.
 - **Semilla:** `00000000000005_seed_compliance.sql` (catálogo `compliance`), más plantillas documentales, códigos HITL y obligaciones del AI Act incluidos en migraciones.
