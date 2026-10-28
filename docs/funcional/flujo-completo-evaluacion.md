@@ -52,6 +52,8 @@ fuente:
   - supabase/migrations/20261028140000_reevaluacion_disparadores.sql
   - apps/web/app/api/cron/reevaluation-triggers/route.ts
   - apps/web/lib/evaluation-status/load.ts
+  - apps/web/lib/milestones/milestone-server.ts
+  - apps/web/lib/milestones/milestone-html.ts
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -1012,17 +1014,19 @@ Resumen de todo lo que se aprueba en el recorrido:
 |---|---|---|---|
 | 1 · Gobierno | Política de IA, nombramientos, constitución de comités | **+ Evidencia organizacional** (manual) | Ciclo de la biblioteca |
 | 3 · Obligaciones | Prueba de cada obligación resuelta | Evidencia vinculada a la obligación | Ciclo de la biblioteca |
-| 4 · FMEA | La evaluación | **Exportar PDF** imprimible; no se guarda como evidencia | — |
+| 4 · FMEA | La evaluación | **Exportar PDF** imprimible; al aprobarse con su plan, PDF del hito como evidencia (B19) | Hito: no (nace válida) |
 | 5 · Plan | Aprobación del plan; controles implantados | Instantáneas del plan; acta si hay comité; evidencia de la acción en la biblioteca (B12) | Acta: sí, en cada decisión; acción: sí, en Aprobaciones |
 | 6 · AISIA | La AISIA aprobada | No se genera | — |
 | 7 · Documentos | Anexo IV, FRIA, DPIA, ficha del modelo | **Generar PDF** | **No** (nace válida) |
 | 7 · Informes | Dossier, registro UE, informe de brechas | **Guardar como evidencia** | Sí |
-| 9 · Declaración | La Declaración aprobada | **Exportar PDF** del navegador; no se guarda como evidencia | — |
+| 9 · Declaración | La Declaración aprobada | **Exportar PDF** del navegador; al aprobarse, PDF del hito como evidencia de la organización (B19) | Hito: no (nace válida) |
 | 9 · Brechas | Estado en una fecha | **Guardar snapshot** (instantánea, no evidencia) | — |
 
-> **⚠ GAP-33 · Las piezas clave no se guardan como evidencia.** La evaluación FMEA, la AISIA aprobada y
-> la Declaración aprobada no generan ningún entregable inmutable ni evidencia. Un auditor tiene que verlos
-> en la aplicación, en su estado actual.
+> **⚠ GAP-33 · Las piezas clave no se guardan como evidencia.** ✔ Resuelto en B19 para la evaluación de
+> riesgos y la Declaración: al aprobarse en Flujos de aprobación se genera un PDF inmutable (bucket de
+> documentos con retención de 10 años) y se registra como evidencia válida, con las etiquetas `hito`,
+> `evaluacion-riesgos` o `declaracion-aplicabilidad` y la de su solicitud. La evaluación caduca en su fecha de
+> próxima revisión. La AISIA aprobada genera su PDF como documento del expediente (B15).
 >
 > **Pendiente de implementar.** Paquetes de auditoría (decisión 68).
 

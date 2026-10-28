@@ -2689,3 +2689,30 @@ tenía campo para el número de registro.
 **Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
 
 **Documentación.** `funcional/expediente-documental.md`, `funcional/ficha-sistema.md`, `tecnica/modelo-datos.md`.
+
+## B19 · Hitos como evidencia
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b19-hitos-evidencia` · **Migración:** no
+
+**Problema** (GAP-33): la evaluación de riesgos y la Declaración de Aplicabilidad aprobadas no dejaban ningún
+entregable inmutable ni evidencia; un auditor solo podía verlas en su estado actual.
+
+**Se aprovecha lo existente:** el renderizador y el bucket de documentos (retención de 10 años) del expediente,
+los cargadores de la evaluación, del plan y de la Declaración, el cierre de Flujos de aprobación (junto al acta) y
+la biblioteca de evidencias.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Hitos (`lib/milestones/`, nuevo) | HTML autocontenido de la evaluación de riesgos (modos por dimensión y plan) y de la Declaración (controles por grupo), con portada, identificador y huella de los datos |
+| Aprobaciones | Al aprobarse un plan de tratamiento o la Declaración se genera el PDF, se guarda y se registra como evidencia válida (`hito`, `evaluacion-riesgos` o `declaracion-aplicabilidad`, `hito-<solicitud>`); idempotente por solicitud. La evaluación caduca en su próxima revisión |
+| Historial | «PDF del hito registrado como evidencia» en el sistema |
+
+**Verificación.** `npm test` 200/200 (dos tests nuevos del HTML), `tsc --noEmit`, `next lint` y
+`check-server-actions.sh` correctos. El trigger de revisión de evidencias admite la inserción válida con rol de
+servicio, como el PDF del expediente aprobado. No se ha probado contra el renderizador ni en el navegador.
+
+**Despliegue.** Solo web, sin migración. Necesita el renderizador y MinIO configurados (como el expediente).
+
+**Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-33), `funcional/aprobaciones.md`.

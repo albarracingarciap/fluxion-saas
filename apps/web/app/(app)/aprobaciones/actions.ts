@@ -12,6 +12,7 @@ import { logAuditEvent } from '@/lib/audit'
 import type { ApprovalObjectType } from '@/lib/approvals/catalog'
 import { applyApprovalOutcome } from '@/lib/approvals/effects'
 import { generateApprovalMinutes } from '@/lib/approvals/minutes'
+import { generateMilestoneEvidence } from '@/lib/milestones/milestone-server'
 import {
   currentApprovalCandidates,
   notifyApprovalCancelled,
@@ -326,6 +327,13 @@ export async function decideApproval(input: {
     // que haber cambiado de estado.
     const acta = await generateApprovalMinutes(input.requestId)
     if (acta.aviso) aviso = aviso ? `${aviso} ${acta.aviso}` : acta.aviso
+
+    // B19: la evaluación de riesgos o la Declaración aprobadas quedan como PDF
+    // inmutable registrado como evidencia (hito).
+    if (resultado === 'approved') {
+      const hito = await generateMilestoneEvidence({ requestId: input.requestId, actorUserId: profile.user_id })
+      if (hito.aviso) aviso = aviso ? `${aviso} ${hito.aviso}` : hito.aviso
+    }
 
     await notifyApprovalClosed(input.requestId, profile.id)
   } else if (resultado === 'pending') {
