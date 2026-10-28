@@ -122,6 +122,7 @@ apartado 4. La fase 4 añade funcionalidad.
 | **DP-09** | Alcance ISO 42001 de organización (cláusulas 4 a 10) | B20 | **Decidida** (2026-10-20): las 10 obligaciones ISO del catálogo, a nivel organización, con sesiones de comité y acta. Detalle (2026-10-28): códigos y cláusulas corregidos (A.6.1 → §6.2…); vista ISO 42001 › Sistema de gestión con propuestas por datos (§8.2, §6.1.4, §7.2, §9.3) o por evidencias; sesiones con acta en PDF como evidencia; la Revisión por la dirección con el orden del día de §9.3.2 y recordatorio anual. B20a, B20b y B20c integrados |
 | **DP-10** | Términos y modelo de datos pendientes de la especificación del cuestionario (`_pendientes.md` 236 a 242) | B13 | **Decidida** (2026-10-20): ver la [especificación](cuestionario-preliminar-reglas.md), «Decisiones del 2026-10-20» |
 | **DP-11** | Aplicabilidad de los documentos del expediente según el rol en la cadena de valor y el nivel de riesgo | B16 | **Decidida** (2026-10-27). Ver §5 |
+| **DP-12** | Datos de entrada (Art. 26.4), vigilancia del funcionamiento (Art. 26.5) y FRIA cuando no aplica | B28, B29 | **Decidida** (2026-10-28): fichas declarativas con verificaciones periódicas y evidencias (informe de calidad o perfilado y/o muestra anonimizada; nunca el dataset en bruto); revisión del funcionamiento trimestral y verificación de los datos de entrada semestral, modificables por sistema; obligatorias en alto riesgo con la organización como responsable del despliegue y opcionales en el resto; tipo de evidencia «Registro de monitorización» asociado al Art. 26.5 y nuevo «Informe de calidad de datos de entrada» para el Art. 26.4; señales automáticas como verificación, más adelante. FRIA: si no aplica, la pestaña explica el motivo (o pide la respuesta que falta) y se puede redactar como buena práctica, sin que cuente como obligación |
 
 ## 5. Decisiones tomadas
 
@@ -965,6 +966,24 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
 - **Resuelve:** GAP-21, GAP-27.
 - **Alcance.** Aviso al escalar una revisión de aceptación (decisión 70); aviso de caducidad de evidencias
   a su responsable (decisión 71); destinatario correcto del recordatorio semanal (`R11`, patrón `P1`).
+- **Talla:** S.
+
+## Fase 5 · Operación del despliegue (tras el documento de comprobación)
+
+### B28 · Datos de entrada y vigilancia del funcionamiento
+
+- **Alcance.** DP-12. B28a: datos de entrada (Art. 26.4): quién los controla, qué espera el sistema, fuentes
+  y controles, verificaciones semestrales con evidencia y tarea al vencer. B28b: plan de vigilancia
+  (Art. 26.5): indicadores, umbrales, frecuencia, responsable y fuente; revisiones trimestrales con los datos
+  de la aplicación del periodo y enlace a avisar al proveedor, suspender el uso o dar parte de un incidente.
+  Ambas afectan a Vigente y proponen resolver su obligación.
+- **Talla:** M + M.
+
+### B29 · FRIA visible y voluntaria
+
+- **Alcance.** DP-12. En alto riesgo del Anexo III con la organización como responsable del despliegue, la
+  pestaña FRIA aparece siempre: explica por qué no aplica o pide responder si la organización es organismo
+  público; se puede redactar como buena práctica sin que cuente como obligación.
 - **Talla:** S.
 
 ## Trazabilidad gap → bloque

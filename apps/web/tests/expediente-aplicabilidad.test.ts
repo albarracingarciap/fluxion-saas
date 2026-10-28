@@ -90,3 +90,19 @@ test('Plan de vigilancia poscomercialización: solo el proveedor de alto riesgo 
   assert.equal(modo('post_market_plan', f({ ...altoAnexoIII(['4a']), valueChainRoles: ['deployer'] })), 'no_aplica')
   assert.equal(modo('post_market_plan', f({ valueChainRoles: ['provider'], level: 'limited' })), 'no_aplica')
 })
+
+test('FRIA que no aplica (DP-12): voluntaria para el responsable del despliegue y aviso si falta la respuesta', () => {
+  const sinRespuesta = documentApplicability('fria', f({ ...altoAnexoIII(['4a']), valueChainRoles: ['deployer'], publicBody: null }))
+  assert.equal(sinRespuesta.mode, 'no_aplica')
+  assert.equal(sinRespuesta.missingAnswer, 'publicBody')
+  assert.equal(sinRespuesta.voluntary, true)
+  const noPublica = documentApplicability('fria', f({ ...altoAnexoIII(['4a']), valueChainRoles: ['deployer'], publicBody: false }))
+  assert.equal(noPublica.missingAnswer, undefined)
+  assert.equal(noPublica.voluntary, true)
+  // Fuera del supuesto del Art. 27 no se pregunta, pero se puede redactar.
+  const limitado = documentApplicability('fria', f({ level: 'limited', valueChainRoles: ['deployer'] }))
+  assert.equal(limitado.missingAnswer, undefined)
+  assert.equal(limitado.voluntary, true)
+  // Solo proveedor: no tiene sentido redactarla.
+  assert.equal(documentApplicability('fria', f({ level: 'limited', valueChainRoles: ['provider'] })).voluntary, false)
+})

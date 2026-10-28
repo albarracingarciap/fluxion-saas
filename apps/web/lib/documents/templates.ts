@@ -84,4 +84,8 @@ export type TemplateOption = {
   reason: string
   /** No aplica, pero se puede adjuntar la documentación del proveedor (Anexo IV y registro UE). */
   optionalProviderDocs?: boolean
+  /** No aplica, pero se puede redactar como buena práctica (DP-12, FRIA). */
+  voluntary?: boolean
+  /** No aplica porque falta un dato de la ficha (DP-12). */
+  missingAnswer?: 'publicBody'
 }

@@ -152,14 +152,18 @@ export async function listTemplatesForSystem(aiSystemId: string): Promise<Templa
         reason: a.reason,
         optionalProviderDocs: a.mode === 'no_aplica' && DOC_PROVEEDOR_OPCIONAL.includes(String(t.key))
           && Boolean(facts) && !facts!.valueChainRoles.includes('provider'),
+        voluntary: a.mode === 'no_aplica' && a.voluntary === true,
+        missingAnswer: a.missingAnswer,
       }
     })
-    .filter((t) => t.mode !== 'no_aplica' || t.hasDocument || t.optionalProviderDocs)
+    .filter((t) => t.mode !== 'no_aplica' || t.hasDocument || t.optionalProviderDocs || t.voluntary)
 }
 
 export async function getOrCreateDocument(
   aiSystemId: string,
   templateKey: string,
+  /** Redactarla como buena práctica aunque no aplique (DP-12, FRIA). */
+  opts?: { voluntary?: boolean },
 ): Promise<ComposedDocument | { error: string }> {
   const { error, profile, fluxion } = await ctx()
   if (error || !profile) return { error: error ?? 'No autenticado' }
@@ -187,7 +191,8 @@ export async function getOrCreateDocument(
   if (!documentId) {
     // Solo se crea si la plantilla se redacta para este sistema (DP-11).
     const aplicabilidad = await templateApplicability(aiSystemId, templateKey)
-    if (aplicabilidad.mode !== 'redactar') return { error: aplicabilidad.reason }
+    const voluntaria = opts?.voluntary === true && aplicabilidad.mode === 'no_aplica' && aplicabilidad.voluntary === true
+    if (aplicabilidad.mode !== 'redactar' && !voluntaria) return { error: aplicabilidad.reason }
 
     // Siempre la versión activa más alta del catálogo, o la adaptación de la
     // organización si la hubiera.

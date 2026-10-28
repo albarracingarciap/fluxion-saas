@@ -371,13 +371,21 @@ export function ExpedienteClient({ doc, renders, templates, templateKey, aiSyste
         )}
       </div>
 
-      <NotificationPanel
-        templateKey={templateKey}
-        documentId={doc.document.id}
-        aiSystemId={aiSystemId}
-        status={doc.document.status}
-        notifications={notifications}
-      />
+      {/* DP-12: redactada como buena práctica; no se notifica a la autoridad. */}
+      {actual?.mode === 'no_aplica' && actual.voluntary ? (
+        <div className="border border-ltb bg-ltcard2 rounded-[12px] p-4 font-sora text-[12.5px] text-ltt2">
+          <span className="font-semibold text-ltt">Redactada como buena práctica.</span> No la exige el AI Act para este
+          sistema: no cuenta como obligación, no se notifica a la autoridad y no exige revisión anual. {actual.reason}
+        </div>
+      ) : (
+        <NotificationPanel
+          templateKey={templateKey}
+          documentId={doc.document.id}
+          aiSystemId={aiSystemId}
+          status={doc.document.status}
+          notifications={notifications}
+        />
+      )}
 
       {/* Lo que falta — el producto real de esta pantalla */}
       {doc.gaps.length > 0 ? (
