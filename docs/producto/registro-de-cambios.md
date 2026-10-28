@@ -2784,3 +2784,38 @@ correctos. No se ha probado en el navegador.
 **Corrección (2026-10-28).** Convocar una sesión fallaba con `committee_sessions_created_by_fkey`: `created_by`
 y `minutes_locked_by` apuntan a `profiles.id` y se guardaba el `auth.users.id`. Ahora se guarda el id del perfil
 (sin migración). Comprobado en el Postgres local con los dos valores.
+
+## B20c · Revisión por la dirección
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b20c-revision-direccion` ·
+**Migración:** **sí**, `supabase/migrations/20261028210000_revision_direccion_tarea.sql`
+
+**Problema** (GAP-05, GAP-31; DP-09): la revisión por la dirección (ISO/IEC 42001, §9.3) no tenía flujo propio ni
+recordatorio, y la cláusula §9.3 del sistema de gestión no podía acreditarse con datos.
+
+**Decisiones del responsable (2026-10-28):** sesión del comité Revisión por la Dirección con el orden del día de
+§9.3.2 y recordatorio anual. Con TODO 308, 309 y 310 aceptados (mapa, glosario e inventario v1.10).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | Origen de tarea `management_review` |
+| Reglas (`lib/iso/management-review.ts`, nuevo, puro) | Puntos de §9.3.2 (a, b, c, d 1-3, e) y de resultados (§9.3.3), resumen de datos de cada punto, actualización sin tocar lo redactado, vencimiento (12 meses, aviso 30 días antes) y quién sigue ISO/IEC 42001 |
+| Datos de la revisión (`lib/iso/management-review-server.ts`, nuevo) | Acuerdos con tarea de la revisión anterior, sistemas (activos, alto riesgo, altas, retirados), requerimientos de la autoridad, incidentes, reevaluaciones abiertas, acciones vencidas, evidencias caducadas, cláusulas resueltas, Declaración de Aplicabilidad, auditoría interna (§9.2) y alfabetización |
+| Sesión | Al convocar una «Revisión por la dirección» el orden del día se rellena con esos puntos y sus datos; **Actualizar los datos** los recalcula (y añade los puntos si la sesión se convocó con otro tipo) |
+| Cierre | Completa la tarea anual; el acta (EVT-PRO-01) se vincula a la cláusula §9.3, que pasa a proponerse como resuelta |
+| Cron `reevaluation-triggers` | Crea la tarea **Celebrar la revisión por la dirección** (Responsable del SGAI o, si no hay, un Administrador) 30 días antes de cumplirse los 12 meses, o ya si no hubo ninguna, en las organizaciones con ISO 42001 entre sus marcos aplicables o con el comité; la completa si ya se celebró |
+| ISO 42001 › Sistema de gestión | La cláusula §9.3 muestra la última revisión, la fecha de la próxima y enlaza con Organización › Comités |
+| Tareas | Origen «Revisión por la dirección», que enlaza con Organización › Comités |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas); tarea `management_review` y vínculo
+del acta con §9.3 comprobados en la base local. `npm test` 215/215 (cinco tests nuevos), `tsc --noEmit`,
+`next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador ni el cron contra la base real.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web; el cron ya está programado (no cambia el
+crontab).
+
+**Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-05, GAP-31), `tecnica/tareas-programadas.md`,
+`producto/plan-resolucion-gaps.md` (DP-09), glosario, mapa e inventario (TODO 308-310), `_pendientes.md` (311:
+glosario; 312: inventario; 313: mapa).

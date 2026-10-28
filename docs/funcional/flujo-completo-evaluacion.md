@@ -62,6 +62,8 @@ fuente:
   - supabase/migrations/20261028200000_comites_sesiones_acta.sql
   - apps/web/lib/governance/committee-sessions.ts
   - apps/web/app/(app)/organizacion/sesiones-actions.ts
+  - apps/web/lib/iso/management-review.ts
+  - supabase/migrations/20261028210000_revision_direccion_tarea.sql
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -343,8 +345,16 @@ flowchart LR
 > como evidencia válida de la organización. Los votos de las solicitudes siguen en Aprobaciones. Las gestionan el
 > Administrador, el Responsable del SGAI, el CAIO y el presidente o el secretario del comité.
 >
-> **Pendiente de implementar.** La revisión por la dirección como sesión propia, con el orden del día de
-> ISO/IEC 42001, §9.3.2, y su recordatorio anual (B20c).
+> La **revisión por la dirección** (ISO/IEC 42001, §9.3) es una sesión de tipo «Revisión por la dirección» del
+> comité Revisión por la Dirección (B20c). Al convocarla, el orden del día se rellena con las entradas de §9.3.2
+> (acciones de revisiones anteriores, cambios en las cuestiones internas y externas y en las partes interesadas,
+> desempeño del SGAI, auditoría y mejora) y un último punto para los resultados de §9.3.3; cada punto muestra los
+> datos de la aplicación desde la revisión anterior, que se pueden **Actualizar los datos** sin tocar lo
+> redactado. Al cerrarla, su acta (tipo «Acta de revisión por dirección») se vincula a la cláusula §9.3 de **ISO
+> 42001 › Sistema de gestión**, que propone resolverla, y completa la tarea **Celebrar la revisión por la
+> dirección**. El cron diario crea esa tarea 30 días antes de cumplirse 12 meses desde la última revisión (o ya,
+> si no hubo ninguna) en las organizaciones con ISO 42001 entre sus marcos aplicables o con el comité constituido;
+> la recibe el Responsable del SGAI o, si no lo hay, un Administrador.
 
 ### 3.3 Ajustes › Aprobaciones
 
@@ -943,8 +953,9 @@ flowchart TD
 > no tienen flujo: política de IA, objetivos, competencia, auditoría interna, revisión por la dirección y
 > no conformidades. El catálogo ya tiene obligaciones ISO para ellos (GAP-12), pero no se aplican.
 >
-> **Pendiente de implementar.** Sesiones de comité y actas (decisión 62), que cubrirían la revisión por la
-> dirección.
+> ✔ Resuelto en B20a, B20b y B20c (DP-09): las cláusulas se siguen en **ISO 42001 › Sistema de gestión**
+> (GAP-12), los comités celebran sesiones con acta (GAP-05) y la revisión por la dirección tiene su sesión, su
+> orden del día de §9.3.2 y su recordatorio anual.
 
 ---
 
@@ -1074,7 +1085,7 @@ recorrido se completa, pero sin las garantías que debería · **Fricción** = t
 | GAP-26 | 8 | Validar evidencias no pasa por Flujos de aprobación (revisión obligatoria y versiones resueltas en B10) | Debilita | — |
 | GAP-10 | 3 | Clasificación sin aprobación (historial resuelto en B13a) | Debilita | `I10` |
 | GAP-11 | 3 | Obligaciones no se actualizan desde las demás fases | Debilita | — |
-| GAP-12, GAP-31 | 3, 9 | Cláusulas del SGAI de ISO/IEC 42001 sin flujo; obligaciones ISO no aplicadas | Debilita | `I22` |
+| GAP-12, GAP-31 | 3, 9 | Cláusulas del SGAI de ISO/IEC 42001 sin flujo; obligaciones ISO no aplicadas (✔ B20) | Debilita | `I22` |
 | GAP-29 | 9 | Estado de controles de la Declaración desconectado del tratamiento | Debilita | — |
 | GAP-30 | 9 | Exclusión de brechas sin aprobación | Debilita | ✔ Aprobación en B11d; `R13` abierto |
 | GAP-33 | 4 a 9 | FMEA, AISIA y Declaración no se conservan como evidencia | Debilita | — |

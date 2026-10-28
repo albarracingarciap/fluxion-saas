@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Loader2, Sparkles } from 'lucide-react'
 
 import { SGAI_STATUS_LABEL, type SgaiStatus } from '@/lib/iso/management-system'
+import { managementReviewDue } from '@/lib/iso/management-review'
 
 import { acceptSgaiProposal, saveSgaiObligation, type SgaiObligationView, type SgaiView } from './actions'
 
@@ -108,6 +109,18 @@ function Clausula({ o, view, abierta, onToggle }: { o: SgaiObligationView; view:
         </div>
         {abierta ? <ChevronDown size={16} className="text-lttm shrink-0 mt-1" /> : <ChevronRight size={16} className="text-lttm shrink-0 mt-1" />}
       </button>
+
+      {/* §9.3: la revisión por la dirección se celebra como sesión de su comité (B20c). */}
+      {o.code === 'ISO42001-9.3' && (
+        <p className="px-5 -mt-2 pb-4 font-sora text-[12px] text-ltt2">
+          {view.facts.lastManagementReviewAt
+            ? <>Última revisión por la dirección: {new Date(view.facts.lastManagementReviewAt).toLocaleDateString('es-ES')} · la próxima, antes del {new Date(managementReviewDue(view.facts.lastManagementReviewAt, new Date().toISOString()).dueDate).toLocaleDateString('es-ES')}. </>
+            : <>No consta ninguna revisión por la dirección. </>}
+          Se convoca en{' '}
+          <Link href="/organizacion?tab=comites" className="text-brand-cyan hover:underline">Organización › Comités</Link>
+          , en el comité Revisión por la Dirección; su acta se vincula aquí al cerrarla.
+        </p>
+      )}
 
       {abierta && (
         <div className="px-5 pb-5 pt-1 border-t border-ltb flex flex-col gap-4">

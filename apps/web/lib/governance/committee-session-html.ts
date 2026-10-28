@@ -30,7 +30,8 @@ export function sessionMinutesHtml(m: SessionMinutes): string {
     const solicitud = p.approval_label
       ? `<br/><span class="small">Solicitud de aprobación: ${esc(p.approval_label)}${p.approval_status ? ` · ${esc(p.approval_status)}` : ''}</span>`
       : ''
-    return `<tr><td class="c">${i + 1}</td><td>${esc(p.title)}${solicitud}</td><td class="small">${esc(p.notes)}</td></tr>`
+    const datos = p.data_summary ? `<br/><span class="small">${esc(p.data_summary).replace(/\n/g, '<br/>')}</span>` : ''
+    return `<tr><td class="c">${i + 1}</td><td>${esc(p.title)}${solicitud}${datos}</td><td class="small">${esc(p.notes)}</td></tr>`
   }).join('')
   const miembros = m.attendees.filter((a) => a.member_id)
   const invitados = m.attendees.filter((a) => !a.member_id)

@@ -60,7 +60,7 @@ test('qué falta para cerrar la sesión', () => {
 })
 
 test('normaliza el JSON guardado', () => {
-  assert.deepEqual(normalizeAgenda([null, { title: 'X', approval_request_id: '' }]), [{ id: 'p1', title: 'X', notes: '', approval_request_id: null }])
+  assert.deepEqual(normalizeAgenda([null, { title: 'X', approval_request_id: '' }]), [{ id: 'p1', title: 'X', notes: '', approval_request_id: null, input_key: null, data_summary: null }])
   assert.deepEqual(normalizeDecisions('nada'), [])
 })
 
