@@ -39,6 +39,7 @@ export type AuditAction =
   | 'system.reevaluation_dismissed'
   | 'system.post_biometric_updated'
   | 'system.provider_classification_updated'
+  | 'org.sgai_obligation_updated'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

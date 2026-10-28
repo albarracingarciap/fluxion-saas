@@ -2716,3 +2716,33 @@ servicio, como el PDF del expediente aprobado. No se ha probado contra el render
 **Despliegue.** Solo web, sin migración. Necesita el renderizador y MinIO configurados (como el expediente).
 
 **Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-33), `funcional/aprobaciones.md`.
+
+## B20a · Sistema de gestión ISO/IEC 42001: obligaciones de la organización
+
+**Fecha:** 2026-10-28 · **Rama:** `fase4/b20a-obligaciones-sgai` ·
+**Migración:** **sí**, `supabase/migrations/20261028190000_sgai_obligaciones_organizacion.sql`
+
+**Problema** (GAP-12, GAP-31; DP-09): las 10 obligaciones ISO/IEC 42001 del catálogo no se asignaban a nadie y
+estaban codificadas como controles del Anexo A cuando son cláusulas del sistema de gestión.
+
+**Decisiones del responsable (2026-10-28):** se corrigen la cláusula y el código; vista propia con propuestas por
+datos o por evidencias. B20 se parte en B20a (esto), B20b (sesiones de comité) y B20c (revisión por la dirección).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Catálogo (migración) | `ISO42001-A61` → `ISO42001-6.2` (§6.2), `A62` → `6.1.4`, `A71` → `7.1`, `A72` → `7.2`, `A81` → `8.1`, `A82` → `8.2`, `A91` → `9.1`, `A92` → `9.2`, `A93` → `9.3`, `A101` → `10.2` |
+| Datos (migración) | `organization_obligations` y `organization_obligation_evidences`, con RLS |
+| Reglas (`lib/iso/management-system.ts`, nuevo, puro) | Propuestas por datos: §8.2, §6.1.4, §7.2 y §9.3 |
+| Vista | **ISO 42001 › Sistema de gestión** (`/plantillas/sgai-iso42001`): indicadores, cláusulas con estado, responsable, fecha, notas, «Cómo se cumple», evidencias y **Aceptar propuesta** |
+| Auditoría | `org.sgai_obligation_updated` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas; códigos corregidos) y RLS comprobada
+(el Lector no actualiza; el Analista de cumplimiento sí; no se puede excluir). `npm test` 204/204 (cuatro tests
+nuevos), `tsc --noEmit`, `next lint` y `check-server-actions.sh` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web. Solo web.
+
+**Documentación.** `producto/plan-resolucion-gaps.md` (DP-09), `funcional/flujo-completo-evaluacion.md` (GAP-12),
+`tecnica/modelo-datos.md`, `_pendientes.md` (305: mapa; 306: glosario; 307: inventario).

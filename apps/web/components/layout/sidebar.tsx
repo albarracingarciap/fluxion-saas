@@ -61,6 +61,7 @@ const NAV: NavSection[] = [
         label: "ISO 42001", icon: <ClipboardList size={15} />,
         children: [
           { label: "Declaración de Aplicabilidad", href: "/plantillas/soa-iso42001" },
+          { label: "Sistema de gestión", href: "/plantillas/sgai-iso42001" },
         ],
       },
     ],

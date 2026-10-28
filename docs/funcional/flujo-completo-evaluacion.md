@@ -54,6 +54,11 @@ fuente:
   - apps/web/lib/evaluation-status/load.ts
   - apps/web/lib/milestones/milestone-server.ts
   - apps/web/lib/milestones/milestone-html.ts
+  - apps/web/app/(app)/plantillas/sgai-iso42001/actions.ts
+  - apps/web/app/(app)/plantillas/sgai-iso42001/sgai-client.tsx
+  - apps/web/lib/iso/management-system.ts
+  - apps/web/lib/iso/management-system-server.ts
+  - supabase/migrations/20261028190000_sgai_obligaciones_organizacion.sql
 ---
 
 # Flujo completo, del onboarding al sistema evaluado
@@ -514,10 +519,15 @@ flowchart TD
 > B). Desde B17e1 también se propone resuelta la obligación que tiene vinculadas evidencias válidas de todos los
 > tipos obligatorios del catálogo (cada evidencia lleva su tipo del catálogo). La persona acepta la propuesta.
 
-> **⚠ GAP-12 · Solo obligaciones AI Act por sistema.** El catálogo incluye 10 obligaciones de ISO/IEC
-> 42001 (objetivos, evaluación de impacto, competencia, auditoría interna, revisión por la dirección, no
-> conformidades…), pero no se asignan a ningún sistema ni a la organización. Las cláusulas del sistema de
-> gestión no tienen seguimiento (ver [fase 9](#11-fase-9--nivel-organización-isoiec-42001)).
+> **⚠ GAP-12 · Solo obligaciones AI Act por sistema.** ✔ Resuelto en B20a (DP-09): las 10 obligaciones de
+> ISO/IEC 42001 del catálogo, con sus cláusulas corregidas (§6.1.4, §6.2, §7.1, §7.2, §8.1, §8.2, §9.1, §9.2,
+> §9.3 y §10.2; antes figuraban como controles del Anexo A), se siguen a nivel de organización en **ISO 42001 ›
+> Sistema de gestión** (`/plantillas/sgai-iso42001`): estado (Pendiente, En curso, Resuelta; no se excluyen),
+> responsable, fecha límite, notas, «Cómo se cumple» (obligatorio para resolver) y evidencias. Proponen
+> «Resuelta» por datos (§8.2, evaluación de riesgos aprobada en todos los sistemas del alcance de la Declaración
+> no retirados; §6.1.4, AISIA aprobada en todos; §7.2, alfabetización en IA válida de todos los miembros activos;
+> §9.3, revisión por la dirección celebrada en los últimos 12 meses) o por evidencias válidas de los tipos
+> obligatorios del catálogo. Las editan el Administrador, el Responsable del SGAI y el Analista de cumplimiento.
 
 ---
 
