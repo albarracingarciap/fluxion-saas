@@ -40,6 +40,12 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode; editable:
 export default function OrganizationPage() {
   const { organization, profile, loadUserData } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabKey>('identidad');
+
+  // ?tab=comites: vuelta desde una sesión de comité (B20b).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && TABS.some((t) => t.key === tab)) setActiveTab(tab as TabKey);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);

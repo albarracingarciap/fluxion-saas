@@ -40,6 +40,10 @@ export type AuditAction =
   | 'system.post_biometric_updated'
   | 'system.provider_classification_updated'
   | 'org.sgai_obligation_updated'
+  | 'org.committee_session_scheduled'
+  | 'org.committee_session_updated'
+  | 'org.committee_session_closed'
+  | 'org.committee_session_cancelled'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

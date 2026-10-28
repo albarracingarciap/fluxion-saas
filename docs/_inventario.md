@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.8** | **2026-10-28** | **Revisado** por Pedro Albarracín | Disparadores de reevaluación implementados (decisión 63, B21a): `reevaluation_triggers` deja de ser una tabla sin uso. Ver §3, §11 y §12 |
+| **1.9** | **2026-10-28** | **Revisado** por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
+| 1.8 | 2026-10-28 | Revisado por Pedro Albarracín | Disparadores de reevaluación implementados (decisión 63, B21a): `reevaluation_triggers` deja de ser una tabla sin uso. Ver §3, §11 y §12 |
 | 1.7 | 2026-10-27 | Revisado por Pedro Albarracín | Informes del sistema consolidados (B16, DP-06) y aplicabilidad del expediente por rol y nivel (DP-11): rutas de dossier técnico, registro UE e informe de brechas redirigidas; ficha para el registro UE como plantilla `eu_registry`. Ver §2.2, §10.2 y §13.1 |
 | 1.6 | 2026-10-27 | Revisado por Pedro Albarracín | AISIA como plantilla del expediente (B15, DP-04 y DP-05): el asistente y las tablas `aisia_*` se retiran; la ruta antigua redirige al expediente. Ver §2, §4, §10.2, §11.3 y §12 |
 | 1.5 | 2026-10-26 | Revisado por Pedro Albarracín | Catálogos `/datos/*`: solo la administración de la plataforma (`platform_admin`) los modifica; §7.2 resuelto y decisión 39 corregida. Ver §2.6, §7 y §14.1 |
@@ -158,6 +159,7 @@ Columna Control:
 | Ruta | Propósito | Control |
 |---|---|---|
 | `/plantillas/soa-iso42001` | Declaración de Aplicabilidad (38 controles del Anexo A, ciclo draft → under_review → approved, sugerencias IA) | AUTH |
+| `/plantillas/sgai-iso42001` | Sistema de gestión: las 10 cláusulas de ISO/IEC 42001 a nivel de organización, con estado, responsable, evidencias y propuestas de estado (v1.9, B20a) | AUTH |
 
 ### 2.6 Datos: catálogos maestros globales (esquema `compliance`)
 `/datos` (portada), `/datos/modos-de-fallo`, `/datos/medidas`, `/datos/tipos-de-evidencia`, `/datos/obligaciones`,
@@ -218,7 +220,7 @@ El inventario de abril (`recursos/docs/db_inventory_2026-04-28.md`) está parcia
 | Comités | `committees`, `committee_members` (internos o externos), `committee_sessions` |
 | Inventario | `ai_systems` (más de 100 columnas), `ai_system_history`, `discovered_assets` |
 | Clasificación AI Act | `classification_events`, `classification_diffs`, `ai_system_classification_reviews`, `agent_sessions`, `agent_messages`, `preliminary_questionnaires` |
-| Obligaciones | `compliance.obligations`, `compliance.evidence_types`, `compliance.obligation_evidence_types`, `compliance.control_templates`, `fluxion.system_obligations`, `compliance.frameworks`, `compliance.requirements` y `compliance.requirement_control_mappings` (las tres últimas vacías) |
+| Obligaciones | `compliance.obligations`, `compliance.evidence_types`, `compliance.obligation_evidence_types`, `compliance.control_templates`, `fluxion.system_obligations`, `fluxion.organization_obligations` y `organization_obligation_evidences` (cláusulas del sistema de gestión ISO/IEC 42001, códigos `ISO42001-6.2`…`ISO42001-10.2`; v1.9, B20a), `compliance.frameworks`, `compliance.requirements` y `compliance.requirement_control_mappings` (las tres últimas vacías) |
 | Modos de fallo (catálogo) | `compliance.risk_dimensions` (6), `failure_modes` (436), `failure_mode_norm_refs`, `failure_mode_control_refs`, `causal_families` (A a H), `causal_nodes`, `causal_relationships`, `causal_node_failure_mode_links`, `failure_mode_causal_relations` (vacía) |
 | FMEA | `system_failure_modes`, `fmea_evaluations`, `fmea_items`, `fmea_item_history`, `fmea_family_estimates`, `causal_graph_instances`, `reevaluation_triggers` |
 | Plan de tratamiento | `treatment_plans`, `treatment_actions`, `treatment_action_events`, `treatment_action_reviews`, `treatment_plan_snapshots`, `controls`, `evidence_controls` y dos tablas `*_legacy_20260417` |

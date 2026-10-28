@@ -40,7 +40,8 @@ export type MilestoneCover = {
   contentChecksum: string
 }
 
-function cover(c: MilestoneCover): string {
+/** Portada común; también la usa el acta de las sesiones de comité (B20b). */
+export function cover(c: MilestoneCover): string {
   return `<div class="cover">
     <p class="meta">${esc(c.subtitle)}</p>
     <h1>${esc(c.title)}</h1>
@@ -53,7 +54,7 @@ function cover(c: MilestoneCover): string {
   </div>`
 }
 
-function page(title: string, body: string): string {
+export function page(title: string, body: string): string {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" /><title>${esc(title)}</title><style>${CSS}</style></head><body>${body}</body></html>`
 }
 
