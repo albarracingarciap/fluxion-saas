@@ -2824,3 +2824,29 @@ glosario; 312: inventario; 313: mapa).
 Ahora la tarjeta avisa de que no hay quórum posible y pide añadir miembros, **Convocar sesión** no aparece hasta
 que haya alguno con voto y la acción del servidor lo rechaza. Sin migración. TODO 311, 312 y 313 aplicados
 (glosario «Revisión por la dirección», inventario v1.11 y fuentes del mapa).
+
+## B29 · FRIA visible y voluntaria
+
+**Fecha:** 2026-10-28 · **Rama:** `fase5/b29-fria-voluntaria` · **Migración:** no
+
+**Problema** (documento de comprobación): en la ficha del sistema se veían la AISIA y la DPIA, pero no la FRIA.
+La FRIA solo aplica en el supuesto del Art. 27 y, si no aplicaba, la pestaña desaparecía sin explicación; tampoco
+se avisaba cuando faltaba saber si la organización es organismo público.
+
+**Decisiones del responsable (2026-10-28, DP-12):** si no aplica, explicar el motivo y permitir redactarla como
+buena práctica, sin que sea obligatoria.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Reglas (`lib/documents/applicability.ts`) | La FRIA que no aplica se marca como voluntaria si la organización es responsable del despliegue, y como pendiente de respuesta si el sistema es de alto riesgo del Anexo III y no se sabe si la organización es organismo público |
+| Expediente | La pestaña FRIA aparece con el motivo, **Responder al editar el sistema** si falta la respuesta y **Redactar como buena práctica**; en la FRIA voluntaria, un aviso sustituye al panel de notificación a la autoridad |
+| Reevaluación | La FRIA voluntaria aprobada no abre la revisión anual (no quita Vigente) |
+
+**Verificación.** `npm test` 216/216 (un test nuevo), `tsc --noEmit`, `next lint` y `check-server-actions.sh`
+correctos. No se ha probado en el navegador.
+
+**Despliegue.** Solo web, sin migración.
+
+**Documentación.** `producto/plan-resolucion-gaps.md` (DP-12, B28 y B29), `funcional/expediente-documental.md`.

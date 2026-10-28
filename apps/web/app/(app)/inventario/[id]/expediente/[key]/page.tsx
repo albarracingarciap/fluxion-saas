@@ -59,8 +59,11 @@ export default async function ExpedientePage({
     )
   }
 
+  // DP-12: redactarla como buena práctica aunque no aplique (FRIA).
+  const voluntaria = aplicabilidad.mode === 'no_aplica' && aplicabilidad.voluntary === true && searchParams?.vista === 'voluntaria'
+
   // No aplica y no hay nada redactado: se explica por qué, sin crear el documento.
-  if (aplicabilidad.mode === 'no_aplica' && !tieneDocumento) {
+  if (aplicabilidad.mode === 'no_aplica' && !tieneDocumento && !voluntaria) {
     return (
       <div className="max-w-[1000px] w-full mx-auto flex flex-col gap-5 py-6">
         <Link href={`/inventario/${params.id}`} className="font-sora text-[12.5px] text-lttm hover:text-ltt w-fit">
@@ -76,13 +79,36 @@ export default async function ExpedientePage({
               Depende de la clasificación AI Act y del rol de la organización en la cadena de valor («Tu papel
               frente a este sistema», al editar el sistema).
             </p>
+            {aplicabilidad.missingAnswer === 'publicBody' && (
+              <Link href={`/inventario/${params.id}/editar`} className="font-sora text-[12.5px] text-brand-cyan hover:underline mt-2 inline-block">
+                Responder al editar el sistema →
+              </Link>
+            )}
           </div>
         </div>
+        {aplicabilidad.voluntary && (
+          <div className="border border-ltb bg-ltcard rounded-[12px] p-6 flex items-start justify-between gap-4 flex-wrap">
+            <div className="max-w-[640px]">
+              <p className="font-sora text-[14px] text-ltt font-semibold">Redactarla como buena práctica</p>
+              <p className="font-sora text-[13px] text-ltt2 mt-1">
+                Aunque no sea obligatoria, puedes redactarla para documentar el impacto del sistema en los derechos
+                fundamentales. Sigue el mismo ciclo (borrador, aprobación, PDF y evidencia), pero no cuenta como
+                obligación, no se notifica a la autoridad y no exige revisión anual.
+              </p>
+            </div>
+            <Link
+              href={`/inventario/${params.id}/expediente/${params.key}?vista=voluntaria`}
+              className="px-4 py-2 rounded-[8px] bg-gradient-to-br from-[#00adef] to-[#33c3f5] text-white font-sora text-[12.5px] font-medium shrink-0"
+            >
+              Redactar como buena práctica
+            </Link>
+          </div>
+        )}
       </div>
     )
   }
 
-  const result = await getOrCreateDocument(params.id, params.key)
+  const result = await getOrCreateDocument(params.id, params.key, { voluntary: voluntaria })
 
   if ('error' in result) {
     return (

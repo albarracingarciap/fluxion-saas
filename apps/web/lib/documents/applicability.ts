@@ -29,6 +29,13 @@ export type Applicability = {
   reason: string
   /** Solo en el registro UE con `redactar`: qué sección del Anexo VIII. */
   euRegistrySection?: EuRegistrySection
+  /**
+   * Con `no_aplica`: se puede redactar como buena práctica, sin que cuente como
+   * obligación (DP-12, FRIA).
+   */
+  voluntary?: boolean
+  /** Con `no_aplica`: falta un dato de la ficha para saber si aplica (DP-12). */
+  missingAnswer?: 'publicBody'
 }
 
 export type ApplicabilityFacts = {
@@ -116,10 +123,22 @@ export function documentApplicability(templateKey: string, f: ApplicabilityFacts
       // Misma regla que la obligación AI-ACT-ART27 (RN-O06).
       const puntos = annexIIIPoints(f)
       const credito = puntos.includes('5b') || puntos.includes('5c')
-      if (alto && has(f, 'deployer') && puntos.some((p) => p !== '2') && (f.publicBody === true || credito)) {
+      const supuesto = alto && has(f, 'deployer') && puntos.some((p) => p !== '2')
+      if (supuesto && (f.publicBody === true || credito)) {
         return { mode: 'redactar', reason: 'Responsable del despliegue obligado a la evaluación de impacto en los derechos fundamentales (AI Act, Art. 27).' }
       }
-      return { mode: 'no_aplica', reason: 'La FRIA solo la exige el Art. 27: responsables del despliegue de alto riesgo del Anexo III que son organismos públicos o prestan servicios públicos, o que evalúan solvencia o seguros.' }
+      // DP-12: si no aplica, se explica y el responsable del despliegue puede
+      // redactarla como buena práctica, sin que cuente como obligación.
+      const voluntary = has(f, 'deployer')
+      if (supuesto && f.publicBody === null) {
+        return {
+          mode: 'no_aplica',
+          reason: 'Falta saber si la organización es un organismo de derecho público o una entidad privada que presta servicios públicos. Si lo es, la FRIA es obligatoria (AI Act, Art. 27).',
+          voluntary,
+          missingAnswer: 'publicBody',
+        }
+      }
+      return { mode: 'no_aplica', reason: 'La FRIA solo la exige el Art. 27: responsables del despliegue de alto riesgo del Anexo III que son organismos públicos o prestan servicios públicos, o que evalúan solvencia o seguros.', voluntary }
     }
 
     case 'model_card':

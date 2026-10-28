@@ -283,7 +283,16 @@ export async function detectPeriodicReevaluations(): Promise<{ registered: numbe
     .in('template_key', [...ANNUAL_REVIEW_TEMPLATES])
     .not('ai_system_id', 'is', null)
     .lt('approved_at', limite.toISOString())
-  for (const d of (documentos ?? []) as Array<{ id: string; organization_id: string; ai_system_id: string; template_key: 'fria' | 'aisia'; version: number; approved_at: string }>) {
+  const filas = (documentos ?? []) as Array<{ id: string; organization_id: string; ai_system_id: string; template_key: 'fria' | 'aisia'; version: number; approved_at: string }>
+  // DP-12: la FRIA redactada como buena práctica (no aplica) no exige revisión anual.
+  const conFria = Array.from(new Set(filas.filter((d) => d.template_key === 'fria').map((d) => d.ai_system_id)))
+  const { data: sistemasFria } = conFria.length
+    ? await admin.from('ai_systems').select(SISTEMA).in('id', conFria)
+    : { data: [] }
+  const friaExigida = new Set(((sistemasFria ?? []) as SistemaRow[])
+    .filter((s) => documentApplicability('fria', applicabilityFacts(s)).mode === 'redactar').map((s) => s.id))
+  for (const d of filas) {
+    if (d.template_key === 'fria' && !friaExigida.has(d.ai_system_id)) continue
     const nuevo = await registerReevaluation({
       organizationId: d.organization_id,
       systemId: d.ai_system_id,

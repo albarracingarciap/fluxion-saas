@@ -27,6 +27,7 @@ fuente:
   - supabase/migrations/20261027130000_aisia_al_expediente.sql
   - supabase/migrations/20261027150000_expediente_registro_ue.sql
   - apps/web/lib/documents/applicability.ts
+  - apps/web/lib/evaluation-status/reevaluation-server.ts
   - apps/web/lib/documents/derive-fria.ts
   - apps/web/app/(app)/inventario/[id]/expediente/[key]/notification-panel.tsx
   - supabase/migrations/20261027170000_expediente_notificaciones_fria.sql
@@ -104,6 +105,12 @@ Sin roles declarados, la organización no se considera proveedora.
   Una plantilla que no aplica sigue apareciendo, con «· no aplica», si el sistema ya tiene documento. La ayuda
   de cada pestaña da el motivo.
 - **No aplica:** la vista dice «Este documento no aplica a este sistema» con el motivo, y no crea el documento.
+- **FRIA como buena práctica** (DP-12, B29): si la organización es responsable del despliegue, la pestaña FRIA
+  aparece aunque no aplique. Explica el motivo y, si el sistema es de alto riesgo del Anexo III y falta saber si
+  la organización es organismo público (`aiact_inputs.publicBody` sin responder), lo pide con **Responder al
+  editar el sistema**. **Redactar como buena práctica** (`?vista=voluntaria`) crea el documento con el mismo ciclo,
+  pero no cuenta como obligación ni en la etapa de evaluación, no muestra el panel de notificación a la autoridad
+  y no abre la revisión anual (B21b).
 - **Documento que ha dejado de aplicar** (cambió la clasificación o el rol): se muestra con un aviso y se
   conserva lo redactado.
 
