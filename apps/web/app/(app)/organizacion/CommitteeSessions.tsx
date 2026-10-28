@@ -23,10 +23,12 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 /** Sesiones de un comité (B20b): lista y convocatoria. */
-export function CommitteeSessions({ committeeId, committeeType, isActive }: {
+export function CommitteeSessions({ committeeId, committeeType, isActive, votingCount }: {
   committeeId: string
   committeeType: string
   isActive: boolean
+  /** Miembros activos con voto: sin ninguno no se convoca. */
+  votingCount: number
 }) {
   const router = useRouter();
   const tipos = sessionTypesFor(committeeType);
@@ -66,7 +68,10 @@ export function CommitteeSessions({ committeeId, committeeType, isActive }: {
         <p className="font-plex text-[10px] uppercase tracking-[0.7px] text-lttm">
           Sesiones ({sessions.length})
         </p>
-        {canManage && isActive && !showForm && (
+        {canManage && isActive && !showForm && votingCount === 0 && (
+          <span className="font-sora text-[11.5px] text-lttm">Añade miembros con voto para convocar sesiones.</span>
+        )}
+        {canManage && isActive && !showForm && votingCount > 0 && (
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 text-[11.5px] font-sora text-brand-cyan hover:underline transition-all"

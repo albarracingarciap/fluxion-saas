@@ -106,7 +106,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-NAVEGACION | `docs/funcional/navegacion.md` | funcional | tecnica | transversal | `components/layout/*`, `(app)/layout.tsx` | borrador |
 | FUN-NOTIFICACIONES | `docs/funcional/notificaciones.md` | funcional | tecnica | transversal | `(app)/notificaciones/*`, `components/notifications/NotificationsBell.tsx` | borrador |
 | FUN-PERFIL | `docs/funcional/perfil.md` | funcional | tecnica | transversal | `(app)/perfil/**`, `components/profile/*`, `api/user/upload-avatar/route.ts` | borrador |
-| FUN-ORGANIZACION | `docs/funcional/organizacion.md` | funcional | tecnica | transversal | `(app)/organizacion/**`, `components/organization/LogoUpload.tsx`, `api/organization/upload-logo/route.ts`, `lib/organization/options.ts`, `(app)/organizacion/sesiones/**`, `organizacion/{CommitteeSessions.tsx,sesiones-actions.ts}`, `lib/governance/committee-session*.ts` | borrador |
+| FUN-ORGANIZACION | `docs/funcional/organizacion.md` | funcional | tecnica | transversal | `(app)/organizacion/**`, `components/organization/LogoUpload.tsx`, `api/organization/upload-logo/route.ts`, `lib/organization/options.ts`, `(app)/organizacion/sesiones/**`, `organizacion/{CommitteeSessions.tsx,sesiones-actions.ts}`, `lib/governance/committee-session*.ts`, `lib/iso/management-review*.ts` | borrador |
 | FUN-USUARIOS | `docs/funcional/usuarios.md` | funcional | tecnica | transversal | `(app)/usuarios/**`, `lib/users/roles.ts` | borrador |
 | FUN-AJUSTES | `docs/funcional/ajustes.md` | funcional | tecnica | transversal | `(app)/ajustes/**`, `lib/channels/send.ts` | borrador |
 
@@ -141,7 +141,7 @@ Las pestañas y las subrutas de instantáneas se documentan dentro de su vista.
 | FUN-EVIDENCIAS | `docs/funcional/evidencias.md` | funcional | tecnica | biblioteca-evidencias | `(app)/evidencias/{page.tsx,evidences-library-client.tsx,expiry-alerts-client.tsx,actions.ts}`, `lib/evidences/*` | borrador |
 | FUN-EVIDENCIA-DETALLE | `docs/funcional/evidencia-detalle.md` | funcional | tecnica | biblioteca-evidencias | `(app)/evidencias/[id]/*`, `lib/evidences/{detail,versions}.ts` | borrador |
 | FUN-SOA | `docs/funcional/declaracion-aplicabilidad.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/soa-iso42001/*` | borrador |
-| FUN-SGAI | `docs/funcional/sistema-gestion.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/sgai-iso42001/*`, `lib/iso/management-system*.ts` | pendiente |
+| FUN-SGAI | `docs/funcional/sistema-gestion.md` | funcional | tecnica | declaracion-aplicabilidad | `(app)/plantillas/sgai-iso42001/*`, `lib/iso/management-system*.ts`, `lib/iso/management-review*.ts` | pendiente |
 | FUN-DOSSIER | `docs/funcional/dossier-tecnico.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/technical-dossier/**`, `lib/ai-systems/technical-dossier.ts` | borrador |
 | FUN-REGISTRO-UE | `docs/funcional/registro-ue.md` | funcional | tecnica | documentacion-del-sistema | `lib/documents/derive-eu-registry.ts`, `lib/documents/applicability.ts`, `(app)/inventario/[id]/expediente/[key]/*` | borrador |
 | FUN-INFORME-BRECHAS | `docs/funcional/informe-brechas-sistema.md` | funcional | tecnica | informes-del-sistema | `(app)/inventario/[id]/gap-report/**`, `lib/ai-systems/gap-report.ts` | borrador |

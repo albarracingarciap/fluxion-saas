@@ -2819,3 +2819,8 @@ crontab).
 **Documentación.** `funcional/flujo-completo-evaluacion.md` (GAP-05, GAP-31), `tecnica/tareas-programadas.md`,
 `producto/plan-resolucion-gaps.md` (DP-09), glosario, mapa e inventario (TODO 308-310), `_pendientes.md` (311:
 glosario; 312: inventario; 313: mapa).
+
+**Ajuste (2026-10-28).** Un comité sin miembros con voto mostraba «Quórum: 1 de 0 con voto» y permitía convocar.
+Ahora la tarjeta avisa de que no hay quórum posible y pide añadir miembros, **Convocar sesión** no aparece hasta
+que haya alguno con voto y la acción del servidor lo rechaza. Sin migración. TODO 311, 312 y 313 aplicados
+(glosario «Revisión por la dirección», inventario v1.11 y fuentes del mapa).

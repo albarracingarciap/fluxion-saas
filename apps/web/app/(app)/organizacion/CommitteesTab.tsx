@@ -289,12 +289,16 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
                 Constituido el {new Date(committee.established_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
               </p>
             )}
-            {committee && (
+            {committee && (conVoto === 0 ? (
+              <p className="font-sora text-[11.5px] text-or mt-1">
+                Sin miembros con voto: no hay quórum posible. Añade miembros para que el comité pueda decidir y celebrar sesiones.
+              </p>
+            ) : (
               <p className="font-sora text-[11.5px] text-lttm mt-1">
                 Quórum: {quorumEfectivo} de {conVoto} con voto{committee.quorum ? '' : ' (mayoría)'} · Desempate:{' '}
                 {COMMITTEE_TIE_BREAK_LABELS[committee.tie_break] ?? committee.tie_break}
               </p>
-            )}
+            ))}
           </div>
         </div>
 
@@ -624,7 +628,7 @@ function CommitteeCard({ typeDef, committee, orgProfiles, organizationId, canMan
 
       {/* Sesiones con orden del día y acta (B20b) */}
       {committee && (
-        <CommitteeSessions committeeId={committee.id} committeeType={committee.type} isActive={committee.is_active} />
+        <CommitteeSessions committeeId={committee.id} committeeType={committee.type} isActive={committee.is_active} votingCount={conVoto} />
       )}
     </div>
   );
