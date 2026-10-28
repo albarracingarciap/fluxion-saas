@@ -38,6 +38,7 @@ import { createNoCacheAdminClient } from '@/lib/supabase/ingest';
 import { openApprovalRequest, openEvidenceReview } from '@/lib/approvals/open';
 import { canPrepareTreatmentPlan } from '@/lib/auth/roles-flujo';
 import type { TaskStatus } from '@/lib/tasks/types';
+import { notifyAcceptanceEscalated } from '@/lib/treatment-plans/review-escalation';
 
 type SaveTreatmentPlanDraftInput = {
   aiSystemId: string;
@@ -1887,7 +1888,20 @@ export async function reviewAcceptanceAction(
     },
   });
 
-  // 4) TODO Paso 7.8: si decision === 'escalated', insertar notificación al aprobador
+  // 4) B22 (decisión 70): escalar a comité avisa a quien aprobó el plan.
+  if (input.decision === 'escalated') {
+    const { data: actor } = await fluxion.from('profiles').select('id')
+      .eq('user_id', user.id).eq('organization_id', membership.organization_id).maybeSingle();
+    await notifyAcceptanceEscalated({
+      organizationId: membership.organization_id,
+      planId: plan.id,
+      planCode: plan.code,
+      systemId: plan.system_id,
+      evaluationId: plan.evaluation_id,
+      actorProfileId: actor?.id ?? null,
+      justification: input.justification,
+    });
+  }
 
   revalidatePlanPaths(input.aiSystemId, input.evaluationId);
   return { ok: true };

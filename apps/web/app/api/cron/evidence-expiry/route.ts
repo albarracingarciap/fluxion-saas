@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCronSecret } from '@/lib/cron/auth'
 import { createAdminFluxionClient } from '@/lib/supabase/fluxion'
+import { createNotification } from '@/lib/notifications/sender'
 
 // Invocado diariamente (07:00 UTC) por cron del VPS con el header
 // Authorization: Bearer <CRON_SECRET>. Ver infra/schedules/.
@@ -16,6 +17,14 @@ type EvidenceRow = {
   title: string
   expires_at: string
   status: string
+  owner_user_id: string | null
+}
+
+/** Aviso al responsable de la evidencia (B22, decisión 71). */
+const AVISO: Record<'expiry_30d' | 'expiry_7d' | 'expired', (titulo: string, fecha: string) => { title: string; body: string }> = {
+  expiry_30d: (t, f) => ({ title: 'Evidencia por caducar', body: `«${t}» caduca el ${f}, en 30 días o menos. Renuévala o sustitúyela.` }),
+  expiry_7d: (t, f) => ({ title: 'Evidencia por caducar en 7 días', body: `«${t}» caduca el ${f}. Renuévala o sustitúyela.` }),
+  expired: (t, f) => ({ title: 'Evidencia caducada', body: `«${t}» caducó el ${f}. Ya no cuenta como válida.` }),
 }
 
 export async function GET(request: NextRequest) {
@@ -34,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   const { data: evidences, error } = await fluxion
     .from('system_evidences')
-    .select('id, organization_id, title, expires_at, status')
+    .select('id, organization_id, title, expires_at, status, owner_user_id')
     .not('expires_at', 'is', null)
     .lte('expires_at', in30Str)    // caduca en ≤ 30 días
     .neq('status', 'expired')      // no marcar las ya marcadas como caducadas
@@ -45,6 +54,22 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = (evidences ?? []) as EvidenceRow[]
+
+  // B22 (decisión 71): avisos que ya existían, para avisar al responsable solo
+  // cuando la evidencia entra en una ventana nueva (30 días, 7 días, caducada).
+  const { data: previas } = await fluxion
+    .from('evidence_expiry_alerts')
+    .select('evidence_id, alert_type')
+    .in('evidence_id', rows.length ? rows.map((r) => r.id) : ['00000000-0000-0000-0000-000000000000'])
+  const yaAvisada = new Set(((previas ?? []) as Array<{ evidence_id: string; alert_type: string }>).map((a) => `${a.evidence_id}:${a.alert_type}`))
+  // Perfil de cada responsable (owner_user_id es auth.users.id, patrón P1).
+  const owners = Array.from(new Set(rows.map((r) => r.owner_user_id).filter((id): id is string => Boolean(id))))
+  const { data: perfiles } = owners.length
+    ? await fluxion.from('profiles').select('id, user_id, organization_id, is_active').in('user_id', owners)
+    : { data: [] }
+  const perfilDe = new Map(((perfiles ?? []) as Array<{ id: string; user_id: string; organization_id: string; is_active: boolean | null }>)
+    .map((p) => [`${p.user_id}:${p.organization_id}`, p]))
+  let notified = 0
 
   let upserted = 0
   let superseded = 0
@@ -90,6 +115,25 @@ export async function GET(request: NextRequest) {
       continue
     }
     upserted++
+
+    if (!yaAvisada.has(`${ev.id}:${alertType}`) && ev.owner_user_id) {
+      const perfil = perfilDe.get(`${ev.owner_user_id}:${ev.organization_id}`)
+      // Como el resto de avisos en la app, no depende de las preferencias (TODO 61).
+      if (perfil && perfil.is_active !== false) {
+        const { title, body } = AVISO[alertType](ev.title, new Date(ev.expires_at).toLocaleDateString('es-ES'))
+        await createNotification({
+          recipientProfileId: perfil.id,
+          organizationId: ev.organization_id,
+          type: 'evidence_expiring',
+          title,
+          body,
+          linkUrl: `/evidencias/${ev.id}`,
+          metadata: { evidence_id: ev.id, alert_type: alertType },
+          sendEmail: false,
+        })
+        notified++
+      }
+    }
 
     // Una sola alerta viva por evidencia. La restricción única es
     // (evidence_id, alert_type), así que al escalar de 30d a 7d se insertaba una
@@ -146,13 +190,14 @@ export async function GET(request: NextRequest) {
     console.error('[cron/evidence-expiry] status sync error:', syncErr)
   }
 
-  console.log(`[cron/evidence-expiry] done: ${upserted} upserted, ${superseded} superseded, ${cleared} cleared, ${errors} errors, ${rows.length} checked`)
+  console.log(`[cron/evidence-expiry] done: ${upserted} upserted, ${superseded} superseded, ${cleared} cleared, ${notified} notified, ${errors} errors, ${rows.length} checked`)
 
   return NextResponse.json({
     checked: rows.length,
     upserted,
     superseded,
     cleared,
+    notified,
     errors,
     statusSynced: !syncErr,
     runAt: now.toISOString(),

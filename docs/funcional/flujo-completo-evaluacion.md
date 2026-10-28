@@ -684,9 +684,9 @@ Con el plan aprobado:
   **Escalar a comité** (justificación de 80 caracteres).
 - Cada lunes se avisa en la app de las revisiones que vencen en 30 días.
 
-> **⚠ GAP-21 · Revisiones incompletas.** «Diferir» no guarda fecha de revisión, así que esas acciones
-> nunca se revisan (`R8`); el recordatorio puede no llegar a la persona correcta (`R11`); escalar a comité
-> no avisa a nadie (**Pendiente de implementar**, decisión 70).
+> **⚠ GAP-21 · Revisiones incompletas.** ✔ Resuelto: «Diferir» guarda fecha de revisión (B05), el
+> recordatorio llega al perfil del responsable (`R11`, P1) y escalar a comité avisa a quien aprobó el plan
+> (B22, decisión 70).
 
 ---
 
@@ -842,9 +842,9 @@ stateDiagram-v2
 > (20 MB). Desde B11g, aprobar o rechazar se decide solo en Flujos de aprobación, también en la base de
 > datos.
 
-> **⚠ GAP-27 · Avisos de caducidad solo dentro de la biblioteca.** El responsable no recibe aviso.
->
-> **Pendiente de implementar.** Aviso de caducidad a los responsables (decisión 71).
+> **⚠ GAP-27 · Avisos de caducidad solo dentro de la biblioteca.** ✔ Resuelto en B22 (decisión 71): el
+> responsable de la evidencia recibe un aviso en la app al entrar en cada ventana (30 días, 7 días,
+> caducada).
 
 > **💡 Sugerencia.** Mostrar en la ficha, por obligación, los tipos de evidencia esperados según el
 > catálogo (relación obligación-evidencia). Hoy esa relación existe pero solo se usa en el catálogo
