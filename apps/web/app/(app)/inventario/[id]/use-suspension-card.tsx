@@ -59,7 +59,7 @@ export function UseSuspensionCard({ systemId, fromIncidentId = null }: {
   const activa = data.active;
 
   return (
-    <div className={`bg-ltcard border rounded-[12px] p-4 ${activa ? 'border-reb' : 'border-ltb'}`}>
+    <div id="uso-sistema" className={`bg-ltcard border rounded-[12px] p-4 ${activa ? 'border-reb' : 'border-ltb'}`}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="font-plex text-[10.5px] uppercase tracking-[1px] text-lttm flex items-center gap-1.5">
           <PauseCircle className="w-3.5 h-3.5" /> Uso del sistema

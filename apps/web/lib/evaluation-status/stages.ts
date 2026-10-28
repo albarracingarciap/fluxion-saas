@@ -65,6 +65,11 @@ export type SystemStageFacts = {
   planDeadlineOverdue: boolean
   /** Disparadores de reevaluación abiertos que siguen pidiendo algo (B21a). */
   pendingReevaluations?: number
+  /**
+   * Verificaciones vencidas de los datos de entrada o del funcionamiento (B28).
+   * Solo cuenta en alto riesgo con la organización como responsable del despliegue.
+   */
+  overdueOperationChecks?: number
 }
 
 export type StageItem = {
@@ -135,6 +140,11 @@ export function systemStage(f: SystemStageFacts): SystemStage {
     // B21a: un disparador abierto (incidente grave, cambio de supuestos…) quita la vigencia.
     item('vigente', 'reevaluacion', 'Sin reevaluaciones pendientes', (f.pendingReevaluations ?? 0) === 0, base),
   ]
+  // B28: la verificación de los datos de entrada y la revisión del funcionamiento,
+  // al día. Solo donde aplica el Art. 26 (el dato viene definido).
+  if (f.overdueOperationChecks !== undefined) {
+    vigencia.push(item('vigente', 'operacion', 'Datos de entrada y funcionamiento verificados en plazo', f.overdueOperationChecks === 0, base))
+  }
   items.push(...vigencia)
 
   // Etapa alcanzada: la última con todos sus requisitos y los de las anteriores.

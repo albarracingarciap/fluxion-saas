@@ -44,6 +44,9 @@ export type AuditAction =
   | 'org.committee_session_updated'
   | 'org.committee_session_closed'
   | 'org.committee_session_cancelled'
+  | 'system.input_data_updated'
+  | 'system.monitoring_plan_updated'
+  | 'system.operation_check_recorded'
   | 'member.training_added'
   | 'member.training_removed'
   // Sesiones

@@ -36,6 +36,10 @@ export type ProposalFacts = {
   oversightDocumented?: boolean
   /** Registro de logs completo (B25c). */
   logsComplete?: boolean
+  /** Datos de entrada declarados y verificados en plazo (B28). */
+  inputDataComplete?: boolean
+  /** Plan de vigilancia con la revisión del funcionamiento en plazo (B28). */
+  monitoringComplete?: boolean
   /** Tipos de evidencia obligatorios del catálogo, por código de obligación (B17e1). */
   mandatoryEvidenceTypes?: Record<string, Array<{ id: string; name: string }>>
 }
@@ -106,6 +110,14 @@ function proposalFromApprovals(code: string, facts: ProposalFacts): ObligationPr
     case 'AI-ACT-ART26-6':
       return facts.logsComplete
         ? { status: 'resolved', reason: 'Registro de logs completo: dónde se guardan y quién los controla, conservación de al menos seis meses (si los controla la organización), evidencia válida y verificación vigente.' }
+        : null
+    case 'AI-ACT-ART26-4':
+      return facts.inputDataComplete
+        ? { status: 'resolved', reason: 'Datos de entrada declarados (quién los controla y qué espera el sistema) y, si los controla la organización, fuentes, controles y verificación en plazo con informe de calidad o muestra anonimizada válidos.' }
+        : null
+    case 'AI-ACT-ART26-5':
+      return facts.monitoringComplete
+        ? { status: 'resolved', reason: 'Plan de vigilancia con indicadores, umbrales y responsable, y funcionamiento revisado en plazo.' }
         : null
     case 'AI-ACT-ART49':
     case 'AI-ACT-ART6-4': {

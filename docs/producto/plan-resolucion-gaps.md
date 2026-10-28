@@ -978,6 +978,7 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
   de la aplicación del periodo y enlace a avisar al proveedor, suspender el uso o dar parte de un incidente.
   Ambas afectan a Vigente y proponen resolver su obligación.
 - **Talla:** M + M.
+- **Estado (2026-10-28):** B28a y B28b integrados juntos (una migración); B29 integrado.
 
 ### B29 · FRIA visible y voluntaria
 
