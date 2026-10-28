@@ -126,6 +126,8 @@ export async function scheduleCommitteeSession(input: {
     .select('id, committee_role, external_name, profiles!committee_members_profile_id_fkey(full_name)')
     .eq('committee_id', comite.id).eq('is_active', true)
   const attendees = mergeAttendees(miembrosDe(miembros), [])
+  // Sin miembros con voto no hay quórum posible: primero se completa el comité.
+  if (!attendees.some((a) => a.voting)) return { error: 'El comité no tiene miembros con voto. Añádelos antes de convocar una sesión.' }
   // Revisión por la dirección (B20c): orden del día de §9.3.2 con los datos de
   // la aplicación. Con el cliente de servicio: el permiso ya está comprobado y
   // los datos son de toda la organización.

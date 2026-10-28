@@ -2,7 +2,8 @@
 
 | Versión | Fecha | Estado | Cambios |
 |---|---|---|---|
-| **1.10** | **2026-10-28** | **Revisado** por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
+| **1.11** | **2026-10-28** | **Revisado** por Pedro Albarracín | Revisión por la dirección (B20c): el cron `reevaluation-triggers` crea y completa la tarea anual; origen de tarea `management_review`. Ver §4.5 y §12 |
+| 1.10 | 2026-10-28 | Revisado por Pedro Albarracín | Sesiones de comité con acta (decisión 62, B20b): `committee_sessions` deja de ser una tabla sin uso; ruta `/organizacion/sesiones/[id]`; origen de tarea `committee_session`. Ver §2.7, §3.5, §8, §11.3 y §12 |
 | 1.9 | 2026-10-28 | Revisado por Pedro Albarracín | Sistema de gestión ISO/IEC 42001 a nivel de organización (DP-09, B20a): las 10 obligaciones ISO cambian de código (`ISO42001-A61` → `ISO42001-6.2`…) y se añaden `organization_obligations` y `organization_obligation_evidences`; vista `/plantillas/sgai-iso42001`. Ver §2.5 y §3.2 |
 | 1.8 | 2026-10-28 | Revisado por Pedro Albarracín | Disparadores de reevaluación implementados (decisión 63, B21a): `reevaluation_triggers` deja de ser una tabla sin uso. Ver §3, §11 y §12 |
 | 1.7 | 2026-10-27 | Revisado por Pedro Albarracín | Informes del sistema consolidados (B16, DP-06) y aplicabilidad del expediente por rol y nivel (DP-11): rutas de dossier técnico, registro UE e informe de brechas redirigidas; ficha para el registro UE como plantilla `eu_registry`. Ver §2.2, §10.2 y §13.1 |
@@ -341,6 +342,7 @@ Diferencias con el contrato `docs/ingesta.md`:
 | `cost-budgets` | `40 * * * *` | Umbrales de presupuesto: señal y aviso por canal |
 | `hitl-discordance` | `30 6 * * *` | Picos de discordancia HITL: señal y aviso por canal |
 | `outbox` | `*/5 * * * *` | Entrega de webhooks salientes |
+| `reevaluation-triggers` | `45 6 * * *` | Disparadores de reevaluación (B21), informe anual del Art. 26.10 (B21c), cese del uso (B27) y tarea anual «Celebrar la revisión por la dirección» (origen `management_review`, B20c). v1.11 |
 
 [!] `infra/schedules/README.md` está desactualizado: habla de 4 trabajos y dice que sin secreto el endpoint queda abierto.
 [!] Las señales que generan los crons no pasan por `dispatchSignal`, así que no crean historial, aviso in-app ni tarea.
@@ -652,7 +654,7 @@ Se documentan como «pendiente de implementar». No se describen como existentes
 | 59 | Agente 2: revisión IA de la priorización de modos de fallo | `priority_source = 'agent'` |
 | 60 | Agente 3 · Generador de documentos | Plantillas, renderer, idioma y pie de página en Organización |
 | 61 | Generación IA en AISIA | v1.6: apartados redactados de la plantilla `aisia` del expediente; la tabla `aisia_ai_generations`, que nunca se usó, se retiró en B15c |
-| 62 | Sesiones de comité y actas | `committee_sessions`, plantilla `approval_minutes`. v1.10: implementado en B20b (sesiones con orden del día, asistentes, acuerdos con tarea y acta en PDF como evidencia); la revisión por la dirección, en B20c |
+| 62 | Sesiones de comité y actas | `committee_sessions`, plantilla `approval_minutes`. v1.10: implementado en B20b (sesiones con orden del día, asistentes, acuerdos con tarea y acta en PDF como evidencia); la revisión por la dirección, en B20c (v1.11: sesión `management_review` con el orden del día de §9.3.2 y tarea anual) |
 | 63 | Disparadores de reevaluación del FMEA | `reevaluation_triggers`. v1.8: implementado en B21a (incidente grave, cambio de supuestos AI Act, revisión del FMEA vencida y reglas de clasificación actualizadas; tarea «Reevaluar sistema»); B21b lo amplía a la FRIA y la AISIA |
 | 64 | RAG por organización (documentos propios del cliente) | `rag.organization_*` (vector 1536, a alinear con 1024) |
 | 65 | Ingestor del corpus normativo (utilidad independiente) | Requisitos en `recursos/baseline/rag_corpus.manifest.json` |

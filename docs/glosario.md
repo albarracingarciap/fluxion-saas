@@ -33,6 +33,7 @@ fuente:
   - apps/web/lib/iso/management-system.ts
   - supabase/migrations/20261028200000_comites_sesiones_acta.sql
   - apps/web/lib/governance/committee-sessions.ts
+  - apps/web/lib/iso/management-review.ts
   - supabase/migrations/20261020090000_roles_multiples.sql
   - supabase/migrations/20261020130000_gobierno_designaciones_comites.sql
   - supabase/migrations/20261019090000_plan_control_libre.sql
@@ -518,6 +519,12 @@ No usar: «usuario» para responsable del despliegue (término de borradores ant
 - **Definición:** decisión tomada en una [sesión de comité](#sesión-de-comité), que puede ir ligada a un punto del orden del día y llevar responsable y fecha límite. Al cerrar la sesión, cada acuerdo con responsable crea una tarea **Acuerdo de comité**.
 - **No usar:** «decisión» (reservado a los votos de Flujos de aprobación), «resolución».
 - **En el código:** `committee_sessions.decisions`; tareas con `source_type = 'committee_session'`.
+
+### Revisión por la dirección
+- **Definición:** [sesión](#sesión-de-comité) del comité Revisión por la Dirección en la que la alta dirección revisa el [SGAI](#sgai-sistema-de-gestión-de-la-ia). Se celebra al menos cada 12 meses. Al convocarla, el orden del día recoge las entradas de la norma (acciones de revisiones anteriores, cambios en las cuestiones internas y externas y en las partes interesadas, desempeño del SGAI, auditoría y oportunidades de mejora) con los datos de la aplicación desde la revisión anterior, y un último punto para sus resultados. Al cerrarla, su [acta](#acta-de-la-sesión) acredita la [cláusula](#cláusula-del-sistema-de-gestión) §9.3. Treinta días antes de cumplirse los 12 meses, o ya si nunca se ha celebrado, se crea la tarea **Celebrar la revisión por la dirección** para el Responsable del SGAI, en las organizaciones con ISO 42001 entre sus marcos aplicables o con el comité constituido.
+- **No usar:** «revisión de la dirección», «comité de dirección» para la sesión.
+- **En el código:** `committee_sessions.session_type = 'management_review'` (solo en comités `director_review`); `lib/iso/management-review.ts`; tareas con `source_type = 'management_review'`.
+- **Normativa:** ISO/IEC 42001, §9.3.
 
 ---
 
