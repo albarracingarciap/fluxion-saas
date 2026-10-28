@@ -2955,3 +2955,27 @@ decisiones de la ventana. `npm test` 229/229 (cinco tests nuevos), `tsc --noEmit
 
 **Documentación.** `funcional/supervision-humana.md`, `tecnica/api-ingesta.md`, `producto/plan-resolucion-gaps.md`,
 glosario e inventario (TODO 317 y 318), `_pendientes.md` (319: glosario; 320: inventario).
+
+## Corrección · Plan de tratamiento: tarea al cambiar la opción y etiqueta del control
+
+**Fecha:** 2026-10-28 · **Rama:** `fix/plan-tareas-opcion` ·
+**Migración:** **sí**, `supabase/migrations/20261028250000_plan_tarea_cambio_opcion.sql`
+
+**Problema:** la etiqueta «Se creará» de los controles sugeridos parecía un botón que no hacía nada (era un
+indicador). Además, la tarea de una acción no seguía a la opción: al cambiar de Mitigar a Transferir conservaba el
+título «Mitigar: …», y al pasar a Aceptar quedaba abierta.
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `trg_treatment_action_sync_task`: al cambiar la opción actualiza el título de la tarea; al pasar a Aceptar la cancela; al volver a otra opción reabre la misma tarea con el estado de la acción |
+| Plan · Controles sugeridos | La etiqueta pasa a texto: «Nuevo en este sistema» o «Ya en este sistema · {estado}» (antes el estado salía en crudo, «planned»); la tarjeta elegida muestra «✓ Seleccionado» y explica qué hará **Guardar decisión** |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas) con una acción real: Mitigar crea la
+tarea «Mitigar: …»; Transferir cambia el título; Aceptar la cancela sin tocar la acción; volver a Mitigar reabre la
+misma tarea (una sola). `tsc --noEmit` y `next lint` correctos. No se ha probado en el navegador.
+
+**Despliegue.** Aplicar la migración (independiente del despliegue) y desplegar la web.
+
+**Documentación.** `funcional/plan-de-tratamiento.md`.
