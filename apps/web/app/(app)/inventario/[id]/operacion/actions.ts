@@ -26,6 +26,7 @@ import {
   operationStatuses,
   type OperationStatuses,
 } from '@/lib/governance/operation-server'
+import { generateHitlReportEvidence } from '@/lib/hitl/report-server'
 import { createAdminFluxionClient, createFluxionClient, createTelemetryClient } from '@/lib/supabase/fluxion'
 import { createClient } from '@/lib/supabase/server'
 
@@ -331,7 +332,7 @@ export async function addOperationCheck(input: {
   summary: string
   actions: string
   evidenceIds: string[]
-}): Promise<{ ok: true } | { error: string }> {
+}): Promise<{ ok: true; aviso?: string } | { error: string }> {
   const c = await ctx()
   if (!c) return { error: 'No autenticado.' }
   if (!hasAnyRole(c.profile, EDIT_ROLES)) return { error: 'Solo el Administrador, el Responsable del SGAI o el Responsable del sistema registran verificaciones.' }
@@ -351,10 +352,15 @@ export async function addOperationCheck(input: {
 
   // Revisión del funcionamiento: los datos de la aplicación del periodo quedan con ella.
   let dataSummary: string | null = null
+  let desdeRevision: string | null = null
+  let decisionesPeriodo = 0
   if (input.kind === 'monitoring') {
     const desde = input.periodStart
       ?? (registros.lastMonitoringCheck?.checkedAt ?? addMonths(input.checkedAt, -(registros.monitoring?.reviewMonths ?? 3)))
-    dataSummary = monitoringDataSummary(await loadMonitoringPeriodData(c.fluxion, createTelemetryClient(), orgId, input.systemId, desde, input.checkedAt))
+    const periodo = await loadMonitoringPeriodData(c.fluxion, createTelemetryClient(), orgId, input.systemId, desde, input.checkedAt)
+    dataSummary = monitoringDataSummary(periodo)
+    desdeRevision = desde
+    decisionesPeriodo = periodo.hitl.decisions
   }
 
   const { data: fila, error } = await c.fluxion.from('system_operation_checks').insert({
@@ -378,6 +384,23 @@ export async function addOperationCheck(input: {
     if (e2) return { error: 'Verificación registrada, pero no se pudieron vincular las evidencias: ' + e2.message }
   }
 
+  // B30b: la revisión del funcionamiento lleva el informe de supervisión humana
+  // del periodo si el sistema se supervisa por caso o por muestreo, o si hubo decisiones.
+  let aviso: string | undefined
+  if (input.kind === 'monitoring' && desdeRevision) {
+    const { data: modo } = await c.fluxion.from('ai_systems').select('oversight_review_mode').eq('id', input.systemId).maybeSingle()
+    const conDecisiones = modo?.oversight_review_mode === 'per_case' || modo?.oversight_review_mode === 'sampling' || decisionesPeriodo > 0
+    if (conDecisiones) {
+      const rep = await generateHitlReportEvidence({ organizationId: orgId, systemId: input.systemId, from: desdeRevision, to: input.checkedAt, actorUserId: c.userId })
+      if (rep.evidenceId) {
+        await createAdminFluxionClient().from('system_operation_check_evidences')
+          .insert({ check_id: fila.id, evidence_id: rep.evidenceId, organization_id: orgId })
+      } else {
+        aviso = `Revisión registrada. ${rep.aviso ?? 'No se pudo adjuntar el informe de supervisión humana.'}`
+      }
+    }
+  }
+
   await completeOperationTask(createAdminFluxionClient(), orgId, input.systemId, input.kind)
   await insertAiSystemHistoryEvents(c.fluxion, [{
     ai_system_id: input.systemId,
@@ -391,5 +414,5 @@ export async function addOperationCheck(input: {
   auditar(c, 'system.operation_check_recorded', input.systemId, sistema.name, { kind: input.kind, result: input.result })
   revalidatePath(`/inventario/${input.systemId}`)
   revalidatePath(`/inventario/${input.systemId}/operacion`)
-  return { ok: true }
+  return aviso ? { ok: true, aviso } : { ok: true }
 }

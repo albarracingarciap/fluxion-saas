@@ -986,7 +986,7 @@ GAP-08, GAP-09 y GAP-10; F-03 y F-04 (corto plazo).
 - **Alcance.** DP-13. B30a: modalidad de supervisión por sistema, filtro por sistema, aviso de sistemas por caso
   sin decisiones, pantalla vacía útil y resumen en la ficha. B30b: importación CSV e informe PDF como evidencia.
 - **Talla:** S + M.
-- **Estado (2026-10-28):** B30a integrado.
+- **Estado (2026-10-28):** B30a y B30b integrados.
 
 ### B29 · FRIA visible y voluntaria
 

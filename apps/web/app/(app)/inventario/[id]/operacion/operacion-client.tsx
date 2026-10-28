@@ -326,6 +326,7 @@ function Verificaciones({ systemId, data, kind, checks }: { systemId: string; da
   const [nueva, setNueva] = useState({ evidenceKind: (datos ? 'informe' : 'monitorizacion') as 'informe' | 'muestra' | 'monitorizacion', title: '', url: '' });
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   function verDatos() {
     setError(null);
@@ -352,6 +353,7 @@ function Verificaciones({ systemId, data, kind, checks }: { systemId: string; da
       }
       const res = await addOperationCheck({ systemId, kind, ...f, periodStart: datos ? null : f.periodStart, evidenceIds: ids });
       if ('error' in res) return setError(res.error);
+      setAviso(res.aviso ?? null);
       setOpen(false);
       setF({ ...f, summary: '', actions: '' });
       setEvidenceIds([]); setNueva({ ...nueva, title: '', url: '' }); setFile(null); setPreview(null);
@@ -395,7 +397,10 @@ function Verificaciones({ systemId, data, kind, checks }: { systemId: string; da
             <div className="flex flex-col gap-1.5">
               <button onClick={verDatos} disabled={pending} className="font-sora text-[12px] text-brand-cyan hover:underline w-fit disabled:opacity-50">Ver los datos de la aplicación del periodo</button>
               {preview && <p className="font-sora text-[12px] text-ltt2 bg-ltcard border border-ltb rounded-[8px] px-3 py-2 whitespace-pre-line">{preview}</p>}
-              <p className="font-sora text-[11.5px] text-lttm">Se guardan con la revisión al registrarla.</p>
+              <p className="font-sora text-[11.5px] text-lttm">
+                Se guardan con la revisión al registrarla. Si el sistema se supervisa por caso o por muestreo, o hubo decisiones,
+                se adjunta además el informe de supervisión humana del periodo.
+              </p>
             </div>
           )}
 
@@ -461,6 +466,8 @@ function Verificaciones({ systemId, data, kind, checks }: { systemId: string; da
           </div>
         </div>
       )}
+
+      {aviso && <p className="font-sora text-[12.5px] text-or">{aviso}</p>}
 
       {checks.length === 0 ? (
         <p className="font-sora text-[12.5px] text-lttm italic">{datos ? 'Aún no hay verificaciones.' : 'Aún no hay revisiones.'}</p>

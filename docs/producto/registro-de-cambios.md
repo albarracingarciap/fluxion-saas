@@ -2922,3 +2922,36 @@ llama con el sistema.
 
 **Documentación.** `funcional/supervision-humana.md`, `producto/plan-resolucion-gaps.md` (DP-13, B30),
 `_pendientes.md` (317: glosario; 318: inventario).
+
+## B30b · Supervisión humana: importación CSV e informe como evidencia
+
+**Fecha:** 2026-10-28 · **Rama:** `fase5/b30b-supervision-csv-informe` ·
+**Migración:** **sí**, `supabase/migrations/20261028240000_supervision_periodo_informe.sql`
+
+**Problema:** sin integración por API no había forma de aportar decisiones (ni las revisiones por muestreo), y las
+cifras de Supervisión humana no quedaban como prueba para un auditor.
+
+**Decisiones del responsable (2026-10-28, DP-13):** segunda entrega (c + d); el informe se genera a demanda y se
+adjunta a cada revisión del funcionamiento (B28). Con TODO 317 y 318 aceptados (glosario «Modalidad de supervisión»,
+inventario v1.13).
+
+**Cambios:**
+
+| Área | Cambio |
+|---|---|
+| Datos (migración) | `hitl_overview(p_days, p_system_id, p_until)`: periodo cerrado que termina en `p_until` |
+| Ingesta (`lib/hitl/ingest.ts`, nuevo) | Validación e inserción compartidas por la API y la importación; la API responde igual |
+| CSV (`lib/hitl/csv.ts`, nuevo, puro) | Lectura con coma o punto y coma, comillas y BOM; solo las columnas de la API (otra rechaza el fichero); fechas sin zona en UTC; `dedupe_key` derivada para no duplicar al reimportar; hasta 2.000 filas |
+| Informe (`lib/hitl/report-html.ts` y `report-server.ts`, nuevos) | PDF del sistema y el periodo, en el bucket de documentos, como evidencia válida «Acta de supervisión humana» (`EVT-PRO-04`) |
+| Supervisión humana | Paneles **Importar decisiones desde CSV** (con plantilla) y **Informe como evidencia** (con un sistema elegido), para el Administrador, el Responsable del SGAI y el Responsable del sistema |
+| Revisión del funcionamiento (B28) | Al registrarla, si el sistema se supervisa por caso o por muestreo, o hubo decisiones, se genera y adjunta el informe del periodo; si falla, la revisión queda registrada con un aviso |
+| Auditoría | `system.hitl_decisions_imported`, `system.hitl_report_generated` |
+
+**Verificación.** Migración probada en el Postgres local (dos veces seguidas); el periodo cerrado cuenta solo las
+decisiones de la ventana. `npm test` 229/229 (cinco tests nuevos), `tsc --noEmit`, `next lint` y
+`check-server-actions.sh` correctos. No se ha probado en el navegador ni contra el renderizador de PDF.
+
+**Despliegue.** Aplicar la migración antes de desplegar la web: la función cambia de firma.
+
+**Documentación.** `funcional/supervision-humana.md`, `tecnica/api-ingesta.md`, `producto/plan-resolucion-gaps.md`,
+glosario e inventario (TODO 317 y 318), `_pendientes.md` (319: glosario; 320: inventario).

@@ -4,7 +4,11 @@ import { AlertTriangle, Eye, Gauge, ShieldCheck, Timer, Users } from 'lucide-rea
 import { getHitlOverview, getHitlSystems, detectarSesgo, SESGO } from '@/lib/hitl/data'
 import { HITL_SILENCE_DAYS, REVIEW_MODE_LABEL, silentPerCaseSystems } from '@/lib/hitl/review-mode'
 
+import { getAppAuthState } from '@/lib/auth/app-state'
+import { hasAnyRole } from '@/lib/auth/roles'
+
 import { FiltroSistema } from './filtro-sistema'
+import { Herramientas } from './herramientas'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Supervisión humana · CompaaS IA' }
@@ -58,6 +62,9 @@ export default async function SupervisionPage({
   const conDecisiones = new Set(recientes.por_sistema.map((x) => x.system_id))
   const silencios = silentPerCaseSystems(systems, conDecisiones).filter((x) => !sistema || x.id === sistema.id)
   const qs = sistema ? `&sistema=${sistema.id}` : ''
+  // B30b: importar CSV y generar el informe, para quienes documentan la supervisión.
+  const auth = await getAppAuthState()
+  const canEdit = Boolean(auth.membership && hasAnyRole(auth.membership, ['org_admin', 'sgai_manager', 'system_owner']))
   const t = o.totales
   const sesgo = detectarSesgo(o)
 
@@ -92,6 +99,8 @@ export default async function SupervisionPage({
           ))}
         </div>
       </div>
+
+      {canEdit && <Herramientas systems={systems} sistemaId={sistema?.id ?? null} dias={dias} />}
 
       {/* B30a: sistemas que deberían enviar decisiones y no lo hacen. */}
       {silencios.length > 0 && (
@@ -141,7 +150,7 @@ export default async function SupervisionPage({
               </li>
               <li>
                 Envía cada decisión a <code className="font-plex">POST /api/ingest/v1/hitl-decisions</code> (hasta 100 por
-                envío), con el identificador del sistema:
+                envío), con el identificador del sistema, o impórtalas desde un CSV con las mismas columnas:
                 <pre className="mt-2 bg-ltcard border border-ltb rounded-[8px] p-3 font-plex text-[11.5px] text-ltt overflow-x-auto">{`{
   "system_id": "<identificador del sistema>",
   "case_ref": "CASO-2026-00123",
